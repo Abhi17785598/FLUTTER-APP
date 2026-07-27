@@ -1,0 +1,308 @@
+import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+import '../../../core/theme/app_colors.dart';
+import '../../../core/theme/app_text_styles.dart';
+import '../../../core/widgets/wizard_kit.dart';
+import '../../../providers/post_property_provider.dart';
+
+/// Step 9: read-only review of everything entered across the wizard, with
+/// per-section "Edit" links that jump back to the relevant step. This is a
+/// Flutter-only addition — the React source submits directly from its media
+/// step — added here as a UX improvement, not a ported field/workflow.
+class ReviewStep extends StatelessWidget {
+  const ReviewStep({super.key});
+
+  static String _categoryLabel(PropertyCategory? c) {
+    switch (c) {
+      case PropertyCategory.residential:
+        return 'Residential';
+      case PropertyCategory.commercial:
+        return 'Commercial';
+      case PropertyCategory.land:
+        return 'Land / Plot';
+      case PropertyCategory.pg:
+        return 'PG / Co-living';
+      case PropertyCategory.other:
+        return 'Other';
+      case null:
+        return '—';
+    }
+  }
+
+  static String _intentLabel(ListingIntent? i) {
+    switch (i) {
+      case ListingIntent.sell:
+        return 'Sell';
+      case ListingIntent.rent:
+        return 'Rent';
+      case ListingIntent.lease:
+        return 'Lease';
+      case null:
+        return '—';
+    }
+  }
+
+  static String _humanize(String key) {
+    final spaced = key.replaceAllMapped(RegExp(r'([A-Z])'), (m) => ' ${m[1]}');
+    final words = spaced.trim().split(RegExp(r'\s+'));
+    return words
+        .map((w) => w.isEmpty ? w : '${w[0].toUpperCase()}${w.substring(1)}')
+        .join(' ');
+  }
+
+  static String _dash(String value) => value.trim().isEmpty ? '—' : value;
+
+  @override
+  Widget build(BuildContext context) {
+    final provider = context.watch<PostPropertyProvider>();
+    final category = provider.category;
+
+    final enabledFeatures = provider.allBoolFields.entries
+        .where((e) => e.value)
+        .map((e) => _humanize(e.key))
+        .toList()
+      ..sort();
+
+    final selectedLists = provider.allListFields.entries
+        .where((e) => e.value.isNotEmpty)
+        .toList();
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _Section(
+          title: 'Category & Listing',
+          onEdit: () => context.read<PostPropertyProvider>().goToStep(0),
+          rows: [
+            ('Category', _categoryLabel(category)),
+            ('Listing Type', _intentLabel(provider.listingIntent)),
+          ],
+        ),
+        const SizedBox(height: 16),
+        _Section(
+          title: 'Basic Info',
+          onEdit: () => context.read<PostPropertyProvider>().goToStep(1),
+          rows: [
+            ('Title', _dash(provider.title)),
+            if (category != PropertyCategory.pg) ('Price', _dash(provider.price)),
+            ('Address', _dash(provider.location)),
+            ('City', _dash(provider.city)),
+            ('State', _dash(provider.state)),
+            ('Pincode', _dash(provider.pincode)),
+            if (provider.landmark.isNotEmpty) ('Landmark', provider.landmark),
+            ('Description', _dash(provider.description)),
+          ],
+        ),
+        const SizedBox(height: 16),
+        _Section(
+          title: 'Dimensions',
+          onEdit: () => context.read<PostPropertyProvider>().goToStep(2),
+          rows: [
+            ('Area', '${_dash(provider.area)} ${provider.areaUnit}'),
+            if (provider.carpetArea.isNotEmpty) ('Carpet Area', provider.carpetArea),
+            if (category == PropertyCategory.residential) ...[
+              ('BHK Type', _dash(provider.bhkType ?? '')),
+              ('Bedrooms', _dash(provider.bedrooms)),
+              ('Bathrooms', _dash(provider.bathrooms)),
+            ],
+          ],
+        ),
+        const SizedBox(height: 16),
+        _Section(
+          title: 'Condition & Furnishing',
+          onEdit: () => context.read<PostPropertyProvider>().goToStep(3),
+          rows: [
+            ('Condition', _dash(provider.propertyCondition ?? '')),
+            ('Furnishing', _dash(provider.furnishingType ?? '')),
+            ('Availability', _dash(provider.availabilityStatus ?? '')),
+          ],
+        ),
+        const SizedBox(height: 16),
+        _Section(
+          title: 'Amenities & Features',
+          onEdit: () => context.read<PostPropertyProvider>().goToStep(4),
+          rows: [
+            ('Electricity Backup', _dash(provider.electricityBackup ?? '')),
+            ('Water Availability', _dash(provider.waterAvailability ?? '')),
+          ],
+          chipGroups: selectedLists
+              .map((e) => (_humanize(e.key), e.value))
+              .toList(),
+          chips: enabledFeatures,
+        ),
+        const SizedBox(height: 16),
+        _Section(
+          title: 'Legal & Approvals',
+          onEdit: () => context.read<PostPropertyProvider>().goToStep(5),
+          rows: [
+            ('RERA Registered', provider.reraRegistered ? 'Yes' : 'No'),
+            if (provider.reraRegistered) ('RERA Number', _dash(provider.reraNumber)),
+            ('Facing', _dash(provider.facing ?? '')),
+          ],
+        ),
+        const SizedBox(height: 16),
+        _Section(
+          title: 'Pricing & Terms',
+          onEdit: () => context.read<PostPropertyProvider>().goToStep(6),
+          rows: [
+            ('Maintenance Charges', _dash(provider.maintenanceCharges)),
+            ('Brokerage', _dash(provider.brokerage)),
+            ('Negotiable', provider.priceNegotiable ? 'Yes' : 'No'),
+          ],
+        ),
+        const SizedBox(height: 16),
+        _Section(
+          title: 'Media & Contact',
+          onEdit: () => context.read<PostPropertyProvider>().goToStep(7),
+          rows: [
+            ('Images Selected', '${provider.mediaItems.length}'),
+            ('Contact Name', _dash(provider.contactName)),
+            ('Contact Phone', _dash(provider.contactPhone)),
+            ('Contact Email', _dash(provider.contactEmail)),
+            if (provider.hashtags.isNotEmpty) ('Hashtags', provider.hashtags),
+          ],
+        ),
+        const SizedBox(height: 16),
+        Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: AppColors.primaryLight,
+            borderRadius: BorderRadius.circular(16),
+          ),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Icon(Icons.info_outline, size: 18, color: AppColors.primary),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  'This is a preview only. Submitting your listing to the '
+                  'server will be enabled in a later update.',
+                  style: AppTextStyles.caption.copyWith(color: AppColors.textPrimary),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _Section extends StatelessWidget {
+  final String title;
+  final VoidCallback onEdit;
+  final List<(String, String)> rows;
+  final List<String> chips;
+  final List<(String, List<String>)> chipGroups;
+
+  const _Section({
+    required this.title,
+    required this.onEdit,
+    required this.rows,
+    this.chips = const [],
+    this.chipGroups = const [],
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return WizardCard(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  title,
+                  style: AppTextStyles.heading3.copyWith(fontWeight: FontWeight.w600),
+                ),
+              ),
+              TextButton(
+                onPressed: onEdit,
+                style: TextButton.styleFrom(
+                  foregroundColor: AppColors.primary,
+                  padding: EdgeInsets.zero,
+                  minimumSize: const Size(0, 0),
+                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                ),
+                child: Text('Edit', style: AppTextStyles.caption.copyWith(
+                  color: AppColors.primary,
+                  fontWeight: FontWeight.w600,
+                )),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          ...rows.map((r) => Padding(
+                padding: const EdgeInsets.symmetric(vertical: 4),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    SizedBox(
+                      width: 130,
+                      child: Text(
+                        r.$1,
+                        style: AppTextStyles.caption.copyWith(color: AppColors.textSecondary),
+                      ),
+                    ),
+                    Expanded(
+                      child: Text(
+                        r.$2,
+                        style: AppTextStyles.body.copyWith(color: AppColors.textPrimary),
+                      ),
+                    ),
+                  ],
+                ),
+              )),
+          for (final group in chipGroups) ...[
+            const SizedBox(height: 6),
+            Text(
+              group.$1,
+              style: AppTextStyles.caption.copyWith(
+                color: AppColors.textSecondary,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+            const SizedBox(height: 6),
+            Wrap(
+              spacing: 6,
+              runSpacing: 6,
+              children: group.$2.map((v) => _chip(v)).toList(),
+            ),
+          ],
+          if (chips.isNotEmpty) ...[
+            const SizedBox(height: 6),
+            Text(
+              'Enabled Features',
+              style: AppTextStyles.caption.copyWith(
+                color: AppColors.textSecondary,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+            const SizedBox(height: 6),
+            Wrap(
+              spacing: 6,
+              runSpacing: 6,
+              children: chips.map((v) => _chip(v)).toList(),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _chip(String label) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      decoration: BoxDecoration(
+        color: AppColors.background,
+        borderRadius: BorderRadius.circular(20),
+      ),
+      child: Text(
+        label,
+        style: AppTextStyles.caption.copyWith(color: AppColors.textPrimary),
+      ),
+    );
+  }
+}
