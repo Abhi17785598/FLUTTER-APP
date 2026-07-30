@@ -4,8 +4,7 @@ import '../../core/theme/app_colors.dart';
 import '../../core/validation/validators.dart';
 import '../../core/widgets/premium_button.dart';
 import '../../providers/auth_provider.dart';
-import '../home/home_screen.dart';
-import 'account_type_screen.dart';
+import 'auth_post_login.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
@@ -36,19 +35,16 @@ class _AuthScreenState extends State<AuthScreen> with TickerProviderStateMixin {
   bool _signUpPasswordVisible = false;
   bool _signUpConfirmVisible = false;
 
+  // Phone controllers
+  final _phoneNameCtrl = TextEditingController();
+  final _phoneCtrl = TextEditingController();
+
   // Role & Type selection
   String? _selectedRole;
   String? _selectedType;
 
-static const List<String> _roles = [
- 'buyer',
- 'seller'
-];
-static const List<String> _sellerTypes = [
- 'builder',
- 'broker',
- 'influencer'
-];
+  static const List<String> _roles = ['buyer', 'seller'];
+  static const List<String> _sellerTypes = ['builder', 'broker', 'influencer'];
 
   bool _isLoading = false;
   bool _googleAuthPending = false;
@@ -56,7 +52,7 @@ static const List<String> _sellerTypes = [
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 2, vsync: this);
+    _tabController = TabController(length: 3, vsync: this);
     _headerController = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 800),
@@ -105,6 +101,8 @@ static const List<String> _sellerTypes = [
     _signUpEmailCtrl.dispose();
     _signUpPasswordCtrl.dispose();
     _signUpConfirmCtrl.dispose();
+    _phoneNameCtrl.dispose();
+    _phoneCtrl.dispose();
     super.dispose();
   }
 
@@ -116,7 +114,7 @@ static const List<String> _sellerTypes = [
     if (!auth.isLoggedIn) return;
     setState(() => _googleAuthPending = false);
     final userId = Supabase.instance.client.auth.currentUser?.id;
-    if (userId != null) _routeAfterAuth(userId);
+    if (userId != null) routeAfterAuth(context, userId);
   }
 
   // ─── Validation ───────────────────────────────────────────
@@ -131,27 +129,24 @@ static const List<String> _sellerTypes = [
       return;
     }
     setState(() => _isLoading = true);
-    try {
-      await Supabase.instance.client.auth.resetPasswordForEmail(email);
-      if (mounted) {
-        _showSnackBar(
-          'Password reset email sent. Check your inbox.',
-          isError: false,
-        );
-      }
-    } catch (e) {
-      if (mounted) {
-        _showSnackBar('Could not send reset email: $e', isError: true);
-      }
-    } finally {
-      if (mounted) setState(() => _isLoading = false);
+    final error = await context.read<AuthProvider>().resetPassword(email);
+    setState(() => _isLoading = false);
+    if (!mounted) return;
+    if (error != null) {
+      _showSnackBar('Could not send reset email: $error', isError: true);
+    } else {
+      _showSnackBar(
+        'Password reset email sent. Check your inbox.',
+        isError: false,
+      );
     }
   }
 
   String? _validateLogin() {
-    final emailErr = Validators.required(_loginEmailCtrl.text) ??
-        Validators.email(_loginEmailCtrl.text);
-    if (emailErr != null) return emailErr;
+    // The field accepts an email, phone number or username, so only presence
+    // is required here — AuthService resolves whichever was typed.
+    final idErr = Validators.required(_loginEmailCtrl.text);
+    if (idErr != null) return idErr;
     if (_loginPasswordCtrl.text.isEmpty) return 'Password is required.';
     if (_loginPasswordCtrl.text.length < 6) {
       return 'Password must be at least 6 characters.';
@@ -159,25 +154,32 @@ static const List<String> _sellerTypes = [
     return null;
   }
 
+  String? _validatePhoneForm() {
+    return Validators.required(_phoneCtrl.text) ??
+        Validators.phone(_phoneCtrl.text);
+  }
+
   String? _validateSignUp() {
     if (_signUpNameCtrl.text.trim().isEmpty) return 'Full name is required.';
-    final signUpEmailErr = Validators.required(_signUpEmailCtrl.text) ??
+    final signUpEmailErr =
+        Validators.required(_signUpEmailCtrl.text) ??
         Validators.email(_signUpEmailCtrl.text);
     if (signUpEmailErr != null) return signUpEmailErr;
     if (_signUpPasswordCtrl.text.isEmpty) return 'Password is required.';
-    if (_signUpPasswordCtrl.text.length < 6) return 'Password must be at least 6 characters.';
+    if (_signUpPasswordCtrl.text.length < 6)
+      return 'Password must be at least 6 characters.';
     if (_signUpConfirmCtrl.text.isEmpty) return 'Please confirm your password.';
-    if (_signUpPasswordCtrl.text != _signUpConfirmCtrl.text) return 'Passwords do not match.';
-  if (_selectedRole == null) {
-  return 'Please select a role.';
-}
+    if (_signUpPasswordCtrl.text != _signUpConfirmCtrl.text)
+      return 'Passwords do not match.';
+    if (_selectedRole == null) {
+      return 'Please select a role.';
+    }
 
-if (_selectedRole == 'seller' &&
-    _selectedType == null) {
-  return 'Please select a user type.';
-}
+    if (_selectedRole == 'seller' && _selectedType == null) {
+      return 'Please select a user type.';
+    }
 
-return null;
+    return null;
   }
 
   // ─── Handlers ─────────────────────────────────────────────
@@ -189,19 +191,46 @@ return null;
       return;
     }
     setState(() => _isLoading = true);
-    final error = await context
-        .read<AuthProvider>()
-        .login(_loginEmailCtrl.text.trim(), _loginPasswordCtrl.text);
+    final error = await context.read<AuthProvider>().login(
+      _loginEmailCtrl.text.trim(),
+      _loginPasswordCtrl.text,
+    );
     setState(() => _isLoading = false);
     if (error != null) {
       _showSnackBar(error, isError: true);
     } else {
       if (!mounted) return;
       final userId = Supabase.instance.client.auth.currentUser?.id;
-      if (userId != null) await _routeAfterAuth(userId);
+      if (userId != null) await routeAfterAuth(context, userId);
     }
   }
 
+  Future<void> _handleSendOtp() async {
+    final validationError = _validatePhoneForm();
+    if (validationError != null) {
+      _showSnackBar(validationError, isError: true);
+      return;
+    }
+    setState(() => _isLoading = true);
+    final error = await context.read<AuthProvider>().sendOtp(
+      _phoneCtrl.text.trim(),
+    );
+    setState(() => _isLoading = false);
+    if (error != null) {
+      _showSnackBar(error, isError: true);
+      return;
+    }
+    if (!mounted) return;
+    final name = _phoneNameCtrl.text.trim();
+    await Navigator.pushNamed(
+      context,
+      '/auth-otp',
+      arguments: {
+        'phone': Validators.toE164(_phoneCtrl.text.trim()),
+        if (name.isNotEmpty) 'name': name,
+      },
+    );
+  }
 
   Future<void> _handleSignUp() async {
     final validationError = _validateSignUp();
@@ -216,13 +245,13 @@ return null;
 
     setState(() => _isLoading = true);
     final error = await context.read<AuthProvider>().signUp(
-          _signUpNameCtrl.text.trim(),
-          _signUpEmailCtrl.text.trim(),
-          _signUpPasswordCtrl.text,
-          _signUpConfirmCtrl.text,
-          role: _selectedRole!,
-          type: _selectedType ?? 'individual',
-        );
+      _signUpNameCtrl.text.trim(),
+      _signUpEmailCtrl.text.trim(),
+      _signUpPasswordCtrl.text,
+      _signUpConfirmCtrl.text,
+      role: _selectedRole!,
+      type: _selectedType ?? 'individual',
+    );
     setState(() => _isLoading = false);
 
     if (error == '__email_confirmation_required__') {
@@ -240,97 +269,16 @@ return null;
     // Signup returned a session immediately (email confirmation disabled in Supabase).
     if (!mounted) return;
     final userId = Supabase.instance.client.auth.currentUser?.id;
-    if (userId != null) await _routeAfterAuth(userId);
-  }
-
-  // ─── Post-auth routing ────────────────────────────────────────
-  // Called after both a successful signup (with immediate session) and a
-  // successful login. Reads profile state from the DB and falls back to
-  // the pending_user_type stored in SharedPreferences so it can decide:
-  //   - profile_complete == true  → HomeScreen
-  //   - user_type set, not complete → resume that registration screen
-  //   - user_type null, pending = individual → write profile, go home
-  //   - user_type null, pending = business   → open that registration screen
-  Future<void> _routeAfterAuth(String userId) async {
-    final profile = await Supabase.instance.client
-        .from('profiles')
-        .select('user_type, profile_complete')
-        .eq('user_id', userId)
-        .maybeSingle();
-
-    final isComplete = profile?['profile_complete'] == true;
-    final dbUserType = profile?['user_type'] as String?;
-
-    if (isComplete) {
-      (await SharedPreferences.getInstance()).remove('pending_user_type');
-      if (mounted) {
-        Navigator.pushReplacement(
-          context,
-          MaterialPageRoute(builder: (_) => const HomeScreen()),
-        );
-      }
-      return;
-    }
-
-    // user_type already written (e.g. returning user mid-registration).
-    if (dbUserType != null) {
-      _pushRegistrationRoute(dbUserType);
-      return;
-    }
-
-    // user_type is null — consult the type selected on the signup form.
-    final prefs = await SharedPreferences.getInstance();
-    final pendingType = prefs.getString('pending_user_type');
-
-    if (pendingType == null) {
-      // No pending type: Google user who hasn't selected an account type yet.
-      if (mounted) {
-        Navigator.pushReplacement(
-          context,
-          MaterialPageRoute(builder: (_) => AccountTypeScreen(userId: userId)),
-        );
-      }
-      return;
-    }
-
-    if (pendingType == 'individual') {
-      await Supabase.instance.client
-          .from('profiles')
-          .update({'user_type': 'individual', 'profile_complete': true})
-          .eq('user_id', userId);
-      await prefs.remove('pending_user_type');
-      if (mounted) {
-        Navigator.pushReplacement(
-          context,
-          MaterialPageRoute(builder: (_) => const HomeScreen()),
-        );
-      }
-    } else {
-      _pushRegistrationRoute(pendingType);
-    }
-  }
-
-  void _pushRegistrationRoute(String userType) {
-    if (!mounted) return;
-    if (userType == 'builder') {
-      Navigator.pushReplacementNamed(context, '/builder-profile');
-    } else if (userType == 'broker') {
-      Navigator.pushReplacementNamed(context, '/broker-profile');
-    } else if (userType == 'influencer') {
-      Navigator.pushReplacementNamed(context, '/influencer-profile');
-    } else {
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(builder: (_) => const HomeScreen()),
-      );
-    }
+    if (userId != null) await routeAfterAuth(context, userId);
   }
 
   void _showSnackBar(String msg, {bool isError = false}) {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(msg),
-        backgroundColor: isError ? Colors.red.shade700 : AppColors.verifiedBadge,
+        backgroundColor: isError
+            ? Colors.red.shade700
+            : AppColors.verifiedBadge,
         behavior: SnackBarBehavior.floating,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       ),
@@ -366,9 +314,14 @@ return null;
                 AnimatedBuilder(
                   animation: _tabController,
                   builder: (context, _) {
-                    return _tabController.index == 0
-                        ? _buildLoginForm()
-                        : _buildSignUpForm();
+                    switch (_tabController.index) {
+                      case 0:
+                        return _buildLoginForm();
+                      case 1:
+                        return _buildSignUpForm();
+                      default:
+                        return _buildPhoneForm();
+                    }
                   },
                 ),
                 const SizedBox(height: 40),
@@ -399,8 +352,11 @@ return null;
                   borderRadius: BorderRadius.circular(14),
                   boxShadow: AppColors.primaryGlow,
                 ),
-                child: const Icon(Icons.home_work_rounded,
-                    color: Colors.white, size: 28),
+                child: const Icon(
+                  Icons.home_work_rounded,
+                  color: Colors.white,
+                  size: 28,
+                ),
               ),
             ),
             const SizedBox(height: 20),
@@ -420,9 +376,10 @@ return null;
               child: RichText(
                 text: const TextSpan(
                   style: TextStyle(
-                      fontSize: 28,
-                      fontWeight: FontWeight.w700,
-                      color: AppColors.textPrimary),
+                    fontSize: 28,
+                    fontWeight: FontWeight.w700,
+                    color: AppColors.textPrimary,
+                  ),
                   children: [
                     TextSpan(
                       text: 'property ',
@@ -498,6 +455,7 @@ return null;
         tabs: const [
           Tab(text: 'Login'),
           Tab(text: 'Sign Up'),
+          Tab(text: 'Phone'),
         ],
       ),
     );
@@ -511,10 +469,10 @@ return null;
       children: [
         _buildTextField(
           controller: _loginEmailCtrl,
-          label: 'Email',
+          label: 'Email, phone or username',
           hint: 'you@example.com',
           icon: Icons.email_outlined,
-          keyboardType: TextInputType.emailAddress,
+          keyboardType: TextInputType.text,
         ),
         const SizedBox(height: 14),
         _buildTextField(
@@ -594,49 +552,49 @@ return null;
               setState(() => _signUpConfirmVisible = !_signUpConfirmVisible),
         ),
         const SizedBox(height: 14),
-    Row(
-  children: [
-    Expanded(
-      child: _buildDropdown(
-        label: 'Role',
-        value: _selectedRole,
-        items: _roles,
-        hint: 'Select role',
-        icon: Icons.badge_outlined,
-        onChanged: (val) {
-          setState(() {
-            _selectedRole = val;
+        Row(
+          children: [
+            Expanded(
+              child: _buildDropdown(
+                label: 'Role',
+                value: _selectedRole,
+                items: _roles,
+                hint: 'Select role',
+                icon: Icons.badge_outlined,
+                onChanged: (val) {
+                  setState(() {
+                    _selectedRole = val;
 
-            if (val == 'buyer') {
-              _selectedType = 'individual';
-            } else {
-              _selectedType = null;
-            }
-          });
-        },
-      ),
-    ),
+                    if (val == 'buyer') {
+                      _selectedType = 'individual';
+                    } else {
+                      _selectedType = null;
+                    }
+                  });
+                },
+              ),
+            ),
 
-    if (_selectedRole == 'seller') ...[
-      const SizedBox(width: 12),
+            if (_selectedRole == 'seller') ...[
+              const SizedBox(width: 12),
 
-      Expanded(
-        child: _buildDropdown(
-          label: 'User Type',
-          value: _selectedType,
-          items: _sellerTypes,
-          hint: 'Select type',
-          icon: Icons.category_outlined,
-          onChanged: (val) {
-            setState(() {
-              _selectedType = val;
-            });
-          },
+              Expanded(
+                child: _buildDropdown(
+                  label: 'User Type',
+                  value: _selectedType,
+                  items: _sellerTypes,
+                  hint: 'Select type',
+                  icon: Icons.category_outlined,
+                  onChanged: (val) {
+                    setState(() {
+                      _selectedType = val;
+                    });
+                  },
+                ),
+              ),
+            ],
+          ],
         ),
-      ),
-    ],
-  ],
-),
         const SizedBox(height: 22),
         _buildPrimaryButton(
           label: 'Create Account',
@@ -646,6 +604,43 @@ return null;
         _buildDivider(),
         const SizedBox(height: 16),
         _buildGoogleButton(),
+      ],
+    );
+  }
+
+  // ─── Phone Form ───────────────────────────────────────────
+  // One unified entry point regardless of sign-in vs sign-up: the backend
+  // creates the account if the phone is new, or logs the user in if it
+  // already exists — there is no separate "phone sign up" step.
+
+  Widget _buildPhoneForm() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _buildTextField(
+          controller: _phoneNameCtrl,
+          label: 'Name (new accounts only)',
+          hint: 'Enter your full name',
+          icon: Icons.person_outline,
+        ),
+        const SizedBox(height: 14),
+        _buildTextField(
+          controller: _phoneCtrl,
+          label: 'Phone number',
+          hint: '10-digit mobile number',
+          icon: Icons.phone_outlined,
+          keyboardType: TextInputType.phone,
+        ),
+        const SizedBox(height: 4),
+        const Text(
+          'We will text you a 6-digit code.',
+          style: TextStyle(color: AppColors.textSecondary, fontSize: 12),
+        ),
+        const SizedBox(height: 18),
+        _buildPrimaryButton(
+          label: 'Send OTP',
+          onPressed: _isLoading ? null : _handleSendOtp,
+        ),
       ],
     );
   }
@@ -693,10 +688,11 @@ return null;
             style: const TextStyle(fontSize: 14, color: AppColors.textPrimary),
             decoration: InputDecoration(
               hintText: hint,
-              hintStyle:
-                  const TextStyle(color: AppColors.textHint, fontSize: 14),
-              prefixIcon:
-                  Icon(icon, color: AppColors.textSecondary, size: 20),
+              hintStyle: const TextStyle(
+                color: AppColors.textHint,
+                fontSize: 14,
+              ),
+              prefixIcon: Icon(icon, color: AppColors.textSecondary, size: 20),
               suffixIcon: isPassword
                   ? IconButton(
                       onPressed: onTogglePassword,
@@ -717,16 +713,19 @@ return null;
               ),
               enabledBorder: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(12),
-                borderSide:
-                    BorderSide(color: Colors.grey.shade200, width: 1),
+                borderSide: BorderSide(color: Colors.grey.shade200, width: 1),
               ),
               focusedBorder: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(12),
-                borderSide:
-                    const BorderSide(color: AppColors.primary, width: 2),
+                borderSide: const BorderSide(
+                  color: AppColors.primary,
+                  width: 2,
+                ),
               ),
-              contentPadding:
-                  const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+              contentPadding: const EdgeInsets.symmetric(
+                horizontal: 16,
+                vertical: 14,
+              ),
             ),
           ),
         ),
@@ -780,18 +779,25 @@ return null;
                     child: Text(
                       hint,
                       style: const TextStyle(
-                          color: AppColors.textHint, fontSize: 13),
+                        color: AppColors.textHint,
+                        fontSize: 13,
+                      ),
                       overflow: TextOverflow.ellipsis,
                     ),
                   ),
                 ],
               ),
-              icon: const Icon(Icons.keyboard_arrow_down_rounded,
-                  color: AppColors.textSecondary, size: 20),
+              icon: const Icon(
+                Icons.keyboard_arrow_down_rounded,
+                color: AppColors.textSecondary,
+                size: 20,
+              ),
               dropdownColor: Colors.white,
               borderRadius: BorderRadius.circular(12),
               style: const TextStyle(
-                  fontSize: 13, color: AppColors.textPrimary),
+                fontSize: 13,
+                color: AppColors.textPrimary,
+              ),
               items: items
                   .map(
                     (item) => DropdownMenuItem(
@@ -850,33 +856,36 @@ return null;
       width: double.infinity,
       height: 52,
       child: OutlinedButton.icon(
-    onPressed: () async {
-      final error = await context.read<AuthProvider>().signInWithGoogle();
-      if (error != null) {
-        if (mounted) _showSnackBar(error, isError: true);
-      } else {
-        // Browser opened. Session arrives via auth state stream.
-        // _onGoogleAuthChanged will fire and call _routeAfterAuth when ready.
-        setState(() => _googleAuthPending = true);
-      }
-    },
+        onPressed: () async {
+          final error = await context.read<AuthProvider>().signInWithGoogle();
+          if (error != null) {
+            if (mounted) _showSnackBar(error, isError: true);
+          } else {
+            // Browser opened. Session arrives via auth state stream.
+            // _onGoogleAuthChanged will fire and call routeAfterAuth when ready.
+            setState(() => _googleAuthPending = true);
+          }
+        },
         icon: const Text(
           'G',
           style: TextStyle(
-              fontSize: 18,
-              fontWeight: FontWeight.w700,
-              color: Color(0xFF4285F4)),
+            fontSize: 18,
+            fontWeight: FontWeight.w700,
+            color: Color(0xFF4285F4),
+          ),
         ),
         label: const Text(
           'Continue with Google',
           style: TextStyle(
-              fontSize: 14,
-              fontWeight: FontWeight.w500,
-              color: AppColors.textPrimary),
+            fontSize: 14,
+            fontWeight: FontWeight.w500,
+            color: AppColors.textPrimary,
+          ),
         ),
         style: OutlinedButton.styleFrom(
           shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(14)),
+            borderRadius: BorderRadius.circular(14),
+          ),
           side: BorderSide(color: Colors.grey.shade300),
           backgroundColor: Colors.white,
         ),

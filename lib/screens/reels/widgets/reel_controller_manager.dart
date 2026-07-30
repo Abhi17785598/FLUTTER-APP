@@ -127,6 +127,10 @@ class ReelControllerManager extends ChangeNotifier {
     _failedIndices.remove(index);
 
     try {
+      if (kDebugMode) {
+        final filename = Uri.parse(url).pathSegments.lastOrNull ?? url;
+        debugPrint('[ReelDebug] init start    [$index]: $filename');
+      }
       await controller.initialize().timeout(initTimeout);
 
       // The controller may have been evicted from the window (user swiped
@@ -134,6 +138,30 @@ class ReelControllerManager extends ChangeNotifier {
       // methods on a disposed controller throws, so bail out here rather
       // than touching it.
       if (_controllers[index] != controller) return;
+
+      if (kDebugMode) {
+        final v = controller.value;
+        debugPrint(
+          '[ReelDebug] init complete [$index]: '
+          '${v.size.width.toStringAsFixed(0)}×${v.size.height.toStringAsFixed(0)} '
+          'dur=${v.duration.inMilliseconds}ms',
+        );
+        // One-shot listener: fires on first decoded frame or on playback error.
+        late VoidCallback onFirstFrame;
+        onFirstFrame = () {
+          if (controller.value.hasError) {
+            debugPrint(
+              '[ReelDebug] playback error [$index]: '
+              '${controller.value.errorDescription}',
+            );
+            controller.removeListener(onFirstFrame);
+          } else if (controller.value.position > Duration.zero) {
+            debugPrint('[ReelDebug] first frame    [$index]');
+            controller.removeListener(onFirstFrame);
+          }
+        };
+        controller.addListener(onFirstFrame);
+      }
 
       await controller.setLooping(true);
       await controller.setVolume(index == _activeIndex ? 1.0 : 0.0);
@@ -151,6 +179,7 @@ class ReelControllerManager extends ChangeNotifier {
       }
     } catch (e) {
       debugPrint('Reel controller init failed [$index]: $e');
+      if (kDebugMode) debugPrint('[ReelDebug] init FAILED    [$index]: $e');
       // Only mark as failed if this controller is still the tracked one for
       // this index (i.e. wasn't already disposed/replaced during the await).
       if (_controllers[index] == controller) {

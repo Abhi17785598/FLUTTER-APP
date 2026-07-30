@@ -4,9 +4,11 @@ import 'app_navigator.dart';
 import 'core/theme/app_theme.dart';
 import 'core/animations/page_transitions.dart';
 import 'providers/auth_provider.dart';
-import 'voice_agent/widgets/voice_agent_button.dart';
+import 'voice_agent/widgets/floating_ai_orb.dart';
 import 'screens/splash/splash_screen.dart';
 import 'screens/auth/auth_screen.dart';
+import 'screens/auth/otp_screen.dart';
+import 'screens/auth/reset_password_screen.dart';
 import 'screens/home/home_screen.dart';
 import 'screens/search/search_screen.dart';
 import 'screens/search/search_results_screen.dart';
@@ -45,27 +47,19 @@ class PropertyApp extends StatelessWidget {
       theme: AppTheme.lightTheme,
       navigatorKey: appNavigatorKey,
       home: const SplashScreen(),
-      // Inject VoiceAgentButton overlay on every screen.
+      // Inject the draggable AI orb overlay on every screen.
       builder: (context, child) {
         return Stack(
-          children: [
-            child ?? const SizedBox.shrink(),
-            const Positioned(
-              bottom: 80,
-              right: 16,
-              child: VoiceAgentButton(),
-            ),
-          ],
+          children: [child ?? const SizedBox.shrink(), const FloatingAiOrb()],
         );
       },
       onGenerateRoute: (settings) {
         switch (settings.name) {
-
           case '/':
-  return PremiumPageRoute(
-    builder: (context) => const RoleHomeRouter(),
-  );
-  
+            return PremiumPageRoute(
+              builder: (context) => const RoleHomeRouter(),
+            );
+
           case '/search':
             final searchArgs = settings.arguments as Map<String, dynamic>?;
             return PremiumPageRoute(
@@ -86,35 +80,34 @@ class PropertyApp extends StatelessWidget {
               builder: (context) => const ProfileScreen(),
             );
           case '/visits':
-            return PremiumPageRoute(
-              builder: (context) => const VisitsScreen(),
-            );
+            return PremiumPageRoute(builder: (context) => const VisitsScreen());
           case '/reels':
-  return PremiumPageRoute(
-    builder: (context) => const ReelsScreen(),
-  );
+            return PremiumPageRoute(builder: (context) => const ReelsScreen());
           case '/post-property':
             return PremiumPageRoute(
               builder: (context) => const PostPropertyScreen(),
             );
-            
+
           case '/filters':
             return PageRouteBuilder(
               pageBuilder: (context, animation, secondaryAnimation) =>
                   const FiltersScreen(),
               transitionsBuilder:
                   (context, animation, secondaryAnimation, child) {
-                return SlideTransition(
-                  position: Tween<Offset>(
-                    begin: const Offset(0, 1),
-                    end: Offset.zero,
-                  ).animate(CurvedAnimation(
-                    parent: animation,
-                    curve: Curves.easeInOut,
-                  )),
-                  child: child,
-                );
-              },
+                    return SlideTransition(
+                      position:
+                          Tween<Offset>(
+                            begin: const Offset(0, 1),
+                            end: Offset.zero,
+                          ).animate(
+                            CurvedAnimation(
+                              parent: animation,
+                              curve: Curves.easeInOut,
+                            ),
+                          ),
+                      child: child,
+                    );
+                  },
               transitionDuration: const Duration(milliseconds: 300),
             );
           case '/property-detail':
@@ -123,39 +116,50 @@ class PropertyApp extends StatelessWidget {
               builder: (context) =>
                   PropertyDetailScreen(propertyId: args?['propertyId'] ?? ''),
             );
-            case '/gallery-viewer':
+          case '/gallery-viewer':
+            final args = settings.arguments as Map<String, dynamic>;
 
-  final args =
-      settings.arguments as Map<String, dynamic>;
-
-  return PremiumPageRoute(
-    builder: (context) => GalleryViewerScreen(
-      images: List<String>.from(args['images']),
-      initialIndex: args['index'] ?? 0,
-    ),
-  );
+            return PremiumPageRoute(
+              builder: (context) => GalleryViewerScreen(
+                images: List<String>.from(args['images']),
+                initialIndex: args['index'] ?? 0,
+              ),
+            );
           case '/onboarding':
             return PremiumPageRoute(
               builder: (context) => const OnboardingScreen(),
             );
           case '/auth':
+            return PremiumPageRoute(builder: (context) => const AuthScreen());
+          case '/auth-otp':
+            final otpArgs = settings.arguments as Map<String, dynamic>?;
             return PremiumPageRoute(
-              builder: (context) => const AuthScreen(),
+              builder: (context) => OtpScreen(
+                phone: otpArgs?['phone'] as String? ?? '',
+                name: otpArgs?['name'] as String?,
+              ),
+            );
+          case '/reset-password':
+            final resetArgs = settings.arguments as Map<String, dynamic>?;
+            return PremiumPageRoute(
+              builder: (context) => ResetPasswordScreen(
+                tokenHash: resetArgs?['tokenHash'] as String?,
+              ),
             );
 
           // ── PROFILE COMPLETION ROUTES ─────────────
-       case '/builder-profile':
-  return PremiumPageRoute(
-    builder: (context) => const BuilderRegistrationScreen(),
-  );
+          case '/builder-profile':
+            return PremiumPageRoute(
+              builder: (context) => const BuilderRegistrationScreen(),
+            );
           case '/broker-profile':
-  return PremiumPageRoute(
-    builder: (context) => const BrokerRegistrationScreen(),
-  );
+            return PremiumPageRoute(
+              builder: (context) => const BrokerRegistrationScreen(),
+            );
           case '/influencer-profile':
-  return PremiumPageRoute(
-    builder: (context) => const InfluencerRegistrationScreen(),
-  );
+            return PremiumPageRoute(
+              builder: (context) => const InfluencerRegistrationScreen(),
+            );
           // ─────────────────────────────────────────
 
           // ── NEW ROUTES ───────────────────────────
@@ -174,8 +178,7 @@ class PropertyApp extends StatelessWidget {
             final args = settings.arguments as Map<String, dynamic>?;
             return PremiumPageRoute(
               builder: (context) => ComparePropertiesScreen(
-                propertyIds:
-                    (args?['propertyIds'] as List<String>?) ?? [],
+                propertyIds: (args?['propertyIds'] as List<String>?) ?? [],
               ),
             );
           // ─────────────────────────────────────────

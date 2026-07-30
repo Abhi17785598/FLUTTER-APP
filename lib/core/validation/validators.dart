@@ -22,7 +22,9 @@ abstract final class Validators {
   static String? email(String? value) {
     final v = value?.trim() ?? '';
     if (v.isEmpty) return null;
-    if (!RegExp(r'^[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$').hasMatch(v)) {
+    if (!RegExp(
+      r'^[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$',
+    ).hasMatch(v)) {
       return 'Enter a valid email address.';
     }
     return null;
@@ -36,6 +38,16 @@ abstract final class Validators {
       return 'Enter a valid 10-digit phone number.';
     }
     return null;
+  }
+
+  /// Normalises any accepted mobile input (with/without `+91`, spaces,
+  /// dashes) to the E.164 form the `send-otp` edge function expects.
+  static String toE164(String value) {
+    final String digits = value.replaceAll(RegExp(r'\D'), '');
+    final String last10 = digits.length > 10
+        ? digits.substring(digits.length - 10)
+        : digits;
+    return '+91$last10';
   }
 
   /// Exactly 6 digits. Blank values pass.

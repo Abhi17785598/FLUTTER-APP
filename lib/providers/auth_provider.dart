@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'dart:async';
+import '../app_navigator.dart';
 import '../services/auth_service.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
@@ -18,12 +19,13 @@ class AuthProvider extends ChangeNotifier {
 
   AuthProvider() {
     _authSub = _authService.onAuthStateChange.listen((state) {
-
-      debugPrint('===================');
-debugPrint('AUTH EVENT: ${state.event}');
-debugPrint('HAS SESSION: ${state.session != null}');
-debugPrint('EMAIL: ${state.session?.user.email}');
-debugPrint('===================');
+      // A recovery-link deep link establishes a session before the user has
+      // set a new password — jump straight to the reset screen regardless of
+      // what's currently on screen (including a cold start).
+      if (state.event == AuthChangeEvent.passwordRecovery) {
+        appNavigatorKey.currentState?.pushNamed('/reset-password');
+        return;
+      }
 
       if (state.session != null) {
         _isLoggedIn = true;
@@ -31,11 +33,9 @@ debugPrint('===================');
         final currentUser = _authService.currentUser;
 
         if (currentUser != null) {
-          _userName =
-              currentUser.userMetadata?['display_name'] ?? '';
+          _userName = currentUser.userMetadata?['display_name'] ?? '';
 
-          _userEmail =
-              currentUser.email ?? '';
+          _userEmail = currentUser.email ?? '';
 
           _fetchUserProfile();
         }
@@ -59,34 +59,22 @@ debugPrint('===================');
     if (currentUser == null) return;
 
     try {
-      final profile =
-          await _authService.getUserProfile(currentUser.id);
+      final profile = await _authService.getUserProfile(currentUser.id);
 
       if (profile != null) {
-        _userName =
-            profile['display_name'] ?? _userName;
+        _userName = profile['display_name'] ?? _userName;
 
-        _userEmail =
-            profile['email'] ?? _userEmail;
+        _userEmail = profile['email'] ?? _userEmail;
 
-        _avatarUrl =
-            profile['avatar_url'];
+        _avatarUrl = profile['avatar_url'];
 
-       _userRole = profile['user_role'];
+        _userRole = profile['user_role'];
 
-_userType = profile['user_type'];
-_userId = currentUser.id;
-_profileCity = profile['work_city'];
+        _userType = profile['user_type'];
+        _userId = currentUser.id;
+        _profileCity = profile['work_city'];
 
-
-
-debugPrint("================================");
-debugPrint("PROFILE FETCHED");
-debugPrint("ROLE = $_userRole");
-debugPrint("TYPE = $_userType");
-debugPrint("================================");
-
-notifyListeners();
+        notifyListeners();
       }
     } catch (e) {
       debugPrint('Error fetching user profile: $e');
@@ -108,20 +96,87 @@ notifyListeners();
   String? get userId => _userId;
   String? get profileCity => _profileCity;
 
-  Future<String?> login(
-    String email,
-    String password,
-  ) async {
-    if (email.trim().isEmpty || password.isEmpty) {
+  /// Accepts an email, phone number or username — [AuthService] resolves
+  /// whichever was typed to an email before signing in.
+  Future<String?> login(String identifier, String password) async {
+    if (identifier.trim().isEmpty || password.isEmpty) {
       return 'Please fill in all fields';
     }
 
     try {
-      await _authService.login(
-        email.trim(),
-        password,
-      );
+      await _authService.loginWithIdentifier(identifier.trim(), password);
 
+      return null;
+    } on AuthException catch (e) {
+      return e.message;
+    } catch (e) {
+      return e.toString();
+    }
+  }
+
+  /// Sends a 6-digit SMS code to [phone]. Returns an error string, or null on
+  /// success.
+  Future<String?> sendOtp(String phone) async {
+    try {
+      await _authService.sendOtp(phone);
+      return null;
+    } catch (e) {
+      return e.toString();
+    }
+  }
+
+  Future<String?> resendOtp(String phone) async {
+    try {
+      await _authService.resendOtp(phone);
+      return null;
+    } catch (e) {
+      return e.toString();
+    }
+  }
+
+  /// Verifies the code and establishes the session. Returns an error string,
+  /// or null on success — the auth-state listener above then populates
+  /// [isLoggedIn] and the profile fields.
+  Future<String?> verifyOtp({
+    required String phone,
+    required String otp,
+    String? name,
+  }) async {
+    try {
+      await _authService.verifyOtp(phone: phone, otp: otp, name: name);
+      return null;
+    } catch (e) {
+      return e.toString();
+    }
+  }
+
+  Future<String?> resetPassword(String email) async {
+    try {
+      await _authService.sendPasswordResetEmail(email);
+      return null;
+    } on AuthException catch (e) {
+      return e.message;
+    } catch (e) {
+      return e.toString();
+    }
+  }
+
+  /// Exchanges a recovery `token_hash` from the reset-password deep link for
+  /// a session. Returns an error string, or null on success.
+  Future<String?> verifyRecoveryToken(String tokenHash) async {
+    try {
+      await _authService.verifyRecoveryToken(tokenHash);
+      return null;
+    } on AuthException catch (e) {
+      return e.message;
+    } catch (e) {
+      return e.toString();
+    }
+  }
+
+  Future<String?> updatePassword(String newPassword) async {
+    try {
+      await _authService.updatePassword(newPassword);
       return null;
     } on AuthException catch (e) {
       return e.message;
@@ -138,9 +193,7 @@ notifyListeners();
     String role = 'buyer',
     String type = 'individual',
   }) async {
-    if (name.trim().isEmpty ||
-        email.trim().isEmpty ||
-        password.isEmpty) {
+    if (name.trim().isEmpty || email.trim().isEmpty || password.isEmpty) {
       return 'Please fill in all fields';
     }
 
@@ -157,7 +210,6 @@ notifyListeners();
         type = 'individual';
       }
 
-      print('=== AUTH_PROVIDER.signUp: calling _authService.signUp ===');
       final authResponse = await _authService.signUp(
         email.trim(),
         password,
@@ -165,7 +217,6 @@ notifyListeners();
         role: role,
         type: type,
       );
-      print('=== AUTH_PROVIDER.signUp: returned. session=${authResponse.session != null ? 'PRESENT' : 'NULL'} ===');
 
       if (authResponse.session == null) {
         // Supabase requires email confirmation — no session yet.
@@ -173,6 +224,11 @@ notifyListeners();
         // instead of calling updateProfileData() with no logged-in user.
         return '__email_confirmation_required__';
       }
+
+      // A session came back immediately (email confirmation disabled) —
+      // persist the chosen role/type now instead of leaving user_role NULL
+      // until some later reconciliation step.
+      await updateProfileData(name: name.trim(), role: role, type: type);
 
       return null;
     } on AuthException catch (e) {
@@ -183,18 +239,14 @@ notifyListeners();
   }
 
   Future<void> updateProfileData({
-  required String name,
-  required String role,
-  required String type,
-}) async {
-  await _authService.updateProfileData(
-    name: name,
-    role: role,
-    type: type,
-  );
+    required String name,
+    required String role,
+    required String type,
+  }) async {
+    await _authService.updateProfileData(name: name, role: role, type: type);
 
-  await _fetchUserProfile();
-}
+    await _fetchUserProfile();
+  }
 
   /// Initiates Google OAuth. Returns null on success (browser opened),
   /// or an error string if the flow could not be started.
@@ -231,10 +283,7 @@ notifyListeners();
     await _fetchUserProfile();
   }
 
-  void updateProfile(
-    String name,
-    String email,
-  ) {
+  void updateProfile(String name, String email) {
     _userName = name.trim();
     _userEmail = email.trim();
 

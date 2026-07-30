@@ -48,14 +48,14 @@ class _AccountTypeScreenState extends State<AccountTypeScreen> {
         await prefs.setString('pending_user_type', type);
         if (mounted) {
           final Widget screen = switch (type) {
-            'builder'    => const BuilderRegistrationScreen(),
-            'broker'     => const BrokerRegistrationScreen(),
+            'builder' => const BuilderRegistrationScreen(),
+            'broker' => const BrokerRegistrationScreen(),
             'influencer' => const InfluencerRegistrationScreen(),
-            _            => const HomeScreen(),
+            _ => const HomeScreen(),
           };
-          Navigator.of(context).pushReplacement(
-            MaterialPageRoute(builder: (_) => screen),
-          );
+          Navigator.of(
+            context,
+          ).pushReplacement(MaterialPageRoute(builder: (_) => screen));
         }
       }
     } catch (e) {
@@ -86,16 +86,16 @@ class _AccountTypeScreenState extends State<AccountTypeScreen> {
               Text(
                 'What best describes you?',
                 style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                      fontWeight: FontWeight.bold,
-                      color: const Color(0xFF1A1A2E),
-                    ),
+                  fontWeight: FontWeight.bold,
+                  color: const Color(0xFF1A1A2E),
+                ),
               ),
               const SizedBox(height: 8),
               Text(
                 'This helps us personalise your experience.',
-                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                      color: Colors.grey[600],
-                    ),
+                style: Theme.of(
+                  context,
+                ).textTheme.bodyMedium?.copyWith(color: Colors.grey[600]),
               ),
               const SizedBox(height: 40),
               if (_isLoading)
@@ -201,10 +201,7 @@ class _TypeTile extends StatelessWidget {
                   const SizedBox(height: 2),
                   Text(
                     subtitle,
-                    style: TextStyle(
-                      fontSize: 13,
-                      color: Colors.grey[600],
-                    ),
+                    style: TextStyle(fontSize: 13, color: Colors.grey[600]),
                   ),
                 ],
               ),

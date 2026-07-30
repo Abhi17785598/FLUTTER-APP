@@ -68,7 +68,7 @@ class ReelVideoView extends StatelessWidget {
             CachedNetworkImage(
               imageUrl: reel.thumbnailUrl,
               fit: BoxFit.cover,
-              errorWidget: (_, __, ___) => Container(color: Colors.black),
+              errorWidget: (context, url, _) => Container(color: Colors.black),
             )
           else
             Container(color: Colors.black),
@@ -104,11 +104,11 @@ class ReelVideoView extends StatelessWidget {
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
           Icon(Icons.home_work_rounded,
-              size: 96, color: Colors.white.withOpacity(0.35)),
+              size: 96, color: Colors.white.withValues(alpha: 0.35)),
           const SizedBox(height: 12),
           Text(
             reel.title.isNotEmpty ? reel.title : 'Property preview',
-            style: TextStyle(color: Colors.white.withOpacity(0.7)),
+            style: TextStyle(color: Colors.white.withValues(alpha: 0.7)),
           ),
         ],
       ),
@@ -123,10 +123,10 @@ class ReelVideoView extends StatelessWidget {
             begin: Alignment.topCenter,
             end: Alignment.bottomCenter,
             colors: [
-              Colors.black.withOpacity(0.35),
+              Colors.black.withValues(alpha: 0.35),
               Colors.transparent,
               Colors.transparent,
-              Colors.black.withOpacity(0.65),
+              Colors.black.withValues(alpha: 0.65),
             ],
             stops: const [0.0, 0.25, 0.55, 1.0],
           ),
@@ -134,4 +134,5 @@ class ReelVideoView extends StatelessWidget {
       ),
     );
   }
+
 }

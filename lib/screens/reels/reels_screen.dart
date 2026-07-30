@@ -11,9 +11,7 @@ import '../../models/reel_model.dart';
 import '../../providers/reels_provider.dart';
 import '../../widgets/bottom_nav_bar.dart';
 import 'widgets/reel_action_button.dart';
-import 'widgets/reel_action_row.dart';
 import 'widgets/reel_controller_manager.dart';
-import 'widgets/reel_cta_buttons.dart';
 import 'widgets/reel_info_panel.dart';
 import 'widgets/reel_property_card.dart';
 import 'widgets/reel_video_view.dart';
@@ -109,16 +107,14 @@ class _ReelsScreenState extends State<ReelsScreen> {
   }
 
   void _onViewDetails(ReelModel reel) {
-    if (reel.propertyId == null || reel.propertyId!.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Property details are not available for this reel')),
-      );
-      return;
-    }
-    Navigator.pushNamed(
-      context,
-      AppConstants.propertyDetailScreen,
-      arguments: {'propertyId': reel.propertyId},
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      isScrollControlled: true,
+      builder: (_) => _PropertyDetailsSheet(
+        reel: reel,
+        onContactBuilder: () => _onContactBuilder(reel),
+      ),
     );
   }
 
@@ -310,26 +306,19 @@ class _ReelsScreenState extends State<ReelsScreen> {
   }
 
   Widget _buildTopBar() {
-    return SafeArea(
-      bottom: false,
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-        child: Row(
-          children: [
-            _circleIcon(Icons.arrow_back_ios_new_rounded,
+    return Positioned(
+      top: 0,
+      left: 0,
+      right: 0,
+      child: SafeArea(
+        bottom: false,
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
+          child: Align(
+            alignment: Alignment.centerLeft,
+            child: _circleIcon(Icons.arrow_back_ios_new_rounded,
                 onTap: () => Navigator.maybePop(context)),
-            const Spacer(),
-            Text(
-              'Reels',
-              style: AppTextStyles.heading2.copyWith(
-                color: Colors.white,
-                fontWeight: FontWeight.w700,
-                shadows: const [Shadow(color: Colors.black45, blurRadius: 6)],
-              ),
-            ),
-            const Spacer(),
-            _circleIcon(Icons.camera_alt_outlined, onTap: () {}),
-          ],
+          ),
         ),
       ),
     );
@@ -342,7 +331,7 @@ class _ReelsScreenState extends State<ReelsScreen> {
         width: 40,
         height: 40,
         decoration: BoxDecoration(
-          color: Colors.black.withOpacity(0.3),
+          color: Colors.black.withValues(alpha: 0.3),
           shape: BoxShape.circle,
         ),
         child: Icon(icon, color: Colors.white, size: 18),
@@ -367,11 +356,11 @@ class _ReelsScreenState extends State<ReelsScreen> {
     );
   }
 
-  // ── Property card (sized to its own content, ~20% of screen on most devices) ──
+  // ── Property card ────────────────────────────────────────────────────────
   Widget _buildPropertyCard(ReelModel reel) {
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.fromLTRB(20, 16, 20, 16),
+      padding: const EdgeInsets.fromLTRB(20, 14, 16, 16),
       decoration: const BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
@@ -381,46 +370,96 @@ class _ReelsScreenState extends State<ReelsScreen> {
       ),
       child: SafeArea(
         top: false,
-       child: Row(
-  crossAxisAlignment: CrossAxisAlignment.start,
-  children: [
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
             Expanded(
-              child: Column(
+              child: Text(
+                reel.title.isNotEmpty ? reel.title : 'Featured Property',
+                style: AppTextStyles.heading2.copyWith(
+                  color: AppColors.textPrimary,
+                  fontWeight: FontWeight.w700,
+                  fontSize: 16,
+                ),
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+            const SizedBox(width: 10),
+            _buildViewDetailsButton(reel),
+            const SizedBox(width: 8),
+            _buildContactButton(reel),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildViewDetailsButton(ReelModel reel) {
+    return SizedBox(
+      height: 38,
+      child: OutlinedButton(
+        onPressed: () => _onViewDetails(reel),
+        style: OutlinedButton.styleFrom(
+          backgroundColor: AppColors.primaryLight,
+          side: BorderSide.none,
+          padding: const EdgeInsets.symmetric(horizontal: 10),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(AppConstants.buttonRadius),
+          ),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              'View Details',
+              style: AppTextStyles.chip.copyWith(
+                color: AppColors.primary,
+                fontWeight: FontWeight.w700,
+                fontSize: 12,
+              ),
+            ),
+            const SizedBox(width: 2),
+            const Icon(Icons.chevron_right_rounded,
+                color: AppColors.primary, size: 16),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildContactButton(ReelModel reel) {
+    return SizedBox(
+      height: 38,
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          gradient: AppColors.primaryGradient,
+          borderRadius: BorderRadius.circular(AppConstants.buttonRadius),
+        ),
+        child: Material(
+          color: Colors.transparent,
+          child: InkWell(
+            borderRadius: BorderRadius.circular(AppConstants.buttonRadius),
+            onTap: () => _onContactBuilder(reel),
+            child: const Padding(
+              padding: EdgeInsets.symmetric(horizontal: 12),
+              child: Row(
                 mainAxisSize: MainAxisSize.min,
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  ReelPropertyCard(reel: reel, compact: true),
-                  const Divider(height: 18),
-                  // Wrapped in a horizontally-scrolling strip as a safety
-                  // net: on very narrow screens the 4 action buttons could
-                  // otherwise overflow the left column's width once it's
-                  // sharing the row with the fixed-width CTA column.
-                  SingleChildScrollView(
-                    scrollDirection: Axis.horizontal,
-                    physics: const ClampingScrollPhysics(),
-                    child: ReelActionRow(
-                      reel: reel,
-                      onComment: _showComments,
-                      onShare: () => _shareReel(reel),
-                      bordered: false,
-                      mainAxisAlignment: MainAxisAlignment.start,
-                      spacing: 18,
+                  Icon(Icons.call_rounded, color: Colors.white, size: 14),
+                  SizedBox(width: 4),
+                  Text(
+                    'Contact',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.w700,
+                      fontSize: 12,
                     ),
                   ),
                 ],
               ),
             ),
-            const SizedBox(width: 14),
-            SizedBox(
-              width: 128,
-              child: ReelCtaButtons(
-                axis: Axis.vertical,
-                onViewDetails: () => _onViewDetails(reel),
-                onContactBuilder: () => _onContactBuilder(reel),
-              ),
-            ),
-          ],
+          ),
         ),
       ),
     );
@@ -433,6 +472,139 @@ class _ReelsScreenState extends State<ReelsScreen> {
       backgroundColor: Colors.transparent,
       isScrollControlled: true,
       builder: (_) => const _CommentsSheet(),
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Property details sheet — slides up while the reel keeps playing
+// ─────────────────────────────────────────────────────────────────────────────
+class _PropertyDetailsSheet extends StatelessWidget {
+  const _PropertyDetailsSheet({
+    required this.reel,
+    required this.onContactBuilder,
+  });
+
+  final ReelModel reel;
+  final VoidCallback onContactBuilder;
+
+  @override
+  Widget build(BuildContext context) {
+    return DraggableScrollableSheet(
+      initialChildSize: 0.65,
+      minChildSize: 0.35,
+      maxChildSize: 0.92,
+      snap: true,
+      snapSizes: const [0.65, 0.92],
+      builder: (context, scrollController) => Container(
+        decoration: const BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+        ),
+        child: Column(
+          children: [
+            // ── handle + close ──────────────────────────────────────────
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 10, 4, 4),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Center(
+                      child: Container(
+                        width: 40,
+                        height: 4,
+                        decoration: BoxDecoration(
+                          color: AppColors.textHint,
+                          borderRadius: BorderRadius.circular(2),
+                        ),
+                      ),
+                    ),
+                  ),
+                  IconButton(
+                    onPressed: () => Navigator.pop(context),
+                    icon: const Icon(Icons.close_rounded,
+                        color: AppColors.textSecondary),
+                    style: IconButton.styleFrom(
+                      backgroundColor: AppColors.cardBackground,
+                      padding: const EdgeInsets.all(6),
+                      minimumSize: const Size(36, 36),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            // ── scrollable body ─────────────────────────────────────────
+            Expanded(
+              child: ListView(
+                controller: scrollController,
+                padding: const EdgeInsets.fromLTRB(20, 0, 20, 32),
+                children: [
+                  ReelPropertyCard(reel: reel, compact: false),
+                  if (reel.description.trim().isNotEmpty) ...[
+                    const SizedBox(height: 16),
+                    const Divider(height: 1),
+                    const SizedBox(height: 16),
+                    Text(
+                      'Description',
+                      style: AppTextStyles.heading3.copyWith(
+                        color: AppColors.textPrimary,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      reel.description.trim(),
+                      style: AppTextStyles.body.copyWith(
+                        color: AppColors.textPrimary.withValues(alpha: 0.75),
+                        height: 1.5,
+                      ),
+                    ),
+                  ],
+                  const SizedBox(height: 24),
+                  // ── contact CTA ────────────────────────────────────────
+                  SizedBox(
+                    width: double.infinity,
+                    height: 50,
+                    child: DecoratedBox(
+                      decoration: BoxDecoration(
+                        gradient: AppColors.primaryGradient,
+                        borderRadius:
+                            BorderRadius.circular(AppConstants.buttonRadius),
+                      ),
+                      child: Material(
+                        color: Colors.transparent,
+                        child: InkWell(
+                          borderRadius:
+                              BorderRadius.circular(AppConstants.buttonRadius),
+                          onTap: () {
+                            Navigator.pop(context);
+                            onContactBuilder();
+                          },
+                          child: const Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Icon(Icons.call_rounded, color: Colors.white),
+                              SizedBox(width: 8),
+                              Text(
+                                'Contact Builder',
+                                style: TextStyle(
+                                  color: Colors.white,
+                                  fontWeight: FontWeight.w700,
+                                  fontSize: 16,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }
@@ -492,7 +664,7 @@ class _ReelsEmptyState extends StatelessWidget {
                           ? Icons.wifi_off_rounded
                           : Icons.video_library_outlined,
                       size: 72,
-                      color: Colors.white.withOpacity(0.35),
+                      color: Colors.white.withValues(alpha: 0.35),
                     ),
                     const SizedBox(height: 16),
                     Text(
@@ -510,7 +682,7 @@ class _ReelsEmptyState extends StatelessWidget {
                           ? 'Check your connection and try again.'
                           : 'Property reels will appear here soon.',
                       style: AppTextStyles.body.copyWith(
-                        color: Colors.white.withOpacity(0.6),
+                        color: Colors.white.withValues(alpha: 0.6),
                         fontSize: 13,
                       ),
                       textAlign: TextAlign.center,
@@ -527,7 +699,7 @@ class _ReelsEmptyState extends StatelessWidget {
                         ),
                       ),
                       style: OutlinedButton.styleFrom(
-                        side: BorderSide(color: Colors.white.withOpacity(0.4)),
+                        side: BorderSide(color: Colors.white.withValues(alpha: 0.4)),
                       ),
                     ),
                   ],
@@ -562,7 +734,7 @@ class _CommentsSheet extends StatelessWidget {
             width: 40,
             height: 4,
             decoration: BoxDecoration(
-              color: Colors.white.withOpacity(0.3),
+              color: Colors.white.withValues(alpha: 0.3),
               borderRadius: BorderRadius.circular(2),
             ),
           ),
@@ -588,12 +760,12 @@ class _CommentsSheet extends StatelessWidget {
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   Icon(Icons.mode_comment_outlined,
-                      size: 56, color: Colors.white.withOpacity(0.25)),
+                      size: 56, color: Colors.white.withValues(alpha: 0.25)),
                   const SizedBox(height: 12),
                   Text(
                     'Comments coming soon',
                     style: AppTextStyles.body.copyWith(
-                      color: Colors.white.withOpacity(0.6),
+                      color: Colors.white.withValues(alpha: 0.6),
                     ),
                   ),
                 ],
