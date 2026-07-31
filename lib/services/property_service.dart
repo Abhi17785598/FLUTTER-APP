@@ -383,7 +383,24 @@ class PropertyService {
   ) async {
     final List<String> newUrls = await _uploadMedia(provider, userId);
     final List<String> allUrls = [...provider.existingMediaUrls, ...newUrls];
-    final Map<String, dynamic> metadata = _buildMetadata(provider);
+
+    // Non-destructive update: merge onto the row's existing metadata instead
+    // of replacing the column, mirroring React's
+    // `const metadata = { ...editingProperty.metadata }`
+    // (PropertyWizard.tsx:1561).
+    //
+    // Without this, any key the Flutter form does not currently collect —
+    // nested objects like `buildingInventory`, the PG block, land legal
+    // flags — was silently dropped the first time a listing was edited in
+    // the app. Nested objects are deliberately preserved here rather than
+    // hydrated into the provider; full editing support for them lands with
+    // the category parity phases.
+    final Map<String, dynamic> existingMetadata =
+        await _fetchExistingMetadata(propertyId);
+    final Map<String, dynamic> metadata = <String, dynamic>{
+      ...existingMetadata,
+      ..._buildMetadata(provider),
+    };
 
     await _supabase.from('properties').update({
       'title': provider.title,
@@ -411,6 +428,22 @@ class PropertyService {
 
     await _upsertCategoryData(propertyId, provider);
     await _upsertContactDetails(propertyId, provider);
+  }
+
+  /// Reads the current `metadata` blob for [propertyId] so an edit can merge
+  /// onto it rather than replace it. Returns an empty map if the row is gone
+  /// or the column is null/not an object — the caller then behaves exactly as
+  /// it did before, so a read failure can never make the update *more*
+  /// destructive than it already was.
+  Future<Map<String, dynamic>> _fetchExistingMetadata(String propertyId) async {
+    final row = await _supabase
+        .from('properties')
+        .select('metadata')
+        .eq('id', propertyId)
+        .maybeSingle();
+
+    final dynamic meta = row?['metadata'];
+    return meta is Map ? Map<String, dynamic>.from(meta) : <String, dynamic>{};
   }
 
   /// Creates a property listing on Supabase, mirroring the React
@@ -636,6 +669,22 @@ class PropertyService {
   Map<String, dynamic> _buildMetadata(PostPropertyProvider provider) {
     final meta = <String, dynamic>{};
 
+    // ── Category-specific long-tail bag fields ────────────────────────────
+    // Commercial/Land/PG fields are stored in typed bags keyed by the same
+    // React field names. Spread all three bags — JSONB accepts them all.
+    //
+    // Flushed FIRST, before the named writes below, so that on a key
+    // collision the named field wins. This ordering matters now that edit
+    // mode hydrates the metadata blob back into the bag
+    // (`PostPropertyProvider.initFromRawData`): a stale bag entry carrying
+    // the value loaded from the DB must not overwrite the fresh value the
+    // user just typed into the field that owns that key.
+    meta.addAll(provider.allTextFields);
+    meta.addAll(provider.allBoolFields);
+    for (final entry in provider.allListFields.entries) {
+      meta[entry.key] = entry.value;
+    }
+
     // ── Location overflow (no dedicated columns in properties table) ───────
     if (provider.city.isNotEmpty) meta['city'] = provider.city;
     if (provider.state.isNotEmpty) meta['state'] = provider.state;
@@ -693,18 +742,25 @@ class PropertyService {
     if (provider.securityDeposit.isNotEmpty) {
       meta['securityDeposit'] = provider.securityDeposit;
     }
-    // React key for maintenanceCharges is 'maintenanceAmount'
+    // React's canonical key is 'maintenanceCharges' — it is the live input in
+    // PricingStep.tsx (bound via handleInputChange('maintenanceCharges')).
+    // React's 'maintenanceAmount' is a legacy carry-through field with no UI
+    // input anywhere in the wizard; writing there made the web's Maintenance
+    // Charges box read empty for Flutter-created listings.
     if (provider.maintenanceCharges.isNotEmpty) {
-      meta['maintenanceAmount'] = provider.maintenanceCharges;
+      meta['maintenanceCharges'] = provider.maintenanceCharges;
     }
-    // React key for bookingAmount is 'tokenAmount'
+    // 'tokenAmount' IS React's canonical key (live input in PricingStep.tsx);
+    // only the Flutter-side field is named bookingAmount. Correct as-is.
     if (provider.bookingAmount.isNotEmpty) {
       meta['tokenAmount'] = provider.bookingAmount;
     }
     if (provider.lockInPeriod != null) meta['lockInPeriod'] = provider.lockInPeriod;
     meta['priceNegotiable'] = provider.priceNegotiable;
-    // React key for allInclusivePriceToggle is 'allInclusivePrice'
-    meta['allInclusivePrice'] = provider.allInclusivePriceToggle;
+    // React's canonical key is 'allInclusivePriceToggle'. The previous
+    // 'allInclusivePrice' appears nowhere in the React source (0 occurrences
+    // repo-wide), so the web could never read it.
+    meta['allInclusivePriceToggle'] = provider.allInclusivePriceToggle;
     meta['taxGovtChargesIncluded'] = provider.taxGovtChargesIncluded;
     meta['loanAvailability'] = provider.loanAvailability;
     if (provider.brokerage.isNotEmpty) meta['brokerage'] = provider.brokerage;
@@ -724,15 +780,6 @@ class PropertyService {
     }
     if (provider.category == PropertyCategory.pg) {
       meta['isPg'] = true;
-    }
-
-    // ── Category-specific long-tail bag fields ────────────────────────────
-    // Commercial/Land/PG fields are stored in typed bags keyed by the same
-    // React field names. Spread all three bags — JSONB accepts them all.
-    meta.addAll(provider.allTextFields);
-    meta.addAll(provider.allBoolFields);
-    for (final entry in provider.allListFields.entries) {
-      meta[entry.key] = entry.value;
     }
 
     // ── Media categories ──────────────────────────────────────────────────

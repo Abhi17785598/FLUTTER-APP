@@ -858,11 +858,18 @@ class PostPropertyProvider extends ChangeNotifier {
     final banks = meta['approvedByBanks'];
     if (banks is List) _approvedByBanks = List<String>.from(banks);
     _securityDeposit = meta['securityDeposit']?.toString() ?? '';
-    _maintenanceCharges = meta['maintenanceAmount']?.toString() ?? '';
+    // Canonical React key first, then the legacy key Flutter used to write, so
+    // listings created by older app builds keep their value on edit.
+    _maintenanceCharges =
+        (meta['maintenanceCharges'] ?? meta['maintenanceAmount'])?.toString() ??
+            '';
     _bookingAmount = meta['tokenAmount']?.toString() ?? '';
     _lockInPeriod = meta['lockInPeriod']?.toString();
     _priceNegotiable = meta['priceNegotiable'] as bool? ?? false;
-    _allInclusivePriceToggle = meta['allInclusivePrice'] as bool? ?? false;
+    _allInclusivePriceToggle =
+        (meta['allInclusivePriceToggle'] ?? meta['allInclusivePrice'])
+                as bool? ??
+            false;
     _taxGovtChargesIncluded = meta['taxGovtChargesIncluded'] as bool? ?? false;
     _loanAvailability = meta['loanAvailability'] as bool? ?? false;
     _brokerage = meta['brokerage']?.toString() ?? '';
@@ -870,6 +877,8 @@ class PostPropertyProvider extends ChangeNotifier {
     _whatsappNumber = meta['whatsappNumber']?.toString() ?? '';
     _bestTimeToCall = meta['bestTimeToCall']?.toString() ?? '';
     _bhkType = meta['bhkType']?.toString();
+
+    _hydrateBagFromMetadata(meta);
 
     if (subtableRow != null) {
       final String? cat = propertyRow['category']?.toString();
@@ -906,6 +915,70 @@ class PostPropertyProvider extends ChangeNotifier {
     }
 
     notifyListeners();
+  }
+
+  /// Metadata keys already owned by a named provider field above. They are
+  /// deliberately excluded from the bag so one value can never be represented
+  /// twice with two sources of truth.
+  ///
+  /// Both spellings of the two corrected keys are listed: the canonical React
+  /// name and the legacy name older app builds wrote. The legacy value is
+  /// still readable via the fallback in [initFromRawData], and still survives
+  /// in the stored blob via the merge in `PropertyService.updateProperty` —
+  /// it just must not also leak into the bag.
+  static const Set<String> _namedMetadataKeys = {
+    'city', 'state', 'pincode', 'landmark',
+    'propertyCondition', 'constructionAge', 'availabilityStatus',
+    'availableItems',
+    'electricityBackup', 'waterAvailability', 'numberOfLifts', 'openParking',
+    'gasPipeline', 'internetAvailability', 'solarPower', 'guardRoom',
+    'reraRegistered', 'reraNumber',
+    'saleDeed', 'registryCopy', 'nocAvailable', 'encumbranceFree',
+    'loanApproved', 'propertyApproved',
+    'facing', 'approvedByBanks',
+    'securityDeposit',
+    'maintenanceCharges', 'maintenanceAmount', // canonical + legacy
+    'tokenAmount',
+    'lockInPeriod', 'priceNegotiable',
+    'allInclusivePriceToggle', 'allInclusivePrice', // canonical + legacy
+    'taxGovtChargesIncluded', 'loanAvailability', 'brokerage',
+    'contactName', 'whatsappNumber', 'bestTimeToCall',
+    'bhkType',
+    // Written by _buildMetadata from typed state, never user-edited via the bag.
+    'isPg', 'mediaCategories',
+  };
+
+  /// Routes every metadata key that no named field owns back into the
+  /// `_text` / `_bool` / `_list` bags, so edit mode no longer drops them.
+  ///
+  /// Previously this never happened: hydration read ~39 named keys and left
+  /// the bag empty, while the write path flushed the bag into a fresh blob
+  /// that replaced the column outright. Any key the form did not collect —
+  /// the whole PG block, land legal flags, commercial detail — was destroyed
+  /// on the first in-app edit of a web-created listing.
+  ///
+  /// Nested objects (`Map`) are intentionally skipped. The bag has no map
+  /// slot and Phase 0 does not change its API; `buildingInventory` and
+  /// friends survive untouched through the metadata merge on update instead,
+  /// and gain real editing support in the category parity phases.
+  void _hydrateBagFromMetadata(Map<String, dynamic> meta) {
+    meta.forEach((key, value) {
+      if (value == null || _namedMetadataKeys.contains(key)) return;
+
+      if (value is bool) {
+        _bool[key] = value;
+      } else if (value is List) {
+        _list[key] = value
+            .where((e) => e != null)
+            .map((e) => e.toString())
+            .toList();
+      } else if (value is Map) {
+        // Preserved by the update-time merge, not hydrated. See doc above.
+        return;
+      } else {
+        _text[key] = value.toString();
+      }
+    });
   }
 
   static PropertyCategory? _parseCategory(String? dbValue) => switch (dbValue) {
