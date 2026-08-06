@@ -61,17 +61,6 @@ class BrokerQuickActionsWidget extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-
-        const Text(
-          "Quick Actions",
-          style: TextStyle(
-            fontSize: 22,
-            fontWeight: FontWeight.bold,
-          ),
-        ),
-
-        const SizedBox(height: 18),
-
         Row(
           children: [
 

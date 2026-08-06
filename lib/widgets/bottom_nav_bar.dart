@@ -26,7 +26,31 @@ class BottomNavBar extends StatelessWidget {
   // from becoming absurdly wide on tablets and large-screen foldables.
   static const double _kMaxContentWidth = 600.0;
 
+  // Index of the Profile destination within this bar. Home 0, Search 1,
+  // Reels 2, Profile 3 — the centre "+" occupies an unindexed slot.
+  static const int _kProfileIndex = 3;
+
   void _defaultNavigation(BuildContext context, int index) {
+    // Tapping Profile while already on Profile resets to the Profile root
+    // rather than doing nothing, matching the prototype's `backToProfile`.
+    //
+    // The check reads the *route name* rather than `currentIndex` on purpose:
+    // some screens pass a currentIndex that doesn't match the route they are
+    // on, and keying off the route keeps this branch from firing on them.
+    // Routes without forwarded RouteSettings report a null name, so they
+    // simply fall through to the existing behaviour below.
+    if (index == _kProfileIndex &&
+        ModalRoute.of(context)?.settings.name == AppConstants.profileScreen) {
+      // `route.isFirst` is a safety stop: if the Profile route were ever
+      // reached without its settings, popUntil would otherwise unwind the
+      // entire stack.
+      Navigator.of(context).popUntil(
+        (route) =>
+            route.settings.name == AppConstants.profileScreen || route.isFirst,
+      );
+      return;
+    }
+
     if (currentIndex == index) return;
 
     Provider.of<NavigationProvider>(context, listen: false).setIndex(index);

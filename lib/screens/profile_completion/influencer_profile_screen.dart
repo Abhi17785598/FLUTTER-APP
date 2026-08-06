@@ -1,6 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
-import '../../providers/auth_provider.dart';
 import '../../services/auth_service.dart';
 import '../../services/rbac_service.dart';
 
@@ -50,7 +48,6 @@ class _InfluencerProfileScreenState extends State<InfluencerProfileScreen> {
     });
 
     try {
-      final authProvider = context.read<AuthProvider>();
       final user = _authService.currentUser;
       
       if (user == null) {

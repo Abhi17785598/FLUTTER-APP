@@ -170,34 +170,48 @@ class _FloatingAiOrbState extends State<FloatingAiOrb>
                 AnimatedBuilder(
                   animation: _orbitController,
                   builder: (context, _) {
-                    return Stack(
-                      clipBehavior: Clip.none,
-                      children: List.generate(3, (i) {
-                        final angle =
-                            _orbitController.value * 2 * math.pi +
-                            i * (2 * math.pi / 3);
-                        final radius = _size / 2 + 9;
-                        final dx = radius * math.cos(angle);
-                        final dy = radius * math.sin(angle);
-                        return Positioned(
-                          left: _size / 2 + dx - 3,
-                          top: _size / 2 + dy - 3,
-                          child: Container(
-                            width: 6,
-                            height: 6,
-                            decoration: BoxDecoration(
-                              shape: BoxShape.circle,
-                              color: bg.withOpacity(0.7),
-                              boxShadow: [
-                                BoxShadow(
-                                  color: bg.withOpacity(0.55),
-                                  blurRadius: 6,
-                                ),
-                              ],
+                    // Every child of this Stack is Positioned, so it cannot
+                    // size itself from its children — it would fall back to
+                    // `constraints.biggest`. The constraints here are
+                    // unbounded (the orb's root is a Positioned with only
+                    // left/top, and the parent Stack is StackFit.loose), so
+                    // that fallback is Size.infinite and RenderStack asserts.
+                    // Pin it to the orb box, which is also the coordinate
+                    // space the offsets below are written in (centre at
+                    // _size / 2). Clip.none is retained so the particles still
+                    // paint on their orbit outside this box.
+                    return SizedBox(
+                      width: _size,
+                      height: _size,
+                      child: Stack(
+                        clipBehavior: Clip.none,
+                        children: List.generate(3, (i) {
+                          final angle =
+                              _orbitController.value * 2 * math.pi +
+                              i * (2 * math.pi / 3);
+                          final radius = _size / 2 + 9;
+                          final dx = radius * math.cos(angle);
+                          final dy = radius * math.sin(angle);
+                          return Positioned(
+                            left: _size / 2 + dx - 3,
+                            top: _size / 2 + dy - 3,
+                            child: Container(
+                              width: 6,
+                              height: 6,
+                              decoration: BoxDecoration(
+                                shape: BoxShape.circle,
+                                color: bg.withOpacity(0.7),
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: bg.withOpacity(0.55),
+                                    blurRadius: 6,
+                                  ),
+                                ],
+                              ),
                             ),
-                          ),
-                        );
-                      }),
+                          );
+                        }),
+                      ),
                     );
                   },
                 ),

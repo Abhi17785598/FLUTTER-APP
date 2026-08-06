@@ -6,6 +6,7 @@ import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_text_styles.dart';
 import '../../../core/widgets/wizard_kit.dart';
 import '../../../providers/post_property_provider.dart';
+import '../listing_constants.dart';
 
 /// Step 8: local media selection (no upload — files stay on-device until a
 /// backend integration phase), contact details and hashtags. Mirrors the
@@ -18,16 +19,25 @@ class MediaContactStep extends StatefulWidget {
 }
 
 class _MediaContactStepState extends State<MediaContactStep> {
-  static const _categories = [
-    ('interior', 'Interior'),
-    ('exterior', 'Exterior'),
-    ('amenities', 'Amenities'),
-    ('floor_plan', 'Floor Plan'),
-    ('other', 'Other'),
-  ];
+  /// Photo categories for the current listing, straight from the T0
+  /// constants. React swaps the whole set for land — Sajra / Land video /
+  /// Land images / Others (MediaAndFinalStep.tsx:32) — and Flutter shipped
+  /// neither the land set nor the `property_video` entry of the default one.
+  List<ListingOption> _categoriesFor(PropertyCategory? category) =>
+      category == PropertyCategory.land
+          ? kLandImageCategories
+          : kDefaultImageCategories;
 
   final ImagePicker _picker = ImagePicker();
-  String _selectedCategory = 'interior';
+  String? _selectedCategoryId;
+
+  /// Default category for newly added photos: the first of the active set,
+  /// reset automatically when the category swap changes that set.
+  String _activeCategory(List<ListingOption> options) {
+    final id = _selectedCategoryId;
+    if (id != null && options.any((o) => o.id == id)) return id;
+    return options.first.id;
+  }
 
   late final TextEditingController _contactNameController;
   late final TextEditingController _contactPhoneController;
@@ -65,29 +75,55 @@ class _MediaContactStepState extends State<MediaContactStep> {
     super.dispose();
   }
 
+  // React runs compressMedia() before upload; that implementation is
+  // browser-only (canvas re-encoding + WebCodecs) and cannot be ported. The
+  // equivalent on mobile is to let image_picker downscale and re-encode at
+  // pick time, which keeps uploads to a sane size instead of sending a
+  // full-resolution phone photo — Flutter previously applied no compression
+  // at all.
+  static const int _maxImageDimension = 1920;
+  static const int _imageQuality = 82;
+
   Future<void> _pickFromGallery() async {
-    final images = await _picker.pickMultiImage();
+    final images = await _picker.pickMultiImage(
+      maxWidth: _maxImageDimension.toDouble(),
+      maxHeight: _maxImageDimension.toDouble(),
+      imageQuality: _imageQuality,
+    );
     if (!mounted || images.isEmpty) return;
     final provider = context.read<PostPropertyProvider>();
+    final category = _activeCategory(_categoriesFor(provider.category));
     for (final image in images) {
-      provider.addMediaItem(image, _selectedCategory);
+      provider.addMediaItem(image, category);
     }
   }
 
   Future<void> _pickFromCamera() async {
-    final image = await _picker.pickImage(source: ImageSource.camera);
+    final image = await _picker.pickImage(
+      source: ImageSource.camera,
+      maxWidth: _maxImageDimension.toDouble(),
+      maxHeight: _maxImageDimension.toDouble(),
+      imageQuality: _imageQuality,
+    );
     if (!mounted || image == null) return;
-    context.read<PostPropertyProvider>().addMediaItem(image, _selectedCategory);
+    final provider = context.read<PostPropertyProvider>();
+    provider.addMediaItem(
+        image, _activeCategory(_categoriesFor(provider.category)));
   }
 
-  String _categoryLabel(String id) {
-    return _categories.firstWhere((c) => c.$1 == id, orElse: () => (id, id)).$2;
+  String _categoryLabel(List<ListingOption> options, String id) {
+    for (final o in options) {
+      if (o.id == id) return o.label;
+    }
+    return id;
   }
 
   @override
   Widget build(BuildContext context) {
     final provider = context.watch<PostPropertyProvider>();
     final isPg = provider.category == PropertyCategory.pg;
+    final categories = _categoriesFor(provider.category);
+    final activeCategory = _activeCategory(categories);
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -106,11 +142,13 @@ class _MediaContactStepState extends State<MediaContactStep> {
               WizardField(
                 label: 'Category for new photos',
                 child: WizardChipGroup(
-                  options: _categories.map((c) => c.$2).toList(),
-                  selected: _categoryLabel(_selectedCategory),
+                  options: categories.map((c) => c.label).toList(),
+                  selected: _categoryLabel(categories, activeCategory),
                   onSelected: (label) {
                     setState(() {
-                      _selectedCategory = _categories.firstWhere((c) => c.$2 == label).$1;
+                      _selectedCategoryId = categories
+                          .firstWhere((c) => c.label == label)
+                          .id;
                     });
                   },
                 ),
@@ -151,6 +189,118 @@ class _MediaContactStepState extends State<MediaContactStep> {
                   ),
                 ],
               ),
+              // Photos already on the listing. Without this, editing a
+              // listing showed an empty picker even though it had images, the
+              // user could not remove or re-tag any of them, and there was no
+              // way to choose which one is the main display image.
+              if (provider.existingMedia.isNotEmpty) ...[
+                const SizedBox(height: 16),
+                Text(
+                  'Current photos',
+                  style: AppTextStyles.body.copyWith(
+                    fontWeight: FontWeight.w600,
+                    fontSize: 13,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                GridView.builder(
+                  shrinkWrap: true,
+                  physics: const NeverScrollableScrollPhysics(),
+                  gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                    crossAxisCount: 3,
+                    crossAxisSpacing: 8,
+                    mainAxisSpacing: 8,
+                    childAspectRatio: 0.85,
+                  ),
+                  itemCount: provider.existingMedia.length,
+                  itemBuilder: (context, index) {
+                    final media = provider.existingMedia[index];
+                    final isMain = provider.mainDisplayMediaUrl == media.url ||
+                        (provider.mainDisplayMediaUrl.isEmpty &&
+                            index == 0 &&
+                            provider.existingMedia.isNotEmpty);
+                    return Column(
+                      children: [
+                        Expanded(
+                          child: Stack(
+                            fit: StackFit.expand,
+                            children: [
+                              ClipRRect(
+                                borderRadius: BorderRadius.circular(12),
+                                child: Image.network(
+                                  media.url,
+                                  fit: BoxFit.cover,
+                                  errorBuilder:
+                                      (context, error, stackTrace) => Container(
+                                    color: Colors.grey.shade200,
+                                    child: const Icon(Icons.broken_image),
+                                  ),
+                                ),
+                              ),
+                              Positioned(
+                                top: 4,
+                                right: 4,
+                                child: GestureDetector(
+                                  onTap: () => context
+                                      .read<PostPropertyProvider>()
+                                      .removeExistingMedia(index),
+                                  child: Container(
+                                    padding: const EdgeInsets.all(4),
+                                    decoration: const BoxDecoration(
+                                      color: Colors.black54,
+                                      shape: BoxShape.circle,
+                                    ),
+                                    child: const Icon(Icons.close,
+                                        color: Colors.white, size: 14),
+                                  ),
+                                ),
+                              ),
+                              Positioned(
+                                top: 4,
+                                left: 4,
+                                child: GestureDetector(
+                                  onTap: () => context
+                                      .read<PostPropertyProvider>()
+                                      .setMainDisplayMediaUrl(
+                                          isMain ? '' : media.url),
+                                  child: Container(
+                                    padding: const EdgeInsets.all(4),
+                                    decoration: const BoxDecoration(
+                                      color: Colors.black54,
+                                      shape: BoxShape.circle,
+                                    ),
+                                    child: Icon(
+                                      isMain ? Icons.star : Icons.star_border,
+                                      color: isMain
+                                          ? Colors.amber
+                                          : Colors.white,
+                                      size: 14,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        GestureDetector(
+                          onTap: () => context
+                              .read<PostPropertyProvider>()
+                              .setExistingMediaCategory(index, activeCategory),
+                          child: Text(
+                            _categoryLabel(categories, media.category),
+                            style: AppTextStyles.caption.copyWith(
+                              fontSize: 10,
+                              decoration: TextDecoration.underline,
+                            ),
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                      ],
+                    );
+                  },
+                ),
+              ],
               if (provider.mediaItems.isNotEmpty) ...[
                 const SizedBox(height: 16),
                 GridView.builder(
@@ -204,7 +354,7 @@ class _MediaContactStepState extends State<MediaContactStep> {
                         ),
                         const SizedBox(height: 4),
                         Text(
-                          _categoryLabel(item.category),
+                          _categoryLabel(categories, item.category),
                           style: AppTextStyles.caption.copyWith(fontSize: 10),
                           overflow: TextOverflow.ellipsis,
                         ),

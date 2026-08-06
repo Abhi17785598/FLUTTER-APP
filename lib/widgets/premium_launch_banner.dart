@@ -2,21 +2,23 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
-import 'package:shimmer/shimmer.dart';
 
 import '../core/constants/app_constants.dart';
-import '../core/theme/app_colors.dart';
 import '../core/theme/app_text_styles.dart';
+import '../core/widgets/gradient_text.dart';
 import '../core/widgets/scale_tap.dart';
 import '../models/launch_offer_content.dart';
 
 /// Premium banner promoting "PropCID Pro" for builders/brokers.
 ///
-/// Placed between the [HeroBannerCarousel] and the category grid on the home
-/// screen. Every color/gradient/text style is pulled from the app's existing
-/// theme tokens — the "wow" comes from layering (glow orbs, a looping glass
-/// sheen sweep, a shimmering price, a pulsing live badge) rather than from
-/// introducing a new visual language.
+/// V2.1 visual pass: reskinned to the dark "deep space" card from the design
+/// reference — near-black violet surface, ambient purple bloom, glass panels,
+/// gradient headline/price/CTA — replacing the earlier flat-purple card.
+///
+/// Behavior is deliberately untouched: [_openPaymentMethod] still pushes
+/// [AppConstants.paymentMethodScreen] with the same arguments, and every string
+/// still comes from [LaunchOfferContent] so this surface and the launch bottom
+/// sheet cannot drift apart.
 class PremiumLaunchBanner extends StatefulWidget {
   const PremiumLaunchBanner({super.key});
 
@@ -27,8 +29,26 @@ class PremiumLaunchBanner extends StatefulWidget {
 class _PremiumLaunchBannerState extends State<PremiumLaunchBanner>
     with SingleTickerProviderStateMixin {
   // Single ticker drives every ambient animation (sheen sweep, pulsing badge
-  // dot, glowing CTA, premium glyph ring) — keeps the card cheap to render.
+  // dot, glowing CTA) — keeps the card cheap to render.
   late final AnimationController _ambient;
+
+  // ── Palette, sampled from the design reference ─────────────────────────
+  static const Color _ink = Color(0xFF0A0718);
+  static const Color _inkMid = Color(0xFF150E33);
+  static const Color _violet = Color(0xFF8B5CF6);
+  static const Color _magenta = Color(0xFFE879F9);
+  static const Color _iris = Color(0xFF6D5BF6);
+
+  static const double _radius = 26;
+
+  static const LinearGradient _accentGradient = LinearGradient(
+    colors: [_violet, _magenta],
+  );
+  static const LinearGradient _ctaGradient = LinearGradient(
+    begin: Alignment.centerLeft,
+    end: Alignment.centerRight,
+    colors: [_iris, _violet, Color(0xFFD65DE0)],
+  );
 
   @override
   void initState() {
@@ -45,6 +65,8 @@ class _PremiumLaunchBannerState extends State<PremiumLaunchBanner>
     super.dispose();
   }
 
+  // ── Behavior (unchanged from V2) ───────────────────────────────────────
+
   void _openPaymentMethod(BuildContext context) {
     Navigator.pushNamed(
       context,
@@ -56,107 +78,168 @@ class _PremiumLaunchBannerState extends State<PremiumLaunchBanner>
     );
   }
 
+  /// Splits the single `title` constant into its lead-in and its accent half
+  /// ("PropCID Pro" / "Builders & Brokers") so the headline can render the
+  /// two-tone treatment from the reference without duplicating the copy.
+  (String, String) get _headlineParts {
+    const String title = LaunchOfferContent.title;
+    final int i = title.indexOf(' for ');
+    if (i < 0) return (title, '');
+    return (title.substring(0, i), title.substring(i + 5));
+  }
+
   @override
   Widget build(BuildContext context) {
+    final (String lead, String accent) = _headlineParts;
+
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16),
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(24),
-        child: Container(
-          decoration: BoxDecoration(
-            gradient: AppColors.heroGradient,
-            boxShadow: AppColors.primaryGlow,
-          ),
-          child: Stack(
-            children: [
-              // ── Ambient depth: soft glow orbs ─────────────────────────
-              Positioned(
-                top: -46,
-                right: -34,
-                child: _glowOrb(190, Colors.white.withOpacity(0.16)),
+      child: DecoratedBox(
+        // Outer soft premium shadow — sits outside the clip so it can bloom.
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(_radius),
+          boxShadow: [
+            BoxShadow(
+              color: _iris.withOpacity(0.34),
+              blurRadius: 30,
+              spreadRadius: -6,
+              offset: const Offset(0, 14),
+            ),
+            BoxShadow(
+              color: Colors.black.withOpacity(0.28),
+              blurRadius: 18,
+              offset: const Offset(0, 6),
+            ),
+          ],
+        ),
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(_radius),
+          child: DecoratedBox(
+            decoration: BoxDecoration(
+              gradient: const LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: [_ink, _inkMid, _ink],
+                stops: [0.0, 0.55, 1.0],
               ),
-              Positioned(
-                bottom: -60,
-                left: -46,
-                child: _glowOrb(180, Colors.black.withOpacity(0.18)),
-              ),
-
-              // ── Looping diagonal sheen sweep ──────────────────────────
-              _buildSheen(),
-
-              // ── Content ────────────────────────────────────────────────
-              Padding(
-                padding: const EdgeInsets.fromLTRB(20, 18, 20, 18),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        _badge(),
-                        const Spacer(),
-                        _premiumGlyph(),
-                      ],
-                    ),
-                    const SizedBox(height: 14),
-                    Text(
-                      LaunchOfferContent.title,
-                      style: AppTextStyles.heading2.copyWith(
-                        color: Colors.white,
-                        fontSize: 18,
-                        fontWeight: FontWeight.w700,
-                        height: 1.25,
-                      ),
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                    const SizedBox(height: 8),
-                    Row(
-                      children: [
-                        Icon(Icons.schedule_rounded,
-                            color: Colors.white.withOpacity(0.75), size: 14),
-                        const SizedBox(width: 5),
-                        Text(
-                          LaunchOfferContent.tagline,
-                          style: AppTextStyles.caption.copyWith(
-                            color: Colors.white.withOpacity(0.8),
-                            fontSize: 12,
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 16),
-                    _divider(),
-                    const SizedBox(height: 14),
-                    _buildBenefitsRow(),
-                    const SizedBox(height: 16),
-                    _buildPricePanel(context),
-                    const SizedBox(height: 10),
-                    _buildTrustRow(),
-                  ],
+              border: Border.all(color: Colors.white.withOpacity(0.10)),
+              borderRadius: BorderRadius.circular(_radius),
+            ),
+            child: Stack(
+              children: [
+                // Ambient blooms. Positioned children are safe here because the
+                // content Padding below is non-positioned and gives this Stack
+                // its size.
+                Positioned(
+                  top: -90,
+                  right: -70,
+                  child: _bloom(230, _violet.withOpacity(0.38)),
                 ),
-              ),
-            ],
+                Positioned(
+                  bottom: -110,
+                  left: -80,
+                  child: _bloom(220, _iris.withOpacity(0.22)),
+                ),
+                _buildSheen(),
+
+                // ── Content ───────────────────────────────────────────────
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 14, 16, 13),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Row(
+                        crossAxisAlignment: CrossAxisAlignment.center,
+                        children: [
+                          Flexible(child: _offerChip()),
+                          const SizedBox(width: 10),
+                          Flexible(child: _trustedBy()),
+                        ],
+                      ),
+                      const SizedBox(height: 12),
+                      Text(
+                        lead,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: AppTextStyles.heading1.copyWith(
+                          color: Colors.white,
+                          fontSize: 20,
+                          fontWeight: FontWeight.w800,
+                          height: 1.15,
+                          letterSpacing: -0.3,
+                        ),
+                      ),
+                      if (accent.isNotEmpty)
+                        Row(
+                          crossAxisAlignment: CrossAxisAlignment.baseline,
+                          textBaseline: TextBaseline.alphabetic,
+                          children: [
+                            Text(
+                              'for ',
+                              style: AppTextStyles.heading1.copyWith(
+                                color: Colors.white,
+                                fontSize: 16.5,
+                                fontWeight: FontWeight.w800,
+                                height: 1.2,
+                                letterSpacing: -0.2,
+                              ),
+                            ),
+                            Flexible(
+                              child: GradientText(
+                                text: accent,
+                                gradient: _accentGradient,
+                                style: AppTextStyles.heading1.copyWith(
+                                  fontSize: 16.5,
+                                  fontWeight: FontWeight.w800,
+                                  height: 1.2,
+                                  letterSpacing: -0.2,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      const SizedBox(height: 7),
+                      Text(
+                        LaunchOfferContent.valueProposition,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: AppTextStyles.body.copyWith(
+                          color: Colors.white.withOpacity(0.68),
+                          fontSize: 11.5,
+                          height: 1.3,
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      _benefitStrip(),
+                      const SizedBox(height: 12),
+                      _pricePanel(context),
+                      const SizedBox(height: 9),
+                      _assuranceRow(),
+                    ],
+                  ),
+                ),
+              ],
+            ),
           ),
         ),
       ),
-    )
-        .animate()
-        .fadeIn(duration: 500.ms)
-        .slideY(begin: 0.08, curve: Curves.easeOutCubic);
+    ).animate().fadeIn(duration: 500.ms).slideY(
+          begin: 0.08,
+          curve: Curves.easeOutCubic,
+        );
   }
 
   // ── Decorative helpers ─────────────────────────────────────────────────
 
-  Widget _glowOrb(double size, Color color) {
+  Widget _bloom(double size, Color color) {
     return IgnorePointer(
       child: Container(
         width: size,
         height: size,
         decoration: BoxDecoration(
           shape: BoxShape.circle,
-          gradient: RadialGradient(
-            colors: [color, color.withOpacity(0)],
-          ),
+          gradient: RadialGradient(colors: [color, color.withOpacity(0)]),
         ),
       ),
     );
@@ -184,15 +267,15 @@ class _PremiumLaunchBannerState extends State<PremiumLaunchBanner>
                     child: Transform.rotate(
                       angle: -0.35,
                       child: Container(
-                        width: w * 0.45,
-                        height: 420,
+                        width: w * 0.42,
+                        height: 900,
                         decoration: BoxDecoration(
                           gradient: LinearGradient(
                             begin: Alignment.centerLeft,
                             end: Alignment.centerRight,
                             colors: [
                               Colors.white.withOpacity(0.0),
-                              Colors.white.withOpacity(0.16),
+                              Colors.white.withOpacity(0.055),
                               Colors.white.withOpacity(0.0),
                             ],
                           ),
@@ -209,27 +292,24 @@ class _PremiumLaunchBannerState extends State<PremiumLaunchBanner>
     );
   }
 
-  Widget _divider() {
-    return Container(
-      height: 1,
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          colors: [
-            Colors.white.withOpacity(0),
-            Colors.white.withOpacity(0.28),
-            Colors.white.withOpacity(0),
-          ],
-        ),
-      ),
+  /// Frosted panel used by the feature grid and the price block.
+  BoxDecoration _glassPanel({double radius = 18}) {
+    return BoxDecoration(
+      color: Colors.white.withOpacity(0.045),
+      borderRadius: BorderRadius.circular(radius),
+      border: Border.all(color: Colors.white.withOpacity(0.09)),
     );
   }
 
-  Widget _badge() {
+  // ── Header ─────────────────────────────────────────────────────────────
+
+  Widget _offerChip() {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.18),
-        borderRadius: BorderRadius.circular(20),
+        color: Colors.white.withOpacity(0.07),
+        borderRadius: BorderRadius.circular(22),
+        border: Border.all(color: Colors.white.withOpacity(0.14)),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
@@ -238,25 +318,26 @@ class _PremiumLaunchBannerState extends State<PremiumLaunchBanner>
             animation: _ambient,
             builder: (context, _) {
               final double pulse =
-                  (math.sin(_ambient.value * 2 * math.pi).abs());
-              return Container(
-                width: 6,
-                height: 6,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: Colors.white.withOpacity(0.55 + 0.45 * pulse),
-                ),
+                  math.sin(_ambient.value * 2 * math.pi).abs();
+              return Icon(
+                Icons.rocket_launch_rounded,
+                size: 13,
+                color: Color.lerp(_magenta, Colors.white, pulse * 0.7),
               );
             },
           ),
-          const SizedBox(width: 6),
-          Text(
-            LaunchOfferContent.badgeLabel,
-            style: AppTextStyles.chip.copyWith(
-              color: Colors.white,
-              fontSize: 11,
-              fontWeight: FontWeight.w700,
-              letterSpacing: 0.3,
+          const SizedBox(width: 7),
+          Flexible(
+            child: Text(
+              LaunchOfferContent.offerChipLabel,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: AppTextStyles.chip.copyWith(
+                color: Colors.white,
+                fontSize: 10.5,
+                fontWeight: FontWeight.w700,
+                letterSpacing: 0.6,
+              ),
             ),
           ),
         ],
@@ -264,64 +345,109 @@ class _PremiumLaunchBannerState extends State<PremiumLaunchBanner>
     );
   }
 
-  Widget _premiumGlyph() {
-    return AnimatedBuilder(
-      animation: _ambient,
-      builder: (context, _) {
-        final double pulse = 0.55 + 0.45 * math.sin(_ambient.value * 2 * math.pi);
-        return Container(
-          width: 34,
-          height: 34,
+  Widget _trustedBy() {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Container(
+          width: 30,
+          height: 30,
           decoration: BoxDecoration(
-            shape: BoxShape.circle,
-            color: Colors.white.withOpacity(0.16),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.white.withOpacity(0.32 * pulse),
-                blurRadius: 14,
-                spreadRadius: 1,
+            color: Colors.white.withOpacity(0.07),
+            borderRadius: BorderRadius.circular(9),
+            border: Border.all(color: Colors.white.withOpacity(0.12)),
+          ),
+          child: Icon(
+            Icons.verified_user_rounded,
+            size: 15,
+            color: _magenta.withOpacity(0.9),
+          ),
+        ),
+        const SizedBox(width: 8),
+        Flexible(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                'TRUSTED BY',
+                maxLines: 1,
+                overflow: TextOverflow.clip,
+                softWrap: false,
+                style: AppTextStyles.caption.copyWith(
+                  color: Colors.white.withOpacity(0.55),
+                  fontSize: 7.5,
+                  fontWeight: FontWeight.w600,
+                  letterSpacing: 0.7,
+                  height: 1.1,
+                ),
+              ),
+              Text(
+                LaunchOfferContent.trustedByCount,
+                maxLines: 1,
+                overflow: TextOverflow.clip,
+                softWrap: false,
+                style: AppTextStyles.heading3.copyWith(
+                  color: Colors.white,
+                  fontSize: 15,
+                  fontWeight: FontWeight.w800,
+                  height: 1.15,
+                ),
+              ),
+              Text(
+                LaunchOfferContent.trustedByCaption,
+                maxLines: 1,
+                overflow: TextOverflow.clip,
+                softWrap: false,
+                style: AppTextStyles.caption.copyWith(
+                  color: Colors.white.withOpacity(0.55),
+                  fontSize: 7.5,
+                  fontWeight: FontWeight.w600,
+                  letterSpacing: 0.5,
+                  height: 1.1,
+                ),
               ),
             ],
           ),
-          child: Icon(
-            Icons.workspace_premium_rounded,
-            color: Colors.white.withOpacity(0.85 + 0.15 * pulse),
-            size: 18,
-          ),
-        );
-      },
+        ),
+      ],
     );
   }
 
-  Widget _buildBenefitsRow() {
+  // -- Benefit strip (compact scrollable pills) ----------------------------
+
+  Widget _benefitStrip() {
     final items = LaunchOfferContent.benefits;
+    if (items.isEmpty) return const SizedBox.shrink();
+
     return SizedBox(
-      height: 34,
+      height: 30,
       child: ListView.separated(
         scrollDirection: Axis.horizontal,
         physics: const BouncingScrollPhysics(),
+        padding: EdgeInsets.zero,
         itemCount: items.length,
-        separatorBuilder: (_, __) => const SizedBox(width: 8),
+        separatorBuilder: (_, __) => const SizedBox(width: 7),
         itemBuilder: (context, i) {
           final b = items[i];
           return Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12),
+            padding: const EdgeInsets.symmetric(horizontal: 10),
             alignment: Alignment.center,
             decoration: BoxDecoration(
-              color: Colors.white.withOpacity(0.14),
-              borderRadius: BorderRadius.circular(20),
-              border: Border.all(color: Colors.white.withOpacity(0.22)),
+              color: _violet.withOpacity(0.13),
+              borderRadius: BorderRadius.circular(15),
+              border: Border.all(color: _violet.withOpacity(0.26)),
             ),
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Icon(b.icon, size: 13, color: Colors.white),
+                Icon(b.icon, size: 12, color: _magenta),
                 const SizedBox(width: 5),
                 Text(
                   b.label,
                   style: AppTextStyles.chip.copyWith(
-                    color: Colors.white,
-                    fontSize: 11,
+                    color: Colors.white.withOpacity(0.92),
+                    fontSize: 10.5,
                     fontWeight: FontWeight.w600,
                   ),
                 ),
@@ -329,54 +455,121 @@ class _PremiumLaunchBannerState extends State<PremiumLaunchBanner>
             ),
           )
               .animate()
-              .fadeIn(delay: (110 * i).ms, duration: 380.ms)
+              .fadeIn(delay: (70 * i).ms, duration: 340.ms)
               .slideX(begin: 0.15, curve: Curves.easeOutCubic);
         },
       ),
     );
   }
 
-  Widget _buildPricePanel(BuildContext context) {
+  // -- Price panel (compact: price + CTA share one row) --------------------
+
+  Widget _pricePanel(BuildContext context) {
+    // '₹299/month' -> big '₹299' + small '/month', without hardcoding either.
+    const String full = LaunchOfferContent.priceLabel;
+    const String amount = LaunchOfferContent.amountLabel;
+    final String suffix =
+        full.startsWith(amount) ? full.substring(amount.length) : '';
+
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-      decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.10),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: Colors.white.withOpacity(0.18)),
-      ),
+      padding: const EdgeInsets.fromLTRB(14, 11, 14, 11),
+      decoration: _glassPanel(radius: 16),
       child: Row(
-        crossAxisAlignment: CrossAxisAlignment.center,
         children: [
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
               children: [
-                Text(
-                  'Launch Price',
-                  style: AppTextStyles.caption.copyWith(
-                    color: Colors.white.withOpacity(0.75),
-                    fontSize: 11,
+                FittedBox(
+                  fit: BoxFit.scaleDown,
+                  alignment: Alignment.centerLeft,
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        'Launch Price',
+                        maxLines: 1,
+                        style: AppTextStyles.caption.copyWith(
+                          color: Colors.white.withOpacity(0.62),
+                          fontSize: 10,
+                        ),
+                      ),
+                      const SizedBox(width: 6),
+                      _savingsChip(),
+                    ],
                   ),
                 ),
                 const SizedBox(height: 2),
-                Shimmer.fromColors(
-                  baseColor: Colors.white,
-                  highlightColor: const Color(0xFFFFE9B8),
-                  period: const Duration(milliseconds: 2200),
-                  child: Text(
-                    LaunchOfferContent.priceLabel,
-                    style: AppTextStyles.price.copyWith(
-                      color: Colors.white,
-                      fontSize: 24,
-                      fontWeight: FontWeight.w800,
-                    ),
+                FittedBox(
+                  fit: BoxFit.scaleDown,
+                  alignment: Alignment.centerLeft,
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.baseline,
+                    textBaseline: TextBaseline.alphabetic,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      GradientText(
+                        text: amount,
+                        gradient: _accentGradient,
+                        style: AppTextStyles.price.copyWith(
+                          fontSize: 25,
+                          fontWeight: FontWeight.w800,
+                          height: 1.05,
+                          letterSpacing: -0.4,
+                        ),
+                      ),
+                      if (suffix.isNotEmpty)
+                        Text(
+                          suffix,
+                          style: AppTextStyles.body.copyWith(
+                            color: Colors.white.withOpacity(0.62),
+                            fontSize: 11,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                    ],
                   ),
                 ),
               ],
             ),
           ),
           const SizedBox(width: 12),
-          _upgradeButton(context),
+          Flexible(child: _upgradeButton(context)),
+        ],
+      ),
+    );
+  }
+
+  Widget _savingsChip() {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+      decoration: BoxDecoration(
+        color: _magenta.withOpacity(0.14),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: _magenta.withOpacity(0.30)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const Icon(
+            Icons.local_fire_department_rounded,
+            size: 12,
+            color: Color(0xFFFF7A59),
+          ),
+          const SizedBox(width: 5),
+          Flexible(
+            child: Text(
+              LaunchOfferContent.savingsLabel,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: AppTextStyles.chip.copyWith(
+                color: Colors.white,
+                fontSize: 10.5,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ),
         ],
       ),
     );
@@ -388,53 +581,77 @@ class _PremiumLaunchBannerState extends State<PremiumLaunchBanner>
       child: AnimatedBuilder(
         animation: _ambient,
         builder: (context, child) {
-          final double pulse = 0.5 + 0.5 * math.sin(_ambient.value * 2 * math.pi);
+          final double pulse =
+              0.5 + 0.5 * math.sin(_ambient.value * 2 * math.pi);
           return Container(
-            padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 13),
+            padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
             decoration: BoxDecoration(
-              color: Colors.white,
+              gradient: _ctaGradient,
               borderRadius: BorderRadius.circular(14),
               boxShadow: [
                 BoxShadow(
-                  color: Colors.white.withOpacity(0.32 + 0.22 * pulse),
-                  blurRadius: 14 + 6 * pulse,
-                  spreadRadius: 1,
+                  color: _violet.withOpacity(0.34 + 0.20 * pulse),
+                  blurRadius: 16 + 8 * pulse,
+                  spreadRadius: -2,
+                  offset: const Offset(0, 6),
                 ),
               ],
             ),
             child: child,
           );
         },
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(
-              'Upgrade Now',
-              style: AppTextStyles.button.copyWith(
-                color: AppColors.primary,
-                fontSize: 13,
-                fontWeight: FontWeight.w700,
+        // scaleDown rather than ellipsis: a CTA must never read "Upgrade to…".
+        child: FittedBox(
+          fit: BoxFit.scaleDown,
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Text(
+                LaunchOfferContent.ctaLabel,
+                maxLines: 1,
+                style: AppTextStyles.button.copyWith(
+                  color: Colors.white,
+                  fontSize: 13,
+                  fontWeight: FontWeight.w700,
+                ),
               ),
-            ),
-            const SizedBox(width: 6),
-            const Icon(Icons.arrow_forward_rounded,
-                color: AppColors.primary, size: 16),
-          ],
+              const SizedBox(width: 6),
+              const Icon(
+                Icons.arrow_forward_rounded,
+                color: Colors.white,
+                size: 15,
+              ),
+            ],
+          ),
         ),
       ),
     );
   }
 
-  Widget _buildTrustRow() {
+  // ── Assurance footer ───────────────────────────────────────────────────
+
+  Widget _assuranceRow() {
+    final style = AppTextStyles.caption.copyWith(
+      color: Colors.white.withOpacity(0.50),
+      fontSize: 10,
+    );
     return Row(
+      mainAxisAlignment: MainAxisAlignment.center,
       children: [
-        Icon(Icons.lock_rounded, size: 12, color: Colors.white.withOpacity(0.7)),
-        const SizedBox(width: 5),
-        Text(
-          'Secure checkout • Cancel anytime',
-          style: AppTextStyles.caption.copyWith(
-            color: Colors.white.withOpacity(0.65),
-            fontSize: 10.5,
+        Icon(
+          Icons.lock_rounded,
+          size: 11,
+          color: Colors.white.withOpacity(0.50),
+        ),
+        const SizedBox(width: 6),
+        Flexible(
+          child: Text(
+            LaunchOfferContent.assurances.join('  •  '),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            textAlign: TextAlign.center,
+            style: style,
           ),
         ),
       ],

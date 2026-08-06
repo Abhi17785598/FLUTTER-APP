@@ -9,6 +9,16 @@ class SmartQueryResult {
   final String? listingType;
   final double? budgetMin;
   final double? budgetMax;
+
+  /// A residential subtype, as the literal `properties.residential_subtype`
+  /// cell content (e.g. `Villa / Kothi`) — never a loose label.
+  ///
+  /// Null unless the query actually named one. `AiSearchService` both validates
+  /// this against the real column vocabulary and refuses to accept it when the
+  /// query contains no subtype word at all, so a bedroom count can never be
+  /// turned into a property style.
+  final String? subtype;
+
   final String keywords;
 
   const SmartQueryResult({
@@ -18,6 +28,7 @@ class SmartQueryResult {
     this.listingType,
     this.budgetMin,
     this.budgetMax,
+    this.subtype,
     this.keywords = '',
   });
 
@@ -29,6 +40,7 @@ class SmartQueryResult {
       listingType: json['listingType'] as String?,
       budgetMin: (json['budgetMin'] as num?)?.toDouble(),
       budgetMax: (json['budgetMax'] as num?)?.toDouble(),
+      subtype: json['subtype']?.toString(),
       keywords: json['keywords']?.toString() ?? '',
     );
   }
@@ -41,5 +53,6 @@ class SmartQueryResult {
       category != null ||
       listingType != null ||
       budgetMin != null ||
-      budgetMax != null;
+      budgetMax != null ||
+      subtype != null;
 }

@@ -4,6 +4,8 @@ import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_text_styles.dart';
 import '../../../core/widgets/wizard_kit.dart';
 import '../../../providers/post_property_provider.dart';
+import '../listing_area_units.dart';
+import '../listing_constants.dart';
 
 /// Step 7: pricing terms beyond the headline price already captured in Basic
 /// Info — rate/deposit/maintenance/booking/lock-in, negotiability toggles and
@@ -17,11 +19,21 @@ class PricingStep extends StatefulWidget {
 }
 
 class _PricingStepState extends State<PricingStep> {
+  /// Apartment subtype on a rent or lease listing — the combination React
+  /// renders "Society charges" for.
+  static bool _isApartmentRental(PostPropertyProvider p) =>
+      p.category == PropertyCategory.residential &&
+      kApartmentSubtypes.contains(p.residentialSubType ?? '') &&
+      (p.listingIntent == ListingIntent.rent ||
+          p.listingIntent == ListingIntent.lease);
+
   static const _lockInOptions = ['None', '3 Months', '6 Months', '1 Year', '2 Years'];
 
+  late final TextEditingController _priceController;
   late final TextEditingController _ratePerAreaController;
   late final TextEditingController _securityDepositController;
   late final TextEditingController _maintenanceController;
+  late final TextEditingController _societyChargesController;
   late final TextEditingController _bookingAmountController;
   late final TextEditingController _brokerageController;
 
@@ -45,9 +57,12 @@ class _PricingStepState extends State<PricingStep> {
   void initState() {
     super.initState();
     final p = context.read<PostPropertyProvider>();
+    _priceController = TextEditingController(text: p.price);
     _ratePerAreaController = TextEditingController(text: p.ratePerArea);
     _securityDepositController = TextEditingController(text: p.securityDeposit);
     _maintenanceController = TextEditingController(text: p.maintenanceCharges);
+    _societyChargesController =
+        TextEditingController(text: p.text('societyCharges'));
     _bookingAmountController = TextEditingController(text: p.bookingAmount);
     _brokerageController = TextEditingController(text: p.brokerage);
 
@@ -68,9 +83,11 @@ class _PricingStepState extends State<PricingStep> {
 
   @override
   void dispose() {
+    _priceController.dispose();
     _ratePerAreaController.dispose();
     _securityDepositController.dispose();
     _maintenanceController.dispose();
+    _societyChargesController.dispose();
     _bookingAmountController.dispose();
     _brokerageController.dispose();
     _roiEstimateController.dispose();
@@ -98,6 +115,58 @@ class _PricingStepState extends State<PricingStep> {
       default:
         return 'Expected Price';
     }
+  }
+
+  /// The label React passes to `<PriceInput label=...>`, per category and
+  /// listing type (PricingStep.tsx:594-718). Transcribed verbatim, including
+  /// the portal saying "Total Asking Price" on residential and commercial
+  /// *rent*, and the missing space in land/sell's "Asking Price*".
+  ///
+  /// Returns null for the two PG branches React gives a different control:
+  /// pg/rent uses Monthly Rent Per Bed, pg/sell uses Total Sale Price.
+  static String? _askingPriceLabel(
+      PropertyCategory? category, ListingIntent? intent) {
+    return switch ((category, intent)) {
+      (PropertyCategory.land, ListingIntent.rent) => 'Rent amount per month *',
+      (PropertyCategory.land, ListingIntent.sell) => 'Asking Price*',
+      (PropertyCategory.land, ListingIntent.lease) => 'Lease Amount per year *',
+      (PropertyCategory.pg, ListingIntent.lease) => 'Lease Amount per year *',
+      (PropertyCategory.pg, _) => null,
+      (_, ListingIntent.rent) => 'Total Asking Price *',
+      (_, ListingIntent.sell) => 'Expected Price *',
+      (_, ListingIntent.lease) => 'Lease Amount *',
+      _ => null,
+    };
+  }
+
+  /// React's `PriceInput` writes three fields from the one box
+  /// (PricingStep.tsx:44) — `price` is the column, `expectedPrice` and
+  /// `leaseAmount` are the metadata mirrors the web reads back.
+  Widget _priceField(PostPropertyProvider provider) {
+    final label = _askingPriceLabel(provider.category, provider.listingIntent);
+    if (label == null) return const SizedBox.shrink();
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        WizardField(
+          label: label,
+          child: WizardTextField(
+            controller: _priceController,
+            hint: '0',
+            keyboardType: TextInputType.number,
+            onChanged: (v) {
+              // `value.replace(/[^\d]/g, '')` — digits only, no decimal point.
+              final digits = v.replaceAll(RegExp(r'[^\d]'), '');
+              final p = context.read<PostPropertyProvider>();
+              p.setPrice(digits);
+              p.setText('expectedPrice', digits);
+              p.setText('leaseAmount', digits);
+            },
+          ),
+        ),
+        const WizardDivider(),
+      ],
+    );
   }
 
   @override
@@ -134,22 +203,41 @@ class _PricingStepState extends State<PricingStep> {
           ),
         ),
         const SizedBox(height: 20),
-        if (!isPg)
-          WizardCard(
+        WizardCard(
             icon: Icons.request_quote_outlined,
             title: 'Pricing Details',
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                if (isSell) ...[
+                // React renders PriceInput first in every branch.
+                _priceField(provider),
+                if (isSell && !isPg) ...[
                   WizardField(
-                    label: 'Rate per Sq.Ft/Unit (Optional)',
-                    child: WizardTextField(
-                      controller: _ratePerAreaController,
-                      hint: '₹0',
-                      keyboardType: TextInputType.number,
-                      onChanged: (v) =>
-                          context.read<PostPropertyProvider>().setRatePerArea(v),
+                    label: 'Rate per Area',
+                    child: Row(
+                      children: [
+                        Expanded(
+                          flex: 2,
+                          child: WizardTextField(
+                            controller: _ratePerAreaController,
+                            hint: '₹0',
+                            keyboardType: TextInputType.number,
+                            onChanged: (v) {
+                              // React writes BOTH keys from this one input
+                              // (PricingStep.tsx:124): ratePerArea is the
+                              // canonical field, pricePerSqFt the mirror the
+                              // web reads on cards. Flutter wrote only the
+                              // former, so metadata.pricePerSqFt was blank on
+                              // every app-created listing.
+                              final p = context.read<PostPropertyProvider>();
+                              p.setRatePerArea(v);
+                              p.setText('pricePerSqFt', v);
+                            },
+                          ),
+                        ),
+                        const SizedBox(width: 10),
+                        Expanded(child: _RateUnitDropdown(provider: provider)),
+                      ],
                     ),
                   ),
                   const WizardDivider(),
@@ -167,17 +255,39 @@ class _PricingStepState extends State<PricingStep> {
                   ),
                   const WizardDivider(),
                 ],
-                WizardField(
-                  label: 'Maintenance Charges (Monthly)',
-                  child: WizardTextField(
-                    controller: _maintenanceController,
-                    hint: '₹0',
-                    keyboardType: TextInputType.number,
-                    onChanged: (v) =>
-                        context.read<PostPropertyProvider>().setMaintenanceCharges(v),
+                // React shows "Society charges" for apartments and
+                // "Maintenance charges" for everything else, and its rules
+                // require whichever one is on screen (propertyListingRules.ts:
+                // societyCharges applies isApartment && rent/lease;
+                // maintenanceCharges applies !isApartment && !isLand &&
+                // rent/lease). Rendering both would demand a value the web
+                // never asks for.
+                if (_isApartmentRental(provider))
+                  WizardField(
+                    label: 'Society Charges (Monthly) *',
+                    child: WizardTextField(
+                      controller: _societyChargesController,
+                      hint: '₹0',
+                      keyboardType: TextInputType.number,
+                      onChanged: (v) => context
+                          .read<PostPropertyProvider>()
+                          .setText('societyCharges', v),
+                    ),
+                  )
+                else
+                  WizardField(
+                    label: 'Maintenance Charges (Monthly)',
+                    child: WizardTextField(
+                      controller: _maintenanceController,
+                      hint: '₹0',
+                      keyboardType: TextInputType.number,
+                      onChanged: (v) => context
+                          .read<PostPropertyProvider>()
+                          .setMaintenanceCharges(v),
+                    ),
                   ),
-                ),
-                if (isSell) ...[
+                // React renders <TokenAmount> in every one of its 15 branches.
+                ...[
                   const WizardDivider(),
                   WizardField(
                     label: 'Booking / Token Amount',
@@ -592,6 +702,50 @@ class _PricingStepState extends State<PricingStep> {
           ),
         ),
       ],
+    );
+  }
+}
+
+/// Unit for "rate per area".
+///
+/// React defaults this to `ratePerAreaUnit || areaUnit || 'sq_ft'` and offers
+/// the same category-dependent set as the Dimensions step
+/// (PricingStep.tsx:132), so a commercial listing cannot quote a rate in bigha.
+class _RateUnitDropdown extends StatelessWidget {
+  const _RateUnitDropdown({required this.provider});
+
+  final PostPropertyProvider provider;
+
+  @override
+  Widget build(BuildContext context) {
+    final stored = provider.text('ratePerAreaUnit');
+    final value = stored.isNotEmpty
+        ? stored
+        : (provider.areaUnit.isNotEmpty
+            ? provider.areaUnit
+            : defaultAreaUnitFor(provider.category));
+    final units = areaUnitsFor(provider.category, value);
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10),
+      decoration: BoxDecoration(
+        color: AppColors.background,
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: DropdownButtonHideUnderline(
+        child: DropdownButton<String>(
+          value: value,
+          isExpanded: true,
+          items: units
+              .map((u) => DropdownMenuItem(value: u.$1, child: Text(u.$2)))
+              .toList(),
+          onChanged: (v) {
+            if (v != null) {
+              context.read<PostPropertyProvider>().setText('ratePerAreaUnit', v);
+            }
+          },
+        ),
+      ),
     );
   }
 }

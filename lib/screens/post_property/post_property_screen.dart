@@ -4,10 +4,11 @@ import 'package:provider/provider.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_text_styles.dart';
 import '../../core/widgets/gradient_text.dart';
-import '../../core/widgets/premium_button.dart';
-import '../../core/widgets/step_indicator.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/post_property_provider.dart';
+import 'listing_validation_rules.dart';
+import 'portal_shell.dart';
+
 import '../../services/property_service.dart';
 import 'steps/type_selection_step.dart';
 import 'steps/basic_info_step.dart';
@@ -19,6 +20,14 @@ import 'steps/pricing_step.dart';
 import 'steps/media_contact_step.dart';
 import 'steps/review_step.dart';
 import 'property_submission_confirmation_screen.dart';
+
+/// Steps already reproduced from the React portal, which render their own
+/// heading block. Grows as each step is converted.
+const Set<WizardStep> kPortalConvertedSteps = {
+  WizardStep.category,
+  WizardStep.basicInfo,
+  WizardStep.dimensions,
+};
 
 /// Post Property wizard shell.
 ///
@@ -41,37 +50,67 @@ class PostPropertyScreen extends StatelessWidget {
     this.editBundle,
   });
 
-  static const _stepLabels = [
-    'Type',
-    'Basic Info',
-    'Dimensions',
-    'Condition',
-    'Amenities',
-    'Legal',
-    'Pricing',
-    'Media',
-    'Review',
-  ];
+  /// Short label per step, shown in the progress indicator. Keyed by identity
+  /// because which steps appear — and therefore their positions — depends on
+  /// the chosen category (T3).
+  static const Map<WizardStep, String> stepLabels = {
+    WizardStep.category: 'Type',
+    WizardStep.basicInfo: 'Basic Info',
+    WizardStep.dimensions: 'Dimensions',
+    WizardStep.condition: 'Condition',
+    WizardStep.amenities: 'Amenities',
+    WizardStep.legal: 'Legal',
+    WizardStep.pricing: 'Pricing',
+    WizardStep.media: 'Media',
+    WizardStep.review: 'Review',
+  };
 
-  static const _stepHeadings = [
-    ('What are you listing?', 'Choose a category and how you want to list it'),
-    ('Tell us the basics', 'Add the core details buyers will see first'),
-    ('Dimensions & Layout', 'Specify the physical size and layout of the property'),
-    ('Condition & Furnishing', "Tell us about the property's age, availability and furnishings"),
-    ('Amenities & Facilities', 'What facilities are available at this property?'),
-    ('Legal & Approvals', 'Provide legal and documentation status for transparency'),
-    ('Pricing & Terms', 'Provide pricing details, terms and conditions'),
-    ('Media & Contact', 'Add photos and how buyers can reach you'),
-    ('Review Your Listing', 'Check everything before you finish'),
-  ];
+  static const Map<WizardStep, (String, String)> stepHeadings = {
+    WizardStep.category: (
+      'What are you listing?',
+      'Choose a category and how you want to list it'
+    ),
+    WizardStep.basicInfo: (
+      'Tell us the basics',
+      'Add the core details buyers will see first'
+    ),
+    WizardStep.dimensions: (
+      'Dimensions & Layout',
+      'Specify the physical size and layout of the property'
+    ),
+    WizardStep.condition: (
+      'Condition & Furnishing',
+      "Tell us about the property's age, availability and furnishings"
+    ),
+    WizardStep.amenities: (
+      'Amenities & Facilities',
+      'What facilities are available at this property?'
+    ),
+    WizardStep.legal: (
+      'Legal & Approvals',
+      'Provide legal and documentation status for transparency'
+    ),
+    WizardStep.pricing: (
+      'Pricing & Terms',
+      'Provide pricing details, terms and conditions'
+    ),
+    WizardStep.media: (
+      'Media & Contact',
+      'Add photos and how buyers can reach you'
+    ),
+    WizardStep.review: (
+      'Review Your Listing',
+      'Check everything before you finish'
+    ),
+  };
 
   @override
   Widget build(BuildContext context) {
     return ChangeNotifierProvider(
       create: (_) => PostPropertyProvider(),
-      child: _PostPropertyWizard(
-        stepLabels: _stepLabels,
-        stepHeadings: _stepHeadings,
+      child: PostPropertyWizardView(
+        stepLabels: stepLabels,
+        stepHeadings: stepHeadings,
         editPropertyId: editPropertyId,
         editBundle: editBundle,
       ),
@@ -79,13 +118,19 @@ class PostPropertyScreen extends StatelessWidget {
   }
 }
 
-class _PostPropertyWizard extends StatefulWidget {
-  final List<String> stepLabels;
-  final List<(String, String)> stepHeadings;
+/// The wizard itself, without the [ChangeNotifierProvider] that
+/// [PostPropertyScreen] wraps it in.
+///
+/// Public only so layout tests can pump it against a provider they control —
+/// [PostPropertyScreen] remains the entry point and nothing about how the app
+/// navigates into this flow changes.
+class PostPropertyWizardView extends StatefulWidget {
+  final Map<WizardStep, String> stepLabels;
+  final Map<WizardStep, (String, String)> stepHeadings;
   final String? editPropertyId;
   final PropertyEditBundle? editBundle;
 
-  const _PostPropertyWizard({
+  const PostPropertyWizardView({
     required this.stepLabels,
     required this.stepHeadings,
     this.editPropertyId,
@@ -93,10 +138,10 @@ class _PostPropertyWizard extends StatefulWidget {
   });
 
   @override
-  State<_PostPropertyWizard> createState() => _PostPropertyWizardState();
+  State<PostPropertyWizardView> createState() => _PostPropertyWizardState();
 }
 
-class _PostPropertyWizardState extends State<_PostPropertyWizard> {
+class _PostPropertyWizardState extends State<PostPropertyWizardView> {
   @override
   void initState() {
     super.initState();
@@ -144,75 +189,69 @@ class _PostPropertyWizardState extends State<_PostPropertyWizard> {
       ),
       body: LayoutBuilder(
         builder: (context, constraints) {
-          final isWide = constraints.maxWidth > 640;
-          final horizontalPadding = isWide ? 40.0 : 20.0;
-          final maxContentWidth = isWide ? 560.0 : double.infinity;
+          // The portal's own split: `grid-cols-1 lg:grid-cols-12` with the
+          // Progress panel at `lg:col-span-3` and the form at `lg:col-span-9`.
+          final isWide = constraints.maxWidth >= kWideBreakpoint;
+          final horizontalPadding = isWide ? 24.0 : 20.0;
+          final maxContentWidth = isWide ? 720.0 : double.infinity;
 
+          final progressCard = PortalProgressCard(
+            steps: provider.visibleSteps,
+            currentIndex: provider.currentStep,
+            compact: !isWide,
+            onStepTap: (i) =>
+                context.read<PostPropertyProvider>().goToStep(i),
+          );
+
+          final form = _StepBody(
+            provider: provider,
+            stepHeadings: widget.stepHeadings,
+            horizontalPadding: horizontalPadding,
+            maxContentWidth: maxContentWidth,
+            buildStepContent: _buildStepContent,
+          );
+
+          if (isWide) {
+            // Two columns. Each side owns its own scrollable, so a tall
+            // stepper never pushes the form off screen and vice versa.
+            return SafeArea(
+              child: Column(
+                children: [
+                  Expanded(
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        SizedBox(
+                          width: 300, // ~3/12 of the portal's max-w-7xl
+                          child: SingleChildScrollView(
+                            padding: const EdgeInsets.fromLTRB(20, 12, 8, 12),
+                            child: progressCard,
+                          ),
+                        ),
+                        Expanded(child: form),
+                      ],
+                    ),
+                  ),
+                  _NavigationBar(
+                    provider: provider,
+                    maxContentWidth: double.infinity,
+                    horizontalPadding: horizontalPadding,
+                  ),
+                ],
+              ),
+            );
+          }
+
+          // Single column, as the portal's `grid-cols-1` does at mobile width.
           return SafeArea(
             child: Column(
               children: [
-                Center(
-                  child: ConstrainedBox(
-                    constraints: BoxConstraints(maxWidth: maxContentWidth),
-                    child: Padding(
-                      padding: EdgeInsets.fromLTRB(
-                          horizontalPadding, 12, horizontalPadding, 20),
-                      child: StepIndicator(
-                        currentStep: provider.currentStep,
-                        stepLabels: widget.stepLabels,
-                      ),
-                    ),
-                  ),
+                Padding(
+                  padding: EdgeInsets.fromLTRB(
+                      horizontalPadding, 12, horizontalPadding, 12),
+                  child: progressCard,
                 ),
-                Expanded(
-                  child: Center(
-                    child: ConstrainedBox(
-                      constraints: BoxConstraints(maxWidth: maxContentWidth),
-                      child: ClipRect(
-                        child: AnimatedSwitcher(
-                          duration: const Duration(milliseconds: 320),
-                          switchInCurve: Curves.easeOutCubic,
-                          switchOutCurve: Curves.easeInCubic,
-                          transitionBuilder: (child, animation) {
-                            final slide = Tween<Offset>(
-                              begin: const Offset(0.06, 0),
-                              end: Offset.zero,
-                            ).animate(animation);
-                            return FadeTransition(
-                              opacity: animation,
-                              child: SlideTransition(
-                                position: slide,
-                                child: child,
-                              ),
-                            );
-                          },
-                          child: Padding(
-                            key: ValueKey(provider.currentStep),
-                            padding: EdgeInsets.symmetric(
-                                horizontal: horizontalPadding),
-                            child: SingleChildScrollView(
-                              padding: const EdgeInsets.only(bottom: 24),
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  _StepHeader(
-                                    stepNumber: provider.currentStep + 1,
-                                    totalSteps: widget.stepLabels.length,
-                                    title: widget.stepHeadings[provider.currentStep].$1,
-                                    subtitle:
-                                        widget.stepHeadings[provider.currentStep].$2,
-                                  ),
-                                  const SizedBox(height: 24),
-                                  _buildStepContent(provider.currentStep),
-                                ],
-                              ),
-                            ),
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
+                Expanded(child: form),
                 _NavigationBar(
                   provider: provider,
                   maxContentWidth: maxContentWidth,
@@ -226,28 +265,86 @@ class _PostPropertyWizardState extends State<_PostPropertyWizard> {
     ).animate().fadeIn(duration: 300.ms);
   }
 
-  Widget _buildStepContent(int step) {
-    switch (step) {
-      case 0:
-        return const TypeSelectionStep();
-      case 1:
-        return const BasicInfoStep();
-      case 2:
-        return const PropertyDimensionsStep();
-      case 3:
-        return const ConditionStep();
-      case 4:
-        return const AmenitiesStep();
-      case 5:
-        return const LegalDetailsStep();
-      case 6:
-        return const PricingStep();
-      case 7:
-        return const MediaContactStep();
-      case 8:
-      default:
-        return const ReviewStep();
-    }
+  Widget _buildStepContent(WizardStep step) {
+    return switch (step) {
+      WizardStep.category => const TypeSelectionStep(),
+      WizardStep.basicInfo => const BasicInfoStep(),
+      WizardStep.dimensions => const PropertyDimensionsStep(),
+      WizardStep.condition => const ConditionStep(),
+      WizardStep.amenities => const AmenitiesStep(),
+      WizardStep.legal => const LegalDetailsStep(),
+      WizardStep.pricing => const PricingStep(),
+      WizardStep.media => const MediaContactStep(),
+      WizardStep.review => const ReviewStep(),
+    };
+  }
+}
+
+/// The scrolling form column, shared by both layouts.
+class _StepBody extends StatelessWidget {
+  const _StepBody({
+    required this.provider,
+    required this.stepHeadings,
+    required this.horizontalPadding,
+    required this.maxContentWidth,
+    required this.buildStepContent,
+  });
+
+  final PostPropertyProvider provider;
+  final Map<WizardStep, (String, String)> stepHeadings;
+  final double horizontalPadding;
+  final double maxContentWidth;
+  final Widget Function(WizardStep) buildStepContent;
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: ConstrainedBox(
+        constraints: BoxConstraints(maxWidth: maxContentWidth),
+        child: ClipRect(
+          child: AnimatedSwitcher(
+            duration: const Duration(milliseconds: 320),
+            switchInCurve: Curves.easeOutCubic,
+            switchOutCurve: Curves.easeInCubic,
+            transitionBuilder: (child, animation) {
+              final slide = Tween<Offset>(
+                begin: const Offset(0.06, 0),
+                end: Offset.zero,
+              ).animate(animation);
+              return FadeTransition(
+                opacity: animation,
+                child: SlideTransition(position: slide, child: child),
+              );
+            },
+            child: SingleChildScrollView(
+              key: ValueKey(provider.currentStep),
+              padding: EdgeInsets.fromLTRB(
+                  horizontalPadding, 0, horizontalPadding, 24),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Portal-converted steps render their own heading, exactly
+                  // as each React step component does. The app's own step
+                  // header stays for steps not yet converted, so they are not
+                  // left untitled mid-migration.
+                  if (!kPortalConvertedSteps
+                      .contains(provider.currentWizardStep)) ...[
+                    _StepHeader(
+                      stepNumber: provider.currentStep + 1,
+                      totalSteps: provider.totalSteps,
+                      title: stepHeadings[provider.currentWizardStep]!.$1,
+                      subtitle: stepHeadings[provider.currentWizardStep]!.$2,
+                    ),
+                    const SizedBox(height: 24),
+                  ],
+                  buildStepContent(provider.currentWizardStep),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
   }
 }
 
@@ -305,76 +402,17 @@ class _NavigationBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: const BorderRadius.only(
-          topLeft: Radius.circular(24),
-          topRight: Radius.circular(24),
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.06),
-            blurRadius: 20,
-            offset: const Offset(0, -4),
-          ),
-        ],
-      ),
-      child: SafeArea(
-        top: false,
-        child: Center(
-          child: ConstrainedBox(
-            constraints: BoxConstraints(maxWidth: maxContentWidth),
-            child: Padding(
-              padding: EdgeInsets.fromLTRB(
-                  horizontalPadding, 16, horizontalPadding, 16),
-              child: Row(
-                children: [
-                  if (provider.currentStep > 0) ...[
-                    Expanded(
-                      child: OutlinedButton(
-                        onPressed: provider.isSubmitting ? null : provider.previousStep,
-                        style: OutlinedButton.styleFrom(
-                          foregroundColor: AppColors.textSecondary,
-                          side: BorderSide(color: Colors.grey.shade300),
-                          padding: const EdgeInsets.symmetric(vertical: 16),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                        ),
-                        child: Text(
-                          'Back',
-                          style: AppTextStyles.button.copyWith(
-                            color: AppColors.textSecondary,
-                          ),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                  ],
-                  Expanded(
-                    flex: 2,
-                    child: AnimatedOpacity(
-                      duration: const Duration(milliseconds: 200),
-                      opacity: (provider.canGoNext && !provider.isSubmitting) ? 1 : 0.5,
-                      child: PremiumButton(
-                        label: provider.isLastStep
-                            ? (provider.isEditMode ? 'Update Property' : 'Publish')
-                            : 'Next',
-                        height: 52,
-                        isLoading: provider.isSubmitting,
-                        onPressed: (provider.canGoNext && !provider.isSubmitting)
-                            ? () => _onPrimaryAction(context, provider)
-                            : null,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ),
-      ),
+    // Portal footer: step counter left, Back + Continue/Publish right, with a
+    // top rule. Replaces the app's rounded raised bar.
+    return PortalWizardFooter(
+      currentIndex: provider.currentStep,
+      total: provider.totalSteps,
+      isLastStep: provider.isLastStep,
+      isEditing: provider.isEditMode,
+      isSubmitting: provider.isSubmitting,
+      onBack: provider.previousStep,
+      onContinue: () => _onPrimaryAction(context, provider),
+      onSubmit: () => _onPrimaryAction(context, provider),
     );
   }
 

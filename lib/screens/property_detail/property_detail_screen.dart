@@ -71,7 +71,6 @@ class _PropertyDetailScreenState extends State<PropertyDetailScreen>
   // matching PropertyDetails.tsx's exact 3-query shape.
   final PropertyService _propertyService = PropertyService();
   PropertyModel? _property;
-  PropertyOwnerProfile? _ownerProfile;
   bool _isLoadingProperty = true;
   String? _loadError;
 
@@ -134,7 +133,6 @@ class _PropertyDetailScreenState extends State<PropertyDetailScreen>
       if (!mounted) return;
       setState(() {
         _property = bundle.property;
-        _ownerProfile = bundle.ownerProfile;
         _isLoadingProperty = false;
       });
       _loadNearbyPlaces();

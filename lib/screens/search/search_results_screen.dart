@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
-import 'package:cached_network_image/cached_network_image.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_text_styles.dart';
 import '../../core/constants/app_constants.dart';
@@ -9,15 +9,22 @@ import '../../providers/filter_provider.dart';
 import '../../providers/available_locations_provider.dart';
 import '../../models/property_model.dart';
 import '../../models/search_query_params.dart';
+import '../../models/smart_query_result.dart';
 import '../../services/location_service.dart';
 import '../../voice_agent/services/intent_stash.dart';
-import '../../widgets/status_tag.dart';
-import '../../widgets/verified_badge.dart';
 import '../../widgets/bottom_nav_bar.dart';
 import '../../widgets/property_search_map_widget.dart';
-import '../../widgets/map_property_summary_card.dart';
-
-enum _ViewMode { list, map }
+import 'widgets/active_filter_chip_row.dart';
+import 'widgets/ai_confirmation_strip.dart';
+import 'widgets/filter_sheet.dart';
+import 'widgets/map_card_strip.dart';
+import 'widgets/property_card_search_grid.dart';
+import 'widgets/property_card_search_row.dart';
+import 'widgets/property_quick_preview_sheet.dart';
+import 'widgets/search_error_state.dart';
+import 'widgets/search_result_skeletons.dart';
+import 'widgets/search_results_header.dart';
+import 'widgets/view_switcher.dart';
 
 class SearchResultsScreen extends StatefulWidget {
   const SearchResultsScreen({super.key});
@@ -27,15 +34,27 @@ class SearchResultsScreen extends StatefulWidget {
 }
 
 class _SearchResultsScreenState extends State<SearchResultsScreen> {
-  _ViewMode _viewMode = _ViewMode.list;
+  SearchViewMode _viewMode = SearchViewMode.list;
   PropertyModel? _selectedMapProperty;
-  final ScrollController _scrollController = ScrollController();
+
+  /// What the AI understood from the query that landed the user here, or null
+  /// when this search did not come from a natural-language parse.
+  SmartQueryResult? _aiUnderstanding;
+
+  // One controller per scrollable surface. A single shared controller would be
+  // attached to two scroll views the moment both existed, and each surface has
+  // its own extent anyway — this way List and Grid each remember their own
+  // offset across a switch instead of snapping back to the top.
+  final ScrollController _listController = ScrollController();
+  final ScrollController _gridController = ScrollController();
+
   final LocationService _locationService = LocationService();
 
   @override
   void initState() {
     super.initState();
-    _scrollController.addListener(_onScroll);
+    _listController.addListener(_onListScroll);
+    _gridController.addListener(_onGridScroll);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
       final propertyProvider = context.read<PropertyProvider>();
@@ -79,21 +98,62 @@ class _SearchResultsScreenState extends State<SearchResultsScreen> {
         IntentStash.remove('va_search_filters');
       }
 
+      // Read-and-remove, the same contract the voice-agent key above uses, so
+      // the strip shows once for the search that produced it and does not
+      // resurface on a later visit.
+      final aiResult =
+          IntentStash.get<SmartQueryResult>(kAiUnderstandingKey);
+      if (aiResult != null) {
+        IntentStash.remove(kAiUnderstandingKey);
+        setState(() => _aiUnderstanding = aiResult);
+      }
+
       propertyProvider.runSearch(filterProvider.toQueryParams(), reset: true);
     });
   }
 
+  /// Cleared as soon as the user touches any other control, so the strip never
+  /// describes a search that has since been changed underneath it.
+  void _dismissAiStrip() {
+    if (_aiUnderstanding == null) return;
+    setState(() => _aiUnderstanding = null);
+  }
+
+  /// The facets the AI extracted, formatted for the confirmation strip.
+  ///
+  /// Includes the detected city, which the active-filter chip row deliberately
+  /// leaves out — that omission mirrors the website's filter-badge rule, but a
+  /// misread city is exactly the kind of thing worth surfacing here.
+  List<String> _aiFacetLabels(SmartQueryResult result) {
+    return <String>[
+      if (result.city != null && result.city!.isNotEmpty) result.city!,
+      if (result.category != null) _categoryDisplayName(result.category!),
+      if (result.listingType != null)
+        _listingTypeDisplayName(result.listingType!),
+      if (result.bhk != null) _bhkLabel(result.bhk!),
+      if (result.budgetMin != null || result.budgetMax != null)
+        '${PropertyModel.formatIndianPrice(result.budgetMin ?? AppConstants.priceMin)}'
+            ' - ${PropertyModel.formatIndianPrice(result.budgetMax ?? AppConstants.priceMax)}',
+    ];
+  }
+
   @override
   void dispose() {
-    _scrollController.removeListener(_onScroll);
-    _scrollController.dispose();
+    _listController.removeListener(_onListScroll);
+    _listController.dispose();
+    _gridController.removeListener(_onGridScroll);
+    _gridController.dispose();
     super.dispose();
   }
 
-  void _onScroll() {
-    if (!_scrollController.hasClients) return;
-    if (_scrollController.position.pixels >=
-        _scrollController.position.maxScrollExtent - 300) {
+  void _onListScroll() => _maybeLoadMore(_listController);
+  void _onGridScroll() => _maybeLoadMore(_gridController);
+
+  /// Unchanged pagination trigger, parameterised so both surfaces share it.
+  void _maybeLoadMore(ScrollController controller) {
+    if (!controller.hasClients) return;
+    if (controller.position.pixels >=
+        controller.position.maxScrollExtent - 300) {
       final filterProvider = context.read<FilterProvider>();
       context
           .read<PropertyProvider>()
@@ -101,16 +161,20 @@ class _SearchResultsScreenState extends State<SearchResultsScreen> {
     }
   }
 
-  void _setViewMode(_ViewMode mode) {
+  void _setViewMode(SearchViewMode mode) {
+    // A segmented control is a discrete selection — the lightest tick available.
+    HapticFeedback.selectionClick();
     setState(() => _viewMode = mode);
-    if (mode == _ViewMode.map) {
+    if (mode == SearchViewMode.map) {
       // Always reload — do NOT gate this behind a "loaded once" flag. The
       // map previously cached its very first load forever, so changing
       // filters/sort/near-me (or applying filters and coming back) left it
       // showing stale pins that no longer matched the active search. Every
       // switch into map view now re-fetches with the current filters.
       final filterProvider = context.read<FilterProvider>();
-      context.read<PropertyProvider>().loadMapResults(filterProvider.toQueryParams());
+      context
+          .read<PropertyProvider>()
+          .loadMapResults(filterProvider.toQueryParams());
     }
   }
 
@@ -120,11 +184,30 @@ class _SearchResultsScreenState extends State<SearchResultsScreen> {
   /// action (sort, city, near-me, the Filters screen) only ever updated the
   /// list, leaving an already-open map silently out of sync.
   void _runSearchAndSyncMap() {
+    // Every filter/sort/city change funnels through here, which makes it the one
+    // place that needs to retire the AI strip.
+    _dismissAiStrip();
     final filterProvider = context.read<FilterProvider>();
     final propertyProvider = context.read<PropertyProvider>();
     final params = filterProvider.toQueryParams();
     propertyProvider.runSearch(params, reset: true);
-    if (_viewMode == _ViewMode.map) {
+    if (_viewMode == SearchViewMode.map) {
+      propertyProvider.loadMapResults(params);
+    }
+  }
+
+  /// Re-issues the identical search after a failure.
+  ///
+  /// Separate from `_runSearchAndSyncMap` on purpose: that path also retires the
+  /// AI confirmation strip, because it is only ever reached by the user changing
+  /// a filter. A retry changes nothing about the query, so the interpretation of
+  /// it is still accurate and stays on screen.
+  void _retrySearch() {
+    final filterProvider = context.read<FilterProvider>();
+    final propertyProvider = context.read<PropertyProvider>();
+    final params = filterProvider.toQueryParams();
+    propertyProvider.runSearch(params, reset: true);
+    if (_viewMode == SearchViewMode.map) {
       propertyProvider.loadMapResults(params);
     }
   }
@@ -153,16 +236,43 @@ class _SearchResultsScreenState extends State<SearchResultsScreen> {
     }
   }
 
-  void _openFiltersScreen() {
-    // Filters are applied on the FiltersScreen itself (it calls runSearch
-    // directly), but that screen has no idea whether this screen is
-    // currently showing the map — so refresh the map here, once control
-    // returns, if that's the active view.
-    Navigator.pushNamed(context, AppConstants.filtersScreen).then((_) {
-      if (!mounted || _viewMode != _ViewMode.map) return;
-      final filterProvider = context.read<FilterProvider>();
-      context.read<PropertyProvider>().loadMapResults(filterProvider.toQueryParams());
-    });
+  /// Opens the filter sheet and, only if the user actually applied something,
+  /// re-runs the search through the existing choke point.
+  ///
+  /// The sheet commits to FilterProvider and reports back; it never runs a query
+  /// itself. Routing the result through `_runSearchAndSyncMap` means the map is
+  /// refreshed automatically when it is the active view, which the old
+  /// push-to-`/filters` flow had to special-case by hand.
+  Future<void> _openFiltersScreen() async {
+    final bool applied = await showSearchFilterSheet(context);
+    if (!mounted || !applied) return;
+    _runSearchAndSyncMap();
+  }
+
+  /// Serves both the Back button and the query pill.
+  ///
+  /// They coexist by design — the redesign makes the pill the way back to the
+  /// Search Entry screen, and the explicit arrow is kept for consistency with
+  /// the rest of the app — and popping is the right behaviour for both: it
+  /// restores the previous Search Entry instance with the user's typed query
+  /// still in its field, which is exactly what "edit my search" should do.
+  ///
+  /// `canPop` is checked because the voice agent can navigate straight here
+  /// with no entry screen beneath.
+  void _navigateBack() {
+    if (Navigator.of(context).canPop()) {
+      Navigator.pop(context);
+    } else {
+      Navigator.pushReplacementNamed(context, AppConstants.searchScreen);
+    }
+  }
+
+  void _openPropertyDetail(PropertyModel property) {
+    Navigator.pushNamed(
+      context,
+      AppConstants.propertyDetailScreen,
+      arguments: {'propertyId': property.id},
+    );
   }
 
   void _showSortSheet() {
@@ -263,22 +373,171 @@ class _SearchResultsScreenState extends State<SearchResultsScreen> {
     }
   }
 
+  String _listingTypeDisplayName(String listingType) {
+    switch (listingType) {
+      case 'sell':
+        return 'Buy';
+      case 'rent':
+        return 'Rent';
+      case 'lease':
+        return 'Lease';
+      default:
+        return listingType;
+    }
+  }
+
+  bool _isDefaultBudget(FilterProvider filterProvider) =>
+      filterProvider.budgetRange.start <= AppConstants.priceMin &&
+      filterProvider.budgetRange.end >= AppConstants.priceMax;
+
+  String _budgetLabel(FilterProvider filterProvider) =>
+      '${PropertyModel.formatIndianPrice(filterProvider.budgetRange.start)}'
+      ' - ${PropertyModel.formatIndianPrice(filterProvider.budgetRange.end)}';
+
+  String _bhkLabel(int bhk) => bhk >= 5 ? '5+ BHK' : '$bhk BHK';
+
+  /// The query the header echoes back: the free-text search if there is one,
+  /// otherwise the selected city, otherwise a neutral prompt.
+  String _queryLabel(FilterProvider filterProvider) {
+    final text = filterProvider.searchText.trim();
+    if (text.isNotEmpty) return text;
+    if (filterProvider.cities.isNotEmpty) return filterProvider.cities.first;
+    return 'Search properties';
+  }
+
+  /// Budget and Near Me are both filtered client-side out of one safety-capped
+  /// batch (see PropertyProvider.runSearch), so on those branches the count
+  /// physically cannot exceed the cap — reporting an exact figure once it gets
+  /// there would state a total the query never established. Every other branch
+  /// reports the true database count, including a legitimate 300.
+  String _resultCountLabel(
+    FilterProvider filterProvider,
+    PropertyProvider propertyProvider,
+  ) {
+    final int count = propertyProvider.totalResultCount;
+    final bool isCappedBranch =
+        !_isDefaultBudget(filterProvider) || filterProvider.nearMeEnabled;
+    final bool capped =
+        isCappedBranch && count >= AppConstants.mapResultsSafetyCap;
+    final String value =
+        capped ? '${AppConstants.mapResultsSafetyCap}+' : '$count';
+    return '$value Properties';
+  }
+
+  /// One chip per facet `FilterProvider.activeFilterCount` counts, so the row
+  /// and the filter button's indicator can never disagree.
+  List<ActiveFilterChip> _buildActiveChips(FilterProvider filterProvider) {
+    final chips = <ActiveFilterChip>[];
+
+    if (filterProvider.category != null) {
+      chips.add(ActiveFilterChip(
+        label: _categoryDisplayName(filterProvider.category!),
+        onRemove: () {
+          // Subtype only has meaning underneath a category, so it goes with it.
+          // Clearing the category alone would leave a residential subtype
+          // filtering the next query with no category behind it.
+          filterProvider.setCategory(null);
+          filterProvider.setSubtype(null);
+          _runSearchAndSyncMap();
+        },
+      ));
+    }
+
+    if (filterProvider.listingType != null) {
+      chips.add(ActiveFilterChip(
+        label: _listingTypeDisplayName(filterProvider.listingType!),
+        onRemove: () {
+          filterProvider.setListingType(null);
+          _runSearchAndSyncMap();
+        },
+      ));
+    }
+
+    if (!_isDefaultBudget(filterProvider)) {
+      chips.add(ActiveFilterChip(
+        label: _budgetLabel(filterProvider),
+        onRemove: () {
+          filterProvider.setBudgetRange(
+            const RangeValues(AppConstants.priceMin, AppConstants.priceMax),
+          );
+          _runSearchAndSyncMap();
+        },
+      ));
+    }
+
+    if (filterProvider.bhk != null) {
+      chips.add(ActiveFilterChip(
+        label: _bhkLabel(filterProvider.bhk!),
+        onRemove: () {
+          filterProvider.setBhk(null);
+          _runSearchAndSyncMap();
+        },
+      ));
+    }
+
+    if (filterProvider.subtype != null) {
+      chips.add(ActiveFilterChip(
+        label: filterProvider.subtype!,
+        onRemove: () {
+          filterProvider.setSubtype(null);
+          _runSearchAndSyncMap();
+        },
+      ));
+    }
+
+    if (filterProvider.postedBy != null) {
+      chips.add(ActiveFilterChip(
+        label: 'Posted by ${filterProvider.postedBy}',
+        onRemove: () {
+          filterProvider.setPostedBy(null);
+          _runSearchAndSyncMap();
+        },
+      ));
+    }
+
+    return chips;
+  }
+
   @override
   Widget build(BuildContext context) {
+    final filterProvider = context.watch<FilterProvider>();
+    final propertyProvider = context.watch<PropertyProvider>();
+
     return Scaffold(
       backgroundColor: AppColors.background,
       body: SafeArea(
         child: Column(
           children: [
-            _buildAppBar(context),
-            _buildFilterChips(context),
-            _buildPromoBanner(),
-            Expanded(
-              child: _viewMode == _ViewMode.list
-                  ? _buildListView()
-                  : _buildMapView(),
+            SearchResultsHeader(
+              onBackTap: _navigateBack,
+              queryLabel: _queryLabel(filterProvider),
+              onQueryTap: _navigateBack,
+              activeFilterCount: filterProvider.activeFilterCount,
+              onFilterTap: _openFiltersScreen,
+              nearMeEnabled: filterProvider.nearMeEnabled,
+              onNearMeTap: _handleNearMeTap,
+              resultCountLabel:
+                  _resultCountLabel(filterProvider, propertyProvider),
+              cityLabel: filterProvider.cities.isNotEmpty
+                  ? filterProvider.cities.first
+                  : 'All Cities',
+              onCityTap: _showCityPicker,
+              sortLabel: filterProvider.sort.label,
+              onSortTap: _showSortSheet,
+              activeChips: _buildActiveChips(filterProvider),
+              viewMode: _viewMode,
+              onViewModeChanged: _setViewMode,
             ),
-            _buildBottomActionBar(context),
+            if (_aiUnderstanding != null)
+              AiConfirmationStrip(
+                facets: _aiFacetLabels(_aiUnderstanding!),
+                onEditFilters: () {
+                  _dismissAiStrip();
+                  _openFiltersScreen();
+                },
+                onDismiss: _dismissAiStrip,
+              ),
+            Expanded(child: _buildSurface()),
           ],
         ),
       ),
@@ -288,240 +547,15 @@ class _SearchResultsScreenState extends State<SearchResultsScreen> {
     );
   }
 
-  Widget _buildAppBar(BuildContext context) {
-    final filterProvider = context.watch<FilterProvider>();
-    final propertyProvider = context.watch<PropertyProvider>();
-    final cityLabel =
-        filterProvider.cities.isNotEmpty ? filterProvider.cities.first : 'All Cities';
-
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-      child: Row(
-        children: [
-          Container(
-            width: 40,
-            height: 40,
-            decoration: const BoxDecoration(
-              color: Colors.white,
-              shape: BoxShape.circle,
-            ),
-            child: IconButton(
-              icon: const Icon(Icons.arrow_back, size: 20),
-              onPressed: () => Navigator.pop(context),
-              padding: EdgeInsets.zero,
-            ),
-          ),
-          const SizedBox(width: 16),
-          Expanded(
-            child: GestureDetector(
-              onTap: _showCityPicker,
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      Flexible(
-                        child: Text(
-                          cityLabel,
-                          style: AppTextStyles.heading2,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ),
-                      const Icon(Icons.keyboard_arrow_down, size: 20),
-                    ],
-                  ),
-                  Text(
-                    '${propertyProvider.totalResultCount} Properties',
-                    style: AppTextStyles.caption,
-                  ),
-                ],
-              ),
-            ),
-          ),
-          IconButton(
-            icon: Icon(
-              filterProvider.nearMeEnabled ? Icons.near_me : Icons.near_me_outlined,
-              size: 20,
-            ),
-            color: filterProvider.nearMeEnabled ? AppColors.primary : null,
-            onPressed: _handleNearMeTap,
-          ),
-          IconButton(
-            icon: Icon(
-              _viewMode == _ViewMode.list ? Icons.map_outlined : Icons.list,
-              size: 20,
-            ),
-            onPressed: () => _setViewMode(
-              _viewMode == _ViewMode.list ? _ViewMode.map : _ViewMode.list,
-            ),
-          ),
-          TextButton(
-            onPressed: _showSortSheet,
-            child: Text('↕ ${filterProvider.sort.label}'),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildFilterChips(BuildContext context) {
-    final filterProvider = context.watch<FilterProvider>();
-
-    final listingTypeLabel = switch (filterProvider.listingType) {
-      'sell' => 'Buy',
-      'rent' => 'Rent',
-      'lease' => 'Lease',
-      _ => 'Buy/Rent ▾',
-    };
-    final categoryLabel = filterProvider.category != null
-        ? _categoryDisplayName(filterProvider.category!)
-        : 'Property Type ▾';
-    final isDefaultBudget = filterProvider.budgetRange.start <= AppConstants.priceMin &&
-        filterProvider.budgetRange.end >= AppConstants.priceMax;
-    final priceLabel = isDefaultBudget
-        ? 'Price ▾'
-        : '${PropertyModel.formatIndianPrice(filterProvider.budgetRange.start)}'
-            ' - ${PropertyModel.formatIndianPrice(filterProvider.budgetRange.end)}';
-
-    final chips = <String>[
-      '🔧 Filters',
-      listingTypeLabel,
-      categoryLabel,
-      priceLabel,
-    ];
-
-    return SizedBox(
-      height: AppConstants.filterChipHeight,
-      child: ListView.builder(
-        scrollDirection: Axis.horizontal,
-        padding: const EdgeInsets.symmetric(horizontal: 16),
-        itemCount: chips.length,
-        itemBuilder: (context, index) {
-          final chip = chips[index];
-          final isFiltersChip = index == 0;
-
-          return Padding(
-            padding: const EdgeInsets.only(right: 8),
-            child: GestureDetector(
-              onTap: _openFiltersScreen,
-              child: Stack(
-                children: [
-                  Container(
-                    height: AppConstants.filterChipHeight,
-                    padding: const EdgeInsets.symmetric(horizontal: 14),
-                    decoration: BoxDecoration(
-                      color: AppColors.cardBackground,
-                      borderRadius: BorderRadius.circular(20),
-                      border: Border.all(
-                        color: AppColors.textHint.withOpacity(0.3),
-                        width: 1,
-                      ),
-                    ),
-                    child: Center(
-                      child: Text(
-                        chip,
-                        style: AppTextStyles.chip,
-                      ),
-                    ),
-                  ),
-                  if (isFiltersChip && filterProvider.activeFilterCount > 0)
-                    Positioned(
-                      right: 8,
-                      top: 4,
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 6, vertical: 2),
-                        decoration: BoxDecoration(
-                          color: AppColors.primary,
-                          borderRadius: BorderRadius.circular(10),
-                        ),
-                        child: Text(
-                          '${filterProvider.activeFilterCount}',
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 9,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                      ),
-                    ),
-                ],
-              ),
-            ),
-          );
-        },
-      ),
-    );
-  }
-
-  Widget _buildPromoBanner() {
-    return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-      height: AppConstants.promoBannerHeight,
-      padding: const EdgeInsets.symmetric(horizontal: 16),
-      decoration: BoxDecoration(
-        color: const Color(0xFFF0EFFE),
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: Row(
-        children: [
-          Container(
-            width: 40,
-            height: 40,
-            decoration: BoxDecoration(
-              color: AppColors.primary,
-              borderRadius: BorderRadius.circular(8),
-            ),
-            child: const Icon(
-              Icons.star,
-              color: Colors.white,
-              size: 20,
-            ),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Text(
-                  'Looking for the perfect home?',
-                  style: AppTextStyles.body.copyWith(
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-                Text(
-                  'Let us help you find it.',
-                  style: AppTextStyles.caption,
-                ),
-              ],
-            ),
-          ),
-          OutlinedButton(
-            onPressed: () {},
-            style: OutlinedButton.styleFrom(
-              side: const BorderSide(color: AppColors.primary),
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-              minimumSize: Size.zero,
-              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(8),
-              ),
-            ),
-            child: const Text(
-              'Get Help',
-              style: TextStyle(fontSize: 11),
-            ),
-          ),
-          const SizedBox(width: 8),
-          IconButton(
-            icon: const Icon(Icons.close, size: 16),
-            onPressed: () {},
-            color: AppColors.textSecondary,
-          ),
-        ],
-      ),
-    );
+  Widget _buildSurface() {
+    switch (_viewMode) {
+      case SearchViewMode.list:
+        return _buildListView();
+      case SearchViewMode.grid:
+        return _buildGridView();
+      case SearchViewMode.map:
+        return _buildMapView();
+    }
   }
 
   Widget _buildListView() {
@@ -530,33 +564,118 @@ class _SearchResultsScreenState extends State<SearchResultsScreen> {
         final properties = propertyProvider.searchResults;
 
         if (propertyProvider.isSearching && properties.isEmpty) {
-          return const Center(child: CircularProgressIndicator());
+          return const SearchResultsListSkeleton();
+        }
+        // Ordered after the loading check so a retry shows the skeleton while it
+        // runs, and gated on emptiness so a failed loadMoreResults cannot
+        // replace a list the user is already reading.
+        if (propertyProvider.hasError && properties.isEmpty) {
+          return SearchErrorState(onRetry: _retrySearch);
         }
         if (properties.isEmpty) {
           return _buildEmptyState();
         }
 
         return ListView.builder(
-          controller: _scrollController,
-          padding: const EdgeInsets.symmetric(horizontal: 16),
+          controller: _listController,
+          padding: const EdgeInsets.fromLTRB(
+            AppConstants.spacingXL,
+            AppConstants.spacingM,
+            AppConstants.spacingXL,
+            AppConstants.spacingM,
+          ),
           itemCount: properties.length + (propertyProvider.isLoadingMore ? 1 : 0),
           itemBuilder: (context, index) {
             if (index >= properties.length) {
-              return const Padding(
-                padding: EdgeInsets.symmetric(vertical: 16),
-                child: Center(
-                  child: SizedBox(
-                    width: 24,
-                    height: 24,
-                    child: CircularProgressIndicator(strokeWidth: 2.5),
-                  ),
-                ),
-              );
+              return _buildLoadMoreIndicator();
             }
-            return _buildPropertyListItem(context, properties[index], propertyProvider);
+            final property = properties[index];
+            return Padding(
+              padding: const EdgeInsets.only(bottom: AppConstants.spacingM),
+              child: PropertyCardSearchRow(
+                property: property,
+                onTap: () => _openPropertyDetail(property),
+                onFavoriteToggle: () {
+                  HapticFeedback.lightImpact();
+                  propertyProvider.toggleShortlist(property.id);
+                },
+              ),
+            );
           },
         );
       },
+    );
+  }
+
+  /// A CustomScrollView rather than a GridView.builder so the "loading more"
+  /// footer can be its own sliver instead of a grid cell that would inherit the
+  /// tile extent and sit in one column.
+  Widget _buildGridView() {
+    return Consumer<PropertyProvider>(
+      builder: (context, propertyProvider, child) {
+        final properties = propertyProvider.searchResults;
+
+        if (propertyProvider.isSearching && properties.isEmpty) {
+          return const SearchResultsGridSkeleton();
+        }
+        if (propertyProvider.hasError && properties.isEmpty) {
+          return SearchErrorState(onRetry: _retrySearch);
+        }
+        if (properties.isEmpty) {
+          return _buildEmptyState();
+        }
+
+        return CustomScrollView(
+          controller: _gridController,
+          slivers: [
+            SliverPadding(
+              padding: const EdgeInsets.fromLTRB(
+                AppConstants.spacingXL,
+                AppConstants.spacingM,
+                AppConstants.spacingXL,
+                0,
+              ),
+              sliver: SliverGrid(
+                gridDelegate:
+                    const SliverGridDelegateWithFixedCrossAxisCount(
+                  crossAxisCount: 2,
+                  crossAxisSpacing: AppConstants.spacingS,
+                  mainAxisSpacing: AppConstants.spacingL,
+                  mainAxisExtent: kSearchGridTileExtent,
+                ),
+                delegate: SliverChildBuilderDelegate(
+                  (context, index) {
+                    final property = properties[index];
+                    return PropertyCardSearchGrid(
+                      property: property,
+                      onTap: () => _openPropertyDetail(property),
+                    );
+                  },
+                  childCount: properties.length,
+                ),
+              ),
+            ),
+            if (propertyProvider.isLoadingMore)
+              SliverToBoxAdapter(child: _buildLoadMoreIndicator()),
+            const SliverToBoxAdapter(
+              child: SizedBox(height: AppConstants.spacingM),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  Widget _buildLoadMoreIndicator() {
+    return const Padding(
+      padding: EdgeInsets.symmetric(vertical: AppConstants.spacingL),
+      child: Center(
+        child: SizedBox(
+          width: 24,
+          height: 24,
+          child: CircularProgressIndicator(strokeWidth: 2.5),
+        ),
+      ),
     );
   }
 
@@ -567,28 +686,31 @@ class _SearchResultsScreenState extends State<SearchResultsScreen> {
   /// that gives no clue why.
   Widget _buildEmptyState() {
     final filterProvider = context.watch<FilterProvider>();
-    final isDefaultBudget = filterProvider.budgetRange.start <= AppConstants.priceMin &&
-        filterProvider.budgetRange.end >= AppConstants.priceMax;
 
     final activeDescriptions = <String>[
-      if (!isDefaultBudget)
-        '${PropertyModel.formatIndianPrice(filterProvider.budgetRange.start)} - '
-            '${PropertyModel.formatIndianPrice(filterProvider.budgetRange.end)}',
+      if (!_isDefaultBudget(filterProvider)) _budgetLabel(filterProvider),
       if (filterProvider.category != null)
         _categoryDisplayName(filterProvider.category!),
       if (filterProvider.listingType != null) filterProvider.listingType!,
-      if (filterProvider.bhk != null)
-        filterProvider.bhk == 5 ? '5+ BHK' : '${filterProvider.bhk} BHK',
-      if (filterProvider.postedBy != null) 'Posted by ${filterProvider.postedBy}',
+      if (filterProvider.bhk != null) _bhkLabel(filterProvider.bhk!),
+      if (filterProvider.postedBy != null)
+        'Posted by ${filterProvider.postedBy}',
       if (filterProvider.cities.isNotEmpty) filterProvider.cities.join(', '),
     ];
 
+    // Scrollable rather than a bare Column: the fixed 64 dp vertical padding
+    // plus the icon, headline and body add up to more than the surface gets
+    // once the header, the AI strip and a short viewport all take their share —
+    // it overflowed by 17 px in exactly that combination. Scrolling degrades
+    // gracefully and costs nothing when there is room, since Center still sizes
+    // the content to itself.
     return Center(
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 64),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
+      child: SingleChildScrollView(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 64),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
             const Icon(Icons.search_off_rounded,
                 size: 48, color: AppColors.textSecondary),
             const SizedBox(height: 16),
@@ -617,341 +739,123 @@ class _SearchResultsScreenState extends State<SearchResultsScreen> {
                 ),
                 child: const Text('Clear All Filters'),
               ),
-            ] else
-              Text(
-                'Try adjusting your search or checking back later.',
-                style: AppTextStyles.body.copyWith(color: AppColors.textSecondary),
-                textAlign: TextAlign.center,
-              ),
-          ],
+              ] else
+                Text(
+                  'Try adjusting your search or checking back later.',
+                  style:
+                      AppTextStyles.body.copyWith(color: AppColors.textSecondary),
+                  textAlign: TextAlign.center,
+                ),
+            ],
+          ),
         ),
       ),
     );
+  }
+
+  /// Selects [property] and opens its quick preview.
+  ///
+  /// Pins and strip cards share this, because the redesign wires both to the
+  /// same `openPreview`. Setting the selection first is a bonus the existing map
+  /// widget gives for free: it already pans to and ring-highlights whatever
+  /// `selectedProperty` it is handed, so tapping a strip card also moves the map
+  /// to that property. Clearing the selection on dismiss deselects the pin.
+  Future<void> _openQuickPreview(PropertyModel property) async {
+    setState(() => _selectedMapProperty = property);
+
+    final bool viewDetails = await showPropertyQuickPreview(context, property);
+    if (!mounted) return;
+
+    setState(() => _selectedMapProperty = null);
+    if (viewDetails) _openPropertyDetail(property);
+  }
+
+  /// Recenters the map on the full result set.
+  ///
+  /// Implemented as "clear the selection and reload the map results" rather than
+  /// by reaching for the map's camera: `PropertySearchMapWidget` already refits
+  /// its bounds whenever the property list identity changes, and
+  /// `loadMapResults` assigns a fresh list every call. So this refits to every
+  /// pin without the widget having to expose its controller — and it doubles as
+  /// a refresh against the current filters.
+  void _recenterMap() {
+    setState(() => _selectedMapProperty = null);
+    final filterProvider = context.read<FilterProvider>();
+    context
+        .read<PropertyProvider>()
+        .loadMapResults(filterProvider.toQueryParams());
   }
 
   Widget _buildMapView() {
     return Consumer<PropertyProvider>(
       builder: (context, propertyProvider, child) {
-        return Stack(
-          children: [
-            PropertySearchMapWidget(
-              properties: propertyProvider.mapResults,
-              selectedProperty: _selectedMapProperty,
-              onMarkerTap: (property) {
-                setState(() => _selectedMapProperty = property);
-              },
-            ),
-            if (_selectedMapProperty != null)
-              Positioned(
-                left: 0,
-                right: 0,
-                bottom: 0,
-                child: MapPropertySummaryCard(
-                  property: _selectedMapProperty!,
-                  onTap: () {
-                    Navigator.pushNamed(
-                      context,
-                      AppConstants.propertyDetailScreen,
-                      arguments: {'propertyId': _selectedMapProperty!.id},
-                    );
-                  },
-                  onClose: () => setState(() => _selectedMapProperty = null),
-                ),
-              ),
-          ],
-        );
-      },
-    );
-  }
+        final properties = propertyProvider.mapResults;
 
-  Widget _buildPropertyListItem(
-      BuildContext context, PropertyModel property, PropertyProvider propertyProvider) {
-    return GestureDetector(
-      onTap: () {
-        Navigator.pushNamed(
-          context,
-          AppConstants.propertyDetailScreen,
-          arguments: {'propertyId': property.id},
-        );
-      },
-      child: Container(
-        margin: const EdgeInsets.only(bottom: 16),
-        decoration: BoxDecoration(
-          color: AppColors.cardBackground,
-          borderRadius: BorderRadius.circular(AppConstants.cardRadius),
-        ),
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
+        return Column(
           children: [
-            Stack(
-              children: [
-                ClipRRect(
-                  borderRadius: const BorderRadius.only(
-                    topLeft: Radius.circular(AppConstants.cardRadius),
-                    bottomLeft: Radius.circular(AppConstants.cardRadius),
-                  ),
-                  child: CachedNetworkImage(
-                    imageUrl: property.imageUrl,
-                    width: AppConstants.propertyListItemImageSize,
-                    height: AppConstants.propertyListItemImageSize,
-                    fit: BoxFit.cover,
-                    placeholder: (context, url) => Container(
-                      color: AppColors.textHint.withOpacity(0.1),
-                      child: const Center(
-                        child: CircularProgressIndicator(),
-                      ),
-                    ),
-                    errorWidget: (context, url, error) => Container(
-                      color: AppColors.textHint.withOpacity(0.1),
-                      child: const Icon(Icons.error),
-                    ),
-                  ),
-                ),
-                if (property.isVerified)
-                  const Positioned(
-                    top: 8,
-                    left: 8,
-                    child: VerifiedBadge(),
-                  ),
-                Positioned(
-                  top: 8,
-                  right: 8,
-                  child: GestureDetector(
-                    onTap: () {
-                      propertyProvider.toggleShortlist(property.id);
-                    },
-                    child: Container(
-                      width: 32,
-                      height: 32,
-                      decoration: const BoxDecoration(
-                        color: Colors.white,
-                        shape: BoxShape.circle,
-                      ),
-                      child: Icon(
-                        property.isShortlisted
-                            ? Icons.favorite
-                            : Icons.favorite_border,
-                        color: property.isShortlisted
-                            ? Colors.red
-                            : AppColors.textSecondary,
-                        size: 18,
-                      ),
-                    ),
-                  ),
-                ),
-                Positioned(
-                  bottom: 8,
-                  left: 8,
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                    decoration: BoxDecoration(
-                      color: Colors.black.withOpacity(0.6),
-                      borderRadius: BorderRadius.circular(4),
-                    ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        const Icon(
-                          Icons.camera_alt,
-                          color: Colors.white,
-                          size: 10,
-                        ),
-                        const SizedBox(width: 4),
-                        Text(
-                          '${property.photoCount}',
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 10,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              ],
-            ),
             Expanded(
               child: Padding(
-                padding: const EdgeInsets.all(12),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        Expanded(
-                          child: Text(
-                            property.title,
-                            style: AppTextStyles.body.copyWith(
-                              fontWeight: FontWeight.w600,
-                              fontSize: 15,
-                            ),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ),
-                        IconButton(
-                          icon: const Icon(Icons.more_vert, size: 20),
-                          onPressed: () {},
-                          color: AppColors.textSecondary,
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 4),
-                    Row(
-                      children: [
-                        const Icon(
-                          Icons.location_on,
-                          size: 12,
-                          color: AppColors.textSecondary,
-                        ),
-                        const SizedBox(width: 4),
-                        Expanded(
-                          child: Text(
-                            property.location,
-                            style: AppTextStyles.caption,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 8),
-                    Text(
-                      property.priceDisplay,
-                      style: AppTextStyles.price.copyWith(fontSize: 20),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      property.pricePerSqft,
-                      style: AppTextStyles.caption,
-                    ),
-                    const SizedBox(height: 8),
-                    Row(
-                      children: [
-                        _buildSpecIcon(Icons.bed, '${property.beds}'),
-                        const SizedBox(width: 12),
-                        _buildSpecIcon(Icons.bathtub, '${property.baths}'),
-                        const SizedBox(width: 12),
-                        _buildSpecIcon(Icons.square_foot, '${property.sqft}'),
-                      ],
-                    ),
-                    const SizedBox(height: 8),
-                    Wrap(
-                      spacing: 8,
-                      runSpacing: 8,
-                     children: List<Widget>.from(
-  property.statusTags.take(2).map(
-    (tag) => StatusTag(label: tag.toString()),
-  ),
-),
-                    ),
-                  ],
+                padding: const EdgeInsets.symmetric(
+                  horizontal: AppConstants.spacingXL,
+                ),
+                child: ClipRRect(
+                  borderRadius:
+                      BorderRadius.circular(AppConstants.cardRadius),
+                  child: Stack(
+                    children: [
+                      PropertySearchMapWidget(
+                        properties: properties,
+                        selectedProperty: _selectedMapProperty,
+                        onMarkerTap: (property) {
+                          if (property == null) return;
+                          _openQuickPreview(property);
+                        },
+                      ),
+                      Positioned(
+                        top: 14,
+                        right: 14,
+                        child: _buildRecenterButton(),
+                      ),
+                    ],
+                  ),
                 ),
               ),
             ),
+            if (properties.isNotEmpty) ...[
+              const SizedBox(height: AppConstants.spacingM),
+              MapCardStrip(
+                properties: properties,
+                onCardTap: _openQuickPreview,
+              ),
+            ],
+            const SizedBox(height: AppConstants.spacingM),
           ],
-        ),
-      ),
+        );
+      },
     );
   }
 
-  Widget _buildSpecIcon(IconData icon, String value) {
-    return Row(
-      children: [
-        Icon(
-          icon,
-          size: 12,
-          color: AppColors.textSecondary,
-        ),
-        const SizedBox(width: 4),
-        Text(
-          value,
-          style: AppTextStyles.caption,
-        ),
-      ],
-    );
-  }
-
-  Widget _buildBottomActionBar(BuildContext context) {
-    return Container(
-      height: AppConstants.bottomActionBarHeight,
-      padding: const EdgeInsets.symmetric(horizontal: 16),
-      decoration: const BoxDecoration(
-        color: AppColors.surface,
-        border: Border(
-          top: BorderSide(
-            color: AppColors.textHint,
-            width: 0.5,
+  Widget _buildRecenterButton() {
+    return Semantics(
+      label: 'Recenter map on all results',
+      button: true,
+      child: GestureDetector(
+        onTap: _recenterMap,
+        behavior: HitTestBehavior.opaque,
+        child: Container(
+          width: 40,
+          height: 40,
+          decoration: BoxDecoration(
+            color: AppColors.cardBackground,
+            borderRadius: BorderRadius.circular(AppConstants.pillRadius),
+            boxShadow: AppColors.surfaceCardShadow,
           ),
-        ),
-      ),
-      child: Row(
-        children: [
-          Expanded(
-            child: _buildActionButton(
-              icon: Icons.bookmark_border,
-              label: 'Save Search',
-              onTap: () {},
-            ),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Container(
-              height: 40,
-              decoration: BoxDecoration(
-                color: AppColors.primary,
-                borderRadius: BorderRadius.circular(20),
-              ),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  const Icon(
-                    Icons.notifications,
-                    color: Colors.white,
-                    size: 18,
-                  ),
-                  const SizedBox(width: 8),
-                  Text(
-                    'Get Alert',
-                    style: AppTextStyles.button.copyWith(fontSize: 12),
-                  ),
-                ],
-              ),
-            ),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: _buildActionButton(
-              icon: Icons.compare_arrows,
-              label: 'Compare',
-              onTap: () {},
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildActionButton({
-    required IconData icon,
-    required String label,
-    required VoidCallback onTap,
-  }) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(
-            icon,
-            color: AppColors.textSecondary,
+          child: const Icon(
+            Icons.my_location,
             size: 20,
+            color: AppColors.textPrimary,
           ),
-          const SizedBox(height: 4),
-          Text(
-            label,
-            style: AppTextStyles.caption,
-          ),
-        ],
+        ),
       ),
     );
   }

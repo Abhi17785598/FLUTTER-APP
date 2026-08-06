@@ -23,6 +23,57 @@ class AiSearchService {
   };
   static const Set<String> _validListingTypes = {'sell', 'rent', 'lease'};
 
+  /// The real `properties.residential_subtype` vocabulary — the same list the
+  /// search filter sheet offers.
+  ///
+  /// Deliberately NOT the website's own AI prompt vocabulary
+  /// ('Apartment'|'Villa'|'Individual House'|'Kothi'). Those are loose labels,
+  /// and `PropertyService` matches subtype with `ilike('%value%')` against this
+  /// column, so 'Apartment' matches only 'Studio / Service Apartment' and misses
+  /// 'Flat' entirely — the single most common term in the hint list below. Asking
+  /// for the literal cell values makes the filter actually select rows, and keeps
+  /// whatever the model returns selectable in the filter sheet too.
+  static const Set<String> _validSubtypes = {
+    'Flat',
+    'Independent / Builder Floor',
+    'Studio / Service Apartment',
+    'Raw / Independent House',
+    'Villa / Kothi',
+    'Duplex House',
+    'Triplex House',
+    'Pent House',
+    'Bungalow',
+    'Farm House',
+  };
+
+  /// Verbatim port of the website's `SUBTYPE_HINTS`
+  /// (src/features/search/SearchBarWithTags.tsx).
+  ///
+  /// Kept identical on purpose: it is the list that decides whether a subtype was
+  /// actually named, so any divergence would make the two platforms disagree
+  /// about the same sentence.
+  static const List<String> _subtypeHints = [
+    'apartment',
+    'flat',
+    'villa',
+    'kothi',
+    'house',
+    'penthouse',
+    'studio',
+    'duplex',
+  ];
+
+  /// Whether [text] names a property style at all.
+  ///
+  /// The guard this backs exists because the model will happily infer
+  /// "Apartment" from "3 BHK" — a bedroom count says nothing about whether the
+  /// home is a flat, a villa or a builder floor, and accepting that inference
+  /// silently excludes every other style from the results.
+  static bool _mentionsSubtype(String text) {
+    final String lower = text.toLowerCase();
+    return _subtypeHints.any(lower.contains);
+  }
+
   static const String _systemPrompt =
       'You are a real-estate search query parser. Extract filters from the '
       'user query and reply with ONLY compact JSON, no prose, no markdown '
@@ -31,9 +82,17 @@ class AiSearchService {
       '"pg_coliving"|"others"|null, "listingType": "sell"|"rent"|"lease"|'
       'null (use "sell" for words like buy/purchase/sale), "budgetMin": '
       'number|null, "budgetMax": number|null (both in rupees — convert '
-      'lakhs/crores: 1 lakh = 100000, 1 crore = 10000000), "keywords": '
-      'string (remaining descriptive terms not already captured above, can '
-      'be an empty string)}.';
+      'lakhs/crores: 1 lakh = 100000, 1 crore = 10000000), "subtype": '
+      '"Flat"|"Independent / Builder Floor"|"Studio / Service Apartment"|'
+      '"Raw / Independent House"|"Villa / Kothi"|"Duplex House"|'
+      '"Triplex House"|"Pent House"|"Bungalow"|"Farm House"|null, '
+      '"keywords": string (remaining descriptive terms not already captured '
+      'above, can be an empty string)}. '
+      'Set "subtype" ONLY when the query literally names a property style '
+      '(flat, apartment, villa, kothi, house, penthouse, studio, duplex). '
+      'Never infer it from a bedroom count: "3 BHK" means bhk=3 and subtype '
+      'null, because a bedroom count does not say whether the home is a flat, '
+      'a villa or a builder floor.';
 
   /// Parses [query] via the AI proxy. Never throws — on any failure (network
   /// error, non-200, malformed JSON), falls back to a result that just
@@ -86,6 +145,17 @@ class AiSearchService {
             : null,
         budgetMin: result.budgetMin,
         budgetMax: result.budgetMax,
+        // Two gates, not one. The allow-list rejects a hallucinated or
+        // loosely-worded style the way category/listingType above are already
+        // filtered; `_mentionsSubtype` then rejects anything the query did not
+        // actually say, which is what stops "3 BHK" becoming "Flat" even when the
+        // prompt's own instruction not to infer is ignored. The model is asked to
+        // behave AND checked afterwards, because a prompt is a request, not a
+        // constraint.
+        subtype: (_validSubtypes.contains(result.subtype) &&
+                _mentionsSubtype(query))
+            ? result.subtype
+            : null,
         keywords: result.keywords,
       );
     } catch (e) {

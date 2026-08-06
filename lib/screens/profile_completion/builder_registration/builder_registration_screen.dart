@@ -4,8 +4,8 @@ import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../../providers/auth_provider.dart';
 import '../../../services/profile_service.dart';
-import '../../home/home_screen.dart';
 import '../../role_home_router.dart';
+import '../../../core/utils/text_input_formatters.dart';
 
 class BuilderRegistrationScreen extends StatefulWidget {
   const BuilderRegistrationScreen({super.key});
@@ -1151,12 +1151,3 @@ Widget _buildStep7() {
 }
 
 // ─── Helper formatter ─────────────────────────────────────────────────────────
-class UpperCaseTextFormatter extends TextInputFormatter {
-  @override
-  TextEditingValue formatEditUpdate(
-    TextEditingValue oldValue,
-    TextEditingValue newValue,
-  ) {
-    return newValue.copyWith(text: newValue.text.toUpperCase());
-  }
-}

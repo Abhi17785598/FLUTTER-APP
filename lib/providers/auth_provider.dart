@@ -14,6 +14,13 @@ class AuthProvider extends ChangeNotifier {
   String? _userId;
   String? _profileCity;
 
+  /// The full `profiles` row from the most recent fetch.
+  ///
+  /// Cached so profile-completion can evaluate role-specific fields (phone,
+  /// bio, office_address, social_media, ...) without a second query or a
+  /// parallel identity provider — see blueprint §10. Read-only.
+  Map<String, dynamic>? _profileRow;
+
   final AuthService _authService = AuthService();
   StreamSubscription<AuthState>? _authSub;
 
@@ -47,6 +54,7 @@ class AuthProvider extends ChangeNotifier {
         _userRole = null;
         _userType = null;
         _profileCity = null;
+        _profileRow = null;
       }
 
       notifyListeners();
@@ -73,6 +81,7 @@ class AuthProvider extends ChangeNotifier {
         _userType = profile['user_type'];
         _userId = currentUser.id;
         _profileCity = profile['work_city'];
+        _profileRow = Map<String, dynamic>.from(profile);
 
         notifyListeners();
       }
@@ -95,6 +104,11 @@ class AuthProvider extends ChangeNotifier {
   String? get userType => _userType;
   String? get userId => _userId;
   String? get profileCity => _profileCity;
+
+  /// Unmodifiable view of the cached `profiles` row, or null before the first
+  /// successful fetch.
+  Map<String, dynamic>? get profileRow =>
+      _profileRow == null ? null : Map<String, dynamic>.unmodifiable(_profileRow!);
 
   /// Accepts an email, phone number or username — [AuthService] resolves
   /// whichever was typed to an email before signing in.
@@ -272,6 +286,7 @@ class AuthProvider extends ChangeNotifier {
     _userType = null;
     _userId = null;
     _profileCity = null;
+    _profileRow = null;
 
     notifyListeners();
   }

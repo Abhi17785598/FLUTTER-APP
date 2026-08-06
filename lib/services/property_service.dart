@@ -4,7 +4,10 @@ import '../models/global_search_suggestion.dart';
 import '../models/property_detail_bundle.dart';
 import '../models/property_model.dart';
 import '../models/search_query_params.dart';
+import '../models/tagged_project.dart';
 import '../providers/post_property_provider.dart';
+import '../screens/post_property/listing_field_keys.dart';
+import '../screens/post_property/listing_value_aliases.dart';
 
 /// Raw data bundle returned by [PropertyService.fetchForEdit]. Contains the
 /// unprocessed Supabase rows so the provider can restore every form field.
@@ -32,6 +35,26 @@ const Set<String> _searchStopwords = {
 const List<String> _searchColumns = [
   'title', 'search_text', 'location', 'area', 'upid',
 ];
+
+/// `metadata.pgHouseRules` sub-key -> the `PropertyFormData` flag React reads
+/// it from (PropertyWizard.tsx:1649). The names differ on both sides of the
+/// colon, so this mapping is not derivable.
+const Map<String, String> _kPgHouseRuleSources = {
+  'visitorEntry': 'pgVisitorEntry',
+  'nonVegFood': 'pgNonVegFood',
+  'oppositeGender': 'pgOppositeGender',
+  'smoking': 'pgSmoking',
+  'drinking': 'pgDrinking',
+  'loudMusic': 'pgLoudMusic',
+  'party': 'pgParty',
+};
+
+/// Fields the wizard collects but React never persists — the value exists only
+/// to drive the UI for the current session.
+///
+/// `ratePerAreaUnit` labels the rate-per-area input (PricingStep.tsx:132) and
+/// appears in no fillMetadata list, no column and no direct assignment.
+const Set<String> _kUiOnlyFields = {'ratePerAreaUnit'};
 
 class PropertyService {
   final _supabase = Supabase.instance.client;
@@ -397,10 +420,12 @@ class PropertyService {
     // the category parity phases.
     final Map<String, dynamic> existingMetadata =
         await _fetchExistingMetadata(propertyId);
-    final Map<String, dynamic> metadata = <String, dynamic>{
-      ...existingMetadata,
-      ..._buildMetadata(provider),
-    };
+    final Map<String, dynamic> metadata = _fillTypedEmpties(
+      _applyProjectTag(<String, dynamic>{
+        ...existingMetadata,
+        ..._buildMetadata(provider),
+      }, provider),
+    );
 
     await _supabase.from('properties').update({
       'title': provider.title,
@@ -408,26 +433,188 @@ class PropertyService {
       'location': provider.location,
       'latitude': provider.latitude,
       'longitude': provider.longitude,
-      'price': provider.price,
-      'area': provider.area,
-      'area_unit': provider.areaUnit,
+      'price': _headlinePrice(provider),
+      'area': provider.area.isEmpty ? '0' : provider.area,
+      'area_unit': provider.areaUnit.isEmpty
+          ? 'sq_ft'
+          : canonicalAreaUnit(provider.areaUnit),
       'rate_per_area': double.tryParse(provider.ratePerArea),
-      'available_from': provider.availableFrom?.toIso8601String(),
+      'available_from': _availableFrom(provider),
       'hashtags': _parseHashtags(provider.hashtags),
+      'amenities': provider.listVal('amenities'),
       'media_urls': allUrls,
-      if (allUrls.isNotEmpty) 'main_display_media_url': allUrls.first,
+      'main_display_media_url': _mainDisplayUrl(provider, allUrls),
       'property_type': (provider.listingIntent ??
               (throw StateError('Listing intent must be selected.')))
           .name,
       'category': _categoryToDb(provider.category ??
           (throw StateError('Property category must be selected.'))),
-      if (provider.category == PropertyCategory.residential)
-        'residential_subtype': provider.residentialSubType,
+      // React writes this key unconditionally, using '' for every non-
+      // residential category (PropertyWizard.tsx:1784). Omitting it left the
+      // nullable column NULL, which breaks the dbSafe rule that nothing
+      // reaches Postgres as NULL except dates and FKs — and any web reader
+      // doing `.trim()` on it would throw.
+      'residential_subtype': provider.category == PropertyCategory.residential
+          ? canonicalResidentialSubtype(provider.residentialSubType ?? '')
+          : '',
+      // null, never '' — the column is a uuid FK to builder_projects, so a
+      // placeholder would fail the constraint (React uses dbUuid for this).
+      'project_id': provider.projectId.isEmpty ? null : provider.projectId,
       'metadata': metadata,
     }).eq('id', propertyId);
 
     await _upsertCategoryData(propertyId, provider);
     await _upsertContactDetails(propertyId, provider);
+  }
+
+  // ── Builder project tag (T5) ──────────────────────────────────────────
+  //
+  // Tag only: searching and attaching an existing project. Creating projects
+  // and the inventory subsystem stay React-only by decision.
+
+  /// Attaches the builder/company name to each project.
+  ///
+  /// `builder_projects` has no FK to `profiles`, so React resolves the names in
+  /// a second query rather than embedding them
+  /// (ProjectTagSelector.tsx:35). Company name wins over display name.
+  Future<List<TaggedProject>> _withBuilderNames(
+    List<TaggedProject> projects,
+  ) async {
+    final ids = projects.map((p) => p.builderId).where((id) => id.isNotEmpty).toSet();
+    if (ids.isEmpty) return projects;
+
+    final rows = await _supabase
+        .from('profiles_public')
+        .select('user_id, display_name, company_name')
+        .inFilter('user_id', ids.toList());
+
+    final nameById = <String, String>{
+      for (final r in List<Map<String, dynamic>>.from(rows))
+        r['user_id'].toString(): (r['company_name']?.toString().isNotEmpty ?? false)
+            ? r['company_name'].toString()
+            : (r['display_name']?.toString() ?? ''),
+    };
+
+    return projects
+        .map((p) => p.copyWith(builderName: nameById[p.builderId]))
+        .toList();
+  }
+
+  /// Projects a listing may be tagged to.
+  ///
+  /// Mirrors ProjectTagSelector.tsx:130 exactly: active + approved only; a
+  /// search term of 2+ characters matches title or location, otherwise the
+  /// listing's city is used to suggest nearby projects; newest first, capped
+  /// at 12.
+  ///
+  /// Note this is NOT restricted to the signed-in user's own projects — the
+  /// migration specification says otherwise (PHASE 4), but React is the
+  /// authority and the feature exists so a broker can tag a *developer's*
+  /// project.
+  Future<List<TaggedProject>> searchBuilderProjects({
+    String term = '',
+    String city = '',
+  }) async {
+    var request = _supabase
+        .from('builder_projects')
+        .select(TaggedProject.columns)
+        .eq('status', 'active')
+        .eq('approval_status', 'approved');
+
+    final trimmed = term.trim();
+    if (trimmed.length >= 2) {
+      final escaped = trimmed.replaceAll(RegExp(r'[%,]'), ' ');
+      request = request.or('title.ilike.%$escaped%,location.ilike.%$escaped%');
+    } else if (city.isNotEmpty) {
+      request = request.ilike('location', '%$city%');
+    }
+
+    final rows =
+        await request.order('created_at', ascending: false).limit(12);
+
+    return _withBuilderNames(
+      List<Map<String, dynamic>>.from(rows)
+          .map(TaggedProject.fromSupabase)
+          .toList(),
+    );
+  }
+
+  /// Loads a single tagged project, for showing the chip when editing an
+  /// already-tagged listing. Mirrors `fetchTaggedProject`.
+  Future<TaggedProject?> fetchTaggedProject(String projectId) async {
+    if (projectId.isEmpty) return null;
+    final row = await _supabase
+        .from('builder_projects')
+        .select(TaggedProject.columns)
+        .eq('id', projectId)
+        .maybeSingle();
+    if (row == null) return null;
+
+    final resolved = await _withBuilderNames([TaggedProject.fromSupabase(row)]);
+    return resolved.first;
+  }
+
+  /// The value written to the `price` column.
+  ///
+  /// PG / co-living never fills the single price box — PricingStep asks for
+  /// per-bed / per-room rent, or a total sale price. React mirrors whichever
+  /// applies into `price` so cards, search filters and sorting see a real
+  /// amount (PropertyWizard.tsx:1746); without it every app-created PG listing
+  /// renders as "Price on Request" and sorts as though it were free.
+  ///
+  /// `properties.price` is `text NOT NULL`, so this never returns null and
+  /// falls back to '0' exactly as React's `dbText(headlinePrice || price, '0')`
+  /// does.
+  static String _headlinePrice(PostPropertyProvider provider) {
+    String result = provider.price;
+
+    if (provider.category == PropertyCategory.pg) {
+      switch (provider.listingIntent) {
+        case ListingIntent.sell:
+          result = provider.text('totalSalePrice');
+        case ListingIntent.rent:
+          final perBed = provider.text('monthlyRentPerBed');
+          result = perBed.isNotEmpty
+              ? perBed
+              : provider.text('monthlyRentPerRoom');
+        case ListingIntent.lease:
+        case null:
+          result = provider.price;
+      }
+    }
+
+    if (result.trim().isEmpty) result = provider.price;
+    return result.trim().isEmpty ? '0' : result;
+  }
+
+  /// `available_from` as React stores it: the literal 'Immediately', or a
+  /// plain `YYYY-MM-DD` date — never a full ISO-8601 timestamp.
+  ///
+  /// The column is text and React's input is `<input type="date">`, so writing
+  /// `toIso8601String()` put `2026-07-31T00:00:00.000` where the web expects
+  /// `2026-07-31`. React defaults the column to 'Immediately' when unset.
+  static String _availableFrom(PostPropertyProvider provider) {
+    final DateTime? d = provider.availableFrom;
+    if (d == null) return 'Immediately';
+    final String mm = d.month.toString().padLeft(2, '0');
+    final String dd = d.day.toString().padLeft(2, '0');
+    return '${d.year}-$mm-$dd';
+  }
+
+  /// The listing's main image: the photo the user starred, or the first one.
+  ///
+  /// Mirrors `dbText(formData.mainDisplayMediaUrl, allMediaUrls[0] ?? '')`
+  /// (PropertyWizard.tsx:1773) — never null, empty only when there are no
+  /// photos at all. The starred URL is ignored if it is no longer among the
+  /// listing's media, which happens when the user removes the starred photo
+  /// and saves without picking another.
+  static String _mainDisplayUrl(
+    PostPropertyProvider provider,
+    List<String> allUrls,
+  ) {
+    final String starred = provider.mainDisplayMediaUrl;
+    if (starred.isNotEmpty && allUrls.contains(starred)) return starred;
+    return allUrls.isNotEmpty ? allUrls.first : '';
   }
 
   /// Reads the current `metadata` blob for [propertyId] so an edit can merge
@@ -454,7 +641,9 @@ class PropertyService {
   ) async {
     await _checkApproval(userId);
     final List<String> uploadedUrls = await _uploadMedia(provider, userId);
-    final Map<String, dynamic> metadata = _buildMetadata(provider);
+    final Map<String, dynamic> metadata = _fillTypedEmpties(
+      _applyProjectTag(_buildMetadata(provider), provider),
+    );
     final String propertyId =
         await _insertProperty(provider, userId, uploadedUrls, metadata);
     await _insertCategoryData(propertyId, provider);
@@ -476,22 +665,35 @@ class PropertyService {
       'location': provider.location,
       'latitude': provider.latitude,
       'longitude': provider.longitude,
-      'price': provider.price,
-      'area': provider.area,
-      'area_unit': provider.areaUnit,
+      'price': _headlinePrice(provider),
+      'area': provider.area.isEmpty ? '0' : provider.area,
+      'area_unit': provider.areaUnit.isEmpty
+          ? 'sq_ft'
+          : canonicalAreaUnit(provider.areaUnit),
       'rate_per_area': double.tryParse(provider.ratePerArea),
-      'available_from': provider.availableFrom?.toIso8601String(),
-      'amenities': <String>[],
+      'available_from': _availableFrom(provider),
+      // React: dbArray<string>(formData.amenities) — the residential society /
+      // flat / parking pickers all toggle into this one array, and it backs the
+      // web's amenity filters. Flutter previously hard-coded an empty list, so
+      // no app-created listing was ever findable by amenity.
+      'amenities': provider.listVal('amenities'),
       'hashtags': _parseHashtags(provider.hashtags),
       'media_urls': uploadedUrls,
-      'main_display_media_url': uploadedUrls.isNotEmpty ? uploadedUrls.first : null,
+      'main_display_media_url': _mainDisplayUrl(provider, uploadedUrls),
       'property_type': (provider.listingIntent ??
               (throw StateError('Listing intent must be selected before publishing.')))
           .name,
       'category': _categoryToDb(provider.category ??
           (throw StateError('Property category must be selected before publishing.'))),
-      if (provider.category == PropertyCategory.residential)
-        'residential_subtype': provider.residentialSubType,
+      // React writes this key unconditionally, using '' for every non-
+      // residential category (PropertyWizard.tsx:1784). Omitting it left the
+      // nullable column NULL, which breaks the dbSafe rule that nothing
+      // reaches Postgres as NULL except dates and FKs — and any web reader
+      // doing `.trim()` on it would throw.
+      'residential_subtype': provider.category == PropertyCategory.residential
+          ? canonicalResidentialSubtype(provider.residentialSubType ?? '')
+          : '',
+      'project_id': provider.projectId.isEmpty ? null : provider.projectId,
       'metadata': metadata,
       'status': 'active',
     };
@@ -567,26 +769,46 @@ class PropertyService {
           provider.furnishingType == 'Semi-Furnished',
       // React maps guardRoom → cafeteria; defaults to false if not set in commercial UI
       'cafeteria': provider.guardRoom,
-      // power_load_kw: omitted — no provider field ('powerLoad' not in any step)
-      // conference_rooms: omitted — no provider field ('numberOfCabins' not in any step)
+      'power_load_kw': double.tryParse(provider.text('powerLoad')) ?? 0,
+      // React maps numberOfCabins → conference_rooms (a non-obvious mapping
+      // called out in the architecture review, Q8).
+      'conference_rooms': int.tryParse(provider.text('numberOfCabins')) ?? 0,
     });
   }
 
   /// INSERT into `properties_land`.
+  /// `properties_land` payload, mirroring React's `landData`
+  /// (PropertyWizard.tsx:1896).
+  ///
+  /// Every column is written on every save, never conditionally: React's
+  /// dbNum/dbBool/dbText coercers exist precisely so this table never carries
+  /// a NULL. Flutter previously wrote only `area_sqft` and a conditional
+  /// `soil_type`, leaving four columns NULL.
+  ///
+  /// `boundary`, `waterSource` and `roadWidth` have no input in React either —
+  /// they are persisted but never collected — so they resolve to the same
+  /// typed-empty values the web writes rather than being invented here.
+  static Map<String, dynamic> _landRow(
+    String propertyId,
+    PostPropertyProvider provider,
+  ) {
+    return {
+      'property_id': propertyId,
+      'area_sqft': double.tryParse(provider.area) ?? 0,
+      'boundary_wall': provider.boolVal('boundary'),
+      'water_source': provider.text('waterSource'),
+      'road_width_ft': double.tryParse(provider.text('roadWidth')) ?? 0,
+      'soil_type': provider.text('soilType'),
+      // Not collected by either wizard; 0 keeps the column populated.
+      'slope_percentage': 0,
+    };
+  }
+
   Future<void> _insertLand(
     String propertyId,
     PostPropertyProvider provider,
   ) async {
-    await _supabase.from('properties_land').insert({
-      'property_id': propertyId,
-      'area_sqft': double.tryParse(provider.area),
-      // 'soilType' key confirmed in basic_info_step.dart
-      if (provider.text('soilType').isNotEmpty)
-        'soil_type': provider.text('soilType'),
-      // boundary_wall: omitted — no provider field ('boundary' not in any step)
-      // water_source:  omitted — no provider field ('waterSource' not in any step)
-      // road_width_ft: omitted — no provider field ('roadWidth' not in any step)
-    });
+    await _supabase.from('properties_land').insert(_landRow(propertyId, provider));
   }
 
   /// INSERT into `property_contact_details`.
@@ -645,9 +867,18 @@ class PropertyService {
 
   /// Converts the Flutter [PropertyCategory] enum to the DB category string.
   /// The only non-trivial mapping is pg → pg_coliving.
+  /// Maps the Flutter category enum onto the `property_category` Postgres enum.
+  ///
+  /// Both non-obvious cases are spelled out rather than derived from
+  /// `c.name`: PG is `pg_coliving`, and Other is **`others`** (plural).
+  /// `PropertyCategory.other.name` is `'other'`, which is NOT a member of the
+  /// enum — the DB accepts only
+  /// `residential, commercial, land, pg_coliving, others` — so relying on the
+  /// enum name made every "Others" listing fail at insert.
   static String _categoryToDb(PropertyCategory c) => switch (c) {
     PropertyCategory.pg => 'pg_coliving',
-    _ => c.name,   // residential, commercial, land, other
+    PropertyCategory.other => 'others',
+    _ => c.name, // residential, commercial, land
   };
 
   /// Parses a raw hashtag string (e.g. "#city #luxury sale") into the array
@@ -683,6 +914,22 @@ class PropertyService {
     meta.addAll(provider.allBoolFields);
     for (final entry in provider.allListFields.entries) {
       meta[entry.key] = entry.value;
+    }
+    // Session-only fields: React holds these in `PropertyFormData` and renders
+    // them, but writes them to neither a column nor metadata, so persisting
+    // them would give app-created rows a key web-created rows never carry.
+    for (final key in _kUiOnlyFields) {
+      meta.remove(key);
+    }
+
+    // ── Others ────────────────────────────────────────────────────────────
+    // React stamps the original wizard category for 'others' listings
+    // (PropertyWizard.tsx:1563). Note the VALUE is singular 'other' even
+    // though the column enum member is plural 'others' — matched verbatim
+    // rather than normalised, because web readers compare against this exact
+    // string.
+    if (provider.category == PropertyCategory.other) {
+      meta['originalCategory'] = 'other';
     }
 
     // ── Location overflow (no dedicated columns in properties table) ───────
@@ -780,14 +1027,122 @@ class PropertyService {
     }
     if (provider.category == PropertyCategory.pg) {
       meta['isPg'] = true;
+      // React always writes this nested object, with dbBool(...) coercing every
+      // unset flag to false (PropertyWizard.tsx:1649), so downstream readers
+      // can index into it unconditionally. None of the seven flags has an
+      // input in either wizard — they are persisted but never collected — so
+      // they resolve to false rather than being invented here.
+      meta['pgHouseRules'] = <String, dynamic>{
+        for (final entry in _kPgHouseRuleSources.entries)
+          entry.key: provider.boolVal(entry.value),
+      };
     }
+
+    // ── Commercial building inventory ─────────────────────────────────────
+    // React writes this on EVERY save as dbJson(...) — always an object, never
+    // undefined, so downstream readers can index into it
+    // (PropertyWizard.tsx:1733). Merged over whatever is already stored so the
+    // floor-wise and company-wise blocks the app cannot edit survive intact.
+    meta['buildingInventory'] = <String, dynamic>{
+      ...provider.buildingInventory,
+    };
 
     // ── Media categories ──────────────────────────────────────────────────
-    if (provider.mediaItems.isNotEmpty) {
-      meta['mediaCategories'] =
-          provider.mediaItems.map((m) => m.category).toList();
-    }
+    // Parallel array to `media_urls`, so it must be assembled in the SAME
+    // order: existing photos first, then newly uploaded ones. React builds it
+    // as [...existingMediaUrls.category, ...mediaFiles.category]
+    // (PropertyWizard.tsx:1725).
+    //
+    // Flutter previously wrote only the new items' categories, so editing a
+    // listing with existing photos shifted every category by the number of
+    // existing images — re-labelling the wrong pictures — and dropped the
+    // trailing ones (final-architecture-review NEW-5).
+    meta['mediaCategories'] = <String>[
+      ...provider.existingMedia.map((m) => m.category),
+      ...provider.mediaItems.map((m) => m.category),
+    ];
 
+    return meta;
+  }
+
+  /// Applies the builder-project tag to an already-merged metadata blob.
+  ///
+  /// Verbatim port of PropertyWizard.tsx:1597 — note it DELETES keys when the
+  /// listing is untagged rather than blanking them.
+  ///
+  /// **Must run AFTER the merge with the existing blob, never inside
+  /// [_buildMetadata].** Removing a key from the freshly built map accomplishes
+  /// nothing: `{...existing, ...fresh}` copies `projectId` straight back out of
+  /// the stored blob, so clearing a tag in the app would silently not stick.
+  /// Same ordering hazard as [_fillTypedEmpties], for the same reason.
+  static Map<String, dynamic> _applyProjectTag(
+    Map<String, dynamic> meta,
+    PostPropertyProvider provider,
+  ) {
+    if (provider.projectId.isNotEmpty) {
+      meta['projectId'] = provider.projectId;
+      if (provider.projectName.isNotEmpty) {
+        meta['projectName'] = provider.projectName;
+      }
+      if (provider.builderName.isNotEmpty) {
+        meta['builderName'] = provider.builderName;
+      }
+      if (provider.projectLocation.isNotEmpty) {
+        meta['projectLocation'] = provider.projectLocation;
+      }
+    } else {
+      meta.remove('projectId');
+      meta.remove('projectLocation');
+      if (provider.projectName.isNotEmpty) {
+        meta['projectName'] = provider.projectName;
+      } else {
+        meta.remove('projectName');
+      }
+      if (provider.builderName.isNotEmpty) {
+        meta['builderName'] = provider.builderName;
+      } else {
+        meta.remove('builderName');
+      }
+    }
+    return meta;
+  }
+
+  /// Writes a typed-empty value for every allow-list key still absent, so the
+  /// key always exists in the blob (final-architecture-review NEW-4).
+  ///
+  /// React's `fillMetadata` writes each listed key unconditionally, so a
+  /// web-created row has `metadata.someField = ''`. Flutter previously omitted
+  /// blanks entirely, so any web reader doing `metadata.foo.trim()` rather than
+  /// `metadata.foo?.trim()` would throw on an app-created listing.
+  ///
+  /// `''` is the right default rather than `false`/`[]`: React's
+  /// `getInitialFormData()` returns roughly twenty fields, leaving every other
+  /// `PropertyFormData` key `undefined`, and `fillMetadata` sends anything that
+  /// is not a bool/array/object through `dbText`, which yields `''`.
+  ///
+  /// **Call this LAST — after the merge with any existing blob, never inside
+  /// [_buildMetadata].** `putIfAbsent` then physically cannot overwrite a value
+  /// that is already there. Filling before the merge would blank every key the
+  /// provider does not carry, and the provider deliberately does not carry
+  /// non-scalar values: nested objects (`buildingInventory`, `pgHouseRules`)
+  /// and arrays of objects (`floorWiseRoomDetails`) are excluded from the bag
+  /// so they round-trip intact. Blanking those and merging would re-create the
+  /// exact data destruction Phase 0 fixed.
+  ///
+  /// Ordering it this way also means no hand-maintained list of non-scalar keys
+  /// has to stay in sync — a list that would silently rot as React adds fields.
+  Map<String, dynamic> _fillTypedEmpties(Map<String, dynamic> meta) {
+    for (final String key in kAllReactMetadataKeys) {
+      // Nested objects are still skipped outright: React writes them via
+      // dbJson (an object), so '' would be the wrong type, and Flutter has no
+      // value to offer for them until the category parity phases.
+      if (kNestedObjectMetadataKeys.contains(key)) continue;
+      // React DELETES the builder-project keys when a listing is untagged
+      // (PropertyWizard.tsx:1603) instead of writing a blank, so filling them
+      // here would resurrect a tag the user just cleared.
+      if (kProjectTagMetadataKeys.contains(key)) continue;
+      meta.putIfAbsent(key, () => '');
+    }
     return meta;
   }
 
@@ -852,12 +1207,9 @@ class PropertyService {
     String propertyId,
     PostPropertyProvider provider,
   ) async {
-    await _supabase.from('properties_land').upsert({
-      'property_id': propertyId,
-      'area_sqft': double.tryParse(provider.area),
-      if (provider.text('soilType').isNotEmpty)
-        'soil_type': provider.text('soilType'),
-    }, onConflict: 'property_id');
+    await _supabase
+        .from('properties_land')
+        .upsert(_landRow(propertyId, provider), onConflict: 'property_id');
   }
 
   /// UPSERT into `property_contact_details`. Used in edit mode.

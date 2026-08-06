@@ -75,6 +75,25 @@ class _HomeScreenState extends State<HomeScreen> {
       const FeaturedPropertiesSection(),
       const SizedBox(height: 24),
 
+      // "Latest projects" — newest listings first. Sits directly under
+      // Featured, right after the Premium banner, and keeps its header even
+      // before any listings exist so the feed doesn't open with a gap.
+      PropertyRailSection(
+        title: 'Latest Projects',
+        showWhenEmpty: true,
+        emptyMessage: 'No projects listed yet',
+        selector: (all) {
+          final newest = List.of(all)
+            ..sort(
+              (a, b) => (b.createdAt ?? DateTime(0)).compareTo(
+                a.createdAt ?? DateTime(0),
+              ),
+            );
+          return newest.take(8).toList();
+        },
+      ),
+      const SizedBox(height: 24),
+
       const TrendingSection(),
       const SizedBox(height: 24),
 
@@ -98,20 +117,6 @@ class _HomeScreenState extends State<HomeScreen> {
             return luxury.take(8).toList();
           },
         ),
-      ),
-      const SizedBox(height: 32),
-
-      PropertyRailSection(
-        title: 'New Launches',
-        selector: (all) {
-          final newest = List.of(all)
-            ..sort(
-              (a, b) => (b.createdAt ?? DateTime(0)).compareTo(
-                a.createdAt ?? DateTime(0),
-              ),
-            );
-          return newest.take(8).toList();
-        },
       ),
       const SizedBox(height: 32),
 

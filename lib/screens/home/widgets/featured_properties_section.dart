@@ -5,6 +5,7 @@ import '../../../core/constants/app_constants.dart';
 import '../../../providers/property_provider.dart';
 import '../../../widgets/property_card_vertical.dart';
 import '../../../widgets/section_header.dart';
+import 'empty_rail_placeholder.dart';
 
 /// Same data source as before (`PropertyProvider.getFeaturedProperties()`)
 /// and same navigation — extracted verbatim into its own widget.
@@ -16,7 +17,6 @@ class FeaturedPropertiesSection extends StatelessWidget {
     return Consumer<PropertyProvider>(
       builder: (context, propertyProvider, child) {
         final featuredProperties = propertyProvider.getFeaturedProperties();
-        if (featuredProperties.isEmpty) return const SizedBox.shrink();
 
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -30,6 +30,13 @@ class FeaturedPropertiesSection extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 12),
+            if (featuredProperties.isEmpty)
+              const EmptyRailPlaceholder(
+                height: AppConstants.propertyCardHeight,
+                message: 'No featured listings yet',
+                detail: 'Listings become featured once they start getting views.',
+              )
+            else
             SizedBox(
               height: AppConstants.propertyCardHeight,
               child: ListView.builder(

@@ -1,7 +1,14 @@
 import 'package:flutter/material.dart';
 
 import '../../models/broker_dashboard_model.dart';
+import '../../widgets/shared/stat_kpi_card.dart';
 
+/// Broker overview metrics.
+///
+/// Re-skinned in Phase 3 to render the shared [MetricCard] so all four role
+/// dashboards use one card language (blueprint §16.5). Every metric, label,
+/// icon, accent colour and ordering is unchanged — only the container,
+/// spacing and typography moved to the prototype's spec.
 class BrokerStatsWidget extends StatelessWidget {
   final BrokerDashboardModel stats;
 
@@ -12,98 +19,29 @@ class BrokerStatsWidget extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return GridView.count(
-      shrinkWrap: true,
-      physics: const NeverScrollableScrollPhysics(),
-      crossAxisCount: 2,
-      mainAxisSpacing: 16,
-      crossAxisSpacing: 16,
-      childAspectRatio: 1.35,
-      children: [
-
-        _card(
-          "Listings",
-          stats.totalListings.toString(),
-          Icons.home_work_rounded,
-          Colors.blue,
+    return MetricCardGrid(
+      cards: [
+        MetricCard(
+          label: "Listings",
+          value: stats.totalListings.toString(),
+          icon: Icons.home_work_rounded,
         ),
-
-        _card(
-          "Active",
-          stats.activeListings.toString(),
-          Icons.check_circle,
-          Colors.green,
+        MetricCard(
+          label: "Active",
+          value: stats.activeListings.toString(),
+          icon: Icons.check_circle,
         ),
-
-        _card(
-          "Views",
-          stats.totalViews.toString(),
-          Icons.visibility,
-          Colors.orange,
+        MetricCard(
+          label: "Views",
+          value: stats.totalViews.toString(),
+          icon: Icons.visibility,
         ),
-
-        _card(
-          "Rating",
-          stats.averageRating.toStringAsFixed(1),
-          Icons.star,
-          Colors.amber,
+        MetricCard(
+          label: "Rating",
+          value: stats.averageRating.toStringAsFixed(1),
+          icon: Icons.star,
         ),
       ],
-    );
-  }
-
-  Widget _card(
-    String title,
-    String value,
-    IconData icon,
-    Color color,
-  ) {
-    return Container(
-      padding: const EdgeInsets.all(18),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(22),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(.05),
-            blurRadius: 16,
-            offset: const Offset(0, 8),
-          ),
-        ],
-      ),
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-
-          CircleAvatar(
-            radius: 24,
-            backgroundColor: color.withOpacity(.12),
-            child: Icon(
-              icon,
-              color: color,
-            ),
-          ),
-
-          const SizedBox(height: 14),
-
-          Text(
-            value,
-            style: const TextStyle(
-              fontSize: 24,
-              fontWeight: FontWeight.bold,
-            ),
-          ),
-
-          const SizedBox(height: 6),
-
-          Text(
-            title,
-            style: const TextStyle(
-              color: Colors.grey,
-            ),
-          ),
-        ],
-      ),
     );
   }
 }

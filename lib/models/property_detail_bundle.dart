@@ -2,11 +2,16 @@
 import 'property_model.dart';
 
 /// Standalone, fully-nullable owner-profile view model for the property
-/// detail screen. Deliberately NOT ProfileModel — that model's fromSupabase
-/// requires non-nullable id/createdAt/updatedAt and throws against the
-/// narrower `display_name, avatar_url, user_type[, phone], social_media`
-/// column list the detail screen actually selects (phone is only included
-/// when the caller is signed in, matching the website's PII-aware query).
+/// detail screen.
+///
+/// Deliberately its own type rather than a shared profile model: the detail
+/// screen selects a narrow `display_name, avatar_url, user_type[, phone],
+/// social_media` column list, with phone included only when the caller is
+/// signed in, matching the website's PII-aware query. A model requiring
+/// non-nullable id/createdAt/updatedAt cannot represent that row.
+///
+/// (Phase 11 note: this previously referenced `ProfileModel`, an orphaned
+/// never-imported file deleted in that phase.)
 class PropertyOwnerProfile {
   final String? displayName;
   final String? avatarUrl;

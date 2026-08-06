@@ -2,16 +2,12 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_animate/flutter_animate.dart';
-import 'package:provider/provider.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_text_styles.dart';
-import '../../core/constants/app_constants.dart';
-import '../../providers/auth_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../auth/account_type_screen.dart';
 import '../home/home_screen.dart';
-import '../role_home_router.dart';
 
 // ─────────────────────────────────────────────
 //  Data model for each floating orbital icon

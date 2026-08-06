@@ -4,6 +4,7 @@ import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_text_styles.dart';
 import '../../../core/widgets/wizard_kit.dart';
 import '../../../providers/post_property_provider.dart';
+import '../listing_validation_rules.dart';
 
 /// Step 9: read-only review of everything entered across the wizard, with
 /// per-section "Edit" links that jump back to the relevant step. This is a
@@ -57,22 +58,27 @@ class ReviewStep extends StatelessWidget {
     final provider = context.watch<PostPropertyProvider>();
     final category = provider.category;
 
-    final enabledFeatures = provider.allBoolFields.entries
-        .where((e) => e.value)
-        .map((e) => _humanize(e.key))
-        .toList()
-      ..sort();
+    final enabledFeatures =
+        provider.allBoolFields.entries
+            .where((e) => e.value)
+            .map((e) => _humanize(e.key))
+            .toList()
+          ..sort();
 
     final selectedLists = provider.allListFields.entries
         .where((e) => e.value.isNotEmpty)
         .toList();
+
+    final visibleSteps = provider.visibleSteps;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         _Section(
           title: 'Category & Listing',
-          onEdit: () => context.read<PostPropertyProvider>().goToStep(0),
+          onEdit: () => context.read<PostPropertyProvider>().goToWizardStep(
+            WizardStep.category,
+          ),
           rows: [
             ('Category', _categoryLabel(category)),
             ('Listing Type', _intentLabel(provider.listingIntent)),
@@ -81,10 +87,13 @@ class ReviewStep extends StatelessWidget {
         const SizedBox(height: 16),
         _Section(
           title: 'Basic Info',
-          onEdit: () => context.read<PostPropertyProvider>().goToStep(1),
+          onEdit: () => context.read<PostPropertyProvider>().goToWizardStep(
+            WizardStep.basicInfo,
+          ),
           rows: [
             ('Title', _dash(provider.title)),
-            if (category != PropertyCategory.pg) ('Price', _dash(provider.price)),
+            if (category != PropertyCategory.pg)
+              ('Price', _dash(provider.price)),
             ('Address', _dash(provider.location)),
             ('City', _dash(provider.city)),
             ('State', _dash(provider.state)),
@@ -96,10 +105,13 @@ class ReviewStep extends StatelessWidget {
         const SizedBox(height: 16),
         _Section(
           title: 'Dimensions',
-          onEdit: () => context.read<PostPropertyProvider>().goToStep(2),
+          onEdit: () => context.read<PostPropertyProvider>().goToWizardStep(
+            WizardStep.dimensions,
+          ),
           rows: [
             ('Area', '${_dash(provider.area)} ${provider.areaUnit}'),
-            if (provider.carpetArea.isNotEmpty) ('Carpet Area', provider.carpetArea),
+            if (provider.carpetArea.isNotEmpty)
+              ('Carpet Area', provider.carpetArea),
             if (category == PropertyCategory.residential) ...[
               ('BHK Type', _dash(provider.bhkType ?? '')),
               ('Bedrooms', _dash(provider.bedrooms)),
@@ -107,43 +119,60 @@ class ReviewStep extends StatelessWidget {
             ],
           ],
         ),
-        const SizedBox(height: 16),
-        _Section(
-          title: 'Condition & Furnishing',
-          onEdit: () => context.read<PostPropertyProvider>().goToStep(3),
-          rows: [
-            ('Condition', _dash(provider.propertyCondition ?? '')),
-            ('Furnishing', _dash(provider.furnishingType ?? '')),
-            ('Availability', _dash(provider.availabilityStatus ?? '')),
-          ],
-        ),
-        const SizedBox(height: 16),
-        _Section(
-          title: 'Amenities & Features',
-          onEdit: () => context.read<PostPropertyProvider>().goToStep(4),
-          rows: [
-            ('Electricity Backup', _dash(provider.electricityBackup ?? '')),
-            ('Water Availability', _dash(provider.waterAvailability ?? '')),
-          ],
-          chipGroups: selectedLists
-              .map((e) => (_humanize(e.key), e.value))
-              .toList(),
-          chips: enabledFeatures,
-        ),
+        // Only summarise steps the wizard actually showed: React hides
+        // Condition for land + residential and Amenities for land
+        // (PropertyWizard.tsx stepsRaw), so rendering them here would offer an
+        // Edit link to a screen this listing never had.
+        if (visibleSteps.contains(WizardStep.condition)) ...[
+          const SizedBox(height: 16),
+          _Section(
+            title: 'Condition & Furnishing',
+            onEdit: () => context.read<PostPropertyProvider>().goToWizardStep(
+              WizardStep.condition,
+            ),
+            rows: [
+              ('Condition', _dash(provider.propertyCondition ?? '')),
+              ('Furnishing', _dash(provider.furnishingType ?? '')),
+              ('Availability', _dash(provider.availabilityStatus ?? '')),
+            ],
+          ),
+        ],
+        if (visibleSteps.contains(WizardStep.amenities)) ...[
+          const SizedBox(height: 16),
+          _Section(
+            title: 'Amenities & Features',
+            onEdit: () => context.read<PostPropertyProvider>().goToWizardStep(
+              WizardStep.amenities,
+            ),
+            rows: [
+              ('Electricity Backup', _dash(provider.electricityBackup ?? '')),
+              ('Water Availability', _dash(provider.waterAvailability ?? '')),
+            ],
+            chipGroups: selectedLists
+                .map((e) => (_humanize(e.key), e.value))
+                .toList(),
+            chips: enabledFeatures,
+          ),
+        ],
         const SizedBox(height: 16),
         _Section(
           title: 'Legal & Approvals',
-          onEdit: () => context.read<PostPropertyProvider>().goToStep(5),
+          onEdit: () => context.read<PostPropertyProvider>().goToWizardStep(
+            WizardStep.legal,
+          ),
           rows: [
             ('RERA Registered', provider.reraRegistered ? 'Yes' : 'No'),
-            if (provider.reraRegistered) ('RERA Number', _dash(provider.reraNumber)),
+            if (provider.reraRegistered)
+              ('RERA Number', _dash(provider.reraNumber)),
             ('Facing', _dash(provider.facing ?? '')),
           ],
         ),
         const SizedBox(height: 16),
         _Section(
           title: 'Pricing & Terms',
-          onEdit: () => context.read<PostPropertyProvider>().goToStep(6),
+          onEdit: () => context.read<PostPropertyProvider>().goToWizardStep(
+            WizardStep.pricing,
+          ),
           rows: [
             ('Maintenance Charges', _dash(provider.maintenanceCharges)),
             ('Brokerage', _dash(provider.brokerage)),
@@ -153,7 +182,9 @@ class ReviewStep extends StatelessWidget {
         const SizedBox(height: 16),
         _Section(
           title: 'Media & Contact',
-          onEdit: () => context.read<PostPropertyProvider>().goToStep(7),
+          onEdit: () => context.read<PostPropertyProvider>().goToWizardStep(
+            WizardStep.media,
+          ),
           rows: [
             ('Images Selected', '${provider.mediaItems.length}'),
             ('Contact Name', _dash(provider.contactName)),
@@ -178,7 +209,9 @@ class ReviewStep extends StatelessWidget {
                 child: Text(
                   'This is a preview only. Submitting your listing to the '
                   'server will be enabled in a later update.',
-                  style: AppTextStyles.caption.copyWith(color: AppColors.textPrimary),
+                  style: AppTextStyles.caption.copyWith(
+                    color: AppColors.textPrimary,
+                  ),
                 ),
               ),
             ],
@@ -215,7 +248,9 @@ class _Section extends StatelessWidget {
               Expanded(
                 child: Text(
                   title,
-                  style: AppTextStyles.heading3.copyWith(fontWeight: FontWeight.w600),
+                  style: AppTextStyles.heading3.copyWith(
+                    fontWeight: FontWeight.w600,
+                  ),
                 ),
               ),
               TextButton(
@@ -226,35 +261,44 @@ class _Section extends StatelessWidget {
                   minimumSize: const Size(0, 0),
                   tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                 ),
-                child: Text('Edit', style: AppTextStyles.caption.copyWith(
-                  color: AppColors.primary,
-                  fontWeight: FontWeight.w600,
-                )),
+                child: Text(
+                  'Edit',
+                  style: AppTextStyles.caption.copyWith(
+                    color: AppColors.primary,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
               ),
             ],
           ),
           const SizedBox(height: 10),
-          ...rows.map((r) => Padding(
-                padding: const EdgeInsets.symmetric(vertical: 4),
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    SizedBox(
-                      width: 130,
-                      child: Text(
-                        r.$1,
-                        style: AppTextStyles.caption.copyWith(color: AppColors.textSecondary),
+          ...rows.map(
+            (r) => Padding(
+              padding: const EdgeInsets.symmetric(vertical: 4),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  SizedBox(
+                    width: 130,
+                    child: Text(
+                      r.$1,
+                      style: AppTextStyles.caption.copyWith(
+                        color: AppColors.textSecondary,
                       ),
                     ),
-                    Expanded(
-                      child: Text(
-                        r.$2,
-                        style: AppTextStyles.body.copyWith(color: AppColors.textPrimary),
+                  ),
+                  Expanded(
+                    child: Text(
+                      r.$2,
+                      style: AppTextStyles.body.copyWith(
+                        color: AppColors.textPrimary,
                       ),
                     ),
-                  ],
-                ),
-              )),
+                  ),
+                ],
+              ),
+            ),
+          ),
           for (final group in chipGroups) ...[
             const SizedBox(height: 6),
             Text(

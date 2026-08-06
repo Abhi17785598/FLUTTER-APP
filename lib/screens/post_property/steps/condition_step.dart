@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import '../../../core/theme/app_colors.dart';
+import '../../../core/theme/app_text_styles.dart';
 import '../../../core/widgets/wizard_kit.dart';
 import '../../../providers/post_property_provider.dart';
 
@@ -78,6 +80,14 @@ class ConditionStep extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
+        // Building condition, commercial only — both fields live inside the
+        // nested buildingInventory object (ConditionStep.tsx spreads into it)
+        // and both are required by the rules for this category.
+        if (provider.category == PropertyCategory.commercial) ...[
+          const _BuildingConditionCard(),
+          const SizedBox(height: 20),
+        ],
+
         WizardCard(
           icon: Icons.fact_check_outlined,
           title: 'Condition & Availability',
@@ -119,6 +129,14 @@ class ConditionStep extends StatelessWidget {
                       .setAvailabilityStatus(v),
                 ),
               ),
+              const WizardDivider(),
+              // React renders <AvailableFrom> in every ConditionStep branch
+              // (ConditionStep.tsx:365-445). This step is only visible for
+              // commercial, PG and others — land and residential answer the
+              // same question on the Dimensions step — so without it those
+              // three categories had a required field with no input anywhere
+              // and could never leave this step.
+              const _AvailableFromField(),
             ],
           ),
         ),
@@ -280,6 +298,158 @@ class ConditionStep extends StatelessWidget {
           ),
         ],
       ],
+    );
+  }
+}
+
+/// Commercial building condition. Separate stateful widget so [ConditionStep]
+/// can stay stateless while Building Age still gets a proper controller.
+class _BuildingConditionCard extends StatefulWidget {
+  const _BuildingConditionCard();
+
+  @override
+  State<_BuildingConditionCard> createState() => _BuildingConditionCardState();
+}
+
+class _BuildingConditionCardState extends State<_BuildingConditionCard> {
+  /// Verbatim from the ownershipTypeBuilding select in ConditionStep.tsx —
+  /// three options, NOT the four the property-condition select offers.
+  static const List<String> _kBuildingOwnershipTypes = [
+    'Freehold',
+    'Leasehold',
+    'Co-ownership',
+  ];
+
+  late final TextEditingController _buildingAgeController;
+
+  @override
+  void initState() {
+    super.initState();
+    _buildingAgeController = TextEditingController(
+      text: context
+          .read<PostPropertyProvider>()
+          .buildingInventoryText('buildingAge'),
+    );
+  }
+
+  @override
+  void dispose() {
+    _buildingAgeController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final provider = context.watch<PostPropertyProvider>();
+
+    return WizardCard(
+      icon: Icons.apartment_outlined,
+      title: 'Building Condition',
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          WizardField(
+            label: 'Building Age *',
+            child: WizardTextField(
+              controller: _buildingAgeController,
+              hint: 'e.g., 5 years',
+              onChanged: (v) => context
+                  .read<PostPropertyProvider>()
+                  .setBuildingInventoryValue('buildingAge', v),
+            ),
+          ),
+          const WizardDivider(),
+          WizardField(
+            label: 'Building Ownership Type *',
+            child: WizardChipGroup(
+              options: _kBuildingOwnershipTypes,
+              selected:
+                  provider.buildingInventoryText('ownershipTypeBuilding').isEmpty
+                      ? null
+                      : provider.buildingInventoryText('ownershipTypeBuilding'),
+              onSelected: (v) => context
+                  .read<PostPropertyProvider>()
+                  .setBuildingInventoryValue('ownershipTypeBuilding', v),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// "Available From *" — the checkbox/date pair React uses identically on the
+/// Dimensions and Condition steps: ticking Immediately stores the literal
+/// `'Immediately'`, otherwise a date is picked, and the date box is hidden
+/// while Immediately is set.
+class _AvailableFromField extends StatelessWidget {
+  const _AvailableFromField();
+
+  @override
+  Widget build(BuildContext context) {
+    final p = context.watch<PostPropertyProvider>();
+    final d = p.availableFrom;
+    final text = d == null
+        ? 'Select a date'
+        : '${d.year.toString().padLeft(4, '0')}-'
+            '${d.month.toString().padLeft(2, '0')}-'
+            '${d.day.toString().padLeft(2, '0')}';
+
+    return WizardField(
+      label: 'Available From *',
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          WizardCheckboxTile(
+            label: 'Immediately',
+            value: p.availableImmediately,
+            onChanged: (v) => context
+                .read<PostPropertyProvider>()
+                .setAvailableImmediately(v),
+          ),
+          if (!p.availableImmediately) ...[
+            const SizedBox(height: 8),
+            InkWell(
+              onTap: () async {
+                final now = DateTime.now();
+                final picked = await showDatePicker(
+                  context: context,
+                  initialDate: d ?? now,
+                  firstDate: DateTime(now.year - 1),
+                  lastDate: DateTime(now.year + 20),
+                );
+                if (picked != null && context.mounted) {
+                  context.read<PostPropertyProvider>().setAvailableFrom(picked);
+                }
+              },
+              borderRadius: BorderRadius.circular(12),
+              child: Container(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                decoration: BoxDecoration(
+                  color: AppColors.background,
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Row(
+                  children: [
+                    const Icon(Icons.calendar_today_outlined,
+                        size: 16, color: AppColors.textSecondary),
+                    const SizedBox(width: 8),
+                    Text(
+                      text,
+                      style: AppTextStyles.body.copyWith(
+                        color: d == null
+                            ? AppColors.textHint
+                            : AppColors.textPrimary,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ],
+      ),
     );
   }
 }

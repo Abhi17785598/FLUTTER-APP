@@ -11,6 +11,7 @@ import 'providers/shortlist_provider.dart';
 import 'providers/auth_provider.dart';
 import 'providers/reels_provider.dart';
 import 'providers/available_locations_provider.dart';
+import 'providers/recent_searches_provider.dart';
 import 'voice_agent/providers/voice_agent_provider.dart';
 import 'voice_agent/tools/navigation_tool.dart';
 import 'voice_agent/tools/search_tools.dart';
@@ -51,6 +52,13 @@ Future<void> main() async {
         ChangeNotifierProvider(create: (_) => ShortlistProvider()),
         ChangeNotifierProvider(create: (_) => ReelsProvider()),
         ChangeNotifierProvider(create: (_) => AvailableLocationsProvider()),
+        // Proxied on AuthProvider because recent searches live in
+        // `ai_user_memory` for a signed-in user and in shared_preferences for
+        // an anonymous one — the list has to reload when that identity changes.
+        ChangeNotifierProxyProvider<AuthProvider, RecentSearchesProvider>(
+          create: (ctx) => RecentSearchesProvider(ctx.read<AuthProvider>()),
+          update: (ctx, auth, prev) => prev!..updateAuth(auth),
+        ),
         ChangeNotifierProxyProvider<AuthProvider, VoiceAgentProvider>(
           create: (ctx) => VoiceAgentProvider(ctx.read<AuthProvider>()),
           update: (ctx, auth, prev) => prev!..updateAuth(auth),

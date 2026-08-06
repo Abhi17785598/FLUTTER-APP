@@ -6,6 +6,7 @@ import '../../../models/property_model.dart';
 import '../../../providers/property_provider.dart';
 import '../../../widgets/property_card_vertical.dart';
 import '../../../widgets/section_header.dart';
+import 'empty_rail_placeholder.dart';
 
 /// Generic horizontal property rail, parameterized by [title] and a
 /// client-side [selector] over the already-loaded `properties` list — shared
@@ -18,6 +19,8 @@ class PropertyRailSection extends StatelessWidget {
     super.key,
     required this.title,
     required this.selector,
+    this.showWhenEmpty = false,
+    this.emptyMessage,
     double? cardWidth,
     double? cardImageHeight,
   }) : cardWidth = cardWidth ?? AppConstants.propertyCardWidth,
@@ -26,6 +29,11 @@ class PropertyRailSection extends StatelessWidget {
 
   final String title;
   final List<PropertyModel> Function(List<PropertyModel> all) selector;
+
+  /// When true the rail keeps its header and shows [EmptyRailPlaceholder]
+  /// instead of collapsing to nothing once [selector] returns no items.
+  final bool showWhenEmpty;
+  final String? emptyMessage;
 
   /// Lets one rail (Luxury Collection) render a visibly larger "step up"
   /// card than the others, for image-rhythm variety — same card widget,
@@ -38,7 +46,7 @@ class PropertyRailSection extends StatelessWidget {
     return Consumer<PropertyProvider>(
       builder: (context, propertyProvider, child) {
         final items = selector(propertyProvider.properties);
-        if (items.isEmpty) return const SizedBox.shrink();
+        if (items.isEmpty && !showWhenEmpty) return const SizedBox.shrink();
         final rowHeight =
             AppConstants.propertyCardHeight +
             (cardImageHeight - AppConstants.propertyCardImageHeight);
@@ -55,6 +63,12 @@ class PropertyRailSection extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 12),
+            if (items.isEmpty)
+              EmptyRailPlaceholder(
+                height: rowHeight,
+                message: emptyMessage ?? 'No listings here yet',
+              )
+            else
             SizedBox(
               height: rowHeight,
               child: ListView.builder(

@@ -11,7 +11,6 @@ class BuilderQuickActionsWidget extends StatelessWidget {
     VoidCallback onTap,
   ) {
     final scheme = Theme.of(context).colorScheme;
-    final textTheme = Theme.of(context).textTheme;
 
     return Expanded(
       child: Material(
@@ -57,7 +56,7 @@ class BuilderQuickActionsWidget extends StatelessWidget {
                 Text(
                   title,
                   textAlign: TextAlign.center,
-                  style: textTheme.bodyMedium?.copyWith(
+                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                     fontWeight: FontWeight.w600,
                   ),
                 ),
@@ -72,19 +71,10 @@ class BuilderQuickActionsWidget extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
-    final textTheme = Theme.of(context).textTheme;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
-          "Quick Actions",
-          style: textTheme.titleLarge?.copyWith(
-            fontWeight: FontWeight.w700,
-            letterSpacing: -0.3,
-          ),
-        ),
-        const SizedBox(height: 14),
         Row(
           children: [
             actionButton(context, Icons.add_business_rounded, "Add Project", scheme.primary, () {}),

@@ -35,6 +35,8 @@ dependencies:
   # Use with the CupertinoIcons class for iOS style icons.
   cupertino_icons: ^1.0.8
   google_fonts: ^6.1.0
+  # Renders the portal's lucide-react icons verbatim (assets/lucide).
+  flutter_svg: ^2.0.10
   provider: ^6.1.1
   shimmer: ^3.0.0
   cached_network_image: ^3.4.1
@@ -79,6 +81,8 @@ flutter:
 
   assets:
     - .env
+    - assets/formicons/
+    - assets/lucide/
 
   # To add assets to your application, add an assets section, like this:
   # assets:

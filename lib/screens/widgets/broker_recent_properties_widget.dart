@@ -50,17 +50,6 @@ class BrokerRecentPropertiesWidget extends StatelessWidget {
           crossAxisAlignment:
               CrossAxisAlignment.start,
           children: [
-
-            const Text(
-              "Recent Properties",
-              style: TextStyle(
-                fontSize: 22,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-
-            const SizedBox(height: 18),
-
             ...properties.map(
               (property) => Card(
                 margin:

@@ -43,16 +43,6 @@ class InfluencerRecentCampaignsWidget extends StatelessWidget {
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text(
-              "Recent Videos",
-              style: TextStyle(
-                fontSize: 22,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-
-            const SizedBox(height: 18),
-
             ...videos.map(
               (video) => Card(
                 margin: const EdgeInsets.only(bottom: 16),

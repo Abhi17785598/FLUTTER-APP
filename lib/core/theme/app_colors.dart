@@ -15,6 +15,26 @@ class AppColors {
   static const Color textPrimary = Color(0xFF1A1A2E);
   static const Color textSecondary = Color(0xFF6B7280);
   static const Color textHint = Color(0xFF9CA3AF);
+
+  // ── Tokens added in Phase 5 for the shared component library ──────────────
+  // Purely additive; the design system table lists these and nothing in the
+  // app had a name for them yet (they were being written as inline hex).
+
+  /// Hairline borders, list separators, and the toggle's OFF track.
+  static const Color hairline = Color(0xFFEDEDF2);
+
+  /// The design system's second hairline value, used for drawer/header rules.
+  static const Color hairlineStrong = Color(0xFFF0F0F4);
+
+  /// Pressed/hover state for primary links and buttons.
+  static const Color primaryPressed = Color(0xFF3D35B8);
+
+  /// Inset surface a shade below the card — the billing rows and the read-only
+  /// billing-detail fields sit on this. Added in Phase 7.
+  static const Color surfaceMuted = Color(0xFFF9F9FB);
+
+  /// Border for the destructive outline button ("Cancel Subscription").
+  static const Color errorBorder = Color(0xFFFCA5A5);
   
   static const Color verifiedBadge = Color(0xFF10B981);
   static const Color verifiedBadgeText = Color(0xFFFFFFFF);
@@ -49,6 +69,40 @@ class AppColors {
     begin: Alignment.topLeft,
     end: Alignment.bottomRight,
   );
+
+  // ── Prototype surface elevation ───────────────────────────────────────────
+  // The redesign renders solid white cards on the #F4F4F8 canvas with a much
+  // softer, neutral shadow than `cardShadow`'s purple-tinted glow below.
+  // Kept as separate tokens (rather than changing `cardShadow`) so existing
+  // screens that already use `cardShadow`/`GlassCard` are visually untouched.
+
+  /// `0 2px 10px rgba(26,26,46,0.05)` — standard card/tile surface.
+  static const List<BoxShadow> surfaceCardShadow = [
+    BoxShadow(
+      color: Color(0x0D1A1A2E),
+      blurRadius: 10,
+      offset: Offset(0, 2),
+    ),
+  ];
+
+  /// `0 2px 6px rgba(26,26,46,0.1)` — the raised, selected pill inside a
+  /// segmented tab track.
+  static const List<BoxShadow> raisedPillShadow = [
+    BoxShadow(
+      color: Color(0x1A1A1A2E),
+      blurRadius: 6,
+      offset: Offset(0, 2),
+    ),
+  ];
+
+  /// `0 4px 12px rgba(91,80,232,0.28)` — solid primary CTA.
+  static const List<BoxShadow> primaryActionShadow = [
+    BoxShadow(
+      color: Color(0x475B50E8),
+      blurRadius: 12,
+      offset: Offset(0, 4),
+    ),
+  ];
 
   // Premium card shadow
   static List<BoxShadow> cardShadow = [
@@ -91,6 +145,11 @@ class AppColors {
     switch (label) {
       case 'Ready to Move':
         return statusAvailable;
+      // `statusNewLaunch` has existed since the palette was written but was
+      // never wired into this switch, so a "New Launch" tag fell through to the
+      // default. Added for the search result cards; no existing case changed.
+      case 'New Launch':
+        return statusNewLaunch;
       case 'Under Construction':
         return statusPending;
       case 'Top Builder':
@@ -109,6 +168,10 @@ class AppColors {
   static Color getStatusChipText(String label) {
     switch (label) {
       case 'Ready to Move':
+        return Colors.white;
+      // White on the solid `statusNewLaunch` fill, matching how the other solid
+      // chip ('Ready to Move') is treated. Introduces no new colour value.
+      case 'New Launch':
         return Colors.white;
       case 'Under Construction':
         return textPrimary;

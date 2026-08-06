@@ -1,7 +1,13 @@
 import 'package:flutter/material.dart';
 
 import '../../models/influencer_dashboard_model.dart';
+import '../../widgets/shared/stat_kpi_card.dart';
 
+/// Influencer overview metrics.
+///
+/// Re-skinned in Phase 3 to render the shared [MetricCard] (blueprint §16.5).
+/// Metrics, labels, icons, accent colours and ordering are unchanged —
+/// including the rupee-formatted earnings value.
 class InfluencerStatsWidget extends StatelessWidget {
   final InfluencerDashboardModel stats;
 
@@ -12,84 +18,29 @@ class InfluencerStatsWidget extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return GridView.count(
-      shrinkWrap: true,
-      physics: const NeverScrollableScrollPhysics(),
-      crossAxisCount: 2,
-      mainAxisSpacing: 16,
-      crossAxisSpacing: 16,
-      childAspectRatio: 1.35,
-      children: [
-        _card(
-          "Videos",
-          stats.totalVideos.toString(),
-          Icons.video_library_rounded,
-          Colors.red,
+    return MetricCardGrid(
+      cards: [
+        MetricCard(
+          label: "Videos",
+          value: stats.totalVideos.toString(),
+          icon: Icons.video_library_rounded,
         ),
-        _card(
-          "Campaigns",
-          stats.activeCampaigns.toString(),
-          Icons.campaign_rounded,
-          Colors.blue,
+        MetricCard(
+          label: "Campaigns",
+          value: stats.activeCampaigns.toString(),
+          icon: Icons.campaign_rounded,
         ),
-        _card(
-          "Views",
-          stats.totalViews.toString(),
-          Icons.visibility_rounded,
-          Colors.green,
+        MetricCard(
+          label: "Views",
+          value: stats.totalViews.toString(),
+          icon: Icons.visibility_rounded,
         ),
-        _card(
-          "Earnings",
-          "₹${stats.totalEarnings.toStringAsFixed(0)}",
-          Icons.payments_rounded,
-          Colors.orange,
+        MetricCard(
+          label: "Earnings",
+          value: "₹${stats.totalEarnings.toStringAsFixed(0)}",
+          icon: Icons.payments_rounded,
         ),
       ],
-    );
-  }
-
-  Widget _card(
-    String title,
-    String value,
-    IconData icon,
-    Color color,
-  ) {
-    return Container(
-      padding: const EdgeInsets.all(18),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(22),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(.05),
-            blurRadius: 16,
-            offset: const Offset(0, 8),
-          ),
-        ],
-      ),
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          CircleAvatar(
-            radius: 24,
-            backgroundColor: color.withOpacity(.12),
-            child: Icon(icon, color: color),
-          ),
-          const SizedBox(height: 14),
-          Text(
-            value,
-            style: const TextStyle(
-              fontSize: 24,
-              fontWeight: FontWeight.bold,
-            ),
-          ),
-          const SizedBox(height: 6),
-          Text(
-            title,
-            style: const TextStyle(color: Colors.grey),
-          ),
-        ],
-      ),
     );
   }
 }

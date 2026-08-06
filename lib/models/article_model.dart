@@ -1,0 +1,106 @@
+/// A full `cms_posts` row as the editor needs it.
+///
+/// Distinct from [ArticleSummary], which is the trimmed projection the Profile
+/// screen's My Content list uses. This carries every column the editor reads
+/// or writes — see blueprint §16.9.
+class ArticleModel {
+  final String id;
+  final String title;
+  final String slug;
+
+  /// `brief`, falling back to `excerpt` exactly as ArticleWriteForm.tsx does.
+  final String brief;
+
+  /// `content_html`, falling back to `content`. Both columns are written with
+  /// the same HTML string.
+  final String contentHtml;
+
+  final String? category;
+  final List<String> tags;
+
+  /// `featured_image_url`, falling back to `cover_image`.
+  final String? imageUrl;
+
+  final int readTime;
+
+  /// `draft` / `published`.
+  final String? status;
+
+  /// `pending` / `approved` / `rejected`.
+  final String? approvalStatus;
+
+  final String? rejectionReason;
+  final String? contentType;
+  final String? submittedBy;
+  final bool isFeatured;
+  final DateTime? publishedAt;
+
+  const ArticleModel({
+    required this.id,
+    required this.title,
+    required this.slug,
+    this.brief = '',
+    this.contentHtml = '',
+    this.category,
+    this.tags = const [],
+    this.imageUrl,
+    this.readTime = 5,
+    this.status,
+    this.approvalStatus,
+    this.rejectionReason,
+    this.contentType,
+    this.submittedBy,
+    this.isFeatured = false,
+    this.publishedAt,
+  });
+
+  factory ArticleModel.fromSupabase(Map<String, dynamic> json) {
+    final rawTags = json['tags'];
+    final published = json['published_at'] as String?;
+
+    return ArticleModel(
+      id: json['id'].toString(),
+      title: (json['title'] as String?) ?? '',
+      slug: (json['slug'] as String?) ?? '',
+      brief: (json['brief'] as String?) ?? (json['excerpt'] as String?) ?? '',
+      contentHtml:
+          (json['content_html'] as String?) ?? (json['content'] as String?) ?? '',
+      category: json['category'] as String?,
+      tags: rawTags is List
+          ? rawTags.map((t) => t.toString()).toList()
+          : const <String>[],
+      imageUrl: (json['featured_image_url'] as String?) ??
+          (json['cover_image'] as String?),
+      readTime: (json['read_time'] as num?)?.toInt() ?? 5,
+      status: json['status'] as String?,
+      approvalStatus: json['approval_status'] as String?,
+      rejectionReason: json['rejection_reason'] as String?,
+      contentType: json['content_type'] as String?,
+      submittedBy: json['submitted_by']?.toString(),
+      isFeatured: (json['is_featured'] as bool?) ?? false,
+      publishedAt: published == null ? null : DateTime.tryParse(published),
+    );
+  }
+
+  /// Whether RLS permits the author to update this row.
+  ///
+  /// The `Users can update their own pending articles` policy requires
+  /// `approval_status = 'pending'`, so an approved or rejected article cannot
+  /// be edited by its author — the update would match zero rows and report
+  /// success. The editor checks this up front instead (blueprint §16.9).
+  bool get isEditable => (approvalStatus ?? 'pending').toLowerCase() == 'pending';
+
+  /// Human-readable moderation state for the editor's status banner.
+  String get statusLabel {
+    switch ((approvalStatus ?? 'pending').toLowerCase()) {
+      case 'approved':
+        return status?.toLowerCase() == 'published'
+            ? 'Published — live'
+            : 'Approved';
+      case 'rejected':
+        return 'Rejected';
+      default:
+        return 'Pending admin approval';
+    }
+  }
+}

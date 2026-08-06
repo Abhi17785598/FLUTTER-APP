@@ -1,7 +1,23 @@
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
-import '../core/validation/validators.dart';
+import '../models/tagged_project.dart';
+import '../screens/post_property/listing_validation_rules.dart';
+import '../screens/post_property/listing_validators.dart';
+import '../screens/post_property/listing_value_aliases.dart';
 import '../services/property_service.dart';
+
+/// `metadata.pgHouseRules` sub-key -> the provider flag it hydrates into.
+/// Mirrors PropertyService's write-side map; the names differ on each side of
+/// the colon, so neither direction is derivable from the other.
+const Map<String, String> _kPgHouseRuleSources = {
+  'visitorEntry': 'pgVisitorEntry',
+  'nonVegFood': 'pgNonVegFood',
+  'oppositeGender': 'pgOppositeGender',
+  'smoking': 'pgSmoking',
+  'drinking': 'pgDrinking',
+  'loudMusic': 'pgLoudMusic',
+  'party': 'pgParty',
+};
 
 enum PropertyCategory { residential, commercial, land, pg, other }
 
@@ -15,6 +31,29 @@ class MediaItem {
   final String category;
 
   const MediaItem({required this.file, required this.category});
+}
+
+/// A photo already stored against the listing, paired with its category.
+///
+/// React models this as `existingMediaUrls: { url, category }[]` and rebuilds
+/// it on edit by zipping `media_urls` against `metadata.mediaCategories` by
+/// index (PropertyWizard.tsx:1287). Flutter previously kept only the URLs, so
+/// every existing photo's category was lost the moment a listing was edited.
+class MediaRef {
+  final String url;
+  final String category;
+
+  const MediaRef({required this.url, required this.category});
+
+  MediaRef copyWith({String? category}) =>
+      MediaRef(url: url, category: category ?? this.category);
+
+  @override
+  bool operator ==(Object other) =>
+      other is MediaRef && other.url == url && other.category == category;
+
+  @override
+  int get hashCode => Object.hash(url, category);
 }
 
 /// Wizard state for the "Post Property" flow.
@@ -33,7 +72,22 @@ class MediaItem {
 /// field name used in the React source — this keeps them traceable 1:1 back
 /// to the source of truth without ~100 near-duplicate getter/setter pairs.
 class PostPropertyProvider extends ChangeNotifier {
-  static const int totalSteps = 9;
+  /// Steps visible for the current category. React rebuilds this array on every
+  /// render from `propertyType` (PropertyWizard.tsx:1350); Flutter derives it
+  /// the same way, so land shows 6 steps + Review and residential 7 + Review
+  /// instead of a fixed nine.
+  List<WizardStep> get visibleSteps => visibleStepsFor(_category);
+
+  /// Number of steps in the current flow. No longer a constant: it changes with
+  /// the category, which is the whole point of T3.
+  int get totalSteps => visibleSteps.length;
+
+  /// The step the user is currently on, resolved through [visibleSteps].
+  WizardStep get currentWizardStep {
+    final steps = visibleSteps;
+    final int i = _currentStep.clamp(0, steps.length - 1);
+    return steps[i];
+  }
 
   int _currentStep = 0;
   bool _isSubmitting = false;
@@ -54,6 +108,13 @@ class PostPropertyProvider extends ChangeNotifier {
   String _landmark = '';
   String _price = '';
   DateTime? _availableFrom;
+
+  // React keeps one string in `formData.availableFrom`: '' until answered, then
+  // either the literal 'Immediately' or a yyyy-MM-dd date. A `DateTime?` cannot
+  // tell "Immediately" apart from "not answered yet", so the Immediately case
+  // gets its own flag. Both null and false means unanswered, which is what the
+  // `availableFrom` listing rule tests.
+  bool _availableImmediately = false;
   String? _residentialSubType;
 
   // ── Step 3: Dimensions (shared/residential) ───────────────────────────
@@ -109,9 +170,34 @@ class PostPropertyProvider extends ChangeNotifier {
   bool _loanAvailability = false;
   String _brokerage = '';
 
+  // ── Commercial building inventory (nested object) ─────────────────────
+  //
+  // React models this as one nested `formData.buildingInventory` object and
+  // spreads into it on every edit. Phase 0 deliberately left nested objects
+  // out of the `_text`/`_bool`/`_list` bag — they have no slot there — and
+  // deferred real editing support to this phase.
+  //
+  // Stored whole rather than flattened so that sub-keys Flutter has no input
+  // for (the floor-wise and company-wise blocks, and ~30 optional facility
+  // flags) survive a round-trip untouched instead of being dropped the first
+  // time a web-created listing is edited in the app.
+  Map<String, dynamic> _buildingInventory = {};
+
+  // Lists of objects skipped by hydration (see _hydrateBagFromMetadata), kept
+  // so read-only derived displays have something to read. Never written back —
+  // the update-time metadata merge is what preserves them.
+  final Map<String, List<dynamic>> _preservedLists = {};
+
+  // ── Builder project tag (optional, any category) ──────────────────────
+  String _projectId = '';
+  String _projectName = '';
+  String _projectLocation = '';
+  String _builderName = '';
+
   // ── Edit mode ─────────────────────────────────────────────────────────
   String? _editingPropertyId;
-  List<String> _existingMediaUrls = [];
+  List<MediaRef> _existingMedia = [];
+  String _mainDisplayMediaUrl = '';
 
   // ── Step 8: Media & Contact ───────────────────────────────────────────
   final List<MediaItem> _mediaItems = [];
@@ -158,7 +244,17 @@ class PostPropertyProvider extends ChangeNotifier {
   int get currentStep => _currentStep;
   bool get isSubmitting => _isSubmitting;
   bool get isEditMode => _editingPropertyId != null;
-  List<String> get existingMediaUrls => List.unmodifiable(_existingMediaUrls);
+  /// Existing photos with their categories, in `media_urls` order.
+  List<MediaRef> get existingMedia => List.unmodifiable(_existingMedia);
+
+  /// URLs only, in order — what the `media_urls` column is rebuilt from.
+  List<String> get existingMediaUrls =>
+      List.unmodifiable(_existingMedia.map((m) => m.url));
+
+  /// The photo the user starred as the listing's main image. Empty means
+  /// "use the first", matching React's
+  /// `dbText(mainDisplayMediaUrl, allMediaUrls[0] ?? '')`.
+  String get mainDisplayMediaUrl => _mainDisplayMediaUrl;
   PropertyCategory? get category => _category;
   ListingIntent? get listingIntent => _listingIntent;
 
@@ -173,6 +269,22 @@ class PostPropertyProvider extends ChangeNotifier {
   String get landmark => _landmark;
   String get price => _price;
   DateTime? get availableFrom => _availableFrom;
+
+  /// True when the listing is available now — React's
+  /// `formData.availableFrom === 'Immediately'`.
+  bool get availableImmediately => _availableImmediately;
+
+  /// The single string React stores, so validation and the write path agree:
+  /// '' unanswered, else 'Immediately' or `yyyy-MM-dd`.
+  String get availableFromValue {
+    if (_availableImmediately) return 'Immediately';
+    final DateTime? d = _availableFrom;
+    if (d == null) return '';
+    return '${d.year.toString().padLeft(4, '0')}-'
+        '${d.month.toString().padLeft(2, '0')}-'
+        '${d.day.toString().padLeft(2, '0')}';
+  }
+
   String? get residentialSubType => _residentialSubType;
 
   String get area => _area;
@@ -223,6 +335,37 @@ class PostPropertyProvider extends ChangeNotifier {
   bool get loanAvailability => _loanAvailability;
   String get brokerage => _brokerage;
 
+  /// The whole nested object, including sub-keys the app never edits.
+  Map<String, dynamic> get buildingInventory =>
+      Map.unmodifiable(_buildingInventory);
+
+  /// A single building-inventory value, or null when unset.
+  Object? buildingInventoryValue(String key) => _buildingInventory[key];
+
+  /// PG "Total Rooms" — the portal derives it as
+  /// `floorWiseRoomDetails.reduce((s, f) => s + (f.totalRooms || 0), 0)`.
+  int get totalRoomsAcrossFloors {
+    final list = _preservedLists['floorWiseRoomDetails'] ?? const [];
+    var sum = 0;
+    for (final f in list) {
+      if (f is Map) {
+        final n = f['totalRooms'];
+        if (n is num) sum += n.toInt();
+      }
+    }
+    return sum;
+  }
+
+  /// Reads a building-inventory value as text, for form fields.
+  String buildingInventoryText(String key) =>
+      _buildingInventory[key]?.toString() ?? '';
+
+  String get projectId => _projectId;
+  String get projectName => _projectName;
+  String get projectLocation => _projectLocation;
+  String get builderName => _builderName;
+  bool get hasProjectTag => _projectId.isNotEmpty;
+
   List<MediaItem> get mediaItems => List.unmodifiable(_mediaItems);
   String get contactName => _contactName;
   String get contactPhone => _contactPhone;
@@ -231,117 +374,109 @@ class PostPropertyProvider extends ChangeNotifier {
   String get bestTimeToCall => _bestTimeToCall;
   String get hashtags => _hashtags;
 
-  // ── Validity (mirrors the React source's required-field markers) ──────
-  bool get isStep1Valid => _category != null && _listingIntent != null;
+  // ── Validity ───────────────────────────────────────────────────────────
+  //
+  // T2: step gating is now driven by the ported rule table
+  // (listing_validation_rules.dart), a direct translation of React's
+  // propertyListingRules.ts, rather than the hand-written getters that used to
+  // live here — two of which (`isStep5Valid`, `isStep6Valid`) returned `true`
+  // unconditionally, so Amenities and Legal were never validated at all.
 
-  bool get isStep2Valid {
-    final hasCore = _title.trim().isNotEmpty &&
-        _location.trim().isNotEmpty &&
-        _city.trim().isNotEmpty;
-    if (!hasCore) return false;
-    // PG pricing is captured on Step 7; other categories require price here.
-    final hasPrice = _category == PropertyCategory.pg || Validators.requiredPositiveNumber(_price) == null;
-    if (!hasPrice) return false;
-    // Enforce category-specific subtype fields marked * in the UI.
-    switch (_category) {
-      case PropertyCategory.residential:
-        return _residentialSubType != null;
-      case PropertyCategory.commercial:
-        return (_text['commercialSubType'] ?? '').isNotEmpty;
-      case PropertyCategory.pg:
-        return (_text['pgPropertyType'] ?? '').isNotEmpty &&
-            (_text['buildingType'] ?? '').isNotEmpty &&
-            (_text['pgPropertyName'] ?? '').isNotEmpty &&
-            (_text['propertyStatus'] ?? '').isNotEmpty;
-      default:
-        return true;
+  /// Fields that were already blank when an existing listing was loaded for
+  /// edit. T2 tightens validation considerably, so without this a user editing
+  /// a listing created before the new rules existed could be unable to save it
+  /// — and unable to fix it, since the missing value may predate the input.
+  /// (final-architecture-review Q14 item 4.)
+  ///
+  /// Empty for new listings, so creation is validated in full.
+  final Set<String> _grandfatheredBlankFields = {};
+
+  Set<String> get grandfatheredBlankFields =>
+      Set.unmodifiable(_grandfatheredBlankFields);
+
+  /// Every unmet requirement on [step], an index into [visibleSteps].
+  ///
+  /// Steps hidden for the current category are not in that list at all, so
+  /// their rules cannot block the user — matching React, where a hidden step's
+  /// rule set is never reached by `validateAllPropertySteps`.
+  List<ListingIssue> issuesForStep(int step) {
+    final steps = visibleSteps;
+    if (step < 0 || step >= steps.length) return const <ListingIssue>[];
+    final String? key = ruleKeyForStep(steps[step]);
+    if (key == null) return const <ListingIssue>[];
+    return validatePropertyStep(
+      key,
+      ListingFormData(this),
+      grandfathered: _grandfatheredBlankFields,
+    );
+  }
+
+  /// The first unmet requirement on [step], or null when the step is complete.
+  /// Drives the inline error the wizard shows next to a blocked Continue.
+  ListingIssue? firstIssueForStep(int step) {
+    final issues = issuesForStep(step);
+    return issues.isEmpty ? null : issues.first;
+  }
+
+  bool isStepValid(int step) => issuesForStep(step).isEmpty;
+
+  /// Every unmet requirement across all steps, keyed by step index — used by
+  /// the review step and by submit to jump the user back to the first problem.
+  Map<int, List<ListingIssue>> get allStepIssues {
+    final result = <int, List<ListingIssue>>{};
+    for (int i = 0; i < visibleSteps.length; i++) {
+      final issues = issuesForStep(i);
+      if (issues.isNotEmpty) result[i] = issues;
     }
+    return result;
   }
 
-  bool get isStep3Valid {
-    if (Validators.requiredPositiveNumber(_area) != null) return false;
-    if (_category == PropertyCategory.residential || _category == null) {
-      return _bhkType != null &&
-          Validators.requiredPositiveInt(_bedrooms) == null &&
-          Validators.requiredPositiveInt(_bathrooms) == null;
+  /// First step index with an unmet requirement, or null when all steps pass.
+  int? get firstInvalidStep {
+    for (int i = 0; i < visibleSteps.length; i++) {
+      if (issuesForStep(i).isNotEmpty) return i;
     }
-    return true;
+    return null;
   }
 
-  bool get isStep4Valid => _furnishingType != null;
-
-  bool get isStep5Valid => true;
-
-  bool get isStep6Valid => true;
-
-  bool get isStep7Valid {
-    // Validate optional numeric fields: reject invalid values when filled.
-    if (Validators.optionalPositiveNumber(_ratePerArea) != null) return false;
-    if (Validators.optionalNonNegativeNumber(_securityDeposit) != null) return false;
-    if (Validators.optionalNonNegativeNumber(_maintenanceCharges) != null) return false;
-    if (Validators.optionalPositiveNumber(_bookingAmount) != null) return false;
-    if (Validators.optionalPercent(text('roiEstimate')) != null) return false;
-    if (Validators.optionalPositiveNumber(text('monthlyRentPerBed')) != null) return false;
-    if (Validators.optionalPositiveNumber(text('monthlyRentPerRoom')) != null) return false;
-    if (Validators.optionalPercent(text('occupancyRate')) != null) return false;
-
-    // PG additionally requires at least one price field to be present.
-    if (_category != PropertyCategory.pg) return true;
-    switch (_listingIntent) {
-      case ListingIntent.rent:
-        return text('monthlyRentPerBed').trim().isNotEmpty ||
-            text('monthlyRentPerRoom').trim().isNotEmpty ||
-            _price.trim().isNotEmpty;
-      case ListingIntent.sell:
-        return text('totalSalePrice').trim().isNotEmpty || _price.trim().isNotEmpty;
-      case ListingIntent.lease:
-        return text('leaseAmount').trim().isNotEmpty || _price.trim().isNotEmpty;
-      default:
-        return _price.trim().isNotEmpty;
-    }
+  /// Validity of a step by its identity rather than a positional index —
+  /// positions now shift with the category, so index-based helpers would mean
+  /// different things for land and commercial.
+  bool isWizardStepValid(WizardStep step) {
+    final int i = visibleSteps.indexOf(step);
+    return i == -1 || isStepValid(i);
   }
 
-  bool get isStep8Valid {
-    final hasMedia = _mediaItems.isNotEmpty || _existingMediaUrls.isNotEmpty;
-    final hasName = Validators.required(_contactName) == null;
-    final hasPhone = Validators.phone(_contactPhone) == null;
-    final hasEmail = Validators.email(_contactEmail) == null;
-    return hasMedia && hasName && hasPhone && hasEmail;
-  }
+  bool get isStep1Valid => isWizardStepValid(WizardStep.category);
+  bool get isStep2Valid => isWizardStepValid(WizardStep.basicInfo);
+  bool get isStep3Valid => isWizardStepValid(WizardStep.dimensions);
+  bool get isStep4Valid => isWizardStepValid(WizardStep.condition);
+  bool get isStep5Valid => isWizardStepValid(WizardStep.amenities);
+  bool get isStep6Valid => isWizardStepValid(WizardStep.legal);
+  bool get isStep7Valid => isWizardStepValid(WizardStep.pricing);
+  bool get isStep8Valid => isWizardStepValid(WizardStep.media);
+  bool get isStep9Valid => isWizardStepValid(WizardStep.review);
 
-  bool get isStep9Valid => true;
-
-  bool get canGoNext {
-    switch (_currentStep) {
-      case 0:
-        return isStep1Valid;
-      case 1:
-        return isStep2Valid;
-      case 2:
-        return isStep3Valid;
-      case 3:
-        return isStep4Valid;
-      case 4:
-        return isStep5Valid;
-      case 5:
-        return isStep6Valid;
-      case 6:
-        return isStep7Valid;
-      case 7:
-        return isStep8Valid;
-      case 8:
-        return isStep9Valid;
-      default:
-        return false;
-    }
-  }
+  bool get canGoNext => isStepValid(_currentStep);
 
   bool get isLastStep => _currentStep == totalSteps - 1;
 
   // ── Setters: Step 1-2 ──────────────────────────────────────────────────
   void setCategory(PropertyCategory category) {
     _category = category;
+    _clampCurrentStep();
     notifyListeners();
+  }
+
+  /// Keeps [_currentStep] inside the visible range after the category changes.
+  ///
+  /// Mirrors React's clamp (PropertyWizard.tsx:1364): "Clamp currentStep if
+  /// steps array shrinks (e.g. switching to land+rent removes steps)". Without
+  /// it, choosing land while standing on a later step would index past the end
+  /// of the shortened list.
+  void _clampCurrentStep() {
+    final int last = visibleSteps.length - 1;
+    if (_currentStep > last) _currentStep = last;
   }
 
   void setListingIntent(ListingIntent intent) {
@@ -401,6 +536,15 @@ class PostPropertyProvider extends ChangeNotifier {
 
   void setAvailableFrom(DateTime? date) {
     _availableFrom = date;
+    // Picking a date is the other branch of the same control, so it clears
+    // Immediately — React overwrites the one string either way.
+    if (date != null) _availableImmediately = false;
+    notifyListeners();
+  }
+
+  void setAvailableImmediately(bool value) {
+    _availableImmediately = value;
+    if (value) _availableFrom = null;
     notifyListeners();
   }
 
@@ -629,7 +773,75 @@ class PostPropertyProvider extends ChangeNotifier {
     notifyListeners();
   }
 
+  // ── Setters: builder project tag ──────────────────────────────────────
+
+  /// Tags this listing to [project], or clears the tag when null.
+  ///
+  /// Verbatim port of the `onSelect` handler in BasicInfoStep.tsx:676:
+  /// selecting copies the project's title / location / builder name / status
+  /// onto the form (builder name and status only when the project supplies
+  /// one, so a value typed by hand is not wiped); clearing resets only the id
+  /// and location, deliberately LEAVING the builder name in place — a broker
+  /// who typed "Prestige Group" by hand keeps it after untagging.
+  void selectProject(TaggedProject? project) {
+    if (project != null) {
+      _projectId = project.id;
+      _projectName = project.title;
+      _projectLocation = project.location;
+      final String? name = project.builderName;
+      if (name != null && name.isNotEmpty) _builderName = name;
+      final String? status = project.status;
+      if (status != null && status.isNotEmpty) setText('propertyStatus', status);
+    } else {
+      _projectId = '';
+      _projectLocation = '';
+    }
+    notifyListeners();
+  }
+
+  /// Free-text builder name, for listings with no project in the list.
+  /// Sets one building-inventory field, leaving every other sub-key intact —
+  /// the Dart equivalent of React's `{ ...formData.buildingInventory, k: v }`.
+  void setBuildingInventoryValue(String key, Object? value) {
+    _buildingInventory[key] = value;
+    notifyListeners();
+  }
+
+  void setBuilderName(String value) {
+    _builderName = value;
+    notifyListeners();
+  }
+
   // ── Setters: Step 8 ────────────────────────────────────────────────────
+
+  /// Stars a photo as the listing's main image.
+  ///
+  /// Pass an empty string to clear the choice, which makes the first photo the
+  /// main one — React's `dbText(mainDisplayMediaUrl, allMediaUrls[0] ?? '')`.
+  void setMainDisplayMediaUrl(String url) {
+    _mainDisplayMediaUrl = url;
+    notifyListeners();
+  }
+
+  /// Drops an already-uploaded photo from the listing.
+  ///
+  /// Clears the star if it pointed at that photo, so a removed image cannot
+  /// remain the main display URL.
+  void removeExistingMedia(int index) {
+    if (index < 0 || index >= _existingMedia.length) return;
+    final removed = _existingMedia.removeAt(index);
+    if (_mainDisplayMediaUrl == removed.url) _mainDisplayMediaUrl = '';
+    notifyListeners();
+  }
+
+  /// Re-tags an already-uploaded photo. Categories are persisted positionally
+  /// in `metadata.mediaCategories`, so this must not reorder the list.
+  void setExistingMediaCategory(int index, String category) {
+    if (index < 0 || index >= _existingMedia.length) return;
+    _existingMedia[index] = _existingMedia[index].copyWith(category: category);
+    notifyListeners();
+  }
+
   void addMediaItem(XFile file, String category) {
     _mediaItems.add(MediaItem(file: file, category: category));
     notifyListeners();
@@ -701,11 +913,40 @@ class PostPropertyProvider extends ChangeNotifier {
     }
   }
 
+  /// Positions the wizard directly, bypassing the [canGoNext] gate.
+  ///
+  /// Test-only: the real navigation deliberately refuses to skip forward past
+  /// an invalid step, which makes "stand on the last step, then shrink the
+  /// flow" impossible to set up through the public API.
+  @visibleForTesting
+  void debugSetCurrentStep(int step) {
+    _currentStep = step.clamp(0, totalSteps - 1);
+    notifyListeners();
+  }
+
+  /// Jumps to a step by identity rather than position.
+  ///
+  /// Positions shift with the category now that hidden steps are removed
+  /// (T3), so the Review screen's "Edit" links must name the step they mean —
+  /// a hard-coded 3 is Condition for commercial but Legal for land.
+  /// A step not visible for the current category is a no-op.
+  void goToWizardStep(WizardStep step) {
+    final int i = visibleSteps.indexOf(step);
+    if (i != -1) goToStep(i);
+  }
+
   void reset() {
     _currentStep = 0;
     _isSubmitting = false;
     _editingPropertyId = null;
-    _existingMediaUrls = [];
+    _existingMedia = [];
+    _mainDisplayMediaUrl = '';
+    _buildingInventory = {};
+    _preservedLists.clear();
+    _projectId = '';
+    _projectName = '';
+    _projectLocation = '';
+    _builderName = '';
     _category = null;
     _listingIntent = null;
     _title = '';
@@ -719,6 +960,7 @@ class PostPropertyProvider extends ChangeNotifier {
     _landmark = '';
     _price = '';
     _availableFrom = null;
+    _availableImmediately = false;
     _residentialSubType = null;
     _area = '';
     _areaUnit = 'sq_ft';
@@ -814,20 +1056,70 @@ class PostPropertyProvider extends ChangeNotifier {
     _latitude = (propertyRow['latitude'] as num?)?.toDouble();
     _longitude = (propertyRow['longitude'] as num?)?.toDouble();
     _price = propertyRow['price']?.toString() ?? '';
-    _areaUnit = propertyRow['area_unit']?.toString() ?? 'sq_ft';
+    // T1: map legacy Flutter enum spellings onto React's canonical values on
+    // read, so a row written by an older build still matches the canonical
+    // option lists (and, for area unit, still resolves to a DropdownButton
+    // item). Unknown values pass through untouched rather than being guessed.
+    _areaUnit = canonicalAreaUnit(propertyRow['area_unit']?.toString() ?? 'sq_ft');
     _area = propertyRow['area']?.toString() ?? '';
-    _residentialSubType = propertyRow['residential_subtype']?.toString();
+    final String? rawSubType = propertyRow['residential_subtype']?.toString();
+    _residentialSubType =
+        rawSubType == null ? null : canonicalResidentialSubtype(rawSubType);
 
+    // The column holds React's string, so 'Immediately' round-trips as the
+    // flag rather than as an unparseable date.
     final String? availableFrom = propertyRow['available_from']?.toString();
-    if (availableFrom != null) _availableFrom = DateTime.tryParse(availableFrom);
-
-    final mediaUrls = propertyRow['media_urls'];
-    if (mediaUrls is List) {
-      _existingMediaUrls = List<String>.from(mediaUrls);
+    if (availableFrom == 'Immediately') {
+      _availableImmediately = true;
+    } else if (availableFrom != null) {
+      _availableFrom = DateTime.tryParse(availableFrom);
     }
 
     final Map<String, dynamic> meta =
         (propertyRow['metadata'] as Map<String, dynamic>?) ?? {};
+
+    // Rebuild existing photos by zipping media_urls against
+    // metadata.mediaCategories BY INDEX, defaulting to 'other' — a verbatim
+    // port of PropertyWizard.tsx:1287. The two arrays are parallel, so a photo
+    // keeps the category it was uploaded under across an edit.
+    final mediaUrls = propertyRow['media_urls'];
+    final mediaCategories = meta['mediaCategories'];
+    if (mediaUrls is List) {
+      final cats = mediaCategories is List ? mediaCategories : const [];
+      _existingMedia = [
+        for (int i = 0; i < mediaUrls.length; i++)
+          MediaRef(
+            url: mediaUrls[i].toString(),
+            category: i < cats.length && cats[i] != null &&
+                    cats[i].toString().isNotEmpty
+                ? cats[i].toString()
+                : 'other',
+          ),
+      ];
+    }
+
+    _mainDisplayMediaUrl =
+        propertyRow['main_display_media_url']?.toString() ?? '';
+
+    // properties.amenities is a real column, not metadata, so the bag flush
+    // never sees it — hydrate it explicitly or every edit would clear the
+    // listing's amenities.
+    final amenitiesCol = propertyRow['amenities'];
+    if (amenitiesCol is List && amenitiesCol.isNotEmpty) {
+      _list['amenities'] =
+          amenitiesCol.where((e) => e != null).map((e) => e.toString()).toList();
+    }
+
+    // Builder project tag. React reads the column first and falls back to the
+    // metadata snapshot (PropertyWizard.tsx:954) — project_id is the source of
+    // truth for the link, the metadata copy exists so cards can render the
+    // project without a join.
+    _projectId = propertyRow['project_id']?.toString() ??
+        meta['projectId']?.toString() ??
+        '';
+    _projectName = meta['projectName']?.toString() ?? '';
+    _projectLocation = meta['projectLocation']?.toString() ?? '';
+    _builderName = meta['builderName']?.toString() ?? '';
 
     _city = meta['city']?.toString() ?? '';
     _state = meta['state']?.toString() ?? '';
@@ -878,6 +1170,24 @@ class PostPropertyProvider extends ChangeNotifier {
     _bestTimeToCall = meta['bestTimeToCall']?.toString() ?? '';
     _bhkType = meta['bhkType']?.toString();
 
+    // metadata.pgHouseRules is a nested object, so _hydrateBagFromMetadata
+    // deliberately skips it (Phase 0). React reads its seven flags back into
+    // individual form fields (PropertyWizard.tsx:1265) and rebuilds the object
+    // from them on save — so without this, editing a PG listing would rewrite
+    // every house rule as false.
+    final houseRules = meta['pgHouseRules'];
+    if (houseRules is Map) {
+      _kPgHouseRuleSources.forEach((subKey, flagKey) {
+        _bool[flagKey] = houseRules[subKey] == true;
+      });
+    }
+
+    // Preserve the entire stored object, not just the keys the app edits.
+    final inv = meta['buildingInventory'];
+    if (inv is Map) {
+      _buildingInventory = Map<String, dynamic>.from(inv);
+    }
+
     _hydrateBagFromMetadata(meta);
 
     if (subtableRow != null) {
@@ -914,7 +1224,31 @@ class PostPropertyProvider extends ChangeNotifier {
       _contactEmail = contactRow['contact_email']?.toString() ?? '';
     }
 
+    _snapshotGrandfatheredFields();
+
     notifyListeners();
+  }
+
+  /// Records which rule fields are blank right after an existing listing loads.
+  ///
+  /// T2's rule table is much stricter than the getters it replaced, so a
+  /// listing created under the old rules can legitimately be missing values the
+  /// new rules demand. Blocking the user from re-saving it — possibly to fix
+  /// something unrelated — would be a regression, and for fields whose input
+  /// does not exist yet it would be unfixable. So a field that was already
+  /// blank on load is exempt for the rest of this edit session; the moment the
+  /// user fills it, the rule applies normally, and it is always enforced for
+  /// newly created listings.
+  void _snapshotGrandfatheredFields() {
+    _grandfatheredBlankFields.clear();
+    final data = ListingFormData(this);
+    for (final rules in kPropertyStepRules.values) {
+      for (final rule in rules) {
+        final Object? value =
+            rule.get != null ? rule.get!(data) : data.read(rule.field);
+        if (isBlank(value)) _grandfatheredBlankFields.add(rule.field);
+      }
+    }
   }
 
   /// Metadata keys already owned by a named provider field above. They are
@@ -961,6 +1295,13 @@ class PostPropertyProvider extends ChangeNotifier {
   /// slot and Phase 0 does not change its API; `buildingInventory` and
   /// friends survive untouched through the metadata merge on update instead,
   /// and gain real editing support in the category parity phases.
+  ///
+  /// Lists are only hydrated when every element is a scalar. `_list` is typed
+  /// `List<String>`, so a list of objects — React persists
+  /// `floorWiseRoomDetails` as `{floor, rooms{...}}[]` — would be flattened to
+  /// its `toString()` form and written back as mangled strings. Such lists take
+  /// the same route as nested maps: left out of the bag, preserved verbatim by
+  /// the update-time merge.
   void _hydrateBagFromMetadata(Map<String, dynamic> meta) {
     meta.forEach((key, value) {
       if (value == null || _namedMetadataKeys.contains(key)) return;
@@ -968,6 +1309,10 @@ class PostPropertyProvider extends ChangeNotifier {
       if (value is bool) {
         _bool[key] = value;
       } else if (value is List) {
+        if (value.any((e) => e is Map || e is List)) {
+          _preservedLists[key] = value;
+          return;
+        }
         _list[key] = value
             .where((e) => e != null)
             .map((e) => e.toString())
@@ -986,6 +1331,11 @@ class PostPropertyProvider extends ChangeNotifier {
     'commercial' => PropertyCategory.commercial,
     'land' => PropertyCategory.land,
     'pg_coliving' => PropertyCategory.pg,
+    // 'others' is the canonical property_category enum member React writes.
+    // 'other' was never valid in the DB enum, but it is accepted here so that
+    // if any row somehow carries it the wizard still opens rather than
+    // silently losing the category.
+    'others' => PropertyCategory.other,
     'other' => PropertyCategory.other,
     _ => null,
   };

@@ -4,7 +4,6 @@ import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../../providers/auth_provider.dart';
 import '../../../services/profile_service.dart';
-import '../../home/home_screen.dart';
 import '../../role_home_router.dart';
 
 class InfluencerRegistrationScreen extends StatefulWidget {

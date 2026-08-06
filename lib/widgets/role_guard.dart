@@ -66,7 +66,6 @@ class RoleGuard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final authProvider = context.watch<AuthProvider>();
-    final rbacService = RBACService(authProvider);
 
     bool isAllowed = true;
 

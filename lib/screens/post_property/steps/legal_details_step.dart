@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../../core/widgets/wizard_kit.dart';
 import '../../../providers/post_property_provider.dart';
+import '../listing_constants.dart';
 
 /// Step 6: RERA status, available legal documents, facing and bank approvals
 /// (shared) — plus Commercial-specific approvals/licenses and PG-specific
@@ -14,6 +15,20 @@ class LegalDetailsStep extends StatefulWidget {
 }
 
 class _LegalDetailsStepState extends State<LegalDetailsStep> {
+  /// Land record flags, keyed by their canonical React metadata names
+  /// (the land fillMetadata block, PropertyWizard.tsx:1576).
+  static const List<(String, String)> _kLandLegalFlags = [
+    ('mutationAvailable', 'Mutation Available'),
+    ('registryAvailable', 'Registry Available'),
+    ('pattaAvailable', 'Patta Available'),
+    ('khataAvailable', 'Khata Available'),
+    ('jamabandiAvailable', 'Jamabandi Available'),
+    ('courtCasePending', 'Court Case Pending'),
+    ('bankLoanApproved', 'Bank Loan Approved'),
+  ];
+
+  late final TextEditingController _ownerNameController;
+
   static const _facingOptions = [
     'East', 'West', 'North', 'South', 'North-East', 'North-West', 'South-East', 'South-West',
   ];
@@ -46,6 +61,8 @@ class _LegalDetailsStepState extends State<LegalDetailsStep> {
   @override
   void initState() {
     super.initState();
+    _ownerNameController = TextEditingController(
+        text: context.read<PostPropertyProvider>().text('ownerName'));
     final provider = context.read<PostPropertyProvider>();
     _reraNumberController = TextEditingController(text: provider.reraNumber);
     _approvedByBanksController =
@@ -55,6 +72,7 @@ class _LegalDetailsStepState extends State<LegalDetailsStep> {
 
   @override
   void dispose() {
+    _ownerNameController.dispose();
     _reraNumberController.dispose();
     _approvedByBanksController.dispose();
     _quietHoursController.dispose();
@@ -70,6 +88,65 @@ class _LegalDetailsStepState extends State<LegalDetailsStep> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
+        // Land ownership + legal status. React renders these only for land
+        // (LegalDetailsStep.tsx) and its rules require ownershipType and
+        // ownerName for that category; Flutter had no land block at all, so
+        // both rules fired with nothing on screen to satisfy them.
+        if (provider.category == PropertyCategory.land) ...[
+          WizardCard(
+            icon: Icons.gavel_outlined,
+            title: 'Land Ownership',
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                WizardField(
+                  label: 'Ownership Type *',
+                  child: WizardChipGroup(
+                    options: kLandOwnershipTypes,
+                    selected: provider.text('ownershipType').isEmpty
+                        ? null
+                        : provider.text('ownershipType'),
+                    onSelected: (v) => context
+                        .read<PostPropertyProvider>()
+                        .setText('ownershipType', v),
+                  ),
+                ),
+                const WizardDivider(),
+                WizardField(
+                  label: 'Owner Name *',
+                  child: WizardTextField(
+                    controller: _ownerNameController,
+                    hint: 'As recorded on the title',
+                    onChanged: (v) => context
+                        .read<PostPropertyProvider>()
+                        .setText('ownerName', v),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 20),
+          WizardCard(
+            icon: Icons.fact_check_outlined,
+            title: 'Land Records & Status',
+            child: Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: [
+                for (final flag in _kLandLegalFlags)
+                  WizardCheckboxTile(
+                    label: flag.$2,
+                    value: provider.boolVal(flag.$1),
+                    onChanged: (v) => context
+                        .read<PostPropertyProvider>()
+                        .setBoolVal(flag.$1, v),
+                  ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 20),
+        ],
+
         WizardCard(
           icon: Icons.verified_outlined,
           title: 'RERA',

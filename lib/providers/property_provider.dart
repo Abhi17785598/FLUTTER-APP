@@ -26,6 +26,8 @@ class PropertyProvider extends ChangeNotifier {
   List<PropertyModel> _budgetBuffer = [];
   int _budgetBufferCursor = 0;
 
+  bool _hasError = false;
+
   List<PropertyModel> get properties => _properties;
   List<PropertyModel> get searchResults => _searchResults;
   List<PropertyModel> get mapResults => _mapResults;
@@ -35,6 +37,22 @@ class PropertyProvider extends ChangeNotifier {
   // NOTE: reflects the DB-level count (matching filters, before the
   // client-side budget filter below is applied) — see _applyBudgetFilter.
   int get totalResultCount => _totalResultCount;
+
+  /// True when the most recent [runSearch] threw.
+  ///
+  /// Purely additive, and reported rather than acted on: this class still
+  /// swallows the exception and still logs it exactly as before. What changes is
+  /// that a caller can now tell a failed search from a search that legitimately
+  /// matched nothing — until now both surfaced as "No properties found", which is
+  /// a lie when the request never completed.
+  ///
+  /// Scoped to [runSearch] on purpose. [loadProperties] feeds the Home rails, and
+  /// [loadMapResults] the map, so raising this flag from either would let an
+  /// unrelated failure paint an error over a perfectly good result list — or, in
+  /// the case where a search legitimately returns zero rows and the map then
+  /// fails, replace a correct "nothing matched" message with a wrong one. Both
+  /// keep their existing silent-failure behaviour.
+  bool get hasError => _hasError;
 
  PropertyProvider() {
   loadProperties();
@@ -68,6 +86,11 @@ Future<void> loadProperties() async {
       _budgetBufferCursor = 0;
       _hasMoreResults = true;
       _isSearching = true;
+      // Cleared before every new search, so a previous failure can never make a
+      // fresh attempt look like it failed too. Deliberately inside the `reset`
+      // branch: `reset: false` is loadMoreResults continuing an existing search,
+      // not starting one.
+      _hasError = false;
       notifyListeners();
     }
 
@@ -127,6 +150,9 @@ Future<void> loadProperties() async {
       }
     } catch (e) {
       debugPrint('[PropertyProvider] runSearch failed: $e');
+      // Added alongside the log, not in place of it. The `finally` below already
+      // notifies, so no extra notification is needed here.
+      _hasError = true;
     } finally {
       if (reset) {
         _isSearching = false;

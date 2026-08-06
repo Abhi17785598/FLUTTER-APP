@@ -1,7 +1,13 @@
 import 'package:flutter/material.dart';
 import '../../models/builder_dashboard_model.dart';
-import '../../services/builder_dashboard_service.dart';
+import '../../widgets/shared/stat_kpi_card.dart';
 
+/// Builder overview metrics.
+///
+/// Re-skinned in Phase 3 to render the shared [MetricCard] (blueprint §16.5).
+/// All six metrics keep their existing values, labels, icons, accent colours
+/// and ordering; only the layout changed — from a single-column stack to the
+/// prototype's two-column grid, matching the other three roles.
 class BuilderStatsWidget extends StatelessWidget {
   final BuilderDashboardModel stats;
 
@@ -10,106 +16,40 @@ class BuilderStatsWidget extends StatelessWidget {
     required this.stats,
   });
 
-  Widget _card(
-    BuildContext context,
-    String title,
-    String value,
-    IconData icon,
-    Color accent,
-  ) {
-    final scheme = Theme.of(context).colorScheme;
-    final textTheme = Theme.of(context).textTheme;
-
-    return TweenAnimationBuilder<double>(
-      duration: const Duration(milliseconds: 450),
-      curve: Curves.easeOutCubic,
-      tween: Tween(begin: 0.0, end: 1.0),
-      builder: (context, t, child) {
-        return Opacity(
-          opacity: t,
-          child: Transform.translate(
-            offset: Offset(0, (1 - t) * 12),
-            child: child,
-          ),
-        );
-      },
-      child: Container(
-        margin: const EdgeInsets.only(bottom: 12),
-        decoration: BoxDecoration(
-          color: scheme.surface,
-          borderRadius: BorderRadius.circular(20),
-          boxShadow: [
-            BoxShadow(
-              color: scheme.shadow.withOpacity(0.06),
-              blurRadius: 18,
-              offset: const Offset(0, 6),
-            ),
-          ],
-        ),
-        child: Padding(
-          padding: const EdgeInsets.all(18),
-          child: Row(
-            children: [
-              Container(
-                width: 52,
-                height: 52,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  gradient: LinearGradient(
-                    colors: [
-                      accent.withOpacity(0.18),
-                      accent.withOpacity(0.06),
-                    ],
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                  ),
-                ),
-                child: Icon(icon, size: 24, color: accent),
-              ),
-              const SizedBox(width: 16),
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text(
-                    value,
-                    style: textTheme.headlineSmall?.copyWith(
-                      fontWeight: FontWeight.w700,
-                      letterSpacing: -0.5,
-                    ),
-                  ),
-                  const SizedBox(height: 2),
-                  Text(
-                    title,
-                    style: textTheme.bodyMedium?.copyWith(
-                      color: scheme.onSurface.withOpacity(0.6),
-                    ),
-                  ),
-                ],
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-
-    final entries = <(String, String, IconData, Color)>[
-      ('Total Projects', stats.totalProjects.toString(), Icons.business_rounded, scheme.primary),
-      ('Active Projects', stats.activeProjects.toString(), Icons.trending_up_rounded, Colors.teal),
-      ('Delivered', stats.deliveredProjects.toString(), Icons.check_circle_rounded, Colors.green),
-      ('Network Members', stats.networkMembers.toString(), Icons.people_alt_rounded, Colors.indigo),
-      ('Customer Rating', stats.customerRating.toStringAsFixed(1), Icons.star_rounded, Colors.amber),
-      ('Broker Rating', stats.brokerRating.toStringAsFixed(1), Icons.workspace_premium_rounded, Colors.deepPurple),
-    ];
-
-    return Column(
-      children: [
-        for (final e in entries) _card(context, e.$1, e.$2, e.$3, e.$4),
+    return MetricCardGrid(
+      cards: [
+        MetricCard(
+          label: 'Total Projects',
+          value: stats.totalProjects.toString(),
+          icon: Icons.business_rounded,
+        ),
+        MetricCard(
+          label: 'Active Projects',
+          value: stats.activeProjects.toString(),
+          icon: Icons.trending_up_rounded,
+        ),
+        MetricCard(
+          label: 'Delivered',
+          value: stats.deliveredProjects.toString(),
+          icon: Icons.check_circle_rounded,
+        ),
+        MetricCard(
+          label: 'Network Members',
+          value: stats.networkMembers.toString(),
+          icon: Icons.people_alt_rounded,
+        ),
+        MetricCard(
+          label: 'Customer Rating',
+          value: stats.customerRating.toStringAsFixed(1),
+          icon: Icons.star_rounded,
+        ),
+        MetricCard(
+          label: 'Broker Rating',
+          value: stats.brokerRating.toStringAsFixed(1),
+          icon: Icons.workspace_premium_rounded,
+        ),
       ],
     );
   }
