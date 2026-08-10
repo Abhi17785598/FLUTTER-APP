@@ -20,11 +20,16 @@ class ReelInfoPanel extends StatelessWidget {
     required this.reel,
     required this.isFollowing,
     required this.onFollow,
+    this.onTapProfile,
   });
 
   final ReelModel reel;
   final bool isFollowing;
   final VoidCallback onFollow;
+
+  /// Opens the uploader's public profile. Null when the reel has no
+  /// resolvable uploader id, in which case the avatar/name stay inert.
+  final VoidCallback? onTapProfile;
 
   @override
   Widget build(BuildContext context) {
@@ -44,70 +49,81 @@ class ReelInfoPanel extends StatelessWidget {
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              CircleAvatar(
-                radius: 16,
-                backgroundColor: Colors.white24,
-                backgroundImage: (reel.builderAvatarUrl != null &&
-                        reel.builderAvatarUrl!.isNotEmpty)
-                    ? NetworkImage(reel.builderAvatarUrl!)
-                    : null,
-                child: (reel.builderAvatarUrl == null ||
-                        reel.builderAvatarUrl!.isEmpty)
-                    ? const Icon(Icons.apartment_rounded,
-                        color: Colors.white, size: 16)
-                    : null,
-              ),
-              const SizedBox(width: 8),
               Flexible(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Flexible(
-                          child: Text(
-                            reel.builderName!,
-                            style: AppTextStyles.body.copyWith(
-                              color: Colors.white,
-                              fontWeight: FontWeight.w700,
-                              fontSize: 13,
+                child: GestureDetector(
+                  onTap: onTapProfile,
+                  behavior: HitTestBehavior.opaque,
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      CircleAvatar(
+                        radius: 16,
+                        backgroundColor: Colors.white24,
+                        backgroundImage: (reel.builderAvatarUrl != null &&
+                                reel.builderAvatarUrl!.isNotEmpty)
+                            ? NetworkImage(reel.builderAvatarUrl!)
+                            : null,
+                        child: (reel.builderAvatarUrl == null ||
+                                reel.builderAvatarUrl!.isEmpty)
+                            ? const Icon(Icons.apartment_rounded,
+                                color: Colors.white, size: 16)
+                            : null,
+                      ),
+                      const SizedBox(width: 8),
+                      Flexible(
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Flexible(
+                                  child: Text(
+                                    reel.builderName!,
+                                    style: AppTextStyles.body.copyWith(
+                                      color: Colors.white,
+                                      fontWeight: FontWeight.w700,
+                                      fontSize: 13,
+                                    ),
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                ),
+                                if (reel.isVerified) ...[
+                                  const SizedBox(width: 4),
+                                  const Icon(Icons.verified_rounded,
+                                      color: AppColors.verifiedBadge, size: 14),
+                                ],
+                              ],
                             ),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ),
-                        if (reel.isVerified) ...[
-                          const SizedBox(width: 4),
-                          const Icon(Icons.verified_rounded,
-                              color: AppColors.verifiedBadge, size: 14),
-                        ],
-                      ],
-                    ),
-                    if (reel.hasLocation) ...[
-                      const SizedBox(height: 2),
-                      Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          const Icon(Icons.location_on_rounded,
-                              color: Colors.white70, size: 12),
-                          const SizedBox(width: 2),
-                          Flexible(
-                            child: Text(
-                              reel.location!,
-                              style: AppTextStyles.caption.copyWith(
-                                color: Colors.white.withOpacity(0.85),
-                                fontSize: 11,
+                            if (reel.hasLocation) ...[
+                              const SizedBox(height: 2),
+                              Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  const Icon(Icons.location_on_rounded,
+                                      color: Colors.white70, size: 12),
+                                  const SizedBox(width: 2),
+                                  Flexible(
+                                    child: Text(
+                                      reel.location!,
+                                      style: AppTextStyles.caption.copyWith(
+                                        color: Colors.white.withOpacity(0.85),
+                                        fontSize: 11,
+                                      ),
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                  ),
+                                ],
                               ),
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                          ),
-                        ],
+                            ],
+                          ],
+                        ),
                       ),
                     ],
-                  ],
+                  ),
                 ),
               ),
               const SizedBox(width: 10),

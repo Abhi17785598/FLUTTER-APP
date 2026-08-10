@@ -105,6 +105,13 @@ class AuthProvider extends ChangeNotifier {
   String? get userId => _userId;
   String? get profileCity => _profileCity;
 
+  /// `profiles.background_image_url`, written by
+  /// `EditProfileProvider.pickAndUploadCover`. Read from the cached row rather
+  /// than a dedicated field so a fresh [refreshProfile] call after upload is
+  /// enough to surface it — no separate cache-invalidation path needed.
+  String? get backgroundImageUrl =>
+      _profileRow?['background_image_url'] as String?;
+
   /// Unmodifiable view of the cached `profiles` row, or null before the first
   /// successful fetch.
   Map<String, dynamic>? get profileRow =>

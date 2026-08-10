@@ -22,12 +22,11 @@ class WorkspaceDestinations {
     navigator.popUntil((route) => route.isFirst);
   }
 
-  /// Feed has no screen of its own yet. The Profile screen's existing Quick
-  /// Actions row already routes "Feed" to the home feed, so that behaviour is
-  /// preserved here rather than inventing a destination — flagged for a
-  /// product decision in a later milestone.
+  /// Opens the Feed screen — properties/projects/videos merged, mirroring
+  /// the portal's `/feed` (CombinedFeed.tsx). Previously stubbed to Home;
+  /// FeedScreen now exists as a real destination.
   static void feed(NavigatorState navigator) {
-    navigator.pushNamed(AppConstants.homeScreen);
+    navigator.pushNamed(AppConstants.feedScreen);
   }
 
   /// Reels reuses the bottom bar's guard verbatim.

@@ -79,6 +79,10 @@ dependencies:
   audioplayers: ^6.1.0
   flutter_sound: ^9.16.1
   path_provider: ^2.1.4
+  # Saves the generated Digital Visiting Card PNG to the device gallery for
+  # the profile-share "Download PNG" action — the mobile equivalent of the
+  # portal's browser download. No existing dependency covers gallery writes.
+  gal: ^2.3.1
 
 dev_dependencies:
   flutter_test:

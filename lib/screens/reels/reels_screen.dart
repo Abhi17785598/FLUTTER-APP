@@ -357,6 +357,16 @@ class _ReelsScreenState extends State<ReelsScreen> {
     );
   }
 
+  /// Opens the reel uploader's own public profile — `reel.builderUserId`
+  /// (`influencer_videos.user_id`), never the signed-in viewer's id.
+  void _openUploaderProfile(String userId) {
+    Navigator.pushNamed(
+      context,
+      AppConstants.publicProfileScreen,
+      arguments: {'userId': userId},
+    );
+  }
+
   Widget _buildBuilderOverlay(ReelsProvider provider) {
     final reel = provider.reels[_currentIndex];
     return Positioned(
@@ -369,6 +379,9 @@ class _ReelsScreenState extends State<ReelsScreen> {
           reel: reel,
           isFollowing: provider.isFollowed(reel.id),
           onFollow: () => provider.toggleFollow(reel.id),
+          onTapProfile: reel.builderUserId == null
+              ? null
+              : () => _openUploaderProfile(reel.builderUserId!),
         ),
       ),
     );

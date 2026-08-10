@@ -27,6 +27,7 @@ import 'screens/profile/profile_views_screen.dart';
 import 'screens/profile/public_profile_screen.dart';
 import 'screens/visits/visits_screen.dart';
 import 'screens/reels/reels_screen.dart';
+import 'screens/feed/feed_screen.dart';
 // ── NEW ──────────────────────────────────────
 import 'screens/notifications/notifications_screen.dart';
 import 'screens/emi_calculator/emi_calculator_screen.dart';
@@ -117,6 +118,11 @@ class PropertyApp extends StatelessWidget {
               builder: (context) => ProjectDetailScreen(
                 projectId: detailArgs?['projectId'] as String? ?? '',
               ),
+            );
+          case AppConstants.feedScreen:
+            return PremiumPageRoute(
+              settings: settings,
+              builder: (context) => const FeedScreen(),
             );
           case AppConstants.influencerVideoFormScreen:
             // The influencer video form, in create mode, behind the same kind of

@@ -229,7 +229,7 @@ class PropertyService {
     final String? category = propertyRow['category']?.toString();
     final String? subtypeTable = switch (category) {
       'land' => 'properties_land',
-      'residential' => 'properties_residential',
+      'residential' || 'pg_coliving' => 'properties_residential',
       'commercial' => 'properties_commercial',
       _ => null,
     };
