@@ -448,14 +448,14 @@ class _PublicProfileViewState extends State<_PublicProfileView> {
   }
 
   void _openProject(BuilderProjectModel project) {
-    // No project-detail route exists in this app yet. Rather than push a route
-    // that would fall through to Home, the row is informational for now. Wiring
-    // it belongs with whichever phase introduces that screen.
-    ScaffoldMessenger.of(context)
-      ..hideCurrentSnackBar()
-      ..showSnackBar(
-        SnackBar(content: Text(project.title)),
-      );
+    // Previously a snackbar: no project-detail route existed, so pushing one
+    // would have fallen through to Home. That route exists now, so the row
+    // navigates like every other tappable row on this screen.
+    Navigator.pushNamed(
+      context,
+      AppConstants.projectDetailScreen,
+      arguments: {'projectId': project.id},
+    );
   }
 
   // ── Build ─────────────────────────────────────────────────────────────────

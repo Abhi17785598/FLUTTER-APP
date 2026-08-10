@@ -1,14 +1,18 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:provider/provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
+import 'package:propcid_app/config/role_plan_config.dart';
 import 'package:propcid_app/core/constants/app_constants.dart';
 import 'package:propcid_app/core/widgets/scale_tap.dart';
 import 'package:propcid_app/core/navigation/workspace_destinations.dart';
 import 'package:propcid_app/models/network_stats.dart';
+import 'package:propcid_app/providers/auth_provider.dart';
 import 'package:propcid_app/providers/network_hub_provider.dart';
 import 'package:propcid_app/screens/network/network_hub_screen.dart';
 import 'package:propcid_app/screens/social/social_hub_screen.dart';
-import 'package:propcid_app/screens/stubs/coming_soon_screen.dart';
 import 'package:propcid_app/screens/subscription/plan_catalogue.dart';
 import 'package:propcid_app/screens/subscription/upgrade_screen.dart';
 import 'package:propcid_app/widgets/manage_list_tile.dart';
@@ -25,7 +29,55 @@ import 'support/overflow_detector.dart';
 
 Widget _host(Widget child) => MaterialApp(home: child);
 
+/// An [AuthProvider] whose role and id are set directly.
+///
+/// The Upgrade screen reads `userType` to pick the plan ladder and `userId` to
+/// decide whether there is a subscription to look up, so both are overridden and
+/// nothing else is.
+class _FakeAuth extends AuthProvider {
+  _FakeAuth({this.id, this.type});
+
+  final String? id;
+  final String? type;
+
+  @override
+  String? get userId => id;
+
+  @override
+  String? get userType => type;
+
+  @override
+  bool get isLoggedIn => id != null;
+}
+
+/// The Upgrade screen needs an [AuthProvider]; it creates its own
+/// [SubscriptionProvider] internally. Signed out by default, which is the state
+/// that exercises the free-tier defaults without reaching the network.
+Widget _upgradeHost({String? userId, String? userType}) => MultiProvider(
+      providers: [
+        ChangeNotifierProvider<AuthProvider>.value(
+          value: _FakeAuth(id: userId, type: userType),
+        ),
+      ],
+      child: const MaterialApp(home: UpgradeScreen()),
+    );
+
 void main() {
+  setUpAll(() async {
+    TestWidgetsFlutterBinding.ensureInitialized();
+    SharedPreferences.setMockInitialValues(<String, Object>{});
+    // `AuthProvider`'s constructor subscribes to auth state, which needs a
+    // client. Nothing here talks to a server.
+    await Supabase.initialize(
+      url: 'http://localhost:54321',
+      anonKey: 'test-anon-key',
+      authOptions: const FlutterAuthClientOptions(
+        localStorage: EmptyLocalStorage(),
+        autoRefreshToken: false,
+      ),
+    );
+  });
+
   group('NetworkStats', () {
     test('starts zeroed', () {
       const stats = NetworkStats.empty;
@@ -343,8 +395,10 @@ void main() {
   });
 
   group('Upgrade screen', () {
-    testWidgets('renders the four plans at monthly pricing', (tester) async {
-      await tester.pumpWidget(_host(const UpgradeScreen()));
+    testWidgets('renders the individual ladder at monthly pricing',
+        (tester) async {
+      await tester.pumpWidget(_upgradeHost());
+      await tester.pumpAndSettle();
 
       expect(find.text('Upgrade Your Plan'), findsOneWidget);
       expect(
@@ -367,13 +421,13 @@ void main() {
       expect(find.text('₹49'), findsOneWidget);
       expect(find.text('/month'), findsNWidgets(4));
 
-      // Monthly shows no annual note and no saving pill.
-      expect(find.textContaining('Billed annually'), findsNothing);
       expect(find.text(PlanCatalogue.yearlySavingLabel), findsNothing);
     });
 
-    testWidgets('switching to yearly repricing every card', (tester) async {
-      await tester.pumpWidget(_host(const UpgradeScreen()));
+    testWidgets('yearly reprices every card to the flat annual charge',
+        (tester) async {
+      await tester.pumpWidget(_upgradeHost());
+      await tester.pumpAndSettle();
 
       await tester.tap(find.byType(AppToggle));
       await tester.pumpAndSettle();
@@ -384,14 +438,17 @@ void main() {
       expect(find.text('/year'), findsNWidgets(4));
 
       expect(find.text(PlanCatalogue.yearlySavingLabel), findsOneWidget);
-      // Free has no annual charge, so only the three paid plans get the note.
-      expect(find.textContaining('Billed annually'), findsNWidgets(3));
-      expect(find.text('Billed annually (₹84/year)'), findsOneWidget);
+
+      // ₹7/year is the whole annual charge, so there is no separate annual
+      // total to print — the old "Billed annually (₹84/year)" note contradicted
+      // both the headline and `create-order`. See role_plan_config.dart.
+      expect(find.textContaining('Billed annually'), findsNothing);
     });
 
     testWidgets('tapping the Monthly/Yearly labels also switches',
         (tester) async {
-      await tester.pumpWidget(_host(const UpgradeScreen()));
+      await tester.pumpWidget(_upgradeHost());
+      await tester.pumpAndSettle();
 
       await tester.tap(find.text('Yearly'));
       await tester.pumpAndSettle();
@@ -402,28 +459,42 @@ void main() {
       expect(find.text('/month'), findsNWidgets(4));
     });
 
-    testWidgets('a paid CTA routes to the placeholder; Free stays a label',
+    testWidgets('a broker sees the broker ladder, not the individual one',
         (tester) async {
-      await tester.pumpWidget(_host(const UpgradeScreen()));
-
-      // The second plan card sits below the test viewport, so scroll its CTA
-      // into view before tapping — otherwise the tap lands outside the view.
-      await tester.ensureVisible(find.text('Choose Owner Plus'));
-      await tester.pumpAndSettle();
-      await tester.tap(find.text('Choose Owner Plus'));
-      await tester.pumpAndSettle();
-      expect(find.byType(ComingSoonScreen), findsOneWidget);
-
-      // Back, then confirm the Free card's CTA is inert. Asserted structurally
-      // rather than by tapping: the design gives the current plan no onClick,
-      // so it has no ScaleTap wrapper at all and a tap would simply hit
-      // nothing.
-      Navigator.of(tester.element(find.byType(ComingSoonScreen))).pop();
+      await tester.pumpWidget(_upgradeHost(userType: 'broker'));
       await tester.pumpAndSettle();
 
+      // The bug this fixes: every role used to be quoted the individual prices
+      // while `create-order` charged from their real `user_type`.
+      expect(find.text('Broker Pro'), findsOneWidget);
+      expect(find.text('₹29'), findsOneWidget);
+      expect(find.text('Owner Plus'), findsNothing);
+      expect(find.text('₹9'), findsNothing);
+    });
+
+    testWidgets('an unknown role falls back to the individual ladder',
+        (tester) async {
+      await tester.pumpWidget(_upgradeHost(userType: 'admin'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Owner Plus'), findsOneWidget);
+    });
+
+    testWidgets('the account plan is marked current and is not tappable',
+        (tester) async {
+      await tester.pumpWidget(_upgradeHost());
+      await tester.pumpAndSettle();
+
+      // No subscription row means the free tier, which is what
+      // `SubscriptionSummary.free` and the portal both default to.
+      expect(find.text('Current Plan'), findsOneWidget);
+      expect(find.text('Most Popular'), findsOneWidget);
+
+      // The current plan's CTA is a label: no ScaleTap wrapper at all, so a tap
+      // would land on nothing.
       expect(
         find.ancestor(
-          of: find.text('Free plan'),
+          of: find.text('Current Plan'),
           matching: find.byType(ScaleTap),
         ),
         findsNothing,
@@ -437,15 +508,21 @@ void main() {
       );
     });
 
-    testWidgets('does not claim a current plan without reading billing state',
+    testWidgets('a paid CTA signed out asks for sign-in and buys nothing',
         (tester) async {
-      await tester.pumpWidget(_host(const UpgradeScreen()));
+      await tester.pumpWidget(_upgradeHost());
+      await tester.pumpAndSettle();
 
-      // Nothing in this phase queries the account's subscription, so the
-      // design's "Current Plan" badge must not be asserted.
-      expect(find.text('Current Plan'), findsNothing);
-      // The one badge that is safe to show is the static recommendation.
-      expect(find.text('Most Popular'), findsOneWidget);
+      // The second card sits below the test viewport, so scroll its CTA into
+      // view before tapping — otherwise the tap lands outside the view.
+      await tester.ensureVisible(find.text('Choose Owner Plus'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Choose Owner Plus'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Please sign in to change your plan.'), findsOneWidget);
+      // Nothing opened, and no plan changed.
+      expect(find.text('Current Plan'), findsOneWidget);
     });
 
     testWidgets('lays out without overflow on a small screen', (tester) async {
@@ -454,8 +531,72 @@ void main() {
       addTearDown(tester.view.resetPhysicalSize);
       addTearDown(tester.view.resetDevicePixelRatio);
 
-      await tester.pumpWidget(_host(const UpgradeScreen()));
+      await tester.pumpWidget(_upgradeHost());
+      await tester.pumpAndSettle();
       expect(overflowingBoxes(tester), isEmpty);
+    });
+  });
+
+  group('Role plan config', () {
+    test('every role ships the four canonical plan ids in tier order', () {
+      for (final entry in kRolePlans.entries) {
+        expect(
+          entry.value.map((p) => p.id).toList(),
+          PlanId.values,
+          reason: entry.key.name,
+        );
+      }
+    });
+
+    test('yearly is a flat annual charge below the monthly rate', () {
+      // Not `monthly * 12`, and not above it either — the whole point of the
+      // yearly option is that it costs less than a month does.
+      for (final entry in kRolePlans.entries) {
+        for (final plan in entry.value) {
+          expect(
+            plan.yearlyPrice,
+            lessThanOrEqualTo(plan.monthlyPrice),
+            reason: '${entry.key.name}/${plan.id.wire}',
+          );
+        }
+      }
+    });
+
+    test('exactly one plan per role carries the popular badge', () {
+      for (final entry in kRolePlans.entries) {
+        final badged = entry.value.where((p) => p.badge != null).toList();
+        expect(badged.length, 1, reason: entry.key.name);
+        // The portal sets `popular: true` on the `pro` tier only.
+        expect(badged.single.id, PlanId.pro, reason: entry.key.name);
+      }
+    });
+
+    test('plansForRole maps each wire role, and falls back for the rest', () {
+      expect(plansForRole('broker'), same(kRolePlans[UserRole.broker]));
+      expect(plansForRole('builder'), same(kRolePlans[UserRole.builder]));
+      expect(plansForRole('influencer'), same(kRolePlans[UserRole.influencer]));
+      expect(plansForRole('individual'), same(kRolePlans[UserRole.individual]));
+
+      // Unset, unknown and admin all quote the lowest ladder rather than
+      // guessing at a higher-priced one.
+      expect(plansForRole(null), same(kRolePlans[UserRole.individual]));
+      expect(plansForRole('admin'), same(kRolePlans[UserRole.individual]));
+    });
+
+    test('PlanId round-trips its wire value and defaults to free', () {
+      for (final id in PlanId.values) {
+        expect(PlanId.fromWire(id.wire), id);
+      }
+      expect(PlanId.fromWire('PRO'), PlanId.pro);
+      expect(PlanId.fromWire('legacy-plan'), PlanId.free);
+      expect(PlanId.fromWire(null), PlanId.free);
+    });
+
+    test('tier order matches PLAN_TIER, so downgrades compare correctly', () {
+      expect(PlanId.free.tier, 0);
+      expect(PlanId.pro.tier, 1);
+      expect(PlanId.builder.tier, 2);
+      expect(PlanId.enterprise.tier, 3);
     });
   });
 

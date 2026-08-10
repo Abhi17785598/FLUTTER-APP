@@ -47,12 +47,31 @@ dependencies:
   confetti: ^0.7.0
   shared_preferences: ^2.2.2
   image_picker: ^1.0.7
+  # Project brochures are PDFs and `image_picker` cannot select one. The builder
+  # project wizard's step 2 requires `brochure_url`
+  # (propcid/src/lib/validation/projectRules.ts mediaRules), so a document picker
+  # is the only way to satisfy a mandatory field. Approved as decision D3 of
+  # docs/BUILDER_FLOW_IMPLEMENTATION_PLAN.md.
+  file_picker: ^8.1.7
   supabase_flutter: ^2.12.4
   flutter_secure_storage: ^9.1.2
   flutter_dotenv: ^6.0.1
   video_player: ^2.9.2
+  # The influencer video upload has to fit the `property-media` bucket's 50 MB
+  # file_size_limit (20260522105737_fix_audit_issues.sql:18), and a phone clip
+  # rarely does untouched. The portal downscales to 1080p/30fps client-side before
+  # uploading (InfluencerVideoModal.tsx:132-133 via utils/videoCompression);
+  # `image_picker` has no video equivalent of maxWidth/imageQuality, so this is the
+  # only way to match that step. Approved as decision E1.
+  video_compress: ^3.1.4
   google_maps_flutter: ^2.12.3
   geolocator: ^14.0.2
+  # Razorpay's native checkout sheet. The web portal loads checkout.js in a
+  # browser (`PaymentContext.tsx:142-157`); a Flutter app needs the native SDK,
+  # which is the one part of the payment flow that cannot be shared with the
+  # portal. Order creation and verification still go through the same deployed
+  # Edge Functions.
+  razorpay_flutter: ^1.4.0
   http: ^1.2.1
   http_parser: ^4.0.2
   share_plus: ^10.1.4

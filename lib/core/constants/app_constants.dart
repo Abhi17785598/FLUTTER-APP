@@ -84,6 +84,21 @@ class AppConstants {
   /// People Search — the paginated people list. Property search keeps
   /// [searchResultsScreen] to itself; the two surfaces share no route.
   static const String peopleSearchScreen = '/people-search';
+
+  /// The builder project wizard. Distinct from [postPropertyScreen]: a builder
+  /// publishes projects to `builder_projects`, never listings to `properties`.
+  static const String addProjectScreen = '/add-project';
+
+  /// One project's page. Distinct from [propertyDetailScreen] — a project is a
+  /// `builder_projects` row, not a listing.
+  static const String projectDetailScreen = '/project-detail';
+
+  /// The influencer video form. Distinct from [postPropertyScreen] and
+  /// [addProjectScreen]: an influencer publishes videos to `influencer_videos`.
+  ///
+  /// Create mode only. Editing pushes the screen directly with the row, the same
+  /// way `MyListingsSection` pushes the listing wizard with its edit bundle.
+  static const String influencerVideoFormScreen = '/influencer-video';
   static const String shortlistScreen = '/shortlist';
   static const String filtersScreen = '/filters';
   static const String propertyDetailScreen = '/property-detail';

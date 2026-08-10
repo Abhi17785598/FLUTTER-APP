@@ -1,39 +1,473 @@
-import 'package:flutter/material.dart';
+import 'dart:async';
 
-import '../../core/animations/page_transitions.dart';
+import 'package:flutter/foundation.dart' show kDebugMode, kIsWeb;
+import 'package:flutter/material.dart';
+import 'package:flutter/services.dart' show PlatformException;
+import 'package:provider/provider.dart';
+import 'package:razorpay_flutter/razorpay_flutter.dart';
+
+import '../../config/role_plan_config.dart';
 import '../../core/constants/app_constants.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_text_styles.dart';
 import '../../core/widgets/scale_tap.dart';
+import '../../providers/auth_provider.dart';
+import '../../providers/subscription_provider.dart';
+import '../../services/payment_service.dart';
 import '../../widgets/shared/section_header_back_button.dart';
 import '../../widgets/shared/toggle_row.dart';
-import '../stubs/coming_soon_screen.dart';
-import 'plan_catalogue.dart';
+// Only the saving-pill copy is still taken from the old catalogue; the plan
+// ladder itself now comes from `role_plan_config.dart`. Shown rather than
+// imported wholesale because both files export a `PlanDefinition`.
+import 'plan_catalogue.dart' show PlanCatalogue;
 
 /// Upgrade Your Plan — the plan ladder with a monthly/yearly switch.
 ///
 /// Design: the `isSubscription` screen. Functionally this is React's
-/// `PlanUpgradeSection` + `UpgradePlanCard` pair, reading the same kind of
-/// static plan config (`planConfig.ts` there, [PlanCatalogue] here) rather than
-/// any table.
+/// `PlanUpgradeSection` + `UpgradePlanCard` pair over `getPlansForRole`.
 ///
-/// Checkout is not part of this phase — React's flow is a four-step
-/// `CheckoutModal` with a payment provider behind it, and the design carries
-/// its own `isCheckout` and `isPaymentSuccess` screens. Every paid CTA
-/// therefore lands on the honest placeholder instead of a dead button or a
-/// half-wired payment form.
-class UpgradeScreen extends StatefulWidget {
+/// WHAT CHANGED, AND WHAT DID NOT
+/// ------------------------------
+/// Layout, colours, spacing, card and badge styling are exactly as they were.
+/// Three things behind them changed:
+///
+///   * the ladder comes from [plansForRole] against `AuthProvider.userType`, so a
+///     broker sees Broker Pro at ₹29 instead of the individual ladder. That
+///     mattered: the old hardcoded list quoted individual prices to every role
+///     while `create-order` charges from the caller's real `user_type`, so the
+///     screen and the invoice disagreed for three roles out of four;
+///   * "Current Plan" is read from `SubscriptionProvider.subscription.plan`
+///     rather than Free being hardcoded as current;
+///   * the CTAs run the real flow — `create-order` → Razorpay → `verify-payment`
+///     for a paid plan, `manage-subscription` for the drop back to Free —
+///     replacing the placeholder screen.
+///
+/// THE YEARLY PRICE IS THE WHOLE ANNUAL CHARGE
+/// -------------------------------------------
+/// `₹7/year` means ₹7 for the year, not ₹7/month billed annually. The old
+/// catalogue modelled it the other way and printed a "Billed annually (₹84/year)"
+/// note under the price; that note is gone, because under the deployed pricing
+/// table it contradicts both the headline figure and what is actually charged.
+/// See `config/role_plan_config.dart`.
+///
+/// THE CLIENT NEVER SENDS AN AMOUNT
+/// -------------------------------
+/// Every price here is display only. `create-order` recomputes the charge from
+/// `planId` + `billingCycle` + the caller's own `profiles.user_type`.
+class UpgradeScreen extends StatelessWidget {
   const UpgradeScreen({super.key});
 
   @override
-  State<UpgradeScreen> createState() => _UpgradeScreenState();
+  Widget build(BuildContext context) {
+    // Its own provider, because this is a top-level named route
+    // (`app.dart:220`) and not a child of the billing screen — there is no
+    // ancestor to inherit one from. Same create-and-load shape as
+    // `SubscriptionBillingScreen`.
+    return ChangeNotifierProvider(
+      create: (_) => SubscriptionProvider(),
+      child: const _UpgradeView(),
+    );
+  }
 }
 
-class _UpgradeScreenState extends State<UpgradeScreen> {
+class _UpgradeView extends StatefulWidget {
+  const _UpgradeView();
+
+  @override
+  State<_UpgradeView> createState() => _UpgradeViewState();
+}
+
+class _UpgradeViewState extends State<_UpgradeView> {
   bool _yearly = false;
+
+  final PaymentService _payments = PaymentService();
+
+  String? _loadedUserId;
+
+  /// The plan whose checkout is in flight. Only its CTA spins, and every CTA is
+  /// inert until it settles.
+  PlanId? _busyPlan;
+
+  /// Razorpay reports through callbacks rather than a Future, so a checkout is
+  /// bridged onto [_attempt] and awaited like any other async step.
+  Razorpay? _razorpay;
+  _CheckoutAttempt? _attempt;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _loadIfNeeded();
+  }
+
+  /// Reads the account's current plan so one card can be marked "Current Plan".
+  ///
+  /// Deferred to the end of the frame with the provider captured up front —
+  /// `load()` notifies before its first `await` and this runs inside build. Same
+  /// lifecycle handling as `_SubscriptionBillingViewState._loadIfNeeded`.
+  void _loadIfNeeded() {
+    if (!mounted) return;
+    final userId = context.read<AuthProvider>().userId;
+    if (userId == null || userId == _loadedUserId) return;
+    _loadedUserId = userId;
+
+    final provider = context.read<SubscriptionProvider>();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      provider.load(userId);
+    });
+  }
+
+  @override
+  void dispose() {
+    // A checkout still in flight would otherwise leave its awaiting frame parked
+    // forever; resolve it before tearing the plugin's channel down.
+    _attempt?.complete(const _CheckoutCancelled());
+    _razorpay?.clear();
+    super.dispose();
+  }
+
+  // ── CTA dispatch ──────────────────────────────────────────────────────────
+
+  /// What tapping [plan]'s button does, or null when it should not be tappable.
+  ///
+  /// `UpgradePlanCard.handleCTAClick` (`:46-60`) makes the same three-way split:
+  /// the current plan does nothing, Free is a no-payment plan change, and every
+  /// paid plan opens checkout — including one below the current tier, because a
+  /// paid downgrade still bills.
+  VoidCallback? _ctaFor(PlanDefinition plan, {required bool isCurrent}) {
+    if (isCurrent || _busyPlan != null) return null;
+    return plan.isFree ? () => _switchToFree(plan) : () => _startCheckout(plan);
+  }
+
+  /// Drops to Free. No payment, so no checkout — `manage-subscription` alone.
+  ///
+  /// `UpgradePlanCard.tsx:51-56`: `await changePlan("free", "monthly")`. The
+  /// cycle is pinned to monthly there and here; a free plan has no annual charge
+  /// to prorate.
+  Future<void> _switchToFree(PlanDefinition plan) async {
+    if (!_requireSignIn()) return;
+
+    final confirmed = await _confirm(
+      title: 'Switch to Free?',
+      message:
+          'Your paid features stay available until the end of the current '
+          'billing period, then the account moves to the Free plan.',
+      confirmLabel: 'Switch to Free',
+    );
+    if (!confirmed || !mounted) return;
+
+    setState(() => _busyPlan = plan.id);
+    try {
+      await _payments.changePlan(planId: PlanId.free.wire, billingCycle: 'monthly');
+      if (!mounted) return;
+      await context.read<SubscriptionProvider>().refresh();
+      if (!mounted) return;
+      setState(() => _busyPlan = null);
+      _toast('You are now on the Free plan.');
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _busyPlan = null);
+      _toast(_messageFor(e, fallback: 'Could not change your plan.'),
+          isError: true);
+    }
+  }
+
+  /// The portal's sequence, step for step: create-order → checkout →
+  /// verify-payment (`PaymentContext.processPayment`, `:324-420`).
+  ///
+  /// The one structural difference is the sheet: the portal injects `checkout.js`
+  /// into the page, a phone opens the native SDK. Both hand back the same three
+  /// fields, and the same Edge Function verifies them.
+  Future<void> _startCheckout(PlanDefinition plan) async {
+    _log('CTA tapped: ${plan.id.wire} (${_yearly ? 'yearly' : 'monthly'})');
+    if (!_requireSignIn()) return;
+
+    // `razorpay_flutter` declares `platforms: android, ios` and ships no web
+    // implementation, so in a browser every call on its MethodChannel throws
+    // MissingPluginException and no sheet can open. Stopped here rather than at
+    // `open()`: `create-order` would otherwise leave a `payments` row parked in
+    // 'created' for a checkout that cannot happen.
+    //
+    // The browser is the web portal's job — it loads Razorpay's `checkout.js`
+    // directly (`PaymentContext.tsx:142-157`), which is a different integration
+    // from this one, not a missing branch of it.
+    if (kIsWeb) {
+      _log('blocked: razorpay_flutter has no web implementation');
+      _toast(
+        'Payments are only available in the PropCid mobile app. '
+        'Use the web portal to change your plan in a browser.',
+        isError: true,
+      );
+      return;
+    }
+
+    setState(() => _busyPlan = plan.id);
+
+    try {
+      _log('→ createOrder…');
+      final order = await _payments.createOrder(
+        planId: plan.id.wire,
+        billingCycle: _yearly ? 'yearly' : 'monthly',
+        // Regenerated per attempt — see PaymentService.newIdempotencyKey.
+        idempotencyKey: PaymentService.newIdempotencyKey(),
+      );
+      _log('← createOrder ok: order=${order.orderId} amount=${order.amount} '
+          '${order.currency} keyId=${order.keyId.isEmpty ? 'EMPTY' : 'set'}');
+
+      _log('→ openCheckout…');
+      final result = await _openCheckout(plan: plan, order: order);
+      _log('← openCheckout: ${result.runtimeType}');
+      if (!mounted) return;
+
+      // Dismissed or declined: nothing was bought, so nothing is verified and
+      // the subscription is left exactly as it was.
+      if (result is! _CheckoutSuccess) {
+        setState(() => _busyPlan = null);
+        _toast(
+          result is _CheckoutCancelled
+              ? 'Payment cancelled.'
+              : (result as _CheckoutFailed).message,
+          isError: true,
+        );
+        return;
+      }
+
+      // Razorpay's success callback is not proof of purchase — the signature is.
+      // This is the call that activates the plan.
+      _log('→ verifyPayment…');
+      await _payments.verifyPayment(
+        razorpayOrderId: result.orderId,
+        razorpayPaymentId: result.paymentId,
+        razorpaySignature: result.signature,
+      );
+      _log('← verifyPayment ok');
+
+      if (!mounted) return;
+      // Only now is the plan real. Re-reading `subscriptions` is what flips this
+      // card to "Current Plan".
+      _log('→ refresh…');
+      await context.read<SubscriptionProvider>().refresh();
+      _log('← refresh ok');
+      if (!mounted) return;
+      setState(() => _busyPlan = null);
+      _toast('You are now on ${plan.name}.');
+    } catch (e) {
+      _log('✗ checkout threw: $e');
+      if (!mounted) return;
+      setState(() => _busyPlan = null);
+      _toast(_messageFor(e, fallback: 'Payment failed. Please try again.'),
+          isError: true);
+    }
+  }
+
+  /// Opens the native sheet and resolves once Razorpay reports an outcome.
+  ///
+  /// EVERY EXIT FROM THE SHEET MUST COMPLETE [_CheckoutAttempt]
+  /// ----------------------------------------------------------
+  /// This is the one await in the flow with no Future of its own behind it — it
+  /// resolves only when a plugin callback fires. Two paths through
+  /// `razorpay_flutter` 1.4.5 reach neither of the three callbacks below, and
+  /// both of them park this Future forever, which is what leaves the CTA
+  /// spinning with no sheet and no error:
+  ///
+  ///   1. `Razorpay._handleResult`'s `default:` branch emits the event name
+  ///      `'error'` — not `EVENT_PAYMENT_ERROR` — for any platform response
+  ///      whose `type` is not 0/1/2. Nothing listens to `'error'` unless it is
+  ///      registered explicitly, so the emit goes nowhere.
+  ///   2. `Razorpay.open` is declared `void open(...) async`. Its
+  ///      `await _channel.invokeMethod('open', options)` and the
+  ///      `_handleResult(response)` that follows can both throw — a
+  ///      `PlatformException` from the native SDK, a `MissingPluginException`,
+  ///      or a `NoSuchMethodError` if the platform hands back null. Because the
+  ///      method returns `void` rather than a `Future`, those throws land in the
+  ///      zone instead of in a caller's `try`, so `open()` looks like it
+  ///      succeeded and no callback ever fires.
+  ///
+  /// Both are closed below. Nothing about the sequence changes.
+  Future<_CheckoutResult> _openCheckout({
+    required PlanDefinition plan,
+    required PaymentOrder order,
+  }) {
+    final attempt = _CheckoutAttempt();
+    _attempt = attempt;
+
+    // Rebuilt per attempt: `on()` appends listeners rather than replacing them,
+    // so reusing an instance would resolve a previous attempt's completer.
+    _razorpay?.clear();
+    final razorpay = Razorpay();
+    _razorpay = razorpay;
+
+    razorpay.on(Razorpay.EVENT_PAYMENT_SUCCESS, (PaymentSuccessResponse r) {
+      _log('razorpay → SUCCESS payment=${r.paymentId} order=${r.orderId}');
+      attempt.complete(
+        _CheckoutSuccess(
+          // `orderId` comes back from the SDK, but the order we created is the
+          // authority on which order this is.
+          orderId: order.orderId,
+          paymentId: r.paymentId ?? '',
+          signature: r.signature ?? '',
+        ),
+      );
+    });
+    razorpay.on(Razorpay.EVENT_PAYMENT_ERROR, (PaymentFailureResponse r) {
+      _log('razorpay → ERROR code=${r.code} message=${r.message}');
+      // A dismissed sheet arrives on the error channel too, so a cancellation is
+      // told apart by its code rather than by a callback of its own.
+      attempt.complete(
+        r.code == Razorpay.PAYMENT_CANCELLED
+            ? const _CheckoutCancelled()
+            : _CheckoutFailed(
+                (r.message?.isNotEmpty ?? false)
+                    ? r.message!
+                    : 'Payment failed.',
+              ),
+      );
+    });
+    razorpay.on(Razorpay.EVENT_EXTERNAL_WALLET, (ExternalWalletResponse r) {
+      _log('razorpay → EXTERNAL_WALLET ${r.walletName}');
+      // The user left for a wallet app. `payment-webhook` is what will settle
+      // this, so the screen must not claim success — it reports the handoff.
+      attempt.complete(
+        const _CheckoutFailed(
+          'Complete the payment in your wallet app, then reopen this screen.',
+        ),
+      );
+    });
+    // (1) The plugin's unnamed fallback event. Without this listener an
+    // unrecognised platform response is emitted into the void.
+    razorpay.on('error', (dynamic r) {
+      _log('razorpay → unnamed error event: $r');
+      attempt.complete(const _CheckoutFailed('Payment could not be completed.'));
+    });
+
+    final options = <String, dynamic>{
+      'key': order.keyId,
+      // Already in paise, as `create-order` returns it and Razorpay expects it.
+      'amount': order.amount,
+      'currency': order.currency,
+      'order_id': order.orderId,
+      'name': 'PropCid',
+      'description': '${plan.name} — ${_yearly ? 'Yearly' : 'Monthly'}',
+      // The portal's checkout theme (`PaymentContext.tsx:390`).
+      'theme': {'color': '#F97316'},
+    };
+    _log('razorpay.open() key=${order.keyId} order=${order.orderId} '
+        'amount=${order.amount} ${order.currency}');
+
+    // (2) `open()` throws into the zone, not into a `try`, so this is the only
+    // place those failures can be observed. Without it they are silent and the
+    // await below never returns.
+    runZonedGuarded(
+      () => razorpay.open(options),
+      (error, stack) {
+        _log('razorpay.open() threw: $error');
+        attempt.complete(
+          _CheckoutFailed(
+            error is PlatformException
+                ? (error.message ?? 'Could not open checkout.')
+                : 'Could not open checkout.',
+          ),
+        );
+      },
+    );
+
+    return attempt.future;
+  }
+
+  // ── Helpers ───────────────────────────────────────────────────────────────
+
+  /// TEMPORARY checkout tracing. Debug builds only; remove once the flow is
+  /// confirmed on device. Prints no card data — only ids the server already logs.
+  void _log(String message) {
+    if (kDebugMode) debugPrint('[checkout] $message');
+  }
+
+  bool _requireSignIn() {
+    if (context.read<AuthProvider>().userId != null) return true;
+    _toast('Please sign in to change your plan.', isError: true);
+    return false;
+  }
+
+  /// `PaymentService` throws the server's own message as a bare String; anything
+  /// else is a bug or a transport failure the user cannot act on.
+  String _messageFor(Object error, {required String fallback}) =>
+      error is String ? error : fallback;
+
+  Future<bool> _confirm({
+    required String title,
+    required String message,
+    required String confirmLabel,
+  }) async {
+    final result = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: Text(title, style: AppTextStyles.heading3.copyWith(fontSize: 16)),
+        content: Text(message, style: AppTextStyles.body.copyWith(fontSize: 13)),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(false),
+            child: const Text('Keep current plan'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(true),
+            child: Text(
+              confirmLabel,
+              style: AppTextStyles.button.copyWith(
+                fontSize: 13,
+                color: AppColors.error,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+    return result ?? false;
+  }
+
+  void _toast(String message, {bool isError = false}) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        backgroundColor: isError ? AppColors.error : AppColors.success,
+        behavior: SnackBarBehavior.floating,
+      ),
+    );
+  }
+
+  /// One card. A method rather than an inline expression because a collection-for
+  /// has nowhere to put the two derived locals.
+  Widget _card(
+    PlanDefinition plan, {
+    required PlanId? currentPlan,
+    required bool resolving,
+  }) {
+    final isCurrent = plan.id == currentPlan;
+    return _PlanCard(
+      plan: plan,
+      yearly: _yearly,
+      isCurrent: isCurrent,
+      busy: _busyPlan == plan.id,
+      onTap: resolving ? null : _ctaFor(plan, isCurrent: isCurrent),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
+    // Watched, so the ladder follows the role as it resolves and the current-plan
+    // marker follows the subscription as it loads or changes.
+    final auth = context.watch<AuthProvider>();
+    final billing = context.watch<SubscriptionProvider>();
+
+    final plans = plansForRole(auth.userType);
+
+    // Null until the account's plan is actually known. Marking Free as current
+    // while the read is still in flight would be a guess, and it is the guess
+    // that makes the Free card look inert to a paying user.
+    final resolving = auth.userId != null && billing.loading;
+    final currentPlan =
+        resolving ? null : PlanId.fromWire(billing.subscription.plan);
+
     return Scaffold(
       backgroundColor: AppColors.background,
       body: SafeArea(
@@ -52,12 +486,9 @@ class _UpgradeScreenState extends State<UpgradeScreen> {
                 onChanged: (value) => setState(() => _yearly = value),
               ),
               const SizedBox(height: 18),
-              for (var i = 0; i < PlanCatalogue.plans.length; i++) ...[
+              for (var i = 0; i < plans.length; i++) ...[
                 if (i > 0) const SizedBox(height: 14),
-                _PlanCard(
-                  plan: PlanCatalogue.plans[i],
-                  yearly: _yearly,
-                ),
+                _card(plans[i], currentPlan: currentPlan, resolving: resolving),
               ],
             ],
           ),
@@ -171,12 +602,29 @@ class _PlanCard extends StatelessWidget {
   final PlanDefinition plan;
   final bool yearly;
 
-  const _PlanCard({required this.plan, required this.yearly});
+  /// The plan the account is on. Its CTA becomes an inert "Current Plan" label.
+  final bool isCurrent;
+
+  /// This plan's checkout is running.
+  final bool busy;
+
+  /// Null when the CTA should not respond — the current plan, or any card while
+  /// another plan's checkout is in flight.
+  final VoidCallback? onTap;
+
+  const _PlanCard({
+    required this.plan,
+    required this.yearly,
+    required this.isCurrent,
+    required this.busy,
+    required this.onTap,
+  });
 
   @override
   Widget build(BuildContext context) {
-    final price = yearly ? plan.yearlyPricePerMonth : plan.monthlyPrice;
-    final showBilledNote = yearly && plan.yearlyTotal != null;
+    // Yearly is the whole annual charge, so the figure stands on its own — there
+    // is no monthly equivalent to explain underneath it.
+    final price = plan.priceFor(yearly: yearly);
 
     final card = Container(
       width: double.infinity,
@@ -245,23 +693,18 @@ class _PlanCard extends StatelessWidget {
               ),
             ],
           ),
-          if (showBilledNote) ...[
-            const SizedBox(height: 2),
-            Text(
-              'Billed annually (₹${plan.yearlyTotal}/year)',
-              style: AppTextStyles.caption.copyWith(
-                fontSize: 11,
-                color: AppColors.textHint,
-              ),
-            ),
-          ],
           const SizedBox(height: 14),
           for (var i = 0; i < plan.features.length; i++) ...[
             if (i > 0) const SizedBox(height: 9),
             _FeatureRow(feature: plan.features[i]),
           ],
           const SizedBox(height: AppConstants.spacingL),
-          _PlanCta(plan: plan),
+          _PlanCta(
+            plan: plan,
+            isCurrent: isCurrent,
+            busy: busy,
+            onTap: onTap,
+          ),
         ],
       ),
     );
@@ -301,7 +744,7 @@ class _PlanCard extends StatelessWidget {
 }
 
 class _FeatureRow extends StatelessWidget {
-  final PlanFeature feature;
+  final PlanFeatureLine feature;
 
   const _FeatureRow({required this.feature});
 
@@ -335,13 +778,30 @@ class _FeatureRow extends StatelessWidget {
 
 class _PlanCta extends StatelessWidget {
   final PlanDefinition plan;
+  final bool isCurrent;
+  final bool busy;
+  final VoidCallback? onTap;
 
-  const _PlanCta({required this.plan});
+  const _PlanCta({
+    required this.plan,
+    required this.isCurrent,
+    required this.busy,
+    required this.onTap,
+  });
 
   @override
   Widget build(BuildContext context) {
-    final isCurrent = plan.ctaStyle == PlanCtaStyle.current;
-    final isSolid = plan.ctaStyle == PlanCtaStyle.solid;
+    // The three painted styles are unchanged; what picks between them is. The old
+    // catalogue stored a `PlanCtaStyle` per plan — free was always `current` and
+    // the badged plan was always `solid`. Free is no longer assumed to be the
+    // account's plan, so `current` is now the live comparison, and `solid`
+    // follows the badge, which reproduces the previous look exactly.
+    final isSolid = !isCurrent && plan.badge != null;
+    final isOutline = !isCurrent && !isSolid;
+
+    final foreground = isCurrent
+        ? AppColors.success
+        : (isSolid ? Colors.white : AppColors.primary);
 
     final button = Container(
       height: 44,
@@ -351,37 +811,90 @@ class _PlanCta extends StatelessWidget {
             ? const Color(0xFFE7F8ED)
             : (isSolid ? AppColors.primary : AppColors.cardBackground),
         borderRadius: BorderRadius.circular(AppConstants.buttonRadius),
-        border: plan.ctaStyle == PlanCtaStyle.outline
+        border: isOutline
             ? Border.all(color: AppColors.primary, width: 1.5)
             : null,
         boxShadow: isSolid ? AppColors.primaryActionShadow : null,
       ),
-      child: Text(
-        plan.cta,
-        style: AppTextStyles.button.copyWith(
-          fontSize: 13,
-          fontWeight: FontWeight.w700,
-          color: isCurrent
-              ? AppColors.success
-              : (isSolid ? Colors.white : AppColors.primary),
-        ),
-      ),
+      // Same 44 dp box either way, so the card does not resize mid-checkout.
+      child: busy
+          ? SizedBox(
+              width: 18,
+              height: 18,
+              child: CircularProgressIndicator(
+                strokeWidth: 2,
+                valueColor: AlwaysStoppedAnimation<Color>(foreground),
+              ),
+            )
+          : Text(
+              // The design labels the account's own plan; every other card keeps
+              // the role's configured CTA copy.
+              isCurrent ? 'Current Plan' : plan.cta,
+              style: AppTextStyles.button.copyWith(
+                fontSize: 13,
+                fontWeight: FontWeight.w700,
+                color: foreground,
+              ),
+            ),
     );
 
-    // The design gives the current plan no onClick, so it stays a label.
-    if (isCurrent) return button;
+    // The design gives the current plan no onClick, so it stays a label — as does
+    // any card while another plan's checkout is running.
+    if (onTap == null) return button;
 
     return Semantics(
       label: plan.cta,
       button: true,
-      child: ScaleTap(
-        onTap: () => Navigator.of(context).push(
-          PremiumPageRoute(
-            builder: (_) => ComingSoonScreen(title: '${plan.name} checkout'),
-          ),
-        ),
-        child: button,
-      ),
+      child: ScaleTap(onTap: onTap, child: button),
     );
+  }
+}
+
+// ── Checkout outcome ────────────────────────────────────────────────────────
+//
+// Razorpay reports through three separate callbacks. Collapsing them into one
+// result type is what lets `_startCheckout` read as the linear sequence it is,
+// instead of splitting the verify step across three handlers.
+
+sealed class _CheckoutResult {
+  const _CheckoutResult();
+}
+
+class _CheckoutSuccess extends _CheckoutResult {
+  const _CheckoutSuccess({
+    required this.orderId,
+    required this.paymentId,
+    required this.signature,
+  });
+
+  final String orderId;
+  final String paymentId;
+  final String signature;
+}
+
+/// The user dismissed the sheet. Not an error — nothing is said beyond
+/// "cancelled", and nothing is refreshed.
+class _CheckoutCancelled extends _CheckoutResult {
+  const _CheckoutCancelled();
+}
+
+class _CheckoutFailed extends _CheckoutResult {
+  const _CheckoutFailed(this.message);
+
+  final String message;
+}
+
+/// One checkout, resolved once.
+///
+/// The plugin can emit more than once for a single sheet — its `resync` replays
+/// a result the app missed — and completing a [Completer] twice throws.
+class _CheckoutAttempt {
+  final Completer<_CheckoutResult> _completer = Completer<_CheckoutResult>();
+
+  Future<_CheckoutResult> get future => _completer.future;
+
+  void complete(_CheckoutResult result) {
+    if (_completer.isCompleted) return;
+    _completer.complete(result);
   }
 }

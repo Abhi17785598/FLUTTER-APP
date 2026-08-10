@@ -16,9 +16,11 @@ import 'widgets/network_screen_shell.dart';
 /// relationship, exactly as `NetworkMemberships.tsx` fetches them.
 ///
 /// React also lists pending `builder_network_invitations` with Accept/Decline
-/// buttons. Those are writes and are not ported; the design's own empty copy
-/// tells the user invitations arrive here, and responding to one stays on the
-/// web portal for now.
+/// buttons. Those landed with Spec F, in `NetworkInvitationsSection` on the
+/// Network hub rather than on this screen — an invitation is not a membership
+/// until it is accepted, and the hub is where a user arrives. This screen still
+/// lists memberships only, which is why the empty copy below points at the hub
+/// rather than promising invitations appear here.
 class MyNetworksScreen extends StatelessWidget {
   const MyNetworksScreen({super.key});
 
@@ -116,8 +118,11 @@ class MyNetworksBody extends StatelessWidget {
         child: EmptyStateView(
           icon: Icons.apartment_rounded,
           title: 'No Network Memberships',
-          message: "You haven't joined any networks yet. When others invite "
-              'you to their network, the invitation will appear here.',
+          // Was "the invitation will appear here", which stopped being true when
+          // Spec F put the invitation list on the Network hub. Pointing at the
+          // wrong screen is worse than saying less.
+          message: "You haven't joined any networks yet. Invitations you "
+              'receive appear on the Network hub.',
           padding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
         ),
       );

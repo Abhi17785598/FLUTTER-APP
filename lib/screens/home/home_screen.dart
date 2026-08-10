@@ -17,6 +17,10 @@ import 'widgets/recommended_section.dart';
 import 'widgets/property_rail_section.dart';
 import 'widgets/premium_banner_section.dart';
 import 'widgets/scroll_reveal.dart';
+import 'widgets/property_verification_section.dart';
+import 'widgets/news_section.dart';
+import 'widgets/tell_your_needs_section.dart';
+import 'widgets/smart_tools_section.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -65,6 +69,11 @@ class _HomeScreenState extends State<HomeScreen> {
       const CategoryIconGrid(),
       const SizedBox(height: 18),
 
+      // Property Verification — one of the first "do something" moments on the
+      // page, mirroring its high position on the web home page.
+      const ScrollReveal(child: PropertyVerificationSection()),
+      const SizedBox(height: 24),
+
       const PropertyReelsSection(),
       const SizedBox(height: 4),
 
@@ -74,6 +83,12 @@ class _HomeScreenState extends State<HomeScreen> {
       const SizedBox(height: 24),
       const FeaturedPropertiesSection(),
       const SizedBox(height: 24),
+
+      // Latest News. Renders nothing at all — not even its header — when the
+      // `news` table has no active rows, so it carries its own trailing 24 dp
+      // internally; a spacer entry here would outlive the section and leave a
+      // hole in the feed. See `_kNewsBottomGap`.
+      const ScrollReveal(child: NewsSection()),
 
       // "Latest projects" — newest listings first. Sits directly under
       // Featured, right after the Premium banner, and keeps its header even
@@ -96,6 +111,14 @@ class _HomeScreenState extends State<HomeScreen> {
 
       const TrendingSection(),
       const SizedBox(height: 24),
+
+      // Tell Your Needs — mid-page, after the main listings content, mirroring
+      // where the web home page sits its lead form.
+      const ScrollReveal(child: TellYourNeedsSection()),
+      const SizedBox(height: 28),
+
+      const ScrollReveal(child: SmartToolsSection()),
+      const SizedBox(height: 28),
 
       const BudgetSection(),
       const SizedBox(height: 28),

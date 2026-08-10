@@ -40,10 +40,46 @@ String portalStepTitle(WizardStep step) => switch (step) {
       WizardStep.review => 'Review',
     };
 
+/// One row of the stepper: what it is called, and which lucide glyph it shows.
+///
+/// Added so a wizard with a different step enum can render this same panel. The
+/// listing wizard never constructs one directly — [PortalProgressCard]'s primary
+/// constructor still takes `List<WizardStep>` and resolves it through
+/// [portalStepTitle] / [portalStepIcon] exactly as before.
+@immutable
+class PortalStepInfo {
+  const PortalStepInfo({required this.title, required this.icon});
+
+  /// Row label.
+  final String title;
+
+  /// A key into `assets/lucide`, as [PortalIcon] expects.
+  final String icon;
+
+  /// The descriptor for a listing wizard step.
+  factory PortalStepInfo.fromWizardStep(WizardStep step) => PortalStepInfo(
+        title: portalStepTitle(step),
+        icon: portalStepIcon(step),
+      );
+}
+
 /// The "Progress" card: heading with a circular percentage ring, then the
 /// vertical stepper.
 class PortalProgressCard extends StatelessWidget {
-  const PortalProgressCard({
+  /// The listing wizard's entry point — unchanged.
+  PortalProgressCard({
+    super.key,
+    required List<WizardStep> steps,
+    required this.currentIndex,
+    required this.onStepTap,
+    this.compact = false,
+  }) : steps = steps.map(PortalStepInfo.fromWizardStep).toList(growable: false);
+
+  /// For a wizard with its own step enum — the builder project wizard uses this.
+  ///
+  /// Renders the identical panel; only where the titles and icons come from
+  /// differs, so the two wizards cannot drift apart visually.
+  const PortalProgressCard.custom({
     super.key,
     required this.steps,
     required this.currentIndex,
@@ -51,7 +87,7 @@ class PortalProgressCard extends StatelessWidget {
     this.compact = false,
   });
 
-  final List<WizardStep> steps;
+  final List<PortalStepInfo> steps;
   final int currentIndex;
 
   /// Only fired for already-visited steps — the portal disables the button
@@ -103,7 +139,7 @@ class PortalProgressCard extends StatelessWidget {
                         mainAxisSize: MainAxisSize.min,
                         children: [
                           Text(
-                            portalStepTitle(steps[safeIndex]),
+                            steps[safeIndex].title,
                             style: PortalTheme.progressHeading,
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
@@ -133,7 +169,7 @@ class PortalProgressCard extends StatelessWidget {
             const SizedBox(height: 16), // mb-4
             for (int i = 0; i < steps.length; i++)
               _StepperRow(
-                step: steps[i],
+                info: steps[i],
                 index: i,
                 total: steps.length,
                 currentIndex: currentIndex,
@@ -222,7 +258,7 @@ class _RingPainter extends CustomPainter {
 /// One stepper entry: node circle, connector, title and "Step n of m".
 class _StepperRow extends StatelessWidget {
   const _StepperRow({
-    required this.step,
+    required this.info,
     required this.index,
     required this.total,
     required this.currentIndex,
@@ -230,7 +266,7 @@ class _StepperRow extends StatelessWidget {
     this.onTap,
   });
 
-  final WizardStep step;
+  final PortalStepInfo info;
   final int index;
   final int total;
   final int currentIndex;
@@ -294,7 +330,7 @@ class _StepperRow extends StatelessWidget {
                   child: Center(
                     child: isCompleted
                         ? PortalIcon('check', size: 20, color: nodeFg)
-                        : PortalIcon(portalStepIcon(step),
+                        : PortalIcon(info.icon,
                             size: 20, color: nodeFg),
                   ),
                 ),
@@ -316,7 +352,7 @@ class _StepperRow extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(portalStepTitle(step),
+                  Text(info.title,
                       style: PortalTheme.stepperTitle(titleColor)),
                   const SizedBox(height: 2), // mt-0.5
                   Text('Step ${index + 1} of $total',

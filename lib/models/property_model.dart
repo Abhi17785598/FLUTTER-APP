@@ -109,6 +109,18 @@ class PropertyModel {
     this.createdAt,
   });
 
+  /// Parses a `properties.media_urls` (text[]) value into usable URLs.
+  ///
+  /// Null-safe and empty-string-filtering, because the column is nullable and
+  /// older rows carry `''` entries. Exposed as a static so anything else
+  /// reading a joined `properties` row parses it the same way this model does
+  /// — [ReelModel] uses it for the reel card's cover image, in the same spirit
+  /// as [parseAmenities].
+  static List<String> parseMediaUrls(dynamic value) =>
+      List<String>.from(value ?? const [])
+          .where((url) => url.trim().isNotEmpty)
+          .toList();
+
   /// NEW: the list the UI should actually iterate over.
   /// Falls back to the single [imageUrl] when [imageUrls] wasn't
   /// populated (older cached data, hand-built models, tests, etc.),
@@ -186,9 +198,7 @@ class PropertyModel {
     // Media lives in properties.media_urls (text[]). This is now the
     // single source of truth for both the gallery and the legacy
     // single-image field below.
-    final mediaUrls = List<String>.from(json['media_urls'] ?? [])
-        .where((url) => url.isNotEmpty)
-        .toList();
+    final mediaUrls = parseMediaUrls(json['media_urls']);
 
     // Extract beds, baths, parking from residential or commercial data
     int beds = 0;

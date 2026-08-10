@@ -38,17 +38,35 @@ class DashboardAnalyticsService {
   /// [growthFromContent] reflects that `BrokerAnalytics.tsx` deliberately
   /// hard-codes its growth figures to 0, noting that real growth needs
   /// historical engagement tracking.
+  /// [includeListingMetrics] adds the six metrics `BrokerAnalytics.tsx` computes
+  /// that no other variant does — inquiry count, active/sold counts, portfolio
+  /// value and commission. Broker only.
+  ///
+  /// [includeWatchMetrics] adds the two `InfluencerAnalytics.tsx` computes from
+  /// `influencer_video_views`. Influencer only.
+  ///
+  /// Both default to false, so every existing caller behaves exactly as before
+  /// and issues exactly the same queries.
   Future<DashboardAnalytics> fetchAnalytics({
     required String userId,
     required AnalyticsContentSource source,
     bool includeSavedProperties = false,
     bool growthFromContent = true,
+    bool includeListingMetrics = false,
+    bool includeWatchMetrics = false,
   }) async {
     try {
       final rows = await _supabase
           .from(source.table)
-          .select('id, title, views, likes, created_at')
-          .eq('user_id', userId)
+          // Per-source, NOT a shared literal. Spec C selected `price`
+          // unconditionally here, which is a 42703 against `builder_projects`
+          // (which prices a range) and `influencer_videos` (which has no price at
+          // all) — it broke the Analytics tab outright for both roles. See
+          // AnalyticsContentSource.analyticsColumns.
+          .select(source.analyticsColumns)
+          // Not a literal 'user_id': builder_projects names its owner column
+          // `builder_id`. See AnalyticsContentSource.ownerColumn.
+          .eq(source.ownerColumn, userId)
           .order('created_at', ascending: false);
 
       final content = List<Map<String, dynamic>>.from(rows as List);
@@ -95,6 +113,50 @@ class DashboardAnalyticsService {
           )
           .toList();
 
+      // ── Broker listing metrics (BrokerAnalytics.tsx:85-117) ──────────────
+      int? totalInquiries;
+      int? activeCount;
+      int? soldCount;
+      double? totalValue;
+      double? totalCommission;
+      double? commissionRate;
+
+      if (includeListingMetrics) {
+        // Status counts are safe on any source — all three declare `status`.
+        activeCount =
+            content.where((r) => r['status'] == 'active').length;
+        soldCount = content.where((r) => r['status'] == 'sold').length;
+
+        // The money metrics are guarded on the column existing, not on the caller
+        // having asked. A caller that opts into listing metrics for a source with
+        // no `price` gets the counts and inquiries it can have, and null for the
+        // two it cannot — rather than a query that fails and takes the whole tab
+        // with it. Today only the broker opts in, and only `properties` has the
+        // column; the guard is what stops that pairing being load-bearing.
+        if (source.hasPriceColumn) {
+          totalValue = _sumPrices(content, 'active');
+          // "assuming 2% commission rate" — the portal's own constant (`:104`).
+          commissionRate = 2;
+          totalCommission = _sumPrices(content, 'sold') * (commissionRate / 100);
+        }
+
+        totalInquiries = await _countInquiries(
+          content.map((r) => r['id'].toString()).toList(),
+        );
+      }
+
+      // ── Influencer watch metrics (InfluencerAnalytics.tsx:75-87) ──────────
+      double? avgWatchTime;
+      double? avgCompletionRate;
+
+      if (includeWatchMetrics) {
+        final watch = await _fetchWatchMetrics(
+          content.map((r) => r['id'].toString()).toList(),
+        );
+        avgWatchTime = watch.avgWatchTime;
+        avgCompletionRate = watch.avgCompletionRate;
+      }
+
       return DashboardAnalytics(
         totalViews: totalViews,
         totalLikes: totalLikes,
@@ -109,6 +171,14 @@ class DashboardAnalyticsService {
         likesGrowth: likesGrowth,
         topContent: topContent,
         performance: _dailySeries(content, 'views', performanceWindowDays),
+        totalInquiries: totalInquiries,
+        activeCount: activeCount,
+        soldCount: soldCount,
+        totalValue: totalValue,
+        totalCommission: totalCommission,
+        commissionRate: commissionRate,
+        avgWatchTime: avgWatchTime,
+        avgCompletionRate: avgCompletionRate,
       );
     } catch (e) {
       debugPrint('DashboardAnalyticsService.fetchAnalytics failed: $e');
@@ -125,9 +195,13 @@ class DashboardAnalyticsService {
   /// is what all three React audience files read. (The Profile screen's
   /// Followers tile intentionally stays on `builder_networks`, because
   /// `ProfileDashboardShell.tsx` — its own reference — uses that instead.)
+  /// [includeLeadMetrics] adds the three `BrokerAudienceInsights.tsx` computes
+  /// from `property_inquiries`. Broker only; false leaves the query set and the
+  /// returned fields exactly as they were.
   Future<DashboardAudience> fetchAudience({
     required String userId,
     required AnalyticsContentSource source,
+    bool includeLeadMetrics = false,
   }) async {
     try {
       final followerRows = await _supabase
@@ -162,12 +236,28 @@ class DashboardAnalyticsService {
 
       final contentRows = await _supabase
           .from(source.table)
-          .select('views, likes')
-          .eq('user_id', userId);
+          // `id` is only needed by the lead branch; see the note in
+          // fetchAnalytics about selecting it unconditionally.
+          .select('id, views, likes')
+          .eq(source.ownerColumn, userId);
 
       final content = List<Map<String, dynamic>>.from(contentRows as List);
       final totalViews = _sum(content, 'views');
       final totalLikes = _sum(content, 'likes');
+
+      // -- Broker lead metrics (BrokerAudienceInsights.tsx:88-101) -----------
+      int? totalLeads;
+      double? leadConversionRate;
+      double? responseRate;
+
+      if (includeLeadMetrics) {
+        final leads = await _fetchLeadMetrics(
+          content.map((r) => r['id'].toString()).toList(),
+        );
+        totalLeads = leads.total;
+        leadConversionRate = leads.conversionRate;
+        responseRate = leads.responseRate;
+      }
 
       return DashboardAudience(
         totalFollowers: totalFollowers,
@@ -182,11 +272,128 @@ class DashboardAnalyticsService {
           recentCount: recent,
           now: now,
         ),
+        totalLeads: totalLeads,
+        leadConversionRate: leadConversionRate,
+        responseRate: responseRate,
       );
     } catch (e) {
       debugPrint('DashboardAnalyticsService.fetchAudience failed: $e');
       rethrow;
     }
+  }
+
+  // -- Spec C helpers -------------------------------------------------------
+
+  /// Sums `price` over rows whose `status` matches, using the portal's own parse.
+  ///
+  /// `properties.price` is TEXT -- free-form, so rows hold "95,00,000", "1.2 Cr",
+  /// "Price on request". `BrokerAnalytics.tsx:88-95` handles it with
+  /// `parseFloat(String(p.price).replace(/[^0-9.]/g, ''))`, and that is
+  /// reproduced rather than improved: a stricter parse here would make the two
+  /// platforms report different portfolio values for the same rows.
+  ///
+  /// The one behaviour worth naming: stripping every non-digit turns "1.2 Cr"
+  /// into `1.2`, not 12000000, on **both** platforms. That is a portal bug,
+  /// faithfully carried.
+  double _sumPrices(List<Map<String, dynamic>> rows, String status) {
+    var total = 0.0;
+    for (final row in rows) {
+      if (row['status'] != status) continue;
+      final raw = row['price'];
+      if (raw == null) continue;
+      if (raw is num) {
+        total += raw.toDouble();
+        continue;
+      }
+      final digits = raw.toString().replaceAll(RegExp(r'[^0-9.]'), '');
+      // JS parseFloat("") is NaN and the portal maps that to 0; Dart's tryParse
+      // returns null, so `?? 0` lands on the same number.
+      total += double.tryParse(digits) ?? 0;
+    }
+    return total;
+  }
+
+  /// `property_inquiries` row count across [propertyIds].
+  ///
+  /// `BrokerAnalytics.tsx:107-117`. Returns 0 for an empty id list rather than
+  /// issuing `inFilter('property_id', [])`, which PostgREST answers with every
+  /// row the caller can see -- the difference between "no listings, no
+  /// inquiries" and "every inquiry in the table".
+  Future<int> _countInquiries(List<String> propertyIds) async {
+    if (propertyIds.isEmpty) return 0;
+    final rows = await _supabase
+        .from('property_inquiries')
+        .select('id')
+        .inFilter('property_id', propertyIds);
+    return (rows as List).length;
+  }
+
+  /// The three broker lead metrics (`BrokerAudienceInsights.tsx:88-101`).
+  Future<({int total, double conversionRate, double responseRate})>
+      _fetchLeadMetrics(List<String> propertyIds) async {
+    if (propertyIds.isEmpty) {
+      return (total: 0, conversionRate: 0.0, responseRate: 0.0);
+    }
+
+    final rows = await _supabase
+        .from('property_inquiries')
+        .select('id, status')
+        .inFilter('property_id', propertyIds);
+
+    final inquiries = List<Map<String, dynamic>>.from(rows as List);
+    final total = inquiries.length;
+    if (total == 0) {
+      return (total: 0, conversionRate: 0.0, responseRate: 0.0);
+    }
+
+    final closed = inquiries.where((i) => i['status'] == 'closed').length;
+    // Three statuses count as "responded", not one (`:99`).
+    final contacted = inquiries
+        .where((i) =>
+            const {'contacted', 'scheduled', 'approved'}.contains(i['status']))
+        .length;
+
+    return (
+      total: total,
+      conversionRate: (closed / total) * 100,
+      responseRate: (contacted / total) * 100,
+    );
+  }
+
+  /// Mean watch duration and completion over every view of [videoIds].
+  ///
+  /// `InfluencerAnalytics.tsx:75-87`. Averaged over **view rows**, not over
+  /// videos -- a video watched twice counts twice, which is what the portal does.
+  Future<({double avgWatchTime, double avgCompletionRate})> _fetchWatchMetrics(
+    List<String> videoIds,
+  ) async {
+    if (videoIds.isEmpty) {
+      return (avgWatchTime: 0.0, avgCompletionRate: 0.0);
+    }
+
+    final rows = await _supabase
+        .from('influencer_video_views')
+        .select('watch_duration_seconds, watch_percentage')
+        .inFilter('video_id', videoIds);
+
+    final views = List<Map<String, dynamic>>.from(rows as List);
+    if (views.isEmpty) {
+      return (avgWatchTime: 0.0, avgCompletionRate: 0.0);
+    }
+
+    final duration = views.fold<double>(
+      0,
+      (sum, v) => sum + _double(v['watch_duration_seconds']),
+    );
+    final percentage = views.fold<double>(
+      0,
+      (sum, v) => sum + _double(v['watch_percentage']),
+    );
+
+    return (
+      avgWatchTime: duration / views.length,
+      avgCompletionRate: percentage / views.length,
+    );
   }
 
   // ── Helpers ───────────────────────────────────────────────────────────────
@@ -285,6 +492,15 @@ class DashboardAnalyticsService {
   static DateTime _dayOnly(DateTime value) {
     final local = value.toLocal();
     return DateTime(local.year, local.month, local.day);
+  }
+
+  /// `watch_duration_seconds` and `watch_percentage` are numeric columns, so a
+  /// row can hand back an int, a double or a string depending on the driver.
+  static double _double(dynamic value) {
+    if (value is double) return value;
+    if (value is num) return value.toDouble();
+    if (value is String) return double.tryParse(value) ?? 0;
+    return 0;
   }
 
   static int _int(dynamic value) {

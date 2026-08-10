@@ -395,6 +395,30 @@ class PropertyService {
     await _supabase.from('properties').delete().eq('id', propertyId);
   }
 
+  /// Flips one listing's `status`, the way the dashboard's inline picker does on
+  /// the website (BrokerContentManager.tsx:85-112: a bare
+  /// `update({ status }).eq('id', …)`, nothing else in the payload).
+  ///
+  /// Appended rather than folded into [updateProperty] on purpose. That method
+  /// documents "does NOT touch status" and rebuilds the whole row from a
+  /// [PostPropertyProvider]; a status flip has no provider and must not disturb
+  /// media, metadata or the sub-tables. No existing method, signature or caller
+  /// changes as a result of this one.
+  ///
+  /// [status] is deliberately not validated here: the caller picks from
+  /// [propertyStatusOptions], and the column's own CHECK is the real authority.
+  /// The `updated_at` trigger fires on its own — the website does not set it
+  /// either.
+  ///
+  /// RLS restricts the UPDATE to `auth.uid() = user_id`, so a non-owner's call
+  /// matches no row and completes silently, exactly as it does on the website.
+  Future<void> setPropertyStatus(String propertyId, String status) async {
+    await _supabase
+        .from('properties')
+        .update({'status': status})
+        .eq('id', propertyId);
+  }
+
   /// Updates an existing property listing. Mirrors the React PropertyWizard
   /// edit-submission path (PropertyWizard.tsx lines 1741–1909).
   /// - Uploads any newly-added media items and combines with existing URLs.

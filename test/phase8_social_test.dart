@@ -179,9 +179,14 @@ void main() {
     });
 
     test('windows are relative to now', () {
+      // Both timestamps are relative to now, which is the whole point of the
+      // test. The recent one used to lean on the fixture's default
+      // `2026-08-03`, so this passed on the day it was written and counted zero
+      // shares "today" from the next day onward.
+      final recent = DateTime.now().subtract(const Duration(hours: 2));
       final old = DateTime.now().subtract(const Duration(days: 45));
       final analytics = SocialAnalytics.fromLogs([
-        _log(id: 'recent'),
+        _log(id: 'recent', createdAt: recent.toIso8601String()),
         _log(id: 'old', createdAt: old.toIso8601String()),
       ], pending: 0);
 

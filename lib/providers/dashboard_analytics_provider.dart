@@ -17,6 +17,9 @@ class DashboardAnalyticsProvider extends ChangeNotifier {
     required this.audienceSource,
     this.includeSavedProperties = false,
     this.growthFromContent = true,
+    this.includeListingMetrics = false,
+    this.includeWatchMetrics = false,
+    this.includeLeadMetrics = false,
     DashboardAnalyticsService? service,
   }) : _service = service ?? DashboardAnalyticsService();
 
@@ -35,6 +38,22 @@ class DashboardAnalyticsProvider extends ChangeNotifier {
 
   /// Broker hard-codes its growth figures to 0 in React.
   final bool growthFromContent;
+
+  /// Broker only: the six listing metrics `BrokerAnalytics.tsx` computes and no
+  /// other variant does — inquiries, active/sold counts, portfolio value and
+  /// commission.
+  ///
+  /// Off by default, in the same shape as [includeSavedProperties], so every
+  /// role that does not opt in issues exactly the queries it did before Spec C.
+  final bool includeListingMetrics;
+
+  /// Influencer only: `avgWatchTime` and `avgCompletionRate` from
+  /// `influencer_video_views` (`InfluencerAnalytics.tsx:75-87`).
+  final bool includeWatchMetrics;
+
+  /// Broker only: the three lead metrics from `property_inquiries`
+  /// (`BrokerAudienceInsights.tsx:88-101`). Audience tab.
+  final bool includeLeadMetrics;
 
   final DashboardAnalyticsService _service;
 
@@ -79,6 +98,8 @@ class DashboardAnalyticsProvider extends ChangeNotifier {
         source: analyticsSource,
         includeSavedProperties: includeSavedProperties,
         growthFromContent: growthFromContent,
+        includeListingMetrics: includeListingMetrics,
+        includeWatchMetrics: includeWatchMetrics,
       );
     } catch (e) {
       debugPrint('DashboardAnalyticsProvider._loadAnalytics failed: $e');
@@ -99,6 +120,7 @@ class DashboardAnalyticsProvider extends ChangeNotifier {
       _audience = await _service.fetchAudience(
         userId: userId,
         source: audienceSource,
+        includeLeadMetrics: includeLeadMetrics,
       );
     } catch (e) {
       debugPrint('DashboardAnalyticsProvider._loadAudience failed: $e');

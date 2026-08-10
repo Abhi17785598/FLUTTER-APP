@@ -14,6 +14,8 @@ import 'widgets/reel_action_button.dart';
 import 'widgets/reel_controller_manager.dart';
 import 'widgets/reel_info_panel.dart';
 import 'widgets/reel_property_card.dart';
+import 'package:video_player/video_player.dart' show VideoViewType;
+
 import 'widgets/reel_video_view.dart';
 
 /// Premium vertical reels feed — matches the compact reference layout:
@@ -38,7 +40,23 @@ class ReelsScreen extends StatefulWidget {
 
 class _ReelsScreenState extends State<ReelsScreen> {
   final PageController _pageController = PageController();
-  final ReelControllerManager _manager = ReelControllerManager(windowRadius: 1);
+
+  /// Rendered through a native `SurfaceView` rather than a Flutter texture.
+  ///
+  /// The texture path samples the decoder's output buffer into a Flutter
+  /// texture, and a driver that reports a non-standard stride or colour format
+  /// makes that sampling produce green diagonal tearing — which is why the
+  /// artifact follows the device, not the file. `platformView` hands frames
+  /// straight to SurfaceFlinger, so there is no stride for Flutter to get wrong.
+  ///
+  /// Only the full-screen player. A `SurfaceView` is its own window layer and
+  /// does not clip or transform with Flutter, which is fine for a full-bleed
+  /// video and wrong for the Home rail's rounded, cover-cropped cards — those
+  /// stay on the texture path.
+  final ReelControllerManager _manager = ReelControllerManager(
+    windowRadius: 1,
+    viewType: VideoViewType.platformView,
+  );
 
   int _currentIndex = 0;
   bool _isPaused = false;

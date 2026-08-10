@@ -13,6 +13,10 @@ import 'screens/home/home_screen.dart';
 import 'screens/search/search_screen.dart';
 import 'screens/search/search_results_screen.dart';
 import 'screens/search/people_search_screen.dart';
+import 'models/project_model.dart';
+import 'core/navigation/post_property_route_gate.dart';
+import 'screens/project/project_detail_screen.dart';
+import 'services/property_service.dart' show PropertyEditBundle;
 import 'screens/shortlist/shortlist_screen.dart';
 import 'screens/filters/filters_screen.dart';
 import 'screens/property_detail/property_detail_screen.dart';
@@ -23,7 +27,6 @@ import 'screens/profile/profile_views_screen.dart';
 import 'screens/profile/public_profile_screen.dart';
 import 'screens/visits/visits_screen.dart';
 import 'screens/reels/reels_screen.dart';
-import 'screens/post_property/post_property_screen.dart';
 // ── NEW ──────────────────────────────────────
 import 'screens/notifications/notifications_screen.dart';
 import 'screens/emi_calculator/emi_calculator_screen.dart';
@@ -87,6 +90,42 @@ class PropertyApp extends StatelessWidget {
           case '/search-results':
             return PremiumPageRoute(
               builder: (context) => const SearchResultsScreen(),
+            );
+          case AppConstants.addProjectScreen:
+            // The builder project wizard. `project` pre-fills it for an edit;
+            // absent, it opens blank for a new project.
+            //
+            // Gated as the mirror of /post-property: the voice agent's route
+            // index resolves "create a project" here for any authenticated user,
+            // AddProjectScreen has no role check of its own, and RLS would not
+            // refuse a broker inserting their own builder_id. See
+            // AddProjectRouteGate.
+            final projectArgs = settings.arguments as Map<String, dynamic>?;
+            return PremiumPageRoute(
+              settings: settings,
+              builder: (context) => AddProjectRouteGate(
+                editingProject: projectArgs?['project'] as ProjectModel?,
+              ),
+            );
+          case AppConstants.projectDetailScreen:
+            // One project. Ungated: the public read policy is
+            // `status = 'active'`, and fetchById returns null for anything the
+            // caller may not see, which renders "Project not available".
+            final detailArgs = settings.arguments as Map<String, dynamic>?;
+            return PremiumPageRoute(
+              settings: settings,
+              builder: (context) => ProjectDetailScreen(
+                projectId: detailArgs?['projectId'] as String? ?? '',
+              ),
+            );
+          case AppConstants.influencerVideoFormScreen:
+            // The influencer video form, in create mode, behind the same kind of
+            // role gate the other two wizards have. See
+            // InfluencerVideoRouteGate: RLS would refuse a wrong-role insert, but
+            // only after the video had already been uploaded.
+            return PremiumPageRoute(
+              settings: settings,
+              builder: (context) => const InfluencerVideoRouteGate(),
             );
           case AppConstants.peopleSearchScreen:
             // People Search. The query is seeded from the Search entry screen so
@@ -257,8 +296,19 @@ class PropertyApp extends StatelessWidget {
           case '/reels':
             return PremiumPageRoute(builder: (context) => const ReelsScreen());
           case '/post-property':
+            // Role-gated: a builder publishes projects, not listings, and this
+            // route is where every one of the eleven callers converges — the
+            // shared "+" FAB, the Home quick action, both Profile tiles and the
+            // voice agent included. Edit mode passes straight through.
+            // See PostPropertyRouteGate.
+            final listingArgs = settings.arguments as Map<String, dynamic>?;
             return PremiumPageRoute(
-              builder: (context) => const PostPropertyScreen(),
+              settings: settings,
+              builder: (context) => PostPropertyRouteGate(
+                editPropertyId: listingArgs?['editPropertyId'] as String?,
+                editBundle:
+                    listingArgs?['editBundle'] as PropertyEditBundle?,
+              ),
             );
 
           case '/filters':

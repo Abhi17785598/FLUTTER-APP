@@ -175,6 +175,11 @@ class BillingTab extends StatelessWidget {
   final SubscriptionTabData data;
   final VoidCallback onUpgrade;
   final VoidCallback onCancel;
+
+  /// Undoes a pending cancellation. Shares the cancel button's slot rather than
+  /// adding a fifth control: a subscription is either running or already set to
+  /// end, so only one of the two actions is ever available.
+  final VoidCallback onResume;
   final VoidCallback onSaveDetails;
 
   const BillingTab({
@@ -182,6 +187,7 @@ class BillingTab extends StatelessWidget {
     required this.data,
     required this.onUpgrade,
     required this.onCancel,
+    required this.onResume,
     required this.onSaveDetails,
   });
 
@@ -237,12 +243,21 @@ class BillingTab extends StatelessWidget {
               ),
             ),
             const SizedBox(width: 10),
+            // Already cancelling at period end → the only useful action left is
+            // to undo it. `CancelSubscriptionModal` / `ResumeSubscriptionModal`
+            // are the portal's equivalent pair, switched on the same flag.
             Expanded(
-              child: AppActionButton(
-                label: 'Cancel Subscription',
-                variant: AppActionButtonVariant.danger,
-                onTap: onCancel,
-              ),
+              child: sub.cancelAtPeriodEnd
+                  ? AppActionButton(
+                      label: 'Resume Subscription',
+                      variant: AppActionButtonVariant.outline,
+                      onTap: onResume,
+                    )
+                  : AppActionButton(
+                      label: 'Cancel Subscription',
+                      variant: AppActionButtonVariant.danger,
+                      onTap: onCancel,
+                    ),
             ),
           ],
         ),

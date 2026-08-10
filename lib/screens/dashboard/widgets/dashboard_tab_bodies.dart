@@ -25,11 +25,48 @@ String formatThousands(int value) {
 
 /// Analytics tab body — six metric tiles, the performance chart and the
 /// top-content list, in the design's order and spacing.
+/// Indian-notation short currency, e.g. `₹1.2 Cr`, `₹45.0 L`, `₹9,500`.
+///
+/// Portfolio value and commission are whole-rupee figures large enough that a
+/// full number would not fit a metric tile. Lakh/crore rather than K/M because
+/// every price the app displays elsewhere uses that notation.
+String formatCompactCurrency(double value) {
+  if (value >= 10000000) return '₹${_trimZero(value / 10000000)} Cr';
+  if (value >= 100000) return '₹${_trimZero(value / 100000)} L';
+  return '₹${formatThousands(value.round())}';
+}
+
+/// `m:ss` above a minute, `Ns` below — how a watch time reads.
+String formatDuration(double seconds) {
+  final total = seconds.round();
+  if (total < 60) return '${total}s';
+  final minutes = total ~/ 60;
+  final remainder = (total % 60).toString().padLeft(2, '0');
+  return '$minutes:$remainder';
+}
+
+/// One decimal place, with a trailing `.0` dropped.
+String _trimZero(double value) {
+  final text = value.toStringAsFixed(1);
+  return text.endsWith('.0') ? text.substring(0, text.length - 2) : text;
+}
+
 class DashboardAnalyticsBody extends StatelessWidget {
   final DashboardAnalytics analytics;
   final bool loading;
   final bool failed;
   final VoidCallback onRetry;
+
+  /// Whether to show the "Saved Properties" tile.
+  ///
+  /// Only `IndividualAnalytics.tsx` queries `saved_properties`; the broker,
+  /// builder and influencer variants never compute it, so the tile read a
+  /// permanent 0 on three of the four dashboards. False renders five cards
+  /// instead of six rather than showing a number that will never move.
+  ///
+  /// Defaults to true so the Individual dashboard — the one role that does
+  /// compute it — needs no change, and so this stays additive.
+  final bool showSavedProperties;
 
   const DashboardAnalyticsBody({
     super.key,
@@ -37,11 +74,16 @@ class DashboardAnalyticsBody extends StatelessWidget {
     required this.loading,
     required this.failed,
     required this.onRetry,
+    this.showSavedProperties = true,
   });
 
   @override
   Widget build(BuildContext context) {
-    if (loading) return const MetricCardGridShimmer(count: 6);
+    // Matches the card count below, so the shimmer does not reflow into a
+    // different grid height once the real tiles arrive.
+    if (loading) {
+      return MetricCardGridShimmer(count: showSavedProperties ? 6 : 5);
+    }
 
     if (failed) {
       return DashboardEmptyState(
@@ -68,11 +110,12 @@ class DashboardAnalyticsBody extends StatelessWidget {
               value: formatThousands(analytics.totalLikes),
               label: 'Total Likes',
             ),
-            MetricCard(
-              icon: Icons.bookmark_border_rounded,
-              value: formatThousands(analytics.totalSaved),
-              label: 'Saved Properties',
-            ),
+            if (showSavedProperties)
+              MetricCard(
+                icon: Icons.bookmark_border_rounded,
+                value: formatThousands(analytics.totalSaved),
+                label: 'Saved Properties',
+              ),
             MetricCard(
               icon: Icons.trending_up_rounded,
               // React's card renders two decimals; the design shows one.
@@ -89,6 +132,60 @@ class DashboardAnalyticsBody extends StatelessWidget {
               value: formatThousands(analytics.contentPosted),
               label: 'Content Posted',
             ),
+
+            // Role-specific tiles, appended rather than interleaved so the six
+            // shared ones keep their positions on every dashboard. Each is
+            // null-gated: the metric is null for roles that do not compute it,
+            // and a 0 would be indistinguishable from a real zero.
+
+            // Broker — BrokerAnalytics.tsx:9-22.
+            if (analytics.activeCount != null)
+              MetricCard(
+                icon: Icons.sell_outlined,
+                value: formatThousands(analytics.activeCount!),
+                label: 'Active Listings',
+              ),
+            if (analytics.soldCount != null)
+              MetricCard(
+                icon: Icons.task_alt_rounded,
+                value: formatThousands(analytics.soldCount!),
+                label: 'Sold',
+              ),
+            if (analytics.totalInquiries != null)
+              MetricCard(
+                icon: Icons.mark_email_unread_outlined,
+                value: formatThousands(analytics.totalInquiries!),
+                label: 'Inquiries',
+              ),
+            if (analytics.totalValue != null)
+              MetricCard(
+                icon: Icons.account_balance_wallet_outlined,
+                value: formatCompactCurrency(analytics.totalValue!),
+                label: 'Portfolio Value',
+              ),
+            if (analytics.totalCommission != null)
+              MetricCard(
+                icon: Icons.percent_rounded,
+                value: formatCompactCurrency(analytics.totalCommission!),
+                // The rate is part of the label because it is an assumption, not
+                // a measurement — the portal hard-codes 2%.
+                label: 'Commission '
+                    '(${_trimZero(analytics.commissionRate ?? 0)}%)',
+              ),
+
+            // Influencer — InfluencerAnalytics.tsx:15-16.
+            if (analytics.avgWatchTime != null)
+              MetricCard(
+                icon: Icons.timer_outlined,
+                value: formatDuration(analytics.avgWatchTime!),
+                label: 'Avg Watch Time',
+              ),
+            if (analytics.avgCompletionRate != null)
+              MetricCard(
+                icon: Icons.donut_large_rounded,
+                value: '${analytics.avgCompletionRate!.toStringAsFixed(1)}%',
+                label: 'Avg Completion',
+              ),
           ],
         ),
         const SizedBox(height: 18),
@@ -228,6 +325,27 @@ class DashboardAudienceBody extends StatelessWidget {
               label: 'Audience Size',
               value: formatThousands(audience.totalFollowers),
             ),
+
+            // Broker only — BrokerAudienceInsights.tsx:9-18. Null for every other
+            // role, so the card simply has four rows there instead of seven.
+            if (audience.totalLeads != null)
+              AudienceInsightRow(
+                icon: Icons.inbox_outlined,
+                label: 'Total Leads',
+                value: formatThousands(audience.totalLeads!),
+              ),
+            if (audience.leadConversionRate != null)
+              AudienceInsightRow(
+                icon: Icons.check_circle_outline_rounded,
+                label: 'Lead Conversion',
+                value: '${audience.leadConversionRate!.toStringAsFixed(1)}%',
+              ),
+            if (audience.responseRate != null)
+              AudienceInsightRow(
+                icon: Icons.reply_rounded,
+                label: 'Response Rate',
+                value: '${audience.responseRate!.toStringAsFixed(1)}%',
+              ),
           ],
         ),
       ],

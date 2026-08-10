@@ -73,6 +73,39 @@ String profileShareUrl({
 }) =>
     '$kProfileOrigin${profilePath(userId: userId, name: name, role: role)}';
 
+/// Lowercase, hyphenated, ASCII slug — a 1:1 port of `toSlug` in
+/// `src/lib/seoSlug.ts`, including its `'item'` fallback and 80-char cap.
+///
+/// Distinct from [profileSlug] on purpose: that one strips separators entirely
+/// ("Komal Pal" → "komalpal") because `profilePath` is specified that way, while
+/// SEO paths keep hyphens ("Sea View 3BHK" → "sea-view-3bhk"). Two rules,
+/// because the portal has two rules.
+String seoSlug(String? text) {
+  final folded = StringBuffer();
+  for (final char in (text ?? '').toLowerCase().split('')) {
+    folded.write(_accentFolding[char] ?? char);
+  }
+
+  var slug = folded
+      .toString()
+      .replaceAll(RegExp(r'[^a-z0-9]+'), '-')
+      .replaceAll(RegExp(r'^-+|-+$'), '');
+
+  if (slug.length > 80) slug = slug.substring(0, 80);
+  slug = slug.replaceAll(RegExp(r'-+$'), '');
+
+  return slug.isEmpty ? 'item' : slug;
+}
+
+/// Absolute URL for a property detail page — `propertyPath` in `seoSlug.ts`.
+String propertyShareUrl(String id, {String? title}) =>
+    title == null || title.isEmpty
+        ? '$kProfileOrigin/property/$id'
+        : '$kProfileOrigin/property/$id/${seoSlug(title)}';
+
+/// Where the portal points the reels feed. `App.tsx:208`.
+const String kReelsFeedPath = '/property-reels';
+
 /// QR image for [shareUrl].
 ///
 /// The portal does not render QR codes locally either — it points an `<img>`

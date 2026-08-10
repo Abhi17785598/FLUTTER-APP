@@ -20,6 +20,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'package:propcid_app/core/constants/app_constants.dart';
+import 'package:propcid_app/models/global_search_suggestion.dart';
 import 'package:propcid_app/models/people_search_result.dart';
 import 'package:propcid_app/models/profile_review.dart';
 import 'package:propcid_app/models/user_profile.dart';
@@ -32,6 +33,7 @@ import 'package:propcid_app/screens/search/people_search_screen.dart';
 import 'package:propcid_app/screens/search/search_screen.dart';
 import 'package:propcid_app/screens/search/widgets/people_result_card.dart';
 import 'package:propcid_app/services/people_search_service.dart';
+import 'package:propcid_app/services/property_service.dart';
 
 import 'support/overflow_detector.dart';
 
@@ -128,6 +130,31 @@ class _FakePeopleSearchService extends PeopleSearchService {
     return ratings;
   }
 }
+
+
+/// Returns scripted `global_search` suggestions instead of calling the RPC.
+class _FakeGlobalSearchService extends PropertyService {
+  _FakeGlobalSearchService(this.suggestions);
+
+  final List<GlobalSearchSuggestion> suggestions;
+
+  @override
+  Future<List<GlobalSearchSuggestion>> globalSearch(String term) async =>
+      suggestions;
+}
+
+GlobalSearchSuggestion _suggestion({
+  required String id,
+  required String label,
+  required String type,
+  String? description,
+}) =>
+    GlobalSearchSuggestion.fromSupabase({
+      'result_id': id,
+      'label': label,
+      'type': type,
+      'description': description,
+    });
 
 Widget _host(Widget child, {double textScale = 1.0}) => MaterialApp(
       builder: (context, c) => MediaQuery(
@@ -908,14 +935,16 @@ void main() {
   //
   // This is the only pre-existing screen the feature modifies, so the property
   // paths it must NOT disturb are asserted alongside the people paths it adds.
-  // `PropertyService.globalSearch` fails against the loopback client and is
-  // swallowed by its own guard, which is exactly the isolation being verified:
-  // people still render when the property fetch dies.
+  //
+  // `global_search` is scripted through `propertyServiceOverride`. Tests that
+  // pass no `places` leave it returning nothing, which also covers the isolation
+  // case: people still render when the place fetch yields nothing.
   group('search entry point', () {
     Future<List<RouteSettings>> pumpSearch(
       WidgetTester tester,
-      PeopleSearchService service,
-    ) async {
+      PeopleSearchService service, {
+      List<GlobalSearchSuggestion> places = const [],
+    }) async {
       tester.view.physicalSize = const Size(390, 844);
       tester.view.devicePixelRatio = 1.0;
       addTearDown(tester.view.reset);
@@ -938,7 +967,10 @@ void main() {
             ),
           ],
           child: MaterialApp(
-            home: SearchScreen(peopleSearchServiceOverride: service),
+            home: SearchScreen(
+              peopleSearchServiceOverride: service,
+              propertyServiceOverride: _FakeGlobalSearchService(places),
+            ),
             onGenerateRoute: (settings) {
               pushed.add(settings);
               return MaterialPageRoute(
@@ -1068,6 +1100,100 @@ void main() {
       expect(find.text('PEOPLE'), findsNothing,
           reason: 'a stale People group must not outlive its query',
       );
+    });
+
+    // ── Spec J: project suggestions ────────────────────────────────────────
+    //
+    // `project` was dropped while no project detail screen existed. Its branch of
+    // the RPC filters `status = 'active' AND approval_status = 'approved'`, so
+    // surfacing it needs no extra client-side gate — and the payload carries no
+    // status column one could filter on anyway.
+    testWidgets('a PROJECTS group appears and opens the project detail',
+        (tester) async {
+      final pushed = await pumpSearch(
+        tester,
+        _FakePeopleSearchService(),
+        places: [
+          _suggestion(
+            id: 'proj-1',
+            label: 'Green Valley Heights',
+            type: 'project',
+            description: 'Pune',
+          ),
+        ],
+      );
+      await type(tester, 'green');
+
+      expect(find.text('PROJECTS'), findsOneWidget);
+      expect(find.text('Green Valley Heights'), findsOneWidget);
+
+      await tester.tap(find.text('Green Valley Heights'));
+      await tester.pumpAndSettle();
+
+      expect(pushed.single.name, AppConstants.projectDetailScreen);
+      expect(
+        (pushed.single.arguments as Map<String, dynamic>)['projectId'],
+        'proj-1',
+      );
+    });
+
+    testWidgets('a property suggestion still opens the property detail',
+        (tester) async {
+      // The two types share the dropdown; adding one must not divert the other.
+      final pushed = await pumpSearch(
+        tester,
+        _FakePeopleSearchService(),
+        places: [
+          _suggestion(id: 'prop-1', label: 'Sea View 3BHK', type: 'property'),
+        ],
+      );
+      await type(tester, 'sea');
+
+      expect(find.text('PROPERTIES'), findsOneWidget);
+      await tester.tap(find.text('Sea View 3BHK'));
+      await tester.pumpAndSettle();
+
+      expect(pushed.single.name, AppConstants.propertyDetailScreen);
+      expect(
+        (pushed.single.arguments as Map<String, dynamic>)['propertyId'],
+        'prop-1',
+      );
+    });
+
+    testWidgets('builder rows from the RPC are still discarded', (tester) async {
+      // Unlike the project branch, the profiles branch has no approval_status or
+      // is_blocked predicate, so it can return pending and blocked profiles.
+      // People come from PeopleSearchService instead.
+      await pumpSearch(
+        tester,
+        _FakePeopleSearchService(),
+        places: [
+          _suggestion(id: 'b-1', label: 'Shady Builders', type: 'builder'),
+        ],
+      );
+      await type(tester, 'shady');
+
+      expect(find.text('Shady Builders'), findsNothing);
+    });
+
+    testWidgets('cities, properties and projects group in a fixed order',
+        (tester) async {
+      await pumpSearch(
+        tester,
+        _FakePeopleSearchService(),
+        places: [
+          _suggestion(id: 'p-1', label: 'A Property', type: 'property'),
+          _suggestion(id: 'proj-1', label: 'A Project', type: 'project'),
+          _suggestion(id: 'c-1', label: 'Pune', type: 'city'),
+        ],
+      );
+      await type(tester, 'pune');
+
+      final cities = tester.getRect(find.text('CITIES')).top;
+      final properties = tester.getRect(find.text('PROPERTIES')).top;
+      final projects = tester.getRect(find.text('PROJECTS')).top;
+      expect(cities, lessThan(properties));
+      expect(properties, lessThan(projects));
     });
 
     testWidgets('a people failure leaves the rest of the screen intact',

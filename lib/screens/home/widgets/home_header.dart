@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
+import 'package:provider/provider.dart';
 
 import '../../../core/constants/app_constants.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_text_styles.dart';
+import '../../../providers/notification_provider.dart';
 
 /// Home's top app bar: logo/brand dropdown + calendar/notifications/avatar
 /// shortcuts. Purely presentational — every tap target below navigates to
@@ -81,13 +83,17 @@ class HomeHeader extends StatelessWidget {
                     Navigator.pushNamed(context, AppConstants.visitsScreen),
               ),
               const SizedBox(width: 10),
+              // G-3: the badge was hard-coded `true`, so it showed a dot forever
+              // whether or not anything was unread. It now watches the app-level
+              // provider, which the realtime channel keeps current — a notification
+              // arriving while this screen is open lights the dot without a refresh.
               _CircleIconButton(
                 icon: Icons.notifications_outlined,
                 onTap: () => Navigator.pushNamed(
                   context,
                   AppConstants.notificationsScreen,
                 ),
-                badge: true,
+                badge: context.watch<NotificationProvider>().hasUnread,
               ),
               const SizedBox(width: 10),
               GestureDetector(

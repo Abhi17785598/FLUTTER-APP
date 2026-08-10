@@ -7,6 +7,7 @@ import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_text_styles.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/subscription_provider.dart';
+import '../../services/payment_service.dart';
 import '../../widgets/shared/app_action_button.dart';
 import '../../widgets/shared/section_header_back_button.dart';
 import '../shared/section_loader.dart';
@@ -37,12 +38,25 @@ enum SubscriptionTab {
 
 /// Subscription & Billing — the design's `isSubHome` screen.
 ///
-/// Read-only throughout. Every mutating billing path React owns
-/// (`create-order`, `verify-payment`, `refund-payment`, `manage-subscription`,
-/// `update-billing-profile`) is deliberately out of scope: those move money
-/// through Razorpay, which this app has no integration for. Actions that would
-/// write land on the shared placeholder, and "Upgrade" goes to the real
-/// [UpgradeScreen] delivered in Phase 6.
+/// Reads come from [SubscriptionProvider]; the display logic below is unchanged
+/// and stays read-only.
+///
+/// THE LIFECYCLE ACTIONS ARE LIVE
+/// ------------------------------
+/// Cancel and Resume now call `manage-subscription` through [PaymentService]
+/// instead of landing on the placeholder — the same function and the same
+/// payloads as `PaymentContext.cancelSubscription` / `resumeSubscription`. Both
+/// are confirmed first and both re-read afterwards, because the server decides
+/// what actually happened (a cancel is scheduled for period end, not immediate).
+///
+/// The plan *change* actions are not here. Downgrading is a plan choice, so it
+/// lives on [UpgradeScreen] beside the plan it selects — the portal puts it in
+/// the same place (`UpgradePlanCard.handleCTAClick`). Every "Upgrade" /
+/// "Compare Plans" / "View Plans" button on this screen routes there, and this
+/// screen re-reads when it comes back.
+///
+/// Refunds, invoice downloads and billing-profile edits still land on the
+/// placeholder; those are separate surfaces, not this phase.
 class SubscriptionBillingScreen extends StatelessWidget {
   const SubscriptionBillingScreen({super.key});
 
@@ -64,7 +78,12 @@ class _SubscriptionBillingView extends StatefulWidget {
 }
 
 class _SubscriptionBillingViewState extends State<_SubscriptionBillingView> {
+  final PaymentService _payments = PaymentService();
+
   String? _loadedUserId;
+
+  /// A `manage-subscription` call is in flight.
+  bool _busy = false;
 
   @override
   void didChangeDependencies() {
@@ -88,6 +107,109 @@ class _SubscriptionBillingViewState extends State<_SubscriptionBillingView> {
     });
   }
 
+  /// Cancel at period end. `PaymentContext.cancelSubscription` (`:439-443`).
+  ///
+  /// The subscription does not end here — it is marked to end when the paid
+  /// period does, which is why the copy says so and why the result is re-read
+  /// rather than assumed.
+  Future<void> _cancel() async {
+    final confirmed = await _confirm(
+      title: 'Cancel subscription?',
+      message: 'Your plan stays active until the end of the current billing '
+          'period. After that the account moves to the Free plan.',
+      confirmLabel: 'Cancel subscription',
+      destructive: true,
+    );
+    if (!confirmed || !mounted) return;
+
+    await _run(
+      () => _payments.cancelSubscription(),
+      success: 'Your subscription will end at the close of this billing period.',
+      failure: 'Could not cancel your subscription.',
+    );
+  }
+
+  /// Undo a pending cancellation. `PaymentContext.resumeSubscription`
+  /// (`:462-466`).
+  Future<void> _resume() async {
+    await _run(
+      () => _payments.resumeSubscription(),
+      success: 'Your subscription will continue to renew.',
+      failure: 'Could not resume your subscription.',
+    );
+  }
+
+  /// Calls one `manage-subscription` action, then re-reads billing state.
+  ///
+  /// Nothing is updated locally on the way through: the server owns the
+  /// resulting status, cancellation flag and renewal date, so the refresh is
+  /// what makes the screen correct rather than optimistic.
+  Future<void> _run(
+    Future<void> Function() action, {
+    required String success,
+    required String failure,
+  }) async {
+    if (_busy) return;
+    setState(() => _busy = true);
+
+    try {
+      await action();
+      if (!mounted) return;
+      await context.read<SubscriptionProvider>().refresh();
+      if (!mounted) return;
+      _toast(success);
+    } catch (e) {
+      if (!mounted) return;
+      // `PaymentService` throws the server's own message as a bare String.
+      _toast(e is String ? e : failure, isError: true);
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  Future<bool> _confirm({
+    required String title,
+    required String message,
+    required String confirmLabel,
+    bool destructive = false,
+  }) async {
+    final result = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: Text(title, style: AppTextStyles.heading3.copyWith(fontSize: 16)),
+        content: Text(message, style: AppTextStyles.body.copyWith(fontSize: 13)),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(false),
+            child: const Text('Keep it'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(true),
+            child: Text(
+              confirmLabel,
+              style: AppTextStyles.button.copyWith(
+                fontSize: 13,
+                color: destructive ? AppColors.error : AppColors.primary,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+    return result ?? false;
+  }
+
+  void _toast(String message, {bool isError = false}) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        backgroundColor: isError ? AppColors.error : AppColors.success,
+        behavior: SnackBarBehavior.floating,
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final provider = context.watch<SubscriptionProvider>();
@@ -102,7 +224,14 @@ class _SubscriptionBillingViewState extends State<_SubscriptionBillingView> {
         historyFailed: provider.historyFailed,
         subscriptionFailed: provider.subscriptionFailed,
       ),
-      loading: provider.loading,
+      // A lifecycle call in flight keeps the plan card in its loading state, so
+      // the figures cannot be read as settled while they are about to change.
+      loading: provider.loading || _busy,
+      onCancelSubscription: _cancel,
+      onResumeSubscription: _resume,
+      // The Upgrade screen can change the plan (including down to Free), so this
+      // screen's numbers are stale the moment it returns.
+      onReturnFromUpgrade: () => context.read<SubscriptionProvider>().refresh(),
     );
   }
 }
@@ -114,10 +243,23 @@ class SubscriptionBillingBody extends StatefulWidget {
   final SubscriptionTabData data;
   final bool loading;
 
+  /// Supplied by [SubscriptionBillingScreen], which owns the provider. Null in a
+  /// layout test, where the buttons fall back to the shared placeholder — the
+  /// point of this split is that the visuals render without a live backend.
+  final VoidCallback? onCancelSubscription;
+  final VoidCallback? onResumeSubscription;
+
+  /// Called when the Upgrade screen pops, so the caller can re-read a plan that
+  /// may have changed while it was open.
+  final VoidCallback? onReturnFromUpgrade;
+
   const SubscriptionBillingBody({
     super.key,
     required this.data,
     required this.loading,
+    this.onCancelSubscription,
+    this.onResumeSubscription,
+    this.onReturnFromUpgrade,
   });
 
   @override
@@ -128,8 +270,10 @@ class SubscriptionBillingBody extends StatefulWidget {
 class _SubscriptionBillingBodyState extends State<SubscriptionBillingBody> {
   SubscriptionTab _tab = SubscriptionTab.overview;
 
-  void _openUpgrade() {
-    Navigator.of(context).pushNamed(AppConstants.upgradeScreen);
+  Future<void> _openUpgrade() async {
+    await Navigator.of(context).pushNamed(AppConstants.upgradeScreen);
+    if (!mounted) return;
+    widget.onReturnFromUpgrade?.call();
   }
 
   void _openPolicies() {
@@ -191,7 +335,10 @@ class _SubscriptionBillingBodyState extends State<SubscriptionBillingBody> {
         return BillingTab(
           data: data,
           onUpgrade: _openUpgrade,
-          onCancel: () => openSectionPlaceholder(context, 'Cancel Subscription'),
+          onCancel: widget.onCancelSubscription ??
+              () => openSectionPlaceholder(context, 'Cancel Subscription'),
+          onResume: widget.onResumeSubscription ??
+              () => openSectionPlaceholder(context, 'Resume Subscription'),
           onSaveDetails: () => openSectionPlaceholder(context, 'Edit Billing Details'),
         );
       case SubscriptionTab.payments:

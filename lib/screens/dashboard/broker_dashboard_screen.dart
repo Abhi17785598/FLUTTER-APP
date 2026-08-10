@@ -5,7 +5,9 @@ import '../../core/constants/app_constants.dart';
 import '../../core/theme/app_colors.dart';
 import '../../models/broker_dashboard_model.dart';
 import '../../models/dashboard_analytics.dart';
+import '../../models/property_model.dart';
 import '../../providers/auth_provider.dart';
+import '../../services/property_service.dart';
 import '../../providers/dashboard_analytics_provider.dart';
 import '../../services/broker_dashboard_service.dart';
 import '../../widgets/bottom_nav_bar.dart';
@@ -13,10 +15,14 @@ import '../widgets/broker_quick_actions_widget.dart';
 import '../widgets/broker_recent_properties_widget.dart';
 import '../widgets/broker_stats_widget.dart';
 import 'my_listings_section.dart';
+import '../../core/widgets/segmented_tab_pill.dart';
+import 'widgets/broker_leads_section.dart';
+import 'widgets/broker_listing_summary.dart';
+import 'widgets/broker_profile_section.dart';
+import 'widgets/broker_visit_bookings_section.dart';
 import '../../widgets/shared/section_header_back_button.dart';
 import 'widgets/dashboard_primitives.dart';
 import 'widgets/dashboard_tab_bodies.dart';
-import 'widgets/dashboard_tab_selector.dart';
 
 // Retained accents used by the loading and error states.
 class _BrandGradient {
@@ -35,6 +41,50 @@ class _BrandGradient {
 /// [DashboardAnalyticsProvider] is additive — it supplies the Analytics and
 /// Audience metrics the design shows, ported from the React portal's
 /// `BrokerAnalytics.tsx` / `BrokerAudienceInsights.tsx`.
+/// The Broker dashboard's five sections.
+///
+/// `BrokerDashboardManage.tsx:270-309` — Analytics · Inventory · Leads · Visits ·
+/// Audience. Note the portal labels its content tab **"Inventory"**, not "Content
+/// Manager".
+///
+/// Its own enum for the same reason the builder has one: `DashboardTab` and
+/// `DashboardTabSelector` are shared with Influencer and Individual, and
+/// re-labelling them would change those roles. Nothing shared is modified.
+enum BrokerSection { analytics, inventory, leads, visits, audience }
+
+/// Five labels over the app's existing segmented pill.
+class BrokerSectionSelector extends StatelessWidget {
+  const BrokerSectionSelector({
+    super.key,
+    required this.selected,
+    required this.onChanged,
+  });
+
+  final BrokerSection selected;
+  final ValueChanged<BrokerSection> onChanged;
+
+  static const _labels = <BrokerSection, String>{
+    BrokerSection.analytics: 'Analytics',
+    BrokerSection.inventory: 'Inventory',
+    BrokerSection.leads: 'Leads',
+    BrokerSection.visits: 'Visits',
+    BrokerSection.audience: 'Audience',
+  };
+
+  @override
+  Widget build(BuildContext context) {
+    // Five labels wrap onto two rows at 320 dp. The pill handles that; the portal's
+    // own `hidden sm:inline` / `sm:hidden` pairs show it does the same on narrow
+    // viewports.
+    return SegmentedTabPill(
+      labels: BrokerSection.values.map((s) => _labels[s]!).toList(),
+      selectedIndex: BrokerSection.values.indexOf(selected),
+      onChanged: (i) => onChanged(BrokerSection.values[i]),
+      labelFontSize: 11,
+    );
+  }
+}
+
 class BrokerDashboardScreen extends StatelessWidget {
   const BrokerDashboardScreen({super.key});
 
@@ -48,6 +98,11 @@ class BrokerDashboardScreen extends StatelessWidget {
         // BrokerAnalytics.tsx hard-codes growth to 0, noting it needs
         // historical engagement tracking that does not exist yet.
         growthFromContent: false,
+        // Spec C: the six metrics BrokerAnalytics.tsx computes that the shared
+        // body had no field for, plus the three lead metrics
+        // BrokerAudienceInsights.tsx computes. Both read `property_inquiries`.
+        includeListingMetrics: true,
+        includeLeadMetrics: true,
       ),
       child: const _BrokerDashboardView(),
     );
@@ -64,14 +119,48 @@ class _BrokerDashboardView extends StatefulWidget {
 class _BrokerDashboardViewState extends State<_BrokerDashboardView> {
   late Future<BrokerDashboardModel> _dashboardFuture;
 
-  DashboardTab _tab = DashboardTab.analytics;
+  /// Opens on Analytics, matching the portal's `defaultValue="analytics"`.
+  BrokerSection _section = BrokerSection.analytics;
   String? _loadedUserId;
+
+  // ── Spec I ────────────────────────────────────────────────────────────────
+  //
+  // Leads, Visit Bookings and the lead stats are all scoped by "this broker's
+  // listings", because neither `property_inquiries` nor `property_visit_bookings`
+  // has a broker column — the listing set *is* the scope.
+  //
+  // The portal's three components each open with their own identical
+  // `.from('properties').eq('user_id', …)` fetch. Here it runs once, through the
+  // `PropertyService` method Spec D verified against that query byte for byte, and
+  // the result is shared down.
+  List<PropertyModel> _properties = const [];
+
+  /// Loads the listings the Spec I sections are scoped by.
+  ///
+  /// A failure leaves the list empty, which each section renders as its own "once
+  /// you publish a listing" message rather than as an error — the dashboard's own
+  /// stats and listings sections have their own error states, and a second failure
+  /// banner for the same cause would be noise.
+  Future<void> _loadProperties() async {
+    final userId = context.read<AuthProvider>().userId;
+    if (userId == null) return;
+    try {
+      final rows = await PropertyService().getPropertiesByUser(userId);
+      if (!mounted) return;
+      setState(() => _properties = rows);
+    } catch (e) {
+      debugPrint('BrokerDashboard property scope failed: $e');
+    }
+  }
 
   @override
   void initState() {
     super.initState();
     _dashboardFuture = _loadDashboard();
-    WidgetsBinding.instance.addPostFrameCallback((_) => _loadAnalytics());
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _loadAnalytics();
+      _loadProperties();
+    });
   }
 
   Future<BrokerDashboardModel> _loadDashboard() {
@@ -113,7 +202,7 @@ class _BrokerDashboardViewState extends State<_BrokerDashboardView> {
     return Scaffold(
       backgroundColor: AppColors.background,
       // Design places an icon-only square FAB on the Content tab only.
-      floatingActionButton: _tab == DashboardTab.content
+      floatingActionButton: _section == BrokerSection.inventory
           // Design insets the FAB 20 dp from the right edge; Scaffold's
           // endFloat location defaults to 16.
           ? Padding(
@@ -158,9 +247,9 @@ class _BrokerDashboardViewState extends State<_BrokerDashboardView> {
                                 'Manage your content and track performance',
                           ),
                           const SizedBox(height: 18),
-                          DashboardTabSelector(
-                            selected: _tab,
-                            onChanged: (t) => setState(() => _tab = t),
+                          BrokerSectionSelector(
+                            selected: _section,
+                            onChanged: (s) => setState(() => _section = s),
                           ),
                         ],
                       ),
@@ -187,6 +276,11 @@ class _BrokerDashboardViewState extends State<_BrokerDashboardView> {
     Navigator.pushNamed(context, AppConstants.postPropertyScreen);
   }
 
+  /// One of the portal's five sections.
+  ///
+  /// Every section reuses the widgets Specs D and I already built. The Spec I
+  /// sections that used to be stacked under one Content tab are now their own
+  /// destinations, which is how the portal arranges them.
   Widget _buildTabBody(
     BuildContext context,
     BrokerDashboardModel stats,
@@ -194,26 +288,29 @@ class _BrokerDashboardViewState extends State<_BrokerDashboardView> {
   ) {
     final analytics = context.watch<DashboardAnalyticsProvider>();
 
-    switch (_tab) {
-      case DashboardTab.analytics:
+    switch (_section) {
+      // ── Analytics — `BrokerAnalytics.tsx` ───────────────────────────────
+      case BrokerSection.analytics:
         return DashboardAnalyticsBody(
           analytics: analytics.analytics,
           loading: analytics.analyticsLoading,
           failed: analytics.analyticsFailed,
           onRetry: analytics.refresh,
+          // Read off the provider rather than hard-coded, so the flag that decides
+          // whether `saved_properties` is queried is the same one that decides
+          // whether the tile appears.
+          showSavedProperties: analytics.includeSavedProperties,
         );
 
-      case DashboardTab.content:
-        return DashboardContentBody(
-          createLabel: 'Add Property',
-          emptyActionLabel: 'Add Your First Property',
-          onCreate: () => Navigator.pushNamed(
-            context,
-            AppConstants.postPropertyScreen,
-          ),
-          // Every existing broker section is preserved — only the containers
-          // and section labels now follow the design.
-          sections: [
+      // ── Inventory — `BrokerContentManager.tsx` ──────────────────────────
+      //
+      // The portal labels this tab "Inventory" and shows three summary cards over a
+      // listing table. The table's five columns are covered per-card by
+      // `MyListingsSection`; the summary strip was the gap.
+      case BrokerSection.inventory:
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
             const DashboardSectionLabel('Overview'),
             const SizedBox(height: 10),
             BrokerStatsWidget(stats: stats),
@@ -224,27 +321,67 @@ class _BrokerDashboardViewState extends State<_BrokerDashboardView> {
             const SizedBox(height: 22),
             const DashboardSectionLabel('Recent Properties'),
             const SizedBox(height: 10),
+            // Kept from the pre-redesign Content tab. A read-only rail, and it
+            // predates this phase — dropping it would remove existing functionality.
             DashboardCard(
               child: BrokerRecentPropertiesWidget(brokerId: auth.userId!),
             ),
             const SizedBox(height: 22),
             const DashboardSectionLabel('My Listings'),
             const SizedBox(height: 10),
+            BrokerListingSummary(properties: _properties),
+            const SizedBox(height: 12),
             MyListingsSection(userId: auth.userId!),
           ],
         );
 
-      case DashboardTab.audience:
-        return DashboardAudienceBody(
-          audience: analytics.audience,
-          loading: analytics.audienceLoading,
-          failed: analytics.audienceFailed,
-          onRetry: analytics.refresh,
+      // ── Leads — `BrokerLeadsManager.tsx` ────────────────────────────────
+      case BrokerSection.leads:
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const DashboardSectionLabel('Leads'),
+            const SizedBox(height: 10),
+            BrokerLeadsSection(properties: _properties),
+          ],
+        );
+
+      // ── Visits — `BrokerVisitBookingsManager.tsx` ───────────────────────
+      case BrokerSection.visits:
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const DashboardSectionLabel('Visit Bookings'),
+            const SizedBox(height: 10),
+            // Realtime, per the Spec I contract.
+            BrokerVisitBookingsSection(properties: _properties),
+          ],
+        );
+
+      // ── Audience — `BrokerAudienceInsights.tsx` ─────────────────────────
+      case BrokerSection.audience:
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            DashboardAudienceBody(
+              audience: analytics.audience,
+              loading: analytics.audienceLoading,
+              failed: analytics.audienceFailed,
+              onRetry: analytics.refresh,
+            ),
+            const SizedBox(height: 22),
+            // `BrokerProfileManager.tsx` is exported but mounted NOWHERE in the
+            // portal — it is dead code there. Flutter surfaces it (Spec I), so it is
+            // kept rather than dropped to match a portal omission: removing working
+            // functionality to mirror an oversight would be the wrong trade. Placed
+            // here because the profile is what an audience sees.
+            const DashboardSectionLabel('Broker Profile'),
+            const SizedBox(height: 10),
+            BrokerProfileSection(userId: auth.userId!),
+          ],
         );
     }
   }
-
-  // ---------------- LOADING STATE ----------------
 
   Widget _buildLoadingState(BuildContext context) {
     return Center(

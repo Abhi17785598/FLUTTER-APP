@@ -48,11 +48,20 @@ const int _kPeopleSuggestionLimit = 5;
 /// One suggestion group in the autocomplete list.
 ///
 /// `global_search` emits exactly four types — city, property, project and
-/// builder. Only the two listed below are groupable here: this app has no
-/// project-detail screen, so `project` still has nowhere to go, and
-/// `_fetchSuggestions` drops it so a tap can never dead-end. Note the portal's
-/// own TypeScript declares a `locality` type as well, but the deployed RPC never
-/// returns one.
+/// builder. Three are groupable here; `builder` is not, for the reason below.
+///
+/// `project` was dropped until a project detail screen existed, which it now
+/// does. Its branch of the RPC is safe to surface: it filters
+/// `status = 'active' AND approval_status = 'approved'`
+/// (20260402111500_restore_coordinates.sql), which is *stricter* than
+/// `builder_projects`' own public read policy (`status = 'active'` alone). No
+/// client-side visibility filter is added on top — the payload carries no status
+/// column to filter on, and the tap lands on `ProjectDetailScreen`, whose
+/// RLS-bound `fetchById` renders "Project not available" for anything the viewer
+/// may not see.
+///
+/// Note the portal's own TypeScript declares a `locality` type as well, but the
+/// deployed RPC never returns one.
 ///
 /// PEOPLE ARE NOT ONE OF THESE GROUPS, DELIBERATELY
 /// ------------------------------------------------
@@ -89,6 +98,11 @@ const List<_SuggestionGroup> _kSuggestionGroups = [
     type: 'property',
     label: 'PROPERTIES',
     icon: Icons.home_work_outlined,
+  ),
+  _SuggestionGroup(
+    type: 'project',
+    label: 'PROJECTS',
+    icon: Icons.apartment_outlined,
   ),
 ];
 
@@ -139,10 +153,16 @@ class SearchScreen extends StatefulWidget {
   @visibleForTesting
   final PeopleSearchService? peopleSearchServiceOverride;
 
+  /// Injected by tests so the city / property / project groups can be exercised
+  /// without a database. Production always builds a real service.
+  @visibleForTesting
+  final PropertyService? propertyServiceOverride;
+
   const SearchScreen({
     super.key,
     this.autoStartVoice = false,
     this.peopleSearchServiceOverride,
+    this.propertyServiceOverride,
   });
 
   @override
@@ -153,7 +173,8 @@ class _SearchScreenState extends State<SearchScreen>
     with WidgetsBindingObserver {
   final FocusNode _searchFocusNode = FocusNode();
   final TextEditingController _searchController = TextEditingController();
-  final PropertyService _propertyService = PropertyService();
+  late final PropertyService _propertyService =
+      widget.propertyServiceOverride ?? PropertyService();
   late final PeopleSearchService _peopleSearchService =
       widget.peopleSearchServiceOverride ?? PeopleSearchService();
   final AiSearchService _aiSearchService = AiSearchService();
@@ -268,11 +289,12 @@ class _SearchScreenState extends State<SearchScreen>
 
     if (!mounted) return;
     setState(() {
-      // The project type points at a screen this app doesn't have, and the
-      // builder type comes from an RPC that bypasses RLS — both dropped rather
-      // than left to dead-end or to leak. See _kSuggestionGroups.
+      // `project` is included now that a project detail screen exists; it used
+      // to dead-end. `builder` stays dropped — see _kSuggestionGroups for why
+      // that branch of the RPC cannot be trusted.
       _suggestions = places
-          .where((s) => s.type == 'city' || s.type == 'property')
+          .where((s) =>
+              s.type == 'city' || s.type == 'property' || s.type == 'project')
           .toList();
       _peopleSuggestions = people;
       _isLoadingSuggestions = false;
@@ -457,6 +479,15 @@ class _SearchScreenState extends State<SearchScreen>
         context,
         AppConstants.propertyDetailScreen,
         arguments: {'propertyId': suggestion.id},
+      );
+      return;
+    }
+
+    if (suggestion.type == 'project') {
+      Navigator.pushNamed(
+        context,
+        AppConstants.projectDetailScreen,
+        arguments: {'projectId': suggestion.id},
       );
       return;
     }

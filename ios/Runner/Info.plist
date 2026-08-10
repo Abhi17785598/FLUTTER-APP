@@ -91,5 +91,16 @@
 		<string>UIInterfaceOrientationLandscapeLeft</string>
 		<string>UIInterfaceOrientationLandscapeRight</string>
 	</array>
+	<!-- Razorpay's UPI intent flow: the checkout sheet only offers a UPI app if
+	     iOS confirms it is installed, and canOpenURL returns false for any scheme
+	     not declared here. Without these four the UPI option silently disappears
+	     from the sheet on a device that has the apps. -->
+	<key>LSApplicationQueriesSchemes</key>
+	<array>
+		<string>tez</string>
+		<string>phonepe</string>
+		<string>paytmmp</string>
+		<string>credpay</string>
+	</array>
 </dict>
 </plist>

@@ -109,6 +109,42 @@ const List<RouteEntry> _routes = [
     concepts: ['post property', 'create listing', 'add property', 'new listing', 'list property'],
     keywords: ['post', 'create', 'add', 'new', 'listing', 'property', 'sell', 'rent'],
   ),
+  // The builder project wizard. Without this entry the voice agent could not
+  // reach it by intent at all, so "create a project" had no correct destination.
+  //
+  // `tier` is deliberately 'authenticated', not 'builder'. `_canAccess` compares
+  // positions in the ladder ['public','authenticated','admin','super_admin'], so
+  // an unrecognised value gives `indexOf == -1` and `userIdx >= -1` is always
+  // true — a 'builder' tier would make this entry reachable by **logged-out**
+  // users, the exact opposite of gating. The role check therefore lives where it
+  // can actually be enforced: AddProjectRouteGate on the route itself.
+  RouteEntry(
+    path: '/add-project',
+    title: 'Add Project',
+    tier: 'authenticated',
+    section: 'listings',
+    description: 'Create a new builder project',
+    concepts: ['add project', 'create project', 'new project', 'post project', 'list project'],
+    keywords: ['project', 'add', 'create', 'new', 'launch', 'township', 'builder'],
+  ),
+  // The influencer video form. Reachable by intent for the same reason
+  // '/add-project' is: post_content(video) now resolves here, and without an entry
+  // "upload a video" had no destination the agent could name.
+  //
+  // `tier` is 'authenticated' for the same reason, too — `_canAccess` compares
+  // positions in the ladder ['public','authenticated','admin','super_admin'], so an
+  // unrecognised 'influencer' tier would yield indexOf == -1 and make this entry
+  // reachable by logged-out users. The role check lives on the route instead, in
+  // InfluencerVideoRouteGate.
+  RouteEntry(
+    path: '/influencer-video',
+    title: 'Upload Video',
+    tier: 'authenticated',
+    section: 'listings',
+    description: 'Create a new influencer video',
+    concepts: ['upload video', 'create video', 'post video', 'new video', 'post reel'],
+    keywords: ['video', 'upload', 'create', 'post', 'reel', 'influencer', 'content'],
+  ),
   RouteEntry(
     path: '/notifications',
     title: 'Notifications',

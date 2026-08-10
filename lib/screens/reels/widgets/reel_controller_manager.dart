@@ -24,10 +24,45 @@ class ReelControllerManager extends ChangeNotifier {
   ReelControllerManager({
     this.windowRadius = 1,
     this.initTimeout = const Duration(seconds: 20),
+    this.previewMode = false,
+    this.viewType = VideoViewType.textureView,
   });
+
+  /// How the decoder's output reaches the screen.
+  ///
+  /// `textureView` (the plugin's default) has ExoPlayer render into a
+  /// `SurfaceProducer`, which Flutter samples as an external texture and
+  /// composites — `TextureVideoPlayer.java:82`. That extra sampling step is
+  /// where a decoder that reports a non-standard stride or colour format shows
+  /// up as green diagonal tearing, and it is device-specific because the stride
+  /// comes from the vendor's driver.
+  ///
+  /// `platformView` calls `exoPlayer.setVideoSurfaceView(surfaceView)`
+  /// (`PlatformVideoView.java:49`), handing frames straight to SurfaceFlinger.
+  /// No Flutter texture, no sampling, no stride to get wrong.
+  ///
+  /// The trade is composition: a `SurfaceView` is a separate window layer, so it
+  /// does not clip or transform with Flutter the way a texture does. Fine for a
+  /// full-bleed player; not for a rounded, cover-cropped card in a scroller.
+  final VideoViewType viewType;
 
   /// How many neighbours on each side of the active index to keep initialised.
   final int windowRadius;
+
+  /// Rail mode: every controller in the window plays, silently.
+  ///
+  /// The full-screen feed has exactly one reel in front of the user, so it plays
+  /// the active index with audio and holds its neighbours paused at frame zero,
+  /// ready for the next swipe. A horizontal rail shows three cards at once and
+  /// none of them is "the" one — the portal plays every card that is on screen
+  /// and mutes them all (`TrendingVideosSection.tsx:169-197`, `muted` at `:317`).
+  ///
+  /// Only the playback policy changes. The window, the decoder-ordering fix and
+  /// the disposal rules below are shared, which is the point: a rail that
+  /// allocated decoders on its own terms would compete with this one for them.
+  ///
+  /// Defaults to false, so the feed behaves exactly as it did.
+  final bool previewMode;
 
   /// How long to wait for `initialize()` before treating a reel as failed.
   /// Without this, a slow/flaky mobile network can leave the UI spinning
@@ -92,6 +127,14 @@ class ReelControllerManager extends ChangeNotifier {
     for (final entry in _controllers.entries) {
       final c = entry.value;
       if (!c.value.isInitialized) continue;
+      if (previewMode) {
+        // Every card in the window is on screen, so every card plays — silently.
+        c
+          ..setVolume(0.0)
+          ..setLooping(true)
+          ..play();
+        continue;
+      }
       if (entry.key == activeIndex) {
         // The active reel plays with full audio — this is the fix for
         // Issue 2: previously this branch called setVolume(0.0), muting
@@ -122,7 +165,10 @@ class ReelControllerManager extends ChangeNotifier {
       return;
     }
 
-    final controller = VideoPlayerController.networkUrl(Uri.parse(url));
+    final controller = VideoPlayerController.networkUrl(
+      Uri.parse(url),
+      viewType: viewType,
+    );
     _controllers[index] = controller;
     _failedIndices.remove(index);
 
@@ -164,10 +210,12 @@ class ReelControllerManager extends ChangeNotifier {
       }
 
       await controller.setLooping(true);
-      await controller.setVolume(index == _activeIndex ? 1.0 : 0.0);
+      await controller.setVolume(
+        previewMode ? 0.0 : (index == _activeIndex ? 1.0 : 0.0),
+      );
 
       if (_controllers[index] != controller) return;
-      if (index == _activeIndex) {
+      if (previewMode || index == _activeIndex) {
         // Deliberately NOT awaited: play() only needs to be *issued*, not
         // settled, before we notify the UI that this controller is ready.
         // Awaiting it here previously left `finally`'s _safeNotify() (the
@@ -213,6 +261,36 @@ class ReelControllerManager extends ChangeNotifier {
 
   void playActive() {
     _controllers[_activeIndex]?.play();
+  }
+
+  /// Stops every live controller without disposing any of them.
+  ///
+  /// For leaving the viewport or backgrounding the app: decoders stay allocated
+  /// so coming back is instant, but nothing decodes or pulls bytes meanwhile.
+  /// [resumeWindow] puts playback back exactly as the mode dictates.
+  void pauseAll() {
+    for (final c in _controllers.values) {
+      if (c.value.isInitialized && c.value.isPlaying) c.pause();
+    }
+  }
+
+  void resumeWindow() => _applyPlaybackState(_activeIndex);
+
+  /// Frees every native video surface, leaving the manager reusable.
+  ///
+  /// Distinct from [disposeAll], which retires the manager for good. This is for
+  /// giving the device's surface budget back to another screen: Android's buffer
+  /// pool is finite and this app has already exhausted it once by leaving
+  /// surfaces alive on buried routes (see `bottom_nav_bar.dart:58-68`).
+  /// [onActiveIndexChanged] rebuilds the window afterwards.
+  ///
+  /// Deliberately heavier than [pauseAll]: pausing keeps the surface, which is
+  /// right for a moment's scroll and wrong when another player needs it.
+  Future<void> releaseAll() async {
+    for (final index in _controllers.keys.toList()) {
+      await _disposeAt(index);
+    }
+    _safeNotify();
   }
 
   void _safeNotify() {

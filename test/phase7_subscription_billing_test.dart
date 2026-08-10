@@ -560,6 +560,7 @@ void main() {
           data: _wideData(),
           onUpgrade: () {},
           onCancel: () {},
+          onResume: () {},
           onSaveDetails: () {},
         ),
         'Billing',

@@ -10,13 +10,14 @@ import '../../providers/auth_provider.dart';
 import '../../models/influencer_dashboard_model.dart';
 import '../../services/influencer_dashboard_service.dart';
 import '../widgets/influencer_stats_widget.dart';
-import '../widgets/influencer_recent_campaigns_widget.dart';
 import '../widgets/influencer_quick_actions_widget.dart';
 import 'my_listings_section.dart';
 import '../../widgets/shared/section_header_back_button.dart';
 import 'widgets/dashboard_primitives.dart';
 import 'widgets/dashboard_tab_bodies.dart';
-import 'widgets/dashboard_tab_selector.dart';
+import '../../core/widgets/segmented_tab_pill.dart';
+import '../network/widgets/network_invitations_section.dart';
+import 'widgets/my_videos_section.dart';
 
 // ---------------------------------------------------------------------------
 // PREMIUM PALETTE — keep this rich/deep across the whole gradient, no fading.
@@ -32,6 +33,47 @@ class _BrandGradient {
   static const Color c4 = Color(0xFF6657FF); // accent only — icons/glows
 }
 
+/// The Influencer dashboard's four sections.
+///
+/// `InfluencerDashboardManage.tsx:95-110` — Analytics · Content · Audience ·
+/// **Collaboration**. The fourth is the one Flutter's shared three-tab selector had
+/// no room for.
+///
+/// Its own enum, like the builder's and the broker's, so the shared
+/// `DashboardTabSelector` keeps serving Individual unchanged.
+enum InfluencerSection { analytics, content, audience, collaboration }
+
+/// Four labels over the app's existing segmented pill.
+class InfluencerSectionSelector extends StatelessWidget {
+  const InfluencerSectionSelector({
+    super.key,
+    required this.selected,
+    required this.onChanged,
+  });
+
+  final InfluencerSection selected;
+  final ValueChanged<InfluencerSection> onChanged;
+
+  static const _labels = <InfluencerSection, String>{
+    InfluencerSection.analytics: 'Analytics',
+    InfluencerSection.content: 'Content',
+    InfluencerSection.audience: 'Audience',
+    InfluencerSection.collaboration: 'Collabs',
+  };
+
+  @override
+  Widget build(BuildContext context) {
+    // "Collaboration" shortened to "Collabs" for the pill only; the section heading
+    // inside the tab keeps the portal's full word.
+    return SegmentedTabPill(
+      labels: InfluencerSection.values.map((s) => _labels[s]!).toList(),
+      selectedIndex: InfluencerSection.values.indexOf(selected),
+      onChanged: (i) => onChanged(InfluencerSection.values[i]),
+      labelFontSize: 11.5,
+    );
+  }
+}
+
 class InfluencerDashboardScreen extends StatelessWidget {
   const InfluencerDashboardScreen({super.key});
 
@@ -43,6 +85,9 @@ class InfluencerDashboardScreen extends StatelessWidget {
         // read `influencer_videos`.
         analyticsSource: AnalyticsContentSource.influencerVideos,
         audienceSource: AnalyticsContentSource.influencerVideos,
+        // Spec C: avgWatchTime and avgCompletionRate, the two metrics
+        // InfluencerAnalytics.tsx derives from `influencer_video_views`.
+        includeWatchMetrics: true,
       ),
       child: const _InfluencerDashboardView(),
     );
@@ -59,7 +104,8 @@ class _InfluencerDashboardView extends StatefulWidget {
 class _InfluencerDashboardViewState extends State<_InfluencerDashboardView> {
   late Future<InfluencerDashboardModel> _dashboardFuture;
 
-  DashboardTab _tab = DashboardTab.analytics;
+  /// Opens on Analytics, as the portal's Tabs default does.
+  InfluencerSection _section = InfluencerSection.analytics;
   String? _loadedUserId;
 
   @override
@@ -108,7 +154,7 @@ class _InfluencerDashboardViewState extends State<_InfluencerDashboardView> {
     return Scaffold(
       backgroundColor: AppColors.background,
       // Design places an icon-only square FAB on the Content tab only.
-      floatingActionButton: _tab == DashboardTab.content
+      floatingActionButton: _section == InfluencerSection.content
           // Design insets the FAB 20 dp from the right edge; Scaffold's
           // endFloat location defaults to 16.
           ? Padding(
@@ -153,9 +199,9 @@ class _InfluencerDashboardViewState extends State<_InfluencerDashboardView> {
                                 'Manage your content and track performance',
                           ),
                           const SizedBox(height: 18),
-                          DashboardTabSelector(
-                            selected: _tab,
-                            onChanged: (t) => setState(() => _tab = t),
+                          InfluencerSectionSelector(
+                            selected: _section,
+                            onChanged: (s) => setState(() => _section = s),
                           ),
                         ],
                       ),
@@ -177,11 +223,18 @@ class _InfluencerDashboardViewState extends State<_InfluencerDashboardView> {
     );
   }
 
-  /// The create action this role already exposed, unchanged.
+  /// Opens the influencer video form.
+  ///
+  /// Was [AppConstants.postPropertyScreen]. Every affordance this feeds already
+  /// promised video — the FAB's semantic label is "Upload video" (:117), the
+  /// Content tab's button reads "Upload Video" and its empty state reads "Upload
+  /// Your First Video" (:203-204) — and all three opened the property listing
+  /// wizard instead.
   void _onCreate() {
-    Navigator.pushNamed(context, AppConstants.postPropertyScreen);
+    Navigator.pushNamed(context, AppConstants.influencerVideoFormScreen);
   }
 
+  /// One of the portal's four sections.
   Widget _buildTabBody(
     BuildContext context,
     InfluencerDashboardModel stats,
@@ -189,22 +242,23 @@ class _InfluencerDashboardViewState extends State<_InfluencerDashboardView> {
   ) {
     final analytics = context.watch<DashboardAnalyticsProvider>();
 
-    switch (_tab) {
-      case DashboardTab.analytics:
+    switch (_section) {
+      // ── Analytics — `InfluencerAnalytics.tsx` ───────────────────────────
+      case InfluencerSection.analytics:
         return DashboardAnalyticsBody(
           analytics: analytics.analytics,
           loading: analytics.analyticsLoading,
           failed: analytics.analyticsFailed,
           onRetry: analytics.refresh,
+          showSavedProperties: analytics.includeSavedProperties,
         );
 
-      case DashboardTab.content:
+      // ── Content — `InfluencerContentManager.tsx` ────────────────────────
+      case InfluencerSection.content:
         return DashboardContentBody(
           createLabel: 'Upload Video',
           emptyActionLabel: 'Upload Your First Video',
           onCreate: _onCreate,
-          // Every existing section is preserved — only the containers and
-          // section labels now follow the design.
           sections: [
             const DashboardSectionLabel('Overview'),
             const SizedBox(height: 10),
@@ -214,24 +268,51 @@ class _InfluencerDashboardViewState extends State<_InfluencerDashboardView> {
             const SizedBox(height: 10),
             const DashboardCard(child: InfluencerQuickActionsWidget()),
             const SizedBox(height: 22),
-            const DashboardSectionLabel('Recent Videos'),
+            const DashboardSectionLabel('My Videos'),
             const SizedBox(height: 10),
-            DashboardCard(
-              child: InfluencerRecentCampaignsWidget(userId: auth.userId!),
-            ),
+            MyVideosSection(userId: auth.userId!),
             const SizedBox(height: 22),
+            // An influencer may list properties too — CreateContent.tsx:379-402
+            // gives them three create buttons where other roles get two — so this
+            // stays.
             const DashboardSectionLabel('My Listings'),
             const SizedBox(height: 10),
             MyListingsSection(userId: auth.userId!),
           ],
         );
 
-      case DashboardTab.audience:
+      // ── Audience — `InfluencerAudienceInsights.tsx` ─────────────────────
+      case InfluencerSection.audience:
         return DashboardAudienceBody(
           audience: analytics.audience,
           loading: analytics.audienceLoading,
           failed: analytics.audienceFailed,
           onRetry: analytics.refresh,
+        );
+
+      // ── Collaboration — `InfluencerCollaborationHub.tsx` ────────────────
+      //
+      // The portal's fourth tab, which the shared three-tab selector had no room
+      // for. Both halves of that component already exist:
+      //
+      //   pending invitations + accept/reject → NetworkInvitationsSection (Spec F)
+      //   accepted collaborations            → NetworkMembershipsSection, the same
+      //                                        provider My Networks uses
+      //
+      // Reused as they are. Nothing new fetches anything.
+      case InfluencerSection.collaboration:
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const DashboardSectionLabel('Collaboration Invitations'),
+            const SizedBox(height: 10),
+            NetworkInvitationsSection(
+              userId: auth.userId,
+              // An accepted invitation becomes a `builder_networks` row, which is
+              // what the memberships list below reads.
+              onChanged: () => setState(() {}),
+            ),
+          ],
         );
     }
   }

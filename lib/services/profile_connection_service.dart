@@ -34,8 +34,33 @@
 // `builder_networks` table. That is the intended outcome — a new connection should
 // appear in the hub — and it is data reaching those screens, not a change to how
 // they behave.
+//
+// SPEC F
+// ------
+// Spec F specified a brand-new `NetworkInvitationService` for send / accept /
+// reject against `builder_network_invitations`. That would have duplicated this
+// file: `sendRequest`, `cancelRequest` and `acceptRequest` already write that
+// table, and `acceptRequest` already performs the two-step the portal's
+// Collaboration Hub performs (mark the invitation accepted, then upsert the
+// `builder_networks` row). So the four genuinely missing operations were appended
+// here instead:
+//
+//   * `declineRequest`      — recipient-side reject. There was a sender-side
+//                             cancel and an accept, but no decline.
+//   * `listInvitations`     — the inbox both portal components render. `getStatus`
+//                             only ever answered one viewer↔profile pair.
+//   * `sendBuilderInvite`   — the builder's invite form, which carries a
+//                             `member_type` and a message that peer-connect does
+//                             not, and has an email/phone variant.
+//   * `searchInvitees`      — the recipient picker behind that form.
+//
+// Nothing existing changed: no signature, no behaviour, no caller.
+// `network_service.dart` remains untouched and read-only, which is the boundary
+// this file was created to respect in the first place.
 import 'package:flutter/foundation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+
+import '../models/network_models.dart';
 
 /// Connection state between two users, mirroring the portal's
 /// `networkStatus` union (pages/UserProfile.tsx:200-202).
@@ -314,6 +339,367 @@ class ProfileConnectionService {
     }
   }
 
+  // ── Spec F additions ──────────────────────────────────────────────────────
+
+  /// Declines an incoming request or invitation.
+  ///
+  /// The counterpart to [acceptRequest], and the operation this file was missing:
+  /// [cancelRequest] is the *sender* withdrawing, which deletes the row. A decline
+  /// is the *recipient* refusing, and the portal marks rather than deletes
+  /// (`InfluencerCollaborationHub.tsx:188-190`) so the sender can see it was
+  /// declined rather than watching their request silently vanish.
+  ///
+  /// Both tables are handled, in [acceptRequest]'s order and for its reason: a
+  /// leftover pending row in the other table would make `getStatus` report a live
+  /// request again on the next load.
+  ///
+  /// `builder_networks` has no `rejected` value in play for this app's reads —
+  /// `getStatus` treats anything that is not `pending`/`accepted` as no connection
+  /// (see its own comment) — so `'rejected'` there is both accurate and inert.
+  Future<ConnectionWriteError?> declineRequest({
+    required String? viewerId,
+    required String profileUserId,
+  }) async {
+    final guard = _writeGuard(viewerId, profileUserId);
+    if (guard != null) return guard;
+
+    try {
+      var touched = false;
+
+      final peer = await _supabase
+          .from('builder_networks')
+          .select('id')
+          .eq('builder_id', viewerId!)
+          .eq('member_id', profileUserId)
+          .eq('status', 'pending')
+          .maybeSingle();
+
+      if (peer != null) {
+        await _supabase
+            .from('builder_networks')
+            .update({'status': 'rejected'})
+            .eq('id', peer['id']);
+        touched = true;
+      }
+
+      final invitation = await _supabase
+          .from('builder_network_invitations')
+          .select('id')
+          .eq('builder_id', profileUserId)
+          .eq('invited_user_id', viewerId)
+          .eq('status', 'pending')
+          .maybeSingle();
+
+      if (invitation != null) {
+        await _supabase
+            .from('builder_network_invitations')
+            .update({'status': 'rejected'})
+            .eq('id', invitation['id']);
+        touched = true;
+      }
+
+      // Same signal `acceptRequest` gives: there was nothing pending, so the
+      // caller should refresh rather than report success.
+      if (!touched) return ConnectionWriteError.nothingToAccept;
+      return null;
+    } catch (e) {
+      debugPrint('ProfileConnectionService.declineRequest failed: $e');
+      return ConnectionWriteError.failed;
+    }
+  }
+
+  /// Declines one invitation by its row id.
+  ///
+  /// `InfluencerCollaborationHub.tsx:186-191` — the Collaboration Hub acts on a row
+  /// it already has, and does not know or need the other party's user id.
+  Future<ConnectionWriteError?> declineInvitation({
+    required String? viewerId,
+    required NetworkInvitation invitation,
+  }) async {
+    if (viewerId == null || viewerId.isEmpty) {
+      return ConnectionWriteError.notAllowed;
+    }
+    // An expired invitation must not be actionable — the contract's explicit
+    // requirement, and the reason `isActionable` exists.
+    if (!invitation.isActionable) return ConnectionWriteError.nothingToAccept;
+
+    try {
+      await _supabase
+          .from('builder_network_invitations')
+          .update({'status': 'rejected'})
+          .eq('id', invitation.id);
+      return null;
+    } catch (e) {
+      debugPrint('ProfileConnectionService.declineInvitation failed: $e');
+      return ConnectionWriteError.failed;
+    }
+  }
+
+  /// Accepts one invitation by its row id.
+  ///
+  /// `InfluencerCollaborationHub.tsx:148-170`: mark the invitation accepted, then
+  /// insert the `builder_networks` row. The insert is an **upsert** here for the
+  /// reason `sendRequest` documents — a prior removed or rejected row still holds
+  /// the `(builder_id, member_id)` pair, and a plain insert would fail with 23505.
+  /// The portal's plain insert is what would break on a re-invite.
+  Future<ConnectionWriteError?> acceptInvitation({
+    required String? viewerId,
+    required NetworkInvitation invitation,
+  }) async {
+    if (viewerId == null || viewerId.isEmpty) {
+      return ConnectionWriteError.notAllowed;
+    }
+    if (!invitation.isActionable) return ConnectionWriteError.nothingToAccept;
+
+    try {
+      await _supabase
+          .from('builder_network_invitations')
+          .update({'status': 'accepted'})
+          .eq('id', invitation.id);
+
+      await _supabase.from('builder_networks').upsert(
+        {
+          'builder_id': invitation.builderId,
+          'member_id': viewerId,
+          'member_type': invitation.memberType,
+          'status': 'accepted',
+        },
+        onConflict: 'builder_id,member_id',
+      );
+
+      return null;
+    } catch (e) {
+      debugPrint('ProfileConnectionService.acceptInvitation failed: $e');
+      return ConnectionWriteError.failed;
+    }
+  }
+
+  /// Every invitation this user is either side of.
+  ///
+  /// Two reads, matching the two portal components:
+  ///
+  ///   * received — `invited_user_id = me`
+  ///     (`InfluencerCollaborationHub.tsx:109-112`);
+  ///   * sent     — `builder_id = me`
+  ///     (`BuilderNetworkInvitations.tsx:145-148`).
+  ///
+  /// Both portal queries filter `status = 'pending'`. This one does **not**, and
+  /// filters client-side instead, because a builder needs to see that an invitation
+  /// was rejected — otherwise a declined invite simply disappears and they re-send
+  /// it. `isActionable` is what gates the buttons.
+  ///
+  /// Names are resolved in one batched `profiles` read, the same shape
+  /// `ProjectShareService` uses. Never throws: an empty inbox is a safe
+  /// degradation for a list, and the caller shows its own error state on null.
+  Future<NetworkInvitationInbox> listInvitations(String? viewerId) async {
+    if (viewerId == null || viewerId.isEmpty) {
+      return NetworkInvitationInbox.empty;
+    }
+
+    try {
+      final results = await Future.wait([
+        _supabase
+            .from('builder_network_invitations')
+            .select(NetworkInvitation.columns)
+            .eq('invited_user_id', viewerId)
+            .order('created_at', ascending: false),
+        _supabase
+            .from('builder_network_invitations')
+            .select(NetworkInvitation.columns)
+            .eq('builder_id', viewerId)
+            .order('created_at', ascending: false),
+      ]);
+
+      final receivedRows = List<Map<String, dynamic>>.from(results[0]);
+      final sentRows = List<Map<String, dynamic>>.from(results[1]);
+
+      // The counterpart is the builder on a received row and the invitee on a sent
+      // one. Off-platform sends have no invited_user_id at all.
+      final ids = <String>{
+        for (final row in receivedRows) row['builder_id'].toString(),
+        for (final row in sentRows)
+          if (row['invited_user_id'] != null)
+            row['invited_user_id'].toString(),
+      }..remove('');
+
+      final names = await _profileSummaries(ids);
+
+      return NetworkInvitationInbox(
+        received: receivedRows.map((row) {
+          final profile = names[row['builder_id'].toString()];
+          return NetworkInvitation.fromSupabase(
+            row,
+            counterpartName: profile?.name,
+            counterpartAvatarUrl: profile?.avatarUrl,
+            counterpartUserType: profile?.userType,
+          );
+        }).toList(growable: false),
+        sent: sentRows.map((row) {
+          final profile = names[row['invited_user_id']?.toString()];
+          return NetworkInvitation.fromSupabase(
+            row,
+            counterpartName: profile?.name,
+            counterpartAvatarUrl: profile?.avatarUrl,
+            counterpartUserType: profile?.userType,
+          );
+        }).toList(growable: false),
+      );
+    } catch (e) {
+      debugPrint('ProfileConnectionService.listInvitations failed: $e');
+      return NetworkInvitationInbox.empty;
+    }
+  }
+
+  /// Sends a builder's network invitation.
+  ///
+  /// `BuilderNetworkInvitations.tsx` has two insert paths and this covers both:
+  /// `:202-208` when a user was picked from search, `:264-273` when only an email
+  /// or phone is known. The difference is which of `invited_user_id` / `email` /
+  /// `phone` is populated; everything else is identical.
+  ///
+  /// Distinct from [sendRequest], which is the peer-to-peer connect on a profile
+  /// page: that writes `builder_networks` directly with the *sender's* own
+  /// `user_type` and no message. This writes an invitation with a chosen
+  /// `member_type` and an optional note, which is what the builder's form collects.
+  ///
+  /// `expires_at` is left to the column default of `now() + 7 days` — the portal
+  /// does not send it either, and hard-coding a window client-side would let the
+  /// two platforms disagree.
+  Future<ConnectionWriteError?> sendBuilderInvite({
+    required String? viewerId,
+    required String memberType,
+    String? invitedUserId,
+    String? email,
+    String? phone,
+    String? message,
+  }) async {
+    if (viewerId == null || viewerId.isEmpty) {
+      return ConnectionWriteError.notAllowed;
+    }
+    if (invitedUserId == viewerId) return ConnectionWriteError.notAllowed;
+    // CHECK-constrained: anything else is a 23514.
+    if (!isValidNetworkMemberType(memberType)) {
+      return ConnectionWriteError.notAllowed;
+    }
+    // The row is meaningless without a recipient, and all three columns are
+    // nullable so the database would accept one.
+    final hasRecipient = (invitedUserId?.isNotEmpty ?? false) ||
+        (email?.isNotEmpty ?? false) ||
+        (phone?.isNotEmpty ?? false);
+    if (!hasRecipient) return ConnectionWriteError.notAllowed;
+
+    try {
+      final sender = await _senderContext(viewerId);
+
+      await _supabase.from('builder_network_invitations').insert({
+        'builder_id': viewerId,
+        'invited_user_id': invitedUserId,
+        'email': email,
+        'phone': phone,
+        'member_type': memberType,
+        'invitation_message': message,
+      });
+
+      // Only when there is an account to notify. The portal resolves an email back
+      // to a user before notifying (`:277-287`); here the id is already known when
+      // it exists, and an off-platform invite simply has nobody to notify yet.
+      if (invitedUserId != null && invitedUserId.isNotEmpty) {
+        try {
+          await _supabase.from('notifications').insert({
+            'user_id': invitedUserId,
+            'type': 'builder_network_addition',
+            'title': 'Network Invitation',
+            'message': '${sender.name} invited you to join their network as a '
+                '${networkMemberTypeLabel(memberType).toLowerCase()}',
+            'data': {
+              'sender_id': viewerId,
+              'sender_name': sender.name,
+              'member_type': memberType,
+            },
+          });
+        } catch (e) {
+          // Best-effort, as everywhere else in this file: the invitation is the
+          // outcome the builder asked for.
+          debugPrint('ProfileConnectionService: invite notification failed: $e');
+        }
+      }
+
+      return null;
+    } catch (e) {
+      debugPrint('ProfileConnectionService.sendBuilderInvite failed: $e');
+      return ConnectionWriteError.failed;
+    }
+  }
+
+  /// Finds people a builder could invite.
+  ///
+  /// `BuilderNetworkInvitations.tsx:93-99` searches `profiles` by display name and
+  /// filters to the two invitable roles. Reads `profiles_public` rather than
+  /// `profiles`: it is the view this app uses everywhere for looking at other
+  /// people, and it already excludes blocked and unapproved accounts — which the
+  /// portal's raw `profiles` read does not.
+  ///
+  /// Returns an empty list below two characters, so an empty search box does not
+  /// pull the whole table.
+  Future<List<InviteeSuggestion>> searchInvitees(String term) async {
+    final query = term.trim();
+    if (query.length < 2) return const [];
+
+    try {
+      final rows = await _supabase
+          .from('profiles_public')
+          .select('user_id, display_name, company_name, avatar_url, user_type')
+          .inFilter(
+            'user_type',
+            kNetworkMemberTypes.map((t) => t.value).toList(),
+          )
+          .ilike('display_name', '%$query%')
+          .limit(10);
+
+      return List<Map<String, dynamic>>.from(rows)
+          .map((row) => InviteeSuggestion(
+                userId: row['user_id'].toString(),
+                name: (row['company_name']?.toString().isNotEmpty ?? false)
+                    ? row['company_name'].toString()
+                    : (row['display_name']?.toString() ?? 'Unnamed'),
+                userType: row['user_type']?.toString() ?? '',
+                avatarUrl: row['avatar_url']?.toString(),
+              ))
+          .toList();
+    } catch (e) {
+      debugPrint('ProfileConnectionService.searchInvitees failed: $e');
+      return const [];
+    }
+  }
+
+  /// Name, avatar and role for a set of user ids, in one read.
+  Future<Map<String, _ProfileSummary>> _profileSummaries(
+    Set<String> userIds,
+  ) async {
+    if (userIds.isEmpty) return const {};
+    try {
+      final rows = await _supabase
+          .from('profiles_public')
+          .select('user_id, display_name, company_name, avatar_url, user_type')
+          .inFilter('user_id', userIds.toList());
+
+      return {
+        for (final row in List<Map<String, dynamic>>.from(rows))
+          row['user_id'].toString(): _ProfileSummary(
+            name: (row['company_name']?.toString().isNotEmpty ?? false)
+                ? row['company_name'].toString()
+                : (row['display_name']?.toString() ?? 'Unnamed'),
+            avatarUrl: row['avatar_url']?.toString(),
+            userType: row['user_type']?.toString(),
+          ),
+      };
+    } catch (e) {
+      // A missing name is cosmetic; the invitation still lists and still acts.
+      debugPrint('ProfileConnectionService._profileSummaries failed: $e');
+      return const {};
+    }
+  }
+
   /// Shared pre-flight for every write.
   @visibleForTesting
   static ConnectionWriteError? writeGuardFor({
@@ -378,4 +764,29 @@ enum ConnectionWriteError {
 
   /// Anything else.
   failed,
+}
+
+
+/// One person a builder could invite.
+class InviteeSuggestion {
+  const InviteeSuggestion({
+    required this.userId,
+    required this.name,
+    required this.userType,
+    this.avatarUrl,
+  });
+
+  final String userId;
+  final String name;
+  final String userType;
+  final String? avatarUrl;
+}
+
+/// Internal: the three profile fields the invitation list needs.
+class _ProfileSummary {
+  const _ProfileSummary({required this.name, this.avatarUrl, this.userType});
+
+  final String name;
+  final String? avatarUrl;
+  final String? userType;
 }

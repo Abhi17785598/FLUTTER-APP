@@ -173,7 +173,11 @@ void _registerPostContent() {
               userMessage: createDeniedMessage(CreatableContent.video),
             );
           }
-          ctx.navigate('/reels');
+          // Was `/reels` — the consumer feed. An influencer who asked to *post* a
+          // video was dropped into a viewer with no way to create one, which is
+          // the only branch of this tool that navigated somewhere the user could
+          // not do the thing they asked for. There is now a form to send them to.
+          ctx.navigate('/influencer-video');
           return ToolResult.ok();
 
         case 'property':

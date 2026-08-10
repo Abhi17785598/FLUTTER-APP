@@ -1,3 +1,4 @@
+import '../core/utils/profile_link.dart';
 import 'amenity_model.dart';
 import 'property_model.dart';
 
@@ -46,6 +47,18 @@ class ReelModel {
 
   // ── Linked property (only present when property_id is set) ──────────
   final String? propertyId;
+
+  /// First photo of the linked property, from `properties.media_urls`.
+  ///
+  /// Only a fallback cover for [previewImageUrl] — the reel itself is the
+  /// video. `thumbnail_url` is optional at upload (the influencer form leaves
+  /// it null when no cover is picked), so without this a reel card has no
+  /// image to show at all even though the property it advertises has photos.
+  ///
+  /// Costs nothing to read: `ReelsService.getReels` already selects `*` from
+  /// `properties`, so `media_urls` was being fetched and then dropped here.
+  final String? propertyImageUrl;
+
   final String? price;
   final String? location;
   final int? beds;
@@ -77,6 +90,7 @@ class ReelModel {
     this.builderPhone,
     this.isVerified = false,
     this.propertyId,
+    this.propertyImageUrl,
     this.price,
     this.location,
     this.beds,
@@ -133,6 +147,9 @@ class ReelModel {
       builderPhone: _str(profile?['phone']),
       isVerified: profile?['verification_status'] == 'verified',
       propertyId: _str(json['property_id']),
+      // Same parse `PropertyModel.fromSupabase` runs on the same column.
+      propertyImageUrl:
+          PropertyModel.parseMediaUrls(property?['media_urls']).firstOrNull,
       price: _str(property?['price']),
       location: _str(property?['location']),
       beds: beds,
@@ -144,6 +161,18 @@ class ReelModel {
       amenities: PropertyModel.parseAmenities(property?['amenities']),
       commentCount: 0,
     );
+  }
+
+  /// The still image to show for this reel before/instead of playing it.
+  ///
+  /// The uploader's own cover wins; the linked property's first photo is the
+  /// fallback. Empty when there is neither, which callers must check — an
+  /// empty string handed to `CachedNetworkImage` never resolves and never
+  /// reaches `errorWidget`, it just sits on the placeholder. `ReelVideoView`
+  /// already guards this way; the home rail now does too.
+  String get previewImageUrl {
+    if (thumbnailUrl.trim().isNotEmpty) return thumbnailUrl;
+    return propertyImageUrl ?? '';
   }
 
   bool get hasPrice => price != null && price!.trim().isNotEmpty;
@@ -190,8 +219,29 @@ class ReelModel {
   /// data via [PropertyModel.parseAmenities]), not a separate data source.
   List<String> get highlights => amenities.map((a) => a.name).toList();
 
+  /// Where a shared reel should open, mirroring `ReelView.handleShare`
+  /// (`ReelView.tsx:542-547`).
+  ///
+  /// A reel backed by a property shares that property's page; anything else
+  /// shares the reels feed. There is deliberately no per-reel URL: the portal
+  /// has no `/reel/:id` route — `App.tsx` registers `/property-reels` as a
+  /// whole-feed page only — so a link to one would 404. `handleShare` reflects
+  /// that by falling back to `window.location.href`, which on that route is the
+  /// feed. Inventing an id-scoped link here would produce a dead one.
+  String get shareUrl {
+    final id = propertyId;
+    if (id != null && id.isNotEmpty) {
+      return propertyShareUrl(id, title: title);
+    }
+    return '$kProfileOrigin$kReelsFeedPath';
+  }
+
   /// Best-effort share message built from whatever property data exists.
   /// Falls back to the title + a generic call-to-action when metadata is thin.
+  ///
+  /// Ends with [shareUrl]. `Share.share` takes one text blob where the web uses
+  /// `navigator.share({title, url})`, so the link has to live in the body — the
+  /// same shape [profileShareMessage] already uses for profile sharing.
   String get shareMessage {
     final buffer = StringBuffer();
     buffer.writeln('🏡 ${title.isNotEmpty ? title : 'Check out this property'}');
@@ -207,6 +257,7 @@ class ReelModel {
 
     buffer.writeln();
     buffer.writeln('Discover more premium properties on PropCID.');
+    buffer.writeln(shareUrl);
 
     return buffer.toString().trim();
   }

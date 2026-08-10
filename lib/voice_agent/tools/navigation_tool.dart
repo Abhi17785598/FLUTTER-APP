@@ -93,6 +93,11 @@ const Map<String, String> _knownPaths = {
   '/notifications': '/notifications',
   '/reels': '/reels',
   '/post-property': '/post-property',
+  // The builder project wizard. Both wizards are role-gated at the route
+  // (PostPropertyRouteGate / AddProjectRouteGate), so listing either here is
+  // safe whatever the speaker's role — the gate sends them to the right one.
+  '/add-project': '/add-project',
+  '/influencer-video': '/influencer-video',
   '/filters': '/filters',
   '/auth': '/auth',
   '/emi-calculator': '/emi-calculator',

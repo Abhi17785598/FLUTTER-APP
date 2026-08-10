@@ -9,6 +9,7 @@ import '../../models/network_stats.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/network_hub_provider.dart';
 import '../../widgets/manage_list_tile.dart';
+import 'widgets/network_invitations_section.dart';
 import '../../widgets/shared/app_surface_card.dart';
 import '../../widgets/shared/section_header_back_button.dart';
 import '../../widgets/shared/stat_kpi_card.dart';
@@ -82,6 +83,12 @@ class _NetworkHubViewState extends State<_NetworkHubView> {
       stats: provider.stats,
       loading: provider.loading,
       failed: provider.failed,
+      // Spec F. `context.watch<AuthProvider>()` rather than the cached
+      // `_loadedUserId`: that field exists to make the load idempotent and is null
+      // until the first frame, whereas the invitations section needs the id on the
+      // build that renders it.
+      userId: context.watch<AuthProvider>().userId,
+      onNetworkChanged: provider.refresh,
     );
   }
 }
@@ -97,11 +104,25 @@ class NetworkHubBody extends StatelessWidget {
   final bool loading;
   final bool failed;
 
+  /// Spec F: whose invitations to show.
+  ///
+  /// Optional so the existing design-parity tests, which pump this body with just
+  /// stats, keep compiling and keep passing. Null renders the hub exactly as it was
+  /// before Spec F — no Invitations section at all.
+  final String? userId;
+
+  /// Called after an invitation is accepted or declined, so the stats grid can
+  /// re-read. An accepted invitation becomes a `builder_networks` row, which is what
+  /// `NetworkService.getAcceptedCount` counts.
+  final VoidCallback? onNetworkChanged;
+
   const NetworkHubBody({
     super.key,
     required this.stats,
     required this.loading,
     required this.failed,
+    this.userId,
+    this.onNetworkChanged,
   });
 
   @override
@@ -122,6 +143,25 @@ class NetworkHubBody extends StatelessWidget {
               _StatsGrid(stats: stats, loading: loading, failed: failed),
               const SizedBox(height: 22),
               _NavCards(stats: stats, loading: loading, failed: failed),
+
+              // ── Spec F ──────────────────────────────────────────────────────
+              //
+              // Network Invitations + Collaboration Hub. Placed above Overview
+              // because an invitation awaiting a reply is the most actionable thing
+              // on this screen, and below the nav cards so the hub's existing shape
+              // is unchanged.
+              //
+              // Rendered only when a user is known — see the field's own note.
+              if (userId != null) ...[
+                const SizedBox(height: 26),
+                const DashboardSectionLabel('Invitations'),
+                const SizedBox(height: 10),
+                NetworkInvitationsSection(
+                  userId: userId,
+                  onChanged: onNetworkChanged,
+                ),
+              ],
+
               const SizedBox(height: 26),
               const DashboardSectionLabel('Overview'),
               const SizedBox(height: 10),

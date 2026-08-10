@@ -398,3 +398,201 @@ class ReferralBundle {
   ReferralSummary get summary =>
       ReferralSummary.from(referrals: referrals, commissions: commissions);
 }
+
+// ── Spec F: network invitations ───────────────────────────────────────────────
+//
+// `builder_network_invitations` (20250905144708_cc6b51bd…sql:45-57). Extended into
+// this file rather than forked into a new one, per the contract: `network_models`
+// already owns `NetworkMembership`, which is the accepted end of the same
+// relationship.
+//
+// The column facts that shape everything below:
+//
+//   member_type  TEXT NOT NULL CHECK (member_type IN ('broker','influencer'))
+//   status       TEXT DEFAULT 'pending'
+//                CHECK (status IN ('pending','accepted','rejected','expired'))
+//   expires_at   TIMESTAMPTZ DEFAULT (now() + INTERVAL '7 days')
+//   invited_user_id  UUID  NULL   ← nullable, hence the two invite paths
+//   email / phone    TEXT  NULL
+
+/// The two member types a builder may invite.
+///
+/// The whole CHECK constraint, and the portal's TS union is identical:
+/// `member_type: 'broker' | 'influencer'`
+/// (BuilderNetworkInvitations.tsx:20). A builder does not invite other builders,
+/// and `individual` — which `builder_networks.member_type` does carry — is not
+/// accepted here.
+class NetworkMemberTypeOption {
+  const NetworkMemberTypeOption(this.value, this.label);
+
+  final String value;
+  final String label;
+}
+
+/// In the portal's picker order (BuilderNetworkInvitations.tsx:501-505).
+const List<NetworkMemberTypeOption> kNetworkMemberTypes = [
+  NetworkMemberTypeOption('broker', 'Broker'),
+  NetworkMemberTypeOption('influencer', 'Influencer'),
+];
+
+/// Whether [value] is one the CHECK constraint accepts.
+///
+/// Guards the payload, not the picker: a value from outside this set is a `23514`,
+/// so it is worth refusing before the round trip.
+bool isValidNetworkMemberType(String? value) =>
+    kNetworkMemberTypes.any((t) => t.value == value);
+
+/// Label for a stored `member_type`.
+///
+/// Falls back for `individual` and anything else, because `builder_networks` rows
+/// created by the peer-connect path do carry other values even though an
+/// *invitation* cannot.
+String networkMemberTypeLabel(String? value) {
+  for (final type in kNetworkMemberTypes) {
+    if (type.value == value) return type.label;
+  }
+  final raw = (value ?? '').trim();
+  if (raw.isEmpty) return 'Member';
+  return '${raw[0].toUpperCase()}${raw.substring(1)}';
+}
+
+/// One `builder_network_invitations` row, with the counterpart resolved.
+class NetworkInvitation {
+  const NetworkInvitation({
+    required this.id,
+    required this.builderId,
+    required this.memberType,
+    this.invitedUserId,
+    this.email,
+    this.phone,
+    this.message,
+    this.status = 'pending',
+    this.expiresAt,
+    this.createdAt,
+    this.counterpartName,
+    this.counterpartAvatarUrl,
+    this.counterpartUserType,
+  });
+
+  final String id;
+
+  /// The inviting builder. NOT NULL.
+  final String builderId;
+
+  /// `broker` or `influencer`.
+  final String memberType;
+
+  /// Null when the builder invited by email or phone instead of picking a user.
+  final String? invitedUserId;
+
+  final String? email;
+  final String? phone;
+
+  /// `invitation_message`.
+  final String? message;
+
+  /// `pending` | `accepted` | `rejected` | `expired`.
+  final String status;
+
+  final DateTime? expiresAt;
+  final DateTime? createdAt;
+
+  /// Resolved from `profiles` by the service — the row itself has no name.
+  final String? counterpartName;
+  final String? counterpartAvatarUrl;
+  final String? counterpartUserType;
+
+  static const String columns =
+      'id, builder_id, invited_user_id, email, phone, member_type, '
+      'invitation_message, status, expires_at, created_at';
+
+  factory NetworkInvitation.fromSupabase(
+    Map<String, dynamic> json, {
+    String? counterpartName,
+    String? counterpartAvatarUrl,
+    String? counterpartUserType,
+  }) {
+    return NetworkInvitation(
+      id: json['id']?.toString() ?? '',
+      builderId: json['builder_id']?.toString() ?? '',
+      memberType: json['member_type']?.toString() ?? '',
+      invitedUserId: _nullIfBlank(json['invited_user_id']),
+      email: _nullIfBlank(json['email']),
+      phone: _nullIfBlank(json['phone']),
+      message: _nullIfBlank(json['invitation_message']),
+      status: json['status']?.toString() ?? 'pending',
+      expiresAt: _parseDate(json['expires_at']),
+      createdAt: _parseDate(json['created_at']),
+      counterpartName: counterpartName,
+      counterpartAvatarUrl: counterpartAvatarUrl,
+      counterpartUserType: counterpartUserType,
+    );
+  }
+
+  /// True once `expires_at` has passed.
+  ///
+  /// Computed, not read off `status`: nothing flips a row to `'expired'`
+  /// synchronously, so an invitation can read `'pending'` while already being
+  /// unusable. The contract requires an expired invite not be actionable, and this
+  /// is what makes that possible.
+  bool get hasLapsed {
+    final expiry = expiresAt;
+    if (expiry == null) return false;
+    return expiry.isBefore(DateTime.now());
+  }
+
+  /// Actionable only when pending **and** not lapsed.
+  bool get isActionable => status == 'pending' && !hasLapsed;
+
+  /// Who this went to, for display.
+  ///
+  /// Prefers the resolved profile name, then the email, then the phone — the order
+  /// in which the builder is likely to recognise them. An invitation always has at
+  /// least one of the three.
+  String get recipientLabel =>
+      counterpartName ?? email ?? phone ?? 'Unknown recipient';
+
+  /// True when the builder invited someone who has no account yet.
+  ///
+  /// Those invitations cannot be accepted in-app — there is no `invited_user_id`
+  /// for the recipient's session to match — so the UI marks them differently.
+  bool get isOffPlatform => invitedUserId == null;
+
+  static String? _nullIfBlank(Object? value) {
+    final text = value?.toString();
+    if (text == null || text.isEmpty) return null;
+    return text;
+  }
+
+  static DateTime? _parseDate(Object? value) {
+    if (value == null) return null;
+    return DateTime.tryParse(value.toString());
+  }
+}
+
+/// The two lists the invitation UI shows, fetched together.
+class NetworkInvitationInbox {
+  const NetworkInvitationInbox({
+    this.received = const [],
+    this.sent = const [],
+  });
+
+  /// Invitations addressed to this user — `invited_user_id = me`.
+  ///
+  /// What `InfluencerCollaborationHub.tsx:109-112` lists, and the only ones with
+  /// accept/reject actions.
+  final List<NetworkInvitation> received;
+
+  /// Invitations this user sent as a builder — `builder_id = me`.
+  ///
+  /// What `BuilderNetworkInvitations.tsx:145-148` lists.
+  final List<NetworkInvitation> sent;
+
+  static const NetworkInvitationInbox empty = NetworkInvitationInbox();
+
+  bool get isEmpty => received.isEmpty && sent.isEmpty;
+
+  /// Received invitations a user can still act on.
+  List<NetworkInvitation> get actionable =>
+      received.where((i) => i.isActionable).toList(growable: false);
+}

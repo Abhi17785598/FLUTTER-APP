@@ -189,6 +189,10 @@ class _IndividualDashboardViewState extends State<_IndividualDashboardView> {
           loading: analytics.analyticsLoading,
           failed: analytics.analyticsFailed,
           onRetry: analytics.refresh,
+          // Read off the provider rather than hard-coded, so the flag that
+          // decides whether `saved_properties` is queried is the same one that
+          // decides whether the tile appears. They cannot drift apart.
+          showSavedProperties: analytics.includeSavedProperties,
         );
 
       case DashboardTab.content:

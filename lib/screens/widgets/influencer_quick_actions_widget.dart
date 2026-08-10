@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../../core/constants/app_constants.dart';
+
 class InfluencerQuickActionsWidget extends StatelessWidget {
   const InfluencerQuickActionsWidget({super.key});
 
@@ -55,11 +57,19 @@ class InfluencerQuickActionsWidget extends StatelessWidget {
       children: [
         Row(
           children: [
+            // Was `() {}` — a button labelled "Upload Video" that did nothing.
+            // The other three below still have no destination; wiring them is
+            // not routing this app can currently satisfy (Analytics and
+            // Campaigns live on this same dashboard's other tabs, and there is
+            // no earnings screen at all).
             _action(
               Icons.video_call_rounded,
               "Upload Video",
               Colors.red,
-              () {},
+              () => Navigator.pushNamed(
+                context,
+                AppConstants.influencerVideoFormScreen,
+              ),
             ),
             const SizedBox(width: 14),
             _action(

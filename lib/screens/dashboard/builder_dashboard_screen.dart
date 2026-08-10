@@ -8,15 +8,74 @@ import '../../providers/dashboard_analytics_provider.dart';
 import '../../widgets/bottom_nav_bar.dart';
 import '../../providers/auth_provider.dart';
 import '../../models/builder_dashboard_model.dart';
+import '../../models/builder_section_models.dart';
+import '../../models/project_model.dart';
 import '../../services/builder_dashboard_service.dart';
-import '../widgets/builder_stats_widget.dart';
-import '../widgets/builder_recent_projects_widget.dart';
+import '../../services/builder_sections_service.dart';
+import '../../services/project_service.dart';
 import '../widgets/builder_quick_actions_widget.dart';
-import 'my_listings_section.dart';
 import '../../widgets/shared/section_header_back_button.dart';
+import '../../core/widgets/segmented_tab_pill.dart';
+import 'widgets/builder_listings_block.dart';
+import 'widgets/builder_inventory_summary.dart';
+import 'widgets/builder_overview_body.dart';
+import 'widgets/builder_offers_section.dart';
+import 'widgets/builder_site_visits_section.dart';
+import 'widgets/builder_team_section.dart';
+import 'widgets/my_projects_section.dart';
 import 'widgets/dashboard_primitives.dart';
 import 'widgets/dashboard_tab_bodies.dart';
-import 'widgets/dashboard_tab_selector.dart';
+
+/// The Builder dashboard's own four sections.
+///
+/// The portal's `BuilderTopNav.tsx:5-8` — Overview · Inventory · Marketed Offers ·
+/// Team. It has no Analytics or Audience tab at all.
+///
+/// WHY NOT `DashboardTab`
+/// ---------------------
+/// `DashboardTabSelector` and its `DashboardTab` enum are shared by Broker,
+/// Influencer and Individual. Re-labelling them for the builder would change the
+/// other three roles' navigation, so the builder gets its own enum here and its own
+/// selector below, both built on the same `SegmentedTabPill` primitive the shared
+/// selector uses. Nothing shared is modified.
+///
+/// The Analytics and Audience bodies are not lost: their content is folded into
+/// Overview, which is where the portal puts performance.
+enum BuilderSection { overview, inventory, offers, team }
+
+/// Four labels over the app's existing segmented pill.
+///
+/// Two rows of two rather than four across: "Marketed Offers" cannot share a 320 dp
+/// row with three siblings without truncating to "Market…".
+class BuilderSectionSelector extends StatelessWidget {
+  const BuilderSectionSelector({
+    super.key,
+    required this.selected,
+    required this.onChanged,
+  });
+
+  final BuilderSection selected;
+  final ValueChanged<BuilderSection> onChanged;
+
+  static const _labels = <BuilderSection, String>{
+    BuilderSection.overview: 'Overview',
+    BuilderSection.inventory: 'Inventory',
+    BuilderSection.offers: 'Offers',
+    BuilderSection.team: 'Team',
+  };
+
+  @override
+  Widget build(BuildContext context) {
+    // "Marketed Offers" shortened to "Offers" for the pill only — the section's own
+    // heading inside the tab keeps the portal's full wording.
+    return SegmentedTabPill(
+      labels: BuilderSection.values.map((s) => _labels[s]!).toList(),
+      selectedIndex: BuilderSection.values.indexOf(selected),
+      onChanged: (i) => onChanged(BuilderSection.values[i]),
+      labelFontSize: 11.5,
+    );
+  }
+}
 
 // ---------------------------------------------------------------------------
 // PREMIUM PALETTE — keep this rich/deep across the whole gradient, no fading.
@@ -39,11 +98,23 @@ class BuilderDashboardScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     return ChangeNotifierProvider(
       create: (_) => DashboardAnalyticsProvider(
-        // No BuilderAnalytics/BuilderAudienceInsights exists in the React
-        // portal, so builder mirrors the broker path -- builders own
-        // `properties` rows too. Flagged as the one inference.
-        analyticsSource: AnalyticsContentSource.properties,
-        audienceSource: AnalyticsContentSource.properties,
+        // The portal has no BuilderAnalytics/BuilderAudienceInsights to copy —
+        // BuilderTopNav.tsx:5-8 gives a builder Overview / Inventory / Marketed
+        // Offers / Team and no analytics tabs at all. So the source is an
+        // inference either way; what it must not be is `properties`.
+        //
+        // It was, until Spec C. A builder publishes to `builder_projects`, never
+        // to `properties` — BuilderListingsBlock hides My Listings when empty for
+        // exactly that reason, and the only `properties` rows a builder holds are
+        // legacy ones from the routing bug B3 fixed. Both tabs therefore rendered
+        // all zeros for every correctly-behaving builder.
+        //
+        // `builder_projects` carries `views`, `likes` and `created_at`, which is
+        // every column the shared service reads, and the portal's own builder
+        // Overview sums `views` off that table
+        // (BuilderDashboardManage.tsx:250-256). Same formulas, right table.
+        analyticsSource: AnalyticsContentSource.builderProjects,
+        audienceSource: AnalyticsContentSource.builderProjects,
       ),
       child: const _BuilderDashboardView(),
     );
@@ -60,8 +131,68 @@ class _BuilderDashboardView extends StatefulWidget {
 class _BuilderDashboardViewState extends State<_BuilderDashboardView> {
   late Future<BuilderDashboardModel> _dashboardFuture;
 
-  DashboardTab _tab = DashboardTab.analytics;
+  /// Opens on Overview, as the portal does (`activeSection` defaults to
+  /// `'overview'`). The old default was `DashboardTab.analytics`, which is what
+  /// showed a bare Analytics failure state as the first thing a builder saw.
+  BuilderSection _section = BuilderSection.overview;
   String? _loadedUserId;
+
+  /// Reported upward by `BuilderSiteVisitsSection.onCountChanged`, so Overview's
+  /// stat card can show it without a second read of `project_visit_bookings`.
+  int _siteVisitCount = 0;
+
+  // ── Spec H ────────────────────────────────────────────────────────────────
+  //
+  // Three of the four new sections are scoped by project, and `MyProjectsSection`
+  // already loads the projects. Rather than have each section run its own
+  // `builder_projects` query — which is what the portal's four components do,
+  // four times over — the project list is reported up once and shared down.
+  //
+  // `_projects` is the loaded rows; `_unitCounts` is the one extra query Spec H
+  // adds, run here because it is keyed by the ids only this level holds.
+  List<ProjectModel> _projects = const [];
+  Map<String, InventoryCounts> _unitCounts = const {};
+  final ProjectInventoryService _inventory = ProjectInventoryService();
+
+  /// Loads the inventory tallies once the project ids are known.
+  ///
+  /// A failure is swallowed to a silent empty map on purpose: the tallies are a
+  /// chip on a card that renders perfectly well without them, and failing the
+  /// whole projects list because a secondary count did not arrive would be a
+  /// worse outcome than a missing chip.
+  Future<void> _onProjectsLoaded(List<String> ids) async {
+    if (!mounted) return;
+    // Held even when the tallies fail, because the Team and Site Visits sections
+    // are scoped by these ids and do not depend on the counts.
+    final loaded = await _resolveProjects(ids);
+    if (!mounted) return;
+    setState(() => _projects = loaded);
+
+    try {
+      final counts = await _inventory.countsByProject(ids);
+      if (!mounted) return;
+      setState(() => _unitCounts = counts);
+    } catch (e) {
+      debugPrint('BuilderDashboard inventory tallies failed: $e');
+    }
+  }
+
+  /// The full rows behind [ids].
+  ///
+  /// `MyProjectsSection` reports ids rather than models to keep its callback
+  /// contract narrow, so they are resolved once here — through the same
+  /// `ProjectService.listMine` it used, which is served from the same round trip
+  /// in practice and keeps `ProjectService` the only reader of that table.
+  Future<List<ProjectModel>> _resolveProjects(List<String> ids) async {
+    if (ids.isEmpty) return const [];
+    try {
+      final rows = await ProjectService().listMine(context.read<AuthProvider>().userId!);
+      return rows.where((p) => ids.contains(p.id)).toList(growable: false);
+    } catch (e) {
+      debugPrint('BuilderDashboard project resolve failed: $e');
+      return const [];
+    }
+  }
 
   @override
   void initState() {
@@ -109,7 +240,9 @@ class _BuilderDashboardViewState extends State<_BuilderDashboardView> {
     return Scaffold(
       backgroundColor: AppColors.background,
       // Design places an icon-only square FAB on the Content tab only.
-      floatingActionButton: _tab == DashboardTab.content
+      // Add Project belongs with Inventory now, which is where the portal's project
+      // list lives.
+      floatingActionButton: _section == BuilderSection.inventory
           // Design insets the FAB 20 dp from the right edge; Scaffold's
           // endFloat location defaults to 16.
           ? Padding(
@@ -154,9 +287,9 @@ class _BuilderDashboardViewState extends State<_BuilderDashboardView> {
                                 'Manage your content and track performance',
                           ),
                           const SizedBox(height: 18),
-                          DashboardTabSelector(
-                            selected: _tab,
-                            onChanged: (t) => setState(() => _tab = t),
+                          BuilderSectionSelector(
+                            selected: _section,
+                            onChanged: (s) => setState(() => _section = s),
                           ),
                         ],
                       ),
@@ -178,11 +311,24 @@ class _BuilderDashboardViewState extends State<_BuilderDashboardView> {
     );
   }
 
-  /// The create action this role already exposed, unchanged.
+  /// Opens the builder project wizard.
+  ///
+  /// This used to push [AppConstants.postPropertyScreen] — the **property
+  /// listing** wizard — so every "Add Project" affordance on this screen wrote a
+  /// row to `properties`. No builder surface in the portal does that: a builder
+  /// publishes to `builder_projects` and nothing else.
+  ///
+  /// One method feeds all three entry points — the Content tab's FAB, its
+  /// "Add Project" button and its "Add Your First Project" empty-state button —
+  /// so this is the whole of the fix.
   void _onCreate() {
-    Navigator.pushNamed(context, AppConstants.postPropertyScreen);
+    Navigator.pushNamed(context, AppConstants.addProjectScreen);
   }
 
+  /// One of the portal's four sections.
+  ///
+  /// Every section reuses the widgets Specs H and I already built; this method only
+  /// chooses which to show. No section fetches anything it did not fetch before.
   Widget _buildTabBody(
     BuildContext context,
     BuilderDashboardModel stats,
@@ -190,49 +336,123 @@ class _BuilderDashboardViewState extends State<_BuilderDashboardView> {
   ) {
     final analytics = context.watch<DashboardAnalyticsProvider>();
 
-    switch (_tab) {
-      case DashboardTab.analytics:
-        return DashboardAnalyticsBody(
+    switch (_section) {
+      // ── Overview — the portal's default landing section ────────────────
+      //
+      // Absorbs what the old Analytics and Audience tabs showed, which is where the
+      // portal puts performance: stat cards, the project performance line, the
+      // inventory donut, the three progress bars and top projects.
+      case BuilderSection.overview:
+        return BuilderOverviewBody(
+          stats: stats,
           analytics: analytics.analytics,
-          loading: analytics.analyticsLoading,
-          failed: analytics.analyticsFailed,
-          onRetry: analytics.refresh,
+          analyticsLoading: analytics.analyticsLoading,
+          analyticsFailed: analytics.analyticsFailed,
+          onRetryAnalytics: analytics.refresh,
+          unitCounts: _unitCounts,
+          siteVisitCount: _siteVisitCount,
+          onOpenInventory: () =>
+              setState(() => _section = BuilderSection.inventory),
+          onOpenProject: (projectId) => Navigator.pushNamed(
+            context,
+            AppConstants.projectDetailScreen,
+            arguments: {'projectId': projectId},
+          ),
         );
 
-      case DashboardTab.content:
-        return DashboardContentBody(
-          createLabel: 'Add Project',
-          emptyActionLabel: 'Add Your First Project',
-          onCreate: _onCreate,
-          // Every existing section is preserved — only the containers and
-          // section labels now follow the design.
-          sections: [
-            const DashboardSectionLabel('Overview'),
-            const SizedBox(height: 10),
-            BuilderStatsWidget(stats: stats),
-            const SizedBox(height: 22),
+      // ── Inventory — `BuilderInventoryManager.tsx` ───────────────────────
+      //
+      // The portal's "Inventory" is a project list with unit tallies and a status
+      // picker; it has no unit-level CRUD. So this is `MyProjectsSection` in its
+      // inventory mode, exactly as Spec H built it — plus the legacy listings block,
+      // which collapses for any builder without pre-fix `properties` rows.
+      case BuilderSection.inventory:
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
             const DashboardSectionLabel('Quick Actions'),
             const SizedBox(height: 10),
             const DashboardCard(child: BuilderQuickActionsWidget()),
             const SizedBox(height: 22),
-            const DashboardSectionLabel('Recent Projects'),
+            const DashboardSectionLabel('Projects & Inventory'),
             const SizedBox(height: 10),
-            DashboardCard(
-              child: BuilderRecentProjectsWidget(builderId: auth.userId!),
+            // The portal's six summary cards (`BuilderInventoryManager.tsx:327-400`),
+            // folded from the two collections this screen already holds.
+            BuilderInventorySummary(
+              projects: _projects,
+              unitCounts: _unitCounts,
             ),
-            const SizedBox(height: 22),
-            const DashboardSectionLabel('My Listings'),
-            const SizedBox(height: 10),
-            MyListingsSection(userId: auth.userId!),
+            const SizedBox(height: 12),
+            MyProjectsSection(
+              key: const ValueKey('builder-inventory'),
+              userId: auth.userId!,
+              unitCounts: _unitCounts,
+              showStatusPicker: true,
+              onProjectsLoaded: _onProjectsLoaded,
+            ),
+            BuilderListingsBlock(userId: auth.userId!),
           ],
         );
 
-      case DashboardTab.audience:
-        return DashboardAudienceBody(
-          audience: analytics.audience,
-          loading: analytics.audienceLoading,
-          failed: analytics.audienceFailed,
-          onRetry: analytics.refresh,
+      // ── Marketed Offers — `FilteredOffersList` + `MarketToBrokersModal` ──
+      case BuilderSection.offers:
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // The portal's full wording, which the pill abbreviates to "Offers".
+            const DashboardSectionLabel('Marketed Offers'),
+            const SizedBox(height: 10),
+            BuilderOffersSection(
+              builderId: auth.userId!,
+              projects: _projects,
+            ),
+            const SizedBox(height: 22),
+            const DashboardSectionLabel('Site Visits'),
+            const SizedBox(height: 10),
+            // Grouped with Offers rather than given a fifth pill: both are outbound
+            // demand, the portal has no Site Visits tab at all (Spec H recorded it as
+            // the one inference), and a fifth label will not fit two rows of two.
+            BuilderSiteVisitsSection(
+              projectIds: _projects.map((p) => p.id).toList(growable: false),
+              projectTitles: {
+                for (final project in _projects) project.id: project.title,
+              },
+              onCountChanged: (count) {
+                // Feeds Overview's Site Visits stat card. Guarded because the
+                // section reports on every load and setState during build would
+                // throw.
+                if (mounted && count != _siteVisitCount) {
+                  setState(() => _siteVisitCount = count);
+                }
+              },
+            ),
+          ],
+        );
+
+      // ── Team — `BuilderTeamManager.tsx` ────────────────────────────────
+      case BuilderSection.team:
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const DashboardSectionLabel('Team'),
+            const SizedBox(height: 10),
+            BuilderTeamSection(
+              builderId: auth.userId!,
+              projects: _projects,
+            ),
+            const SizedBox(height: 22),
+            const DashboardSectionLabel('Audience'),
+            const SizedBox(height: 10),
+            // The old Audience tab's body, kept rather than dropped: it is real data
+            // from `DashboardAnalyticsProvider` and the portal's Team Overview card
+            // is about reach, so this is the closest section for it.
+            DashboardAudienceBody(
+              audience: analytics.audience,
+              loading: analytics.audienceLoading,
+              failed: analytics.audienceFailed,
+              onRetry: analytics.refresh,
+            ),
+          ],
         );
     }
   }

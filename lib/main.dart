@@ -5,6 +5,7 @@ import 'package:flutter_dotenv/flutter_dotenv.dart';
 
 import 'app.dart';
 import 'providers/navigation_provider.dart';
+import 'providers/notification_provider.dart';
 import 'providers/property_provider.dart';
 import 'providers/filter_provider.dart';
 import 'providers/shortlist_provider.dart';
@@ -62,6 +63,19 @@ Future<void> main() async {
         ChangeNotifierProxyProvider<AuthProvider, VoiceAgentProvider>(
           create: (ctx) => VoiceAgentProvider(ctx.read<AuthProvider>()),
           update: (ctx, auth, prev) => prev!..updateAuth(auth),
+        ),
+        // App-level, unlike every other feature provider in this app, because two
+        // surfaces need the same unread count at once: the notifications screen and
+        // the home header's badge. Two screen-scoped instances would open two
+        // realtime channels and could disagree.
+        //
+        // Proxied on AuthProvider so a sign-in loads it and a sign-out tears the
+        // channel down — `load(null)` clears the list. `load` is idempotent per user
+        // id, so the repeated `update` calls a rebuild causes are no-ops.
+        ChangeNotifierProxyProvider<AuthProvider, NotificationProvider>(
+          create: (_) => NotificationProvider(),
+          update: (ctx, auth, prev) => (prev ?? NotificationProvider())
+            ..load(auth.userId),
         ),
       ],
       child: const PropertyApp(),

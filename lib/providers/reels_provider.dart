@@ -56,6 +56,25 @@ class ReelsProvider with ChangeNotifier {
       _reels = data.map((e) => ReelModel.fromSupabase(e)).toList();
 
       debugPrint('Loaded reels: ${_reels.length}');
+
+      // TEMPORARY cover-image trace. Debug builds only; remove once the blank
+      // rail is explained. Prints the raw column exactly as Postgrest returned
+      // it, so a NULL thumbnail is distinguishable from a populated URL that
+      // fails to load — the two render identically.
+      if (kDebugMode) {
+        for (var i = 0; i < data.length && i < 5; i++) {
+          final row = data[i];
+          final property = row['_property'] as Map<String, dynamic>?;
+          debugPrint(
+            '[reel-cover] #$i "${row['title']}"\n'
+            '    thumbnail_url = ${row['thumbnail_url'] == null ? 'NULL' : '"${row['thumbnail_url']}"'}\n'
+            '    property_id   = ${row['property_id'] ?? 'NULL'}'
+            '  joined=${property != null}'
+            '  media_urls=${property?['media_urls'] ?? '-'}\n'
+            '    → previewImageUrl = "${_reels[i].previewImageUrl}"',
+          );
+        }
+      }
     } catch (e) {
       _hasError = true;
       debugPrint('Reels error: $e');

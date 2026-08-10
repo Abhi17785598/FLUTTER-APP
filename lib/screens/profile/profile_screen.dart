@@ -19,6 +19,7 @@ import 'actions/profile_qr_sheet.dart';
 import 'actions/share_profile_sheet.dart';
 import 'widgets/create_content_grid.dart';
 import 'widgets/manage_list_section.dart';
+import '../dashboard/widgets/my_projects_section.dart';
 import 'widgets/my_content_section.dart';
 import 'widgets/profile_action_row.dart';
 import 'widgets/profile_completion_card.dart';
@@ -248,22 +249,41 @@ class _ProfileViewState extends State<_ProfileView> {
                     ).animate().fadeIn(duration: 400.ms, delay: 250.ms),
                     const SizedBox(height: 26),
 
-                    const _SectionLabel('My Content'),
+                    // A builder's content IS their projects.
+                    //
+                    // The portal makes the same substitution rather than adding
+                    // a fourth tab: `PROFILE_TYPE_CONFIG` marks builder as
+                    // `content: "projects"` and
+                    // `ProfileDashboardShell.tsx:3894-3900` swaps the whole My
+                    // Content block for `BuilderProjectsManager`. Properties,
+                    // articles and videos are still fetched for a builder there
+                    // and then never rendered — which is exactly what this
+                    // screen was doing, hence the permanent "No content yet":
+                    // a builder's work lives in `builder_projects`, and
+                    // `ProfileProvider.properties` only ever reads `properties`.
+                    _SectionLabel(isBuilder ? 'My Projects' : 'My Content'),
                     const SizedBox(height: 10),
-                    MyContentSection(
-                      properties: profile.properties,
-                      articles: profile.articles,
-                      isLoading: profile.contentLoading,
-                      hasFailed: profile.contentFailed,
-                      onRetry: profile.refresh,
-                      onPropertyTap: _openPropertyDetail,
-                      onArticleTap: (article) =>
-                          _openArticleEditor(article.id),
-                      onAddProperty: () => Navigator.pushNamed(
-                        context,
-                        AppConstants.postPropertyScreen,
+                    if (isBuilder && auth.userId != null)
+                      // Same widget the Builder dashboard's Content tab uses,
+                      // with the Edit / Delete / Share actions the portal's
+                      // `BuilderProjectsManager` offers. It fetches and handles
+                      // its own loading and empty states.
+                      MyProjectsSection(userId: auth.userId!)
+                    else
+                      MyContentSection(
+                        properties: profile.properties,
+                        articles: profile.articles,
+                        isLoading: profile.contentLoading,
+                        hasFailed: profile.contentFailed,
+                        onRetry: profile.refresh,
+                        onPropertyTap: _openPropertyDetail,
+                        onArticleTap: (article) =>
+                            _openArticleEditor(article.id),
+                        onAddProperty: () => Navigator.pushNamed(
+                          context,
+                          AppConstants.postPropertyScreen,
+                        ),
                       ),
-                    ),
                     const SizedBox(height: 26),
 
                     const _SectionLabel('Manage'),
