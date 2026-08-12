@@ -1431,9 +1431,15 @@ class _PropertyDetailScreenState extends State<PropertyDetailScreen>
     dynamic property,
     PropertyProvider propertyProvider,
   ) {
+    // Same pattern already used by the app's other persistent bottom bars
+    // (e.g. ProfileStickyActionBar, EditProfile's _SaveBar): grow the total
+    // height and bottom padding by the device's real bottom safe-area inset,
+    // so the 72 dp button row itself is unchanged but no longer sits flush
+    // against — and behind — the Android system nav/gesture area.
+    final double bottomInset = MediaQuery.paddingOf(context).bottom;
     return Container(
-      height: 72,
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+      height: 72 + bottomInset,
+      padding: EdgeInsets.fromLTRB(16, 10, 16, 10 + bottomInset),
       decoration: const BoxDecoration(
         color: AppColors.surface,
         border: Border(
