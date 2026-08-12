@@ -5,6 +5,7 @@ import 'package:provider/provider.dart';
 import '../../../core/constants/app_constants.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_text_styles.dart';
+import '../../../providers/auth_provider.dart';
 import '../../../providers/notification_provider.dart';
 
 /// Home's top app bar: logo/brand dropdown + calendar/notifications/avatar
@@ -96,29 +97,40 @@ class HomeHeader extends StatelessWidget {
                 badge: context.watch<NotificationProvider>().hasUnread,
               ),
               const SizedBox(width: 10),
-              GestureDetector(
-                onTap: () =>
-                    Navigator.pushNamed(context, AppConstants.profileScreen),
-                child: Container(
-                  width: 42,
-                  height: 42,
-                  padding: const EdgeInsets.all(2),
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    gradient: AppColors.primaryGradient,
-                  ),
-                  child: Container(
-                    decoration: const BoxDecoration(
-                      shape: BoxShape.circle,
-                      image: DecorationImage(
-                        image: NetworkImage(
-                          'https://picsum.photos/seed/avatar/100/100',
+              Builder(
+                builder: (context) {
+                  // Real logged-in avatar when available; falls back to the
+                  // existing placeholder otherwise — same fallback as before,
+                  // just no longer used when a real photo exists.
+                  final String? avatarUrl =
+                      context.watch<AuthProvider>().avatarUrl;
+                  final String imageUrl =
+                      (avatarUrl != null && avatarUrl.isNotEmpty)
+                          ? avatarUrl
+                          : 'https://picsum.photos/seed/avatar/100/100';
+                  return GestureDetector(
+                    onTap: () => Navigator.pushNamed(
+                        context, AppConstants.profileScreen),
+                    child: Container(
+                      width: 42,
+                      height: 42,
+                      padding: const EdgeInsets.all(2),
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        gradient: AppColors.primaryGradient,
+                      ),
+                      child: Container(
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          image: DecorationImage(
+                            image: NetworkImage(imageUrl),
+                            fit: BoxFit.cover,
+                          ),
                         ),
-                        fit: BoxFit.cover,
                       ),
                     ),
-                  ),
-                ),
+                  );
+                },
               ),
             ],
           ),
