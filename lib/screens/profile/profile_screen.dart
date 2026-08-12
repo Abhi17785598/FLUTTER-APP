@@ -7,6 +7,7 @@ import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_text_styles.dart';
 import '../../core/utils/profile_completion.dart';
 import '../../models/property_model.dart';
+import '../../models/user_profile.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/navigation_provider.dart';
 import '../../providers/profile_provider.dart';
@@ -16,7 +17,7 @@ import '../../widgets/workspace_drawer.dart';
 import '../dashboard/builder_dashboard_screen.dart';
 import 'actions/notifications_sheet.dart';
 import 'actions/profile_qr_sheet.dart';
-import 'actions/share_profile_sheet.dart';
+import 'actions/visiting_card_sheet.dart';
 import 'widgets/create_content_grid.dart';
 import 'widgets/manage_list_section.dart';
 import '../dashboard/widgets/my_projects_section.dart';
@@ -182,6 +183,7 @@ class _ProfileViewState extends State<_ProfileView> {
             children: [
               ProfileCoverHeader(
                 avatarUrl: auth.avatarUrl,
+                coverImageUrl: auth.backgroundImageUrl,
                 initial: initial,
                 // "Verified" is the existing condition, not a new definition.
                 isVerified: auth.userRole != null,
@@ -220,15 +222,25 @@ class _ProfileViewState extends State<_ProfileView> {
 
                     ProfileActionRow(
                       onEdit: () => _editProfile(auth),
-                      onShare: () => showShareProfileSheet(
-                        context,
-                        userId: auth.userId,
-                        name: auth.userName,
-                        userType: auth.userType,
-                        city: auth.profileCity,
-                        rating: profile.stats.averageRating,
-                        reviewsCount: profile.stats.reviews,
-                      ),
+                      onShare: () {
+                        final row = auth.profileRow;
+                        final userProfile =
+                            row != null ? UserProfile.fromMap(row) : null;
+                        showDigitalVisitingCard(
+                          context,
+                          userId: auth.userId,
+                          name: auth.userName,
+                          companyName: userProfile?.displayTitle,
+                          userType: auth.userType,
+                          avatarUrl: auth.avatarUrl,
+                          city: auth.profileCity,
+                          experience: userProfile?.effectiveExperience,
+                          rating: profile.stats.averageRating,
+                          reviewsCount: profile.stats.reviews,
+                          phone: userProfile?.effectivePhone,
+                          reraNumber: userProfile?.effectiveRera,
+                        );
+                      },
                       onQr: () => showProfileQrSheet(
                         context,
                         userId: auth.userId,

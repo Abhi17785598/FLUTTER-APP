@@ -117,22 +117,21 @@ class BottomNavBar extends StatelessWidget {
     final mediaQuery = MediaQuery.of(context);
     final viewPadding = mediaQuery.viewPadding;
 
+    // This widget is a plain Container passed as Scaffold.bottomNavigationBar
+    // — Scaffold does NOT automatically inset a custom bottomNavigationBar
+    // above the system bottom area (that only happens for the body). So on
+    // 3-button/button nav, where viewPadding.bottom is the real, non-zero
+    // system nav bar height, that exact height must be used directly here;
+    // assuming Scaffold already handled it (as the previous version did,
+    // padding 0 in that case) left the bar unprotected on those devices.
+    //
     // On Android 10+ gesture navigation, viewPadding.bottom is 0 (or very
-    // small) because the system nav is transparent and gesture-based. The
-    // Scaffold positions the nav bar flush with the screen bottom. Without
-    // extra padding, tap targets land inside the system gesture capture zone
-    // (~40 dp on most devices) and taps are stolen by the OS.
-    //
-    // When viewPadding.bottom > 0 (3-button nav / button nav), the Scaffold
-    // already positions the nav bar above the system buttons — no extra
-    // padding needed here or we would double-count the inset.
-    //
-    // systemGestureInsets.bottom is the authoritative size of the gesture
-    // zone. We add half of it (capped between 4 and 12 dp) so content is
-    // comfortably above the gesture strip without wasting excessive space.
-    final double bottomSafePadding = viewPadding.bottom < 1.0
-        ? (mediaQuery.systemGestureInsets.bottom / 2).clamp(4.0, 12.0)
-        : 0.0;
+    // small) because the system nav is transparent and gesture-based, so the
+    // real danger zone is the gesture-capture strip instead, reported via
+    // systemGestureInsets.bottom (commonly ~24-40 dp).
+    final double bottomSafePadding = viewPadding.bottom > 0
+        ? viewPadding.bottom
+        : mediaQuery.systemGestureInsets.bottom.clamp(0.0, 40.0);
 
     return Container(
       // Total rendered height = visible content area + gesture-safe padding.

@@ -49,6 +49,10 @@
 	<string>Used to show properties near you</string>
 	<key>NSMicrophoneUsageDescription</key>
 	<string>Used for voice search</string>
+	<key>NSPhotoLibraryAddUsageDescription</key>
+	<string>Used to save your Digital Visiting Card to Photos</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>Used to save your Digital Visiting Card to Photos</string>
 	<key>NSSpeechRecognitionUsageDescription</key>
 	<string>Used to convert your spoken search into text</string>
 	<key>UIApplicationSceneManifest</key>

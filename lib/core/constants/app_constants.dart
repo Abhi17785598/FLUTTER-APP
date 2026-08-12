@@ -107,6 +107,11 @@ class AppConstants {
   static const String reelsScreen = '/reels';
   static const String postPropertyScreen = '/post-property';
 
+  /// The social Feed — properties/projects/videos merged, mirroring the
+  /// portal's `/feed` (CombinedFeed.tsx). Reached from the Workspace Drawer
+  /// and the More sheet via WorkspaceDestinations.feed.
+  static const String feedScreen = '/feed';
+
   // ── NEW SCREEN ROUTES ──────────────────────
   static const String notificationsScreen = '/notifications';
   static const String emiCalculatorScreen = '/emi-calculator';

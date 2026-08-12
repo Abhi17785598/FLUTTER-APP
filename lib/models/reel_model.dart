@@ -45,6 +45,12 @@ class ReelModel {
   final String? builderPhone;
   final bool isVerified;
 
+  /// `influencer_videos.user_id` — the uploader's own id, not the joined
+  /// `profiles` row. Kept separate from the identity fields above (which all
+  /// come from that joined row) because it's needed to navigate to the
+  /// uploader's public profile even when their profile fields are thin.
+  final String? builderUserId;
+
   // ── Linked property (only present when property_id is set) ──────────
   final String? propertyId;
 
@@ -88,6 +94,7 @@ class ReelModel {
     this.builderName,
     this.builderAvatarUrl,
     this.builderPhone,
+    this.builderUserId,
     this.isVerified = false,
     this.propertyId,
     this.propertyImageUrl,
@@ -145,6 +152,7 @@ class ReelModel {
       builderAvatarUrl:
           _str(profile?['avatar_url']) ?? _str(profile?['company_logo_url']),
       builderPhone: _str(profile?['phone']),
+      builderUserId: _str(json['user_id']),
       isVerified: profile?['verification_status'] == 'verified',
       propertyId: _str(json['property_id']),
       // Same parse `PropertyModel.fromSupabase` runs on the same column.

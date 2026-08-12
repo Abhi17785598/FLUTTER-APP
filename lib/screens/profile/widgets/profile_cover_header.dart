@@ -7,13 +7,16 @@ import '../../../core/theme/app_text_styles.dart';
 /// Cover banner with the menu / notification actions and the overhanging
 /// avatar (blueprint §4.1).
 ///
-/// The cover is a static branded gradient by design decision: `profiles`
-/// carries a `background_image_url` column, but nothing in the app reads or
-/// writes it and there is no confirmed upload path, so an upload affordance
-/// here would write nowhere. Cover upload is a separate workstream.
+/// Renders `profiles.background_image_url` when set (same field
+/// `EditProfileProvider.pickAndUploadCover` writes), falling back to the
+/// static branded gradient otherwise — mirroring how
+/// `PublicProfileCoverHeader` already displays another user's cover photo.
 class ProfileCoverHeader extends StatelessWidget {
   final String? avatarUrl;
   final String initial;
+
+  /// `profiles.background_image_url`. Null/empty falls back to the gradient.
+  final String? coverImageUrl;
 
   /// Drives the avatar's check badge. Ported from the existing screen's
   /// `auth.userRole != null` condition — "verified" is not redefined here.
@@ -32,6 +35,7 @@ class ProfileCoverHeader extends StatelessWidget {
     required this.isVerified,
     required this.onMenuTap,
     required this.onNotificationsTap,
+    this.coverImageUrl,
     this.hasNotifications = true,
   });
 
@@ -54,15 +58,28 @@ class ProfileCoverHeader extends StatelessWidget {
         clipBehavior: Clip.none,
         children: [
           // ── Cover ────────────────────────────────────────────────────────
-          Container(
-            height: _kCoverHeight + topInset,
-            width: double.infinity,
-            decoration: const BoxDecoration(
-              gradient: AppColors.heroGradient,
-              borderRadius: BorderRadius.only(
-                bottomLeft: Radius.circular(28),
-                bottomRight: Radius.circular(28),
-              ),
+          ClipRRect(
+            borderRadius: const BorderRadius.only(
+              bottomLeft: Radius.circular(28),
+              bottomRight: Radius.circular(28),
+            ),
+            child: SizedBox(
+              height: _kCoverHeight + topInset,
+              width: double.infinity,
+              child: (coverImageUrl == null || coverImageUrl!.isEmpty)
+                  ? const DecoratedBox(
+                      decoration: BoxDecoration(gradient: AppColors.heroGradient),
+                    )
+                  : CachedNetworkImage(
+                      imageUrl: coverImageUrl!,
+                      fit: BoxFit.cover,
+                      placeholder: (_, _) => const DecoratedBox(
+                        decoration: BoxDecoration(gradient: AppColors.heroGradient),
+                      ),
+                      errorWidget: (_, _, _) => const DecoratedBox(
+                        decoration: BoxDecoration(gradient: AppColors.heroGradient),
+                      ),
+                    ),
             ),
           ),
 

@@ -190,8 +190,13 @@ class PropertyModel {
   }
 
   factory PropertyModel.fromSupabase(Map<String, dynamic> json) {
-    // Extract residential/commercial/land data if available
-    final residential = json['properties_residential'] as Map<String, dynamic>?;
+    // Extract residential/commercial/land data if available. searchProperties
+    // embeds the same properties_residential join under the alias
+    // 'residentialDetails' (property_service.dart), so both keys are checked
+    // — otherwise a PropertyModel built from search results always shows
+    // beds/baths as 0 even though the row was fetched.
+    final residential = json['properties_residential'] as Map<String, dynamic>? ??
+        json['residentialDetails'] as Map<String, dynamic>?;
     final commercial = json['properties_commercial'] as Map<String, dynamic>?;
     final land = json['properties_land'] as Map<String, dynamic>?;
 
@@ -237,7 +242,10 @@ class PropertyModel {
       pricePerSqft:    metadata['pricePerSqFt']?.toString() ?? '',
       beds:            beds,
       baths:           baths,
-      sqft:            int.tryParse(json['area']?.toString() ?? '0') ?? 0,
+      // `area` is stored as text and can hold a decimal (e.g. "1200.5");
+      // int.tryParse rejects the decimal point and silently returns null,
+      // which showed as "0 sqft" for any such row.
+      sqft:            double.tryParse(json['area']?.toString() ?? '0')?.round() ?? 0,
       parking:         parking,
       // NEW: `properties` has no `is_verified` column at all — the key is
       // always absent, so this must not silently default to true.

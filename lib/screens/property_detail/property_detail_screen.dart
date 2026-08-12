@@ -71,6 +71,7 @@ class _PropertyDetailScreenState extends State<PropertyDetailScreen>
   // matching PropertyDetails.tsx's exact 3-query shape.
   final PropertyService _propertyService = PropertyService();
   PropertyModel? _property;
+  PropertyOwnerProfile? _ownerProfile;
   bool _isLoadingProperty = true;
   String? _loadError;
 
@@ -133,6 +134,7 @@ class _PropertyDetailScreenState extends State<PropertyDetailScreen>
       if (!mounted) return;
       setState(() {
         _property = bundle.property;
+        _ownerProfile = bundle.ownerProfile;
         _isLoadingProperty = false;
       });
       _loadNearbyPlaces();
@@ -414,6 +416,14 @@ class _PropertyDetailScreenState extends State<PropertyDetailScreen>
                             _buildExpandableDescription(property),
 
                             const SizedBox(height: 20),
+
+                            // Posted by (owner/broker) — mirrors the
+                            // portal's "Contact Seller" block. Hidden
+                            // entirely when no owner profile resolved.
+                            if (_ownerProfile != null) ...[
+                              _buildOwnerSection(context),
+                              const SizedBox(height: 20),
+                            ],
 
                             // Property Location map card
                             _buildLocationSection(context, property),
@@ -1099,6 +1109,125 @@ class _PropertyDetailScreenState extends State<PropertyDetailScreen>
   }
 
   // ===========================================================================
+  // POSTED BY (owner/broker) SECTION
+  // Mirrors PropertyDetails.tsx's "Contact Seller" block: display_name,
+  // avatar_url, user_type and phone from `profiles`, fetched alongside the
+  // property row by PropertyService.getPropertyDetail. Not rendered when no
+  // owner profile resolved (see the `if (_ownerProfile != null)` call site),
+  // matching the portal's own conditional rendering.
+  // ===========================================================================
+
+  Widget _buildOwnerSection(BuildContext context) {
+    final owner = _ownerProfile;
+    if (owner == null) return const SizedBox.shrink();
+
+    final String name = (owner.companyName?.isNotEmpty ?? false)
+        ? owner.companyName!
+        : (owner.displayName?.isNotEmpty ?? false)
+            ? owner.displayName!
+            : 'Property Owner';
+    final String role = (owner.userType?.isNotEmpty ?? false)
+        ? owner.userType![0].toUpperCase() + owner.userType!.substring(1)
+        : 'Contact for details';
+    final String? phone = owner.phone;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text('Posted by', style: AppTextStyles.heading3),
+        const SizedBox(height: 12),
+        Container(
+          padding: const EdgeInsets.all(14),
+          decoration: BoxDecoration(
+            color: AppColors.cardBackground,
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: AppColors.textHint.withOpacity(0.2)),
+          ),
+          child: Row(
+            children: [
+              Expanded(
+                child: InkWell(
+                  onTap: () => _openOwnerProfile(context),
+                  borderRadius: BorderRadius.circular(16),
+                  child: Row(
+                    children: [
+                      CircleAvatar(
+                        radius: 24,
+                        backgroundColor: AppColors.primaryLight,
+                        backgroundImage: (owner.avatarUrl?.isNotEmpty ?? false)
+                            ? CachedNetworkImageProvider(owner.avatarUrl!)
+                            : null,
+                        child: (owner.avatarUrl?.isNotEmpty ?? false)
+                            ? null
+                            : const Icon(Icons.person, color: AppColors.primary),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              name,
+                              style: AppTextStyles.heading3.copyWith(fontSize: 15),
+                            ),
+                            const SizedBox(height: 2),
+                            Text(role, style: AppTextStyles.caption),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              if (phone != null && phone.isNotEmpty)
+                IconButton(
+                  onPressed: () => _callOwner(context, phone),
+                  icon: const Icon(Icons.phone, color: AppColors.primary),
+                  style: IconButton.styleFrom(
+                    backgroundColor: AppColors.primaryLight,
+                    shape: const CircleBorder(),
+                  ),
+                ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  /// Opens the property's actual owner/broker profile — `_property!.userId`,
+  /// the same id `PropertyService.getPropertyDetail` used to fetch
+  /// `_ownerProfile`, never the signed-in viewer's id.
+  void _openOwnerProfile(BuildContext context) {
+    final userId = _property?.userId;
+    if (userId == null || userId.isEmpty) return;
+    Navigator.pushNamed(
+      context,
+      AppConstants.publicProfileScreen,
+      arguments: {'userId': userId},
+    );
+  }
+
+  Future<void> _callOwner(BuildContext context, String phone) async {
+    final Uri uri = Uri.parse('tel:$phone');
+    try {
+      final bool launched = await launchUrl(uri);
+      if (!launched && context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Could not start the call')),
+        );
+      }
+    } catch (e) {
+      debugPrint('[PropertyDetail] Call launch error: $e');
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Could not start the call')),
+        );
+      }
+    }
+  }
+
+  // ===========================================================================
   // AMENITIES SECTION
   // ===========================================================================
 
@@ -1302,9 +1431,15 @@ class _PropertyDetailScreenState extends State<PropertyDetailScreen>
     dynamic property,
     PropertyProvider propertyProvider,
   ) {
+    // Same pattern already used by the app's other persistent bottom bars
+    // (e.g. ProfileStickyActionBar, EditProfile's _SaveBar): grow the total
+    // height and bottom padding by the device's real bottom safe-area inset,
+    // so the 72 dp button row itself is unchanged but no longer sits flush
+    // against — and behind — the Android system nav/gesture area.
+    final double bottomInset = MediaQuery.paddingOf(context).bottom;
     return Container(
-      height: 72,
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+      height: 72 + bottomInset,
+      padding: EdgeInsets.fromLTRB(16, 10, 16, 10 + bottomInset),
       decoration: const BoxDecoration(
         color: AppColors.surface,
         border: Border(
