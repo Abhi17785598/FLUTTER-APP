@@ -38,8 +38,7 @@ bool isSettableProjectStatus(String? status) =>
 // ── Inventory: unit status ──────────────────────────────────────────────────
 //
 // `project_inventory.status` CHECK: ('available','booked','sold','blocked')
-// — 20250905144708:100. `BuilderInventoryManager` only ever *counts* these; it
-// has no unit-level editor, so these are read labels only.
+// — 20250905144708:100.
 
 /// Label for a stored `project_inventory.status`.
 String inventoryUnitStatusLabel(String? status) => switch (status) {
@@ -49,6 +48,32 @@ String inventoryUnitStatusLabel(String? status) => switch (status) {
       'blocked' => 'Blocked',
       _ => 'Unknown',
     };
+
+/// The CHECK constraint's four values, for a unit-status picker.
+///
+/// `ProjectInventoryManager.tsx`'s own unit form offers the same four in a
+/// plain `<select>`; this is the first Flutter unit-level editor, so this
+/// list didn't need to exist until now.
+const List<BuilderProjectStatusOption> kInventoryUnitStatusOptions = [
+  BuilderProjectStatusOption('available', 'Available'),
+  BuilderProjectStatusOption('booked', 'Booked'),
+  BuilderProjectStatusOption('sold', 'Sold'),
+  BuilderProjectStatusOption('blocked', 'Blocked'),
+];
+
+// ── Team Workspace: lead status picker ──────────────────────────────────────
+//
+// `network_leads.status` has no CHECK constraint, so different surfaces use
+// different vocabularies for the same free-text column — the broker-side "My
+// Leads" screen's four values (`LeadStatusCounts`) are a different set.
+// `TeamLeadsView.tsx:25`'s `STATUS_OPTIONS` is this picker's source of truth.
+const List<BuilderProjectStatusOption> kTeamLeadStatusOptions = [
+  BuilderProjectStatusOption('new', 'New'),
+  BuilderProjectStatusOption('contacted', 'Contacted'),
+  BuilderProjectStatusOption('qualified', 'Qualified'),
+  BuilderProjectStatusOption('converted', 'Converted'),
+  BuilderProjectStatusOption('lost', 'Lost'),
+];
 
 // ── Site visits: booking status ─────────────────────────────────────────────
 //

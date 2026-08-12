@@ -54,6 +54,11 @@ dependencies:
   # docs/BUILDER_FLOW_IMPLEMENTATION_PLAN.md.
   file_picker: ^8.1.7
   supabase_flutter: ^2.12.4
+  # The `https://propcid.com/accept-invite` team-invite link — the only deep
+  # link this app resolves without a custom scheme, so unlike the OAuth/
+  # password-reset ones (handled entirely by supabase_flutter's own redirect
+  # plumbing) this needs a generic URI listener.
+  app_links: ^6.3.2
   flutter_secure_storage: ^9.1.2
   flutter_dotenv: ^6.0.1
   video_player: ^2.9.2

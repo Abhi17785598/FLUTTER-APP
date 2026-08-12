@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'dart:async';
 import '../app_navigator.dart';
+import '../models/builder_section_models.dart';
 import '../services/auth_service.dart';
+import '../services/builder_sections_service.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 class AuthProvider extends ChangeNotifier {
@@ -21,7 +23,30 @@ class AuthProvider extends ChangeNotifier {
   /// parallel identity provider — see blueprint §10. Read-only.
   Map<String, dynamic>? _profileRow;
 
+  /// This person's own team standing — never the builder-side view.
+  ///
+  /// Mirrors two separate, additive React mechanisms rather than one
+  /// override: `ProfileDashboardShell.tsx:691-708`'s live
+  /// `builder_team_members` count (→ [_activeTeamMemberships]/
+  /// [hasTeamMembership]) and `TeamInviteGate.tsx`'s pending-invite lookup by
+  /// email (→ [_pendingTeamInvitations]). Neither one changes `userType`
+  /// routing — that stays exactly as it is until a later phase.
+  List<BuilderTeamMember> _activeTeamMemberships = const [];
+  List<BuilderTeamInvitation> _pendingTeamInvitations = const [];
+
+  /// The user id [_activeTeamMemberships]/[_pendingTeamInvitations] were last
+  /// checked for.
+  ///
+  /// `_fetchUserProfile()` reruns on every auth event carrying a session —
+  /// including `tokenRefreshed`, which fires far more often than the
+  /// membership/invitation rows actually change — so this guards the check to
+  /// once per signed-in user rather than once per event, the same way
+  /// `builder_dashboard_screen.dart`'s `_loadedUserId` guards its analytics
+  /// load.
+  String? _teamCheckedUserId;
+
   final AuthService _authService = AuthService();
+  final BuilderTeamService _teamService = BuilderTeamService();
   StreamSubscription<AuthState>? _authSub;
 
   AuthProvider() {
@@ -35,6 +60,18 @@ class AuthProvider extends ChangeNotifier {
       }
 
       if (state.session != null) {
+        // TEMPORARY DIAGNOSTIC — remove after the clock/expiry investigation.
+        // Logged before any other Supabase call (incl. _fetchUserProfile
+        // below) so this reflects the session exactly as gotrue just set it.
+        final diagSession = _authService.currentSession;
+        debugPrint(
+          '[ClockDiag] now=${DateTime.now()} '
+          'expiresAt=${diagSession?.expiresAt} '
+          'isExpired=${diagSession?.isExpired} '
+          'hasAccessToken=${diagSession?.accessToken != null} '
+          'hasRefreshToken=${diagSession?.refreshToken != null}',
+        );
+
         _isLoggedIn = true;
 
         final currentUser = _authService.currentUser;
@@ -55,6 +92,9 @@ class AuthProvider extends ChangeNotifier {
         _userType = null;
         _profileCity = null;
         _profileRow = null;
+        _teamCheckedUserId = null;
+        _activeTeamMemberships = const [];
+        _pendingTeamInvitations = const [];
       }
 
       notifyListeners();
@@ -85,9 +125,68 @@ class AuthProvider extends ChangeNotifier {
 
         notifyListeners();
       }
+
+      await _checkTeamStatus(currentUser);
     } catch (e) {
       debugPrint('Error fetching user profile: $e');
     }
+  }
+
+  /// This person's own active memberships and pending invitations —
+  /// deliberately separate from [_fetchUserProfile]'s `profiles` read, since
+  /// neither table is scoped by `builder_id` the way the builder-side
+  /// `BuilderTeamService` calls are (`myActiveMemberships`/
+  /// `myPendingInvitations` query by `member_user_id`/`email` instead — see
+  /// `builder_sections_service.dart`).
+  ///
+  /// Read-only: never accepts an invitation, never writes `user_type`, never
+  /// navigates. Guarded by [_teamCheckedUserId] so a `tokenRefreshed` event
+  /// for the same user doesn't re-run it; a genuine failure is swallowed the
+  /// same way, rather than retried on every subsequent refresh, so this
+  /// cannot become another contributor to a refresh loop.
+  Future<void> _checkTeamStatus(User user) async {
+    if (_teamCheckedUserId == user.id) return;
+    _teamCheckedUserId = user.id;
+
+    try {
+      final memberships = await _teamService.myActiveMemberships(user.id);
+
+      final email = user.email;
+      final invitations = (email == null || email.isEmpty)
+          ? const <BuilderTeamInvitation>[]
+          : await _teamService.myPendingInvitations(email);
+
+      _activeTeamMemberships = memberships;
+      _pendingTeamInvitations = invitations;
+
+      // TEMPORARY DEBUG — remove once a later phase has a real consumer to
+      // verify against. No token/credential is ever printed here.
+      debugPrint(
+        '[TeamStatus] userId=${user.id} email=$email '
+        'activeMemberships=${memberships.length} '
+        'pendingInvitations=${invitations.length}',
+      );
+
+      notifyListeners();
+    } catch (e) {
+      debugPrint('Error checking team status: $e');
+    }
+  }
+
+  /// Re-runs [_checkTeamStatus] regardless of [_teamCheckedUserId].
+  ///
+  /// For a caller that just changed the underlying rows itself — right now
+  /// only the pending-invitation screen, after `acceptInvite` succeeds — and
+  /// needs this cache to reflect that immediately rather than waiting for
+  /// the next auth event. This is a single deliberate, user-triggered
+  /// refresh, not a poll, so it doesn't reintroduce the every-event-reruns-it
+  /// problem [_teamCheckedUserId] guards against elsewhere.
+  Future<void> refreshTeamStatus() async {
+    final currentUser = _authService.currentUser;
+    if (currentUser == null) return;
+
+    _teamCheckedUserId = null;
+    await _checkTeamStatus(currentUser);
   }
 
   @override
@@ -109,6 +208,22 @@ class AuthProvider extends ChangeNotifier {
   /// successful fetch.
   Map<String, dynamic>? get profileRow =>
       _profileRow == null ? null : Map<String, dynamic>.unmodifiable(_profileRow!);
+
+  /// True once at least one active `builder_team_members` row has been found
+  /// for this person, across any builder. Additive information only — does
+  /// not change [userType] or where this app routes them.
+  bool get hasTeamMembership => _activeTeamMemberships.isNotEmpty;
+
+  /// This person's own active memberships, across every builder they've
+  /// joined. Empty before the first check completes or if there are none.
+  List<BuilderTeamMember> get activeTeamMemberships =>
+      List.unmodifiable(_activeTeamMemberships);
+
+  /// This person's own pending invitations, across every builder that has
+  /// invited them. Empty before the first check completes or if there are
+  /// none.
+  List<BuilderTeamInvitation> get pendingTeamInvitations =>
+      List.unmodifiable(_pendingTeamInvitations);
 
   /// Accepts an email, phone number or username — [AuthService] resolves
   /// whichever was typed to an email before signing in.
@@ -287,6 +402,9 @@ class AuthProvider extends ChangeNotifier {
     _userId = null;
     _profileCity = null;
     _profileRow = null;
+    _teamCheckedUserId = null;
+    _activeTeamMemberships = const [];
+    _pendingTeamInvitations = const [];
 
     notifyListeners();
   }

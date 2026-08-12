@@ -119,6 +119,51 @@ class ProjectInventoryService {
         .map(InventoryUnit.fromSupabase)
         .toList();
   }
+
+  /// Adds one unit to [projectId].
+  ///
+  /// `unit_type`, `area_sqft` and `price` are the table's own NOT NULL columns
+  /// beyond `id`/`project_id`/the timestamps (`20250905144708:92-106`); `status`
+  /// defaults to `'available'` there too, so [payload] need not set it for the
+  /// common case. `ProjectInventoryManager.tsx` additionally edits `amenities`,
+  /// `features`, `facing_direction` and `floor_plan_url` — deliberately out of
+  /// scope here, matching [InventoryUnit] itself, which never modelled them
+  /// either; [payload] can still carry them since this passes it through
+  /// unfiltered, but no UI in this app sets them yet.
+  Future<InventoryUnit> createUnit({
+    required String projectId,
+    required Map<String, dynamic> payload,
+  }) async {
+    final row = await _supabase
+        .from(table)
+        .insert(<String, dynamic>{'project_id': projectId, ...payload})
+        .select(InventoryUnit.columns)
+        .single();
+
+    return InventoryUnit.fromSupabase(Map<String, dynamic>.from(row));
+  }
+
+  /// Updates one unit's editable fields.
+  Future<void> updateUnit({
+    required String unitId,
+    required Map<String, dynamic> payload,
+  }) async {
+    await _supabase.from(table).update(<String, dynamic>{
+      ...payload,
+      // No touch trigger on this table (`20250905144708:92-106`), so without
+      // this the column would keep the insert time — the same reasoning
+      // `BuilderOfferService.update` already documents for the same gap.
+      'updated_at': DateTime.now().toUtc().toIso8601String(),
+    }).eq('id', unitId);
+  }
+
+  /// Removes one unit.
+  ///
+  /// A hard delete: `ProjectInventoryManager.tsx`'s own delete is (no soft-
+  /// delete column exists on this table either).
+  Future<void> deleteUnit(String unitId) async {
+    await _supabase.from(table).delete().eq('id', unitId);
+  }
 }
 
 // ── Marketed Offers ─────────────────────────────────────────────────────────
@@ -228,6 +273,15 @@ class BuilderTeamService {
   /// row, minting a token, sending the email — would be.
   static const String inviteFunction = 'invite-team-member';
 
+  /// The Edge Function the portal invokes to accept an invite.
+  ///
+  /// Already deployed (`supabase/functions/accept-team-invite`). Same
+  /// reasoning as [inviteFunction] — the validation, the
+  /// `builder_team_members` upsert and the `profiles.user_type` bootstrap for
+  /// brand-new invitees all happen server-side; calling it is not a backend
+  /// change.
+  static const String acceptFunction = 'accept-team-invite';
+
   /// Members, newest first.
   Future<List<BuilderTeamMember>> listMembers(String builderId) async {
     final rows = await _supabase
@@ -251,6 +305,46 @@ class BuilderTeamService {
 
     return List<Map<String, dynamic>>.from(rows)
         .map(BuilderTeamInvitation.fromSupabase)
+        .toList();
+  }
+
+  /// This person's own pending invitations, across every builder that has
+  /// invited them, newest first.
+  ///
+  /// Queried by email, never `builder_id` — the invitee doesn't know who
+  /// invited them until this returns. Mirrors the fallback lookup in
+  /// `AcceptInvite.tsx:57-69` and the redirect check in `TeamInviteGate.tsx`,
+  /// which query the same table the same way.
+  Future<List<BuilderTeamInvitation>> myPendingInvitations(
+    String email,
+  ) async {
+    final rows = await _supabase
+        .from(invitationsTable)
+        .select(BuilderTeamInvitation.columns)
+        .ilike('email', email)
+        .eq('status', 'pending')
+        .order('created_at', ascending: false);
+
+    return List<Map<String, dynamic>>.from(rows)
+        .map(BuilderTeamInvitation.fromSupabase)
+        .toList();
+  }
+
+  /// This person's own active memberships, across every builder they've
+  /// joined, newest first.
+  ///
+  /// Queried by `member_user_id`, never `builder_id`, for the same reason as
+  /// [myPendingInvitations]. Mirrors `TeamMemberDashboard.tsx:56-64`.
+  Future<List<BuilderTeamMember>> myActiveMemberships(String userId) async {
+    final rows = await _supabase
+        .from(membersTable)
+        .select(BuilderTeamMember.columns)
+        .eq('member_user_id', userId)
+        .eq('status', 'active')
+        .order('created_at', ascending: false);
+
+    return List<Map<String, dynamic>>.from(rows)
+        .map(BuilderTeamMember.fromSupabase)
         .toList();
   }
 
@@ -296,22 +390,51 @@ class BuilderTeamService {
       );
     }
 
-    final response = await _supabase.functions.invoke(
-      inviteFunction,
-      body: <String, dynamic>{
-        'email': trimmed,
-        'modules': modules,
-        'projectIds': projectIds,
-        'redirectOrigin': redirectOrigin,
-      },
-    );
+    Map<String, dynamic> map;
+    try {
+      final response = await _supabase.functions.invoke(
+        inviteFunction,
+        body: <String, dynamic>{
+          'email': trimmed,
+          'modules': modules,
+          'projectIds': projectIds,
+          'redirectOrigin': redirectOrigin,
+        },
+      );
+      final data = response.data;
+      map = data is Map<String, dynamic> ? data : const {};
+    } on FunctionException catch (e) {
+      // A 401 here always means the same thing: `invite-team-member` only ever
+      // returns it when `callerClient.auth.getUser()` rejects the bearer token
+      // it was sent (index.ts:40-42) — never a business refusal. In practice
+      // that happens when the local session was silently dropped by a failed
+      // background token refresh (a known `supabase` package issue: an
+      // unretryable refresh error nulls the in-memory session, so the next
+      // request falls back to sending the anon key instead of a user JWT,
+      // which the function correctly rejects). Retrying without signing back
+      // in cannot succeed, so say so instead of implying another attempt might
+      // work.
+      if (e.status == 401) {
+        throw const BuilderSectionException(
+          'Your session has expired. Please sign out and back in, then try '
+          'again.',
+        );
+      }
 
-    final data = response.data;
-    final map = data is Map<String, dynamic> ? data : const {};
+      // Unlike the JS client the portal uses (which discards the response
+      // body on a non-2xx status), this package's client decodes it into
+      // `details` regardless of status — every other refusal
+      // `invite-team-member` makes (bad domain, cap reached, duplicate
+      // invite, ...) returns a non-2xx JSON body of the same `{error: "..."}`
+      // shape checked below, so that reason must be read from here, not from
+      // a successful response.
+      final details = e.details;
+      final message = details is Map && details['error'] != null
+          ? details['error'].toString()
+          : 'Could not send that invite. Please try again.';
+      throw BuilderSectionException(message);
+    }
 
-    // The portal checks `data?.error` separately from the transport error,
-    // because the function returns 200 with an error body for its own refusals
-    // (cap reached, already a member).
     final error = map['error'];
     if (error != null) {
       throw BuilderSectionException(error.toString());
@@ -320,6 +443,74 @@ class BuilderTeamService {
     return BuilderTeamInviteResult(
       delivered: map['delivered']?.toString(),
       actionLink: map['actionLink']?.toString(),
+    );
+  }
+
+  /// Accepts a pending invitation through the Edge Function.
+  ///
+  /// Mirrors `AcceptInvite.tsx:88-97`: same function name, same two body
+  /// keys. `token` is optional — it comes from the invite link's `?token=`
+  /// param, which is absent on the JWT-metadata / email-fallback detection
+  /// paths (`AcceptInvite.tsx:52-69`); `accept-team-invite` only checks it
+  /// when supplied (`index.ts:58-60`).
+  Future<BuilderTeamAcceptResult> acceptInvite({
+    required String invitationId,
+    String? token,
+  }) async {
+    if (invitationId.trim().isEmpty) {
+      throw const BuilderSectionException('Missing invitation id.');
+    }
+
+    Map<String, dynamic> map;
+    try {
+      final response = await _supabase.functions.invoke(
+        acceptFunction,
+        body: <String, dynamic>{
+          'invitationId': invitationId,
+          'token': ?token,
+        },
+      );
+      final data = response.data;
+      map = data is Map<String, dynamic> ? data : const {};
+    } on FunctionException catch (e) {
+      // Same reasoning as `invite()` above: a 401 from `accept-team-invite`
+      // only ever means the bearer token this request carried wasn't a
+      // valid user JWT (`index.ts:27-38`), never a business refusal.
+      if (e.status == 401) {
+        throw const BuilderSectionException(
+          'Your session has expired. Please sign out and back in, then try '
+          'again.',
+        );
+      }
+
+      final details = e.details;
+      final message = details is Map && details['error'] != null
+          ? details['error'].toString()
+          : 'Could not accept that invitation. Please try again.';
+      throw BuilderSectionException(message);
+    }
+
+    final error = map['error'];
+    if (error != null) {
+      throw BuilderSectionException(error.toString());
+    }
+
+    final builder = map['builder'];
+    final builderMap = builder is Map ? builder : const {};
+    final modules = map['modules'];
+
+    return BuilderTeamAcceptResult(
+      builderId: map['builderId']?.toString(),
+      modules: modules is List
+          ? modules.map((m) => m.toString()).toList(growable: false)
+          : const [],
+      builderDisplayName: builderMap['display_name']?.toString(),
+      builderCompanyName: builderMap['company_name']?.toString(),
+      builderAvatarUrl: builderMap['avatar_url']?.toString(),
+      // `index.ts:68-76` — an already-accepted invitation is success, not an
+      // error; `AcceptInvite.tsx` doesn't distinguish it in its own UI, but a
+      // caller that wants to (e.g. "you're already on this team") can.
+      alreadyAccepted: map['alreadyAccepted'] == true,
     );
   }
 
@@ -356,6 +547,28 @@ class BuilderTeamInviteResult {
   /// True when the builder has to pass the link on themselves.
   bool get needsManualShare =>
       delivered == 'notification' && (actionLink?.isNotEmpty ?? false);
+}
+
+/// What the accept Edge Function reported (`index.ts:160-165`).
+class BuilderTeamAcceptResult {
+  const BuilderTeamAcceptResult({
+    this.builderId,
+    this.modules = const [],
+    this.builderDisplayName,
+    this.builderCompanyName,
+    this.builderAvatarUrl,
+    this.alreadyAccepted = false,
+  });
+
+  final String? builderId;
+  final List<String> modules;
+  final String? builderDisplayName;
+  final String? builderCompanyName;
+  final String? builderAvatarUrl;
+
+  /// True when this invitation had already been accepted before this call —
+  /// `index.ts:68-76` treats that as success, not an error.
+  final bool alreadyAccepted;
 }
 
 // ── Site Visits ─────────────────────────────────────────────────────────────

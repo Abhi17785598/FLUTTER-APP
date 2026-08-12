@@ -131,6 +131,20 @@ class AppConstants {
   /// dashboard. Not a screen of its own — see blueprint §2.4.
   static const String manageDashboardScreen = '/manage-dashboard';
 
+  /// Mobile mirror of the portal's `/accept-invite` — shown when this person
+  /// has a pending `builder_team_invitations` row. Reached automatically via
+  /// `PendingInvitationGate`, the mirror of `TeamInviteGate.tsx`.
+  static const String pendingInvitationScreen = '/pending-invitation';
+
+  /// Mobile mirror of the portal's `/team-workspace`
+  /// (`TeamMemberDashboard.tsx`). Reached two ways, matching the portal's own
+  /// two routing mechanisms: `ManageDashboardDispatcher`'s `team_member` case
+  /// (`ProfileDispatch.tsx`'s literal switch, for brand-new invitees) and the
+  /// additive Workspace Drawer / More sheet destination gated on
+  /// `AuthProvider.hasTeamMembership` (`ProfileDashboardShell.tsx`'s nav
+  /// link, for existing users of any other role).
+  static const String teamWorkspaceScreen = '/team-workspace';
+
   /// Phase 6 hubs, reached from the Workspace Drawer and the More sheet.
   static const String networkScreen = '/network';
   static const String socialScreen = '/social';

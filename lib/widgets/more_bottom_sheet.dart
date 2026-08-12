@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 
 import '../core/constants/app_constants.dart';
 import '../core/navigation/workspace_destinations.dart';
 import '../core/theme/app_colors.dart';
 import '../core/theme/app_text_styles.dart';
+import '../providers/auth_provider.dart';
 import 'manage_list_tile.dart';
 
 /// Secondary destination sheet opened from the Profile screen's Manage list
@@ -40,6 +42,11 @@ class _MoreSheetBody extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final auth = context.watch<AuthProvider>();
+    // Same additive gate as the Workspace Drawer — see its build() comment.
+    final showTeamWorkspace =
+        auth.hasTeamMembership && auth.userType != 'team_member';
+
     return Container(
       decoration: const BoxDecoration(
         color: AppColors.cardBackground,
@@ -82,6 +89,13 @@ class _MoreSheetBody extends StatelessWidget {
               'Manage Dashboard',
               onNavigate: WorkspaceDestinations.manageDashboard,
             ),
+            if (showTeamWorkspace)
+              _row(
+                context,
+                Icons.groups_outlined,
+                'Team Workspace',
+                onNavigate: WorkspaceDestinations.teamWorkspace,
+              ),
             _row(
               context,
               Icons.dynamic_feed_outlined,

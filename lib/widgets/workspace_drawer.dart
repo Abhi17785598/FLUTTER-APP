@@ -49,6 +49,15 @@ class WorkspaceDrawer extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final auth = context.watch<AuthProvider>();
+    // Additive, never a replacement — `ProfileDashboardShell.tsx:693-708`'s
+    // nav link only ever appears alongside an existing role's own dashboard.
+    // Excluding `userType == 'team_member'` avoids a redundant second entry
+    // to the same screen "Manage Dashboard" already resolves to for that
+    // population (`ManageDashboardDispatcher`'s `team_member` case).
+    final showTeamWorkspace =
+        auth.hasTeamMembership && auth.userType != 'team_member';
+
     return Drawer(
       width: _kWidth,
       backgroundColor: AppColors.cardBackground,
@@ -79,6 +88,13 @@ class WorkspaceDrawer extends StatelessWidget {
                     'Manage Dashboard',
                     onNavigate: WorkspaceDestinations.manageDashboard,
                   ),
+                  if (showTeamWorkspace)
+                    _row(
+                      context,
+                      Icons.groups_outlined,
+                      'Team Workspace',
+                      onNavigate: WorkspaceDestinations.teamWorkspace,
+                    ),
                   _row(
                     context,
                     Icons.dynamic_feed_outlined,
