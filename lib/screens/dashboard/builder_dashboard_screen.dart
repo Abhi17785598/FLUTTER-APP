@@ -199,6 +199,32 @@ class _BuilderDashboardViewState extends State<_BuilderDashboardView> {
     super.initState();
     _dashboardFuture = _loadDashboard();
     WidgetsBinding.instance.addPostFrameCallback((_) => _loadAnalytics());
+    WidgetsBinding.instance.addPostFrameCallback((_) => _loadProjectsIndependently());
+  }
+
+  /// Populates [_projects] without waiting for `MyProjectsSection` (the
+  /// Inventory tab) to mount and call [_onProjectsLoaded] — that only
+  /// happens if Inventory is actually opened this session, but Offers'
+  /// "Create" button and the Site Visits section both key off [_projects]
+  /// regardless of which tab is opened first. A user landing on Offers
+  /// directly saw "Publish a project first" — with a real Create button
+  /// hidden behind it — purely because Inventory hadn't been visited yet.
+  ///
+  /// Costs one extra `builder_projects` read if the user does visit
+  /// Inventory afterward (`MyProjectsSection` still runs its own), which is
+  /// the trade-off for Offers/Site Visits never depending on tab order.
+  Future<void> _loadProjectsIndependently() async {
+    if (!mounted) return;
+    final userId = context.read<AuthProvider>().userId;
+    if (userId == null) return;
+
+    try {
+      final rows = await ProjectService().listMine(userId);
+      if (!mounted) return;
+      setState(() => _projects = rows);
+    } catch (e) {
+      debugPrint('BuilderDashboard independent project load failed: $e');
+    }
   }
 
   Future<BuilderDashboardModel> _loadDashboard() {

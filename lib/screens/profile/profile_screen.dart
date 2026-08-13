@@ -160,6 +160,7 @@ class _ProfileViewState extends State<_ProfileView> {
     final profile = context.watch<ProfileProvider>();
 
     final isBuilder = auth.userType?.toLowerCase() == 'builder';
+    final isInfluencer = auth.userType?.toLowerCase() == 'influencer';
     final completion = calculateProfileCompletion(auth.profileRow);
     final initial =
         auth.userName.isNotEmpty ? auth.userName[0].toUpperCase() : 'U';
@@ -258,6 +259,12 @@ class _ProfileViewState extends State<_ProfileView> {
                         AppConstants.postPropertyScreen,
                       ),
                       onAddArticle: _openArticleEditor,
+                      onAddVideo: isInfluencer
+                          ? () => Navigator.pushNamed(
+                                context,
+                                AppConstants.influencerVideoFormScreen,
+                              )
+                          : null,
                     ).animate().fadeIn(duration: 400.ms, delay: 250.ms),
                     const SizedBox(height: 26),
 

@@ -103,3 +103,71 @@ bool isValidProjectType(String? value) =>
 /// True when [value] is a legal `status`.
 bool isValidProjectStatus(String? value) =>
     kProjectStatuses.any((option) => option.value == value);
+
+// ── Inventory: unit type, by project type ───────────────────────────────────
+//
+// `InventoryTableEditor.tsx:52-70`'s `getUnitTypeOptions`, verbatim — every
+// project type not listed there falls through to its own `default: ['Unit']`.
+// This is a UI suggestion list, not a CHECK constraint: `project_inventory.unit_type`
+// is a free `VARCHAR(100)`, so unlike [kProjectTypes] nothing here is validated
+// against the database.
+List<String> unitTypeOptionsFor(String projectType) => switch (projectType) {
+      'group_housing' ||
+      'service_apartment' =>
+        const ['Studio', '1 BHK', '2 BHK', '3 BHK', '4 BHK', '5 BHK', 'Duplex', 'Penthouse'],
+      'plotted_development' ||
+      'gated_community_plots_villas' =>
+        const ['Residential Plot', 'Villa Plot', 'Corner Plot', 'Park Facing Plot'],
+      'farm_houses' => const ['Farm House', 'Farm Land', 'Agricultural Plot'],
+      'commercial_spaces' ||
+      'office_spaces' =>
+        const [
+          'Office Space',
+          'Shop',
+          'Showroom',
+          'Warehouse',
+          'Co-working Space',
+          'Food Court',
+          'Retail Space',
+        ],
+      'integrated_township' => const [
+          'Studio',
+          '1 BHK',
+          '2 BHK',
+          '3 BHK',
+          '4 BHK',
+          'Villa',
+          'Plot',
+          'Commercial Space',
+        ],
+      _ => const ['Unit'],
+    };
+
+/// `InventoryTableEditor.tsx:72-74`'s `plotTypes`/`isPlotType` — a plot has no
+/// floor, so [ManageUnitsScreen] hides that field for these unit types rather
+/// than showing a meaningless input.
+const List<String> kPlotUnitTypes = [
+  'Residential Plot',
+  'Villa Plot',
+  'Corner Plot',
+  'Park Facing Plot',
+  'Farm Land',
+  'Agricultural Plot',
+  'Plot',
+];
+
+bool isPlotUnitType(String unitType) => kPlotUnitTypes.contains(unitType);
+
+/// `InventoryTableEditor.tsx:76`'s `facingOptions`, verbatim. Same
+/// free-column caveat as [unitTypeOptionsFor] — `facing_direction` has no
+/// CHECK constraint either.
+const List<String> kInventoryFacingOptions = [
+  'North',
+  'South',
+  'East',
+  'West',
+  'North-East',
+  'North-West',
+  'South-East',
+  'South-West',
+];

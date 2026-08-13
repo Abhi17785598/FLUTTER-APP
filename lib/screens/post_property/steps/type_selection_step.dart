@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../../../providers/post_property_provider.dart';
+import '../portal_icon.dart';
 import '../portal_theme.dart';
 
 /// Step 1 — reproduction of the portal's `TypeSelectionStep.tsx`.
@@ -10,6 +11,14 @@ import '../portal_theme.dart';
 /// colours, type scale, card geometry and the selection indicator are matched
 /// to source; the only deviations are the mobile layout adaptations noted
 /// inline (grid column counts, which the portal itself varies by breakpoint).
+///
+/// The card artwork itself is a mobile-only departure from the portal: the
+/// portal's isometric PNG illustrations (`assets/formicons/*.png`) are
+/// replaced here with gradient-tile + lucide-glyph art (`_CategoryIconArt`),
+/// composited from the same `assets/lucide` set `PortalIcon` already uses
+/// elsewhere in this wizard, rather than new bitmap art. Card geometry,
+/// colours, copy and behaviour are unchanged — only the artwork inside the
+/// existing image band/box.
 class TypeSelectionStep extends StatelessWidget {
   const TypeSelectionStep({super.key});
 
@@ -20,35 +29,40 @@ class TypeSelectionStep extends StatelessWidget {
       id: 'land',
       title: 'Land / Plot',
       description: 'Plots, Agricultural Land, Independent Land, etc.',
-      asset: 'assets/formicons/land.png',
+      iconName: 'map-pin',
+      gradientColors: [Color(0xFF34D399), Color(0xFF059669)],
       category: PropertyCategory.land,
     ),
     _TypeCard(
       id: 'residential',
       title: 'Residential',
       description: 'Houses, Apartments, Flats, Villas, etc.',
-      asset: 'assets/formicons/residential.png',
+      iconName: 'home',
+      gradientColors: [Color(0xFF60A5FA), Color(0xFF2563EB)],
       category: PropertyCategory.residential,
     ),
     _TypeCard(
       id: 'commercial',
       title: 'Commercial',
       description: 'Offices, Shops, Showrooms, Warehouses, etc.',
-      asset: 'assets/formicons/commercial.png',
+      iconName: 'building-2',
+      gradientColors: [Color(0xFFA78BFA), Color(0xFF7C3AED)],
       category: PropertyCategory.commercial,
     ),
     _TypeCard(
       id: 'pg/Co-living',
       title: 'PG / Co-living',
       description: 'PG, Hostels, Co-living Spaces, etc.',
-      asset: 'assets/formicons/pgcoliving.png',
+      iconName: 'bed-double',
+      gradientColors: [Color(0xFFFB923C), Color(0xFFEA580C)],
       category: PropertyCategory.pg,
     ),
     _TypeCard(
       id: 'others',
       title: 'Others',
       description: 'Other properties, warehouses, etc.',
-      asset: 'assets/formicons/typeselection.png',
+      iconName: 'layout-grid',
+      gradientColors: [Color(0xFF94A3B8), Color(0xFF475569)],
       category: PropertyCategory.other,
     ),
   ];
@@ -59,19 +73,22 @@ class TypeSelectionStep extends StatelessWidget {
     _IntentCard(
       title: 'Rent',
       description: 'Monthly rental properties',
-      asset: 'assets/formicons/rent.png',
+      iconName: 'key',
+      gradientColors: [Color(0xFF2DD4BF), Color(0xFF0D9488)],
       intent: ListingIntent.rent,
     ),
     _IntentCard(
       title: 'For Sale',
       description: 'Properties for sale',
-      asset: 'assets/formicons/sell.png',
+      iconName: 'tag',
+      gradientColors: [Color(0xFFFBBF24), Color(0xFFD97706)],
       intent: ListingIntent.sell,
     ),
     _IntentCard(
       title: 'Lease',
       description: 'Long-term lease properties',
-      asset: 'assets/formicons/lease.png',
+      iconName: 'file-text',
+      gradientColors: [Color(0xFFF472B6), Color(0xFFDB2777)],
       intent: ListingIntent.lease,
     ),
   ];
@@ -140,14 +157,16 @@ class _TypeCard {
     required this.id,
     required this.title,
     required this.description,
-    required this.asset,
+    required this.iconName,
+    required this.gradientColors,
     required this.category,
   });
 
   final String id;
   final String title;
   final String description;
-  final String asset;
+  final String iconName;
+  final List<Color> gradientColors;
   final PropertyCategory category;
 }
 
@@ -155,14 +174,84 @@ class _IntentCard {
   const _IntentCard({
     required this.title,
     required this.description,
-    required this.asset,
+    required this.iconName,
+    required this.gradientColors,
     required this.intent,
   });
 
   final String title;
   final String description;
-  final String asset;
+  final String iconName;
+  final List<Color> gradientColors;
   final ListingIntent intent;
+}
+
+/// New mobile-only card artwork: a diagonal gradient tile with a centred
+/// white lucide glyph, replacing the portal's isometric PNG illustrations.
+/// Two soft translucent blobs add depth/glassiness without needing a real
+/// bitmap asset. Fully opaque and edge-to-edge, so it drops into the same
+/// `double.infinity`-sized slot the old `Image.asset(fit: BoxFit.cover)` used
+/// to fill.
+class _CategoryIconArt extends StatelessWidget {
+  const _CategoryIconArt({
+    required this.iconName,
+    required this.gradientColors,
+    this.iconSize = 46,
+    this.decorative = true,
+  });
+
+  final String iconName;
+  final List<Color> gradientColors;
+  final double iconSize;
+  final bool decorative;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      height: double.infinity,
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: gradientColors,
+        ),
+      ),
+      child: Stack(
+        alignment: Alignment.center,
+        clipBehavior: Clip.hardEdge,
+        children: [
+          if (decorative) ...[
+            Positioned(
+              top: -18,
+              left: -18,
+              child: Container(
+                width: 84,
+                height: 84,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: Colors.white.withOpacity(0.14),
+                ),
+              ),
+            ),
+            Positioned(
+              bottom: -26,
+              right: -26,
+              child: Container(
+                width: 96,
+                height: 96,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: Colors.black.withOpacity(0.08),
+                ),
+              ),
+            ),
+          ],
+          PortalIcon(iconName, size: iconSize, color: Colors.white),
+        ],
+      ),
+    );
+  }
 }
 
 /// Portrait card — `cardBase` / `cardActive` in the portal.
@@ -221,7 +310,10 @@ class _PropertyTypeCard extends StatelessWidget {
                         // opacity half is reproduced, the 15% desaturation is
                         // dropped rather than paying for a colour matrix.
                         opacity: selected ? 1.0 : 0.85,
-                        child: Image.asset(data.asset, fit: BoxFit.cover),
+                        child: _CategoryIconArt(
+                          iconName: data.iconName,
+                          gradientColors: data.gradientColors,
+                        ),
                       ),
                     ),
                   ),
@@ -322,7 +414,12 @@ class _ListingTypeCard extends StatelessWidget {
                       duration: const Duration(milliseconds: 150),
                       child: Opacity(
                         opacity: selected ? 1.0 : 0.85,
-                        child: Image.asset(data.asset, fit: BoxFit.cover),
+                        child: _CategoryIconArt(
+                          iconName: data.iconName,
+                          gradientColors: data.gradientColors,
+                          iconSize: 26,
+                          decorative: false,
+                        ),
                       ),
                     ),
                   ),

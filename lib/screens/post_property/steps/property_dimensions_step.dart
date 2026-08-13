@@ -881,48 +881,541 @@ class _DateField extends StatelessWidget {
   }
 }
 
-/// Stands in for the portal's `FloorWiseRoomDetails` editor.
+/// PG `floorWiseRoomDetails[].rooms[].roomType`, verbatim from the portal's
+/// inline array in `FloorWiseRoomDetails`.
+const List<String> _kPgRoomTypes = [
+  'Single Sharing',
+  'Double Sharing',
+  'Triple Sharing',
+  'Four Sharing',
+  'Dormitory',
+  'Private Room',
+];
+
+/// Reproduction of the portal's `FloorWiseRoomDetails` editor
+/// (PropertyDimensionsStep.tsx:61-192).
 ///
-/// It writes `floorWiseRoomDetails` — an array of
-/// `{floorNumber, totalRooms, rooms: [{roomNumber, roomType}]}` objects. The
-/// provider deliberately does not hydrate lists of objects (they would be
-/// flattened to their `toString()` form and written back mangled), so there is
-/// no state for this editor to bind to. Building one is a data-model change,
-/// not a UI change, so it waits for its own phase; existing values survive
-/// untouched through the metadata merge on update.
-///
-/// The heading, its subtitle, its position and its `numFloors === 0` guard are
-/// reproduced so nothing around it shifts.
-class _FloorWiseRoomDetails extends StatelessWidget {
+/// One card per floor (1..Total Floors): a "Total Rooms" input that
+/// regenerates that floor's `rooms[]` array on change — preserving each
+/// existing room's type by room number — and, once rooms exist, a "Room
+/// Type" select per room. Bound to
+/// [PostPropertyProvider.setFloorTotalRooms]/[PostPropertyProvider.setFloorRoomType],
+/// which write straight into `floorWiseRoomDetails`.
+class _FloorWiseRoomDetails extends StatefulWidget {
   const _FloorWiseRoomDetails({required this.totalFloors});
 
   final String totalFloors;
 
   @override
+  State<_FloorWiseRoomDetails> createState() => _FloorWiseRoomDetailsState();
+}
+
+class _FloorWiseRoomDetailsState extends State<_FloorWiseRoomDetails> {
+  final Map<int, TextEditingController> _roomsControllers = {};
+
+  TextEditingController _controllerFor(int floorNumber, int totalRooms) {
+    return _roomsControllers.putIfAbsent(
+      floorNumber,
+      () => TextEditingController(text: totalRooms == 0 ? '' : '$totalRooms'),
+    );
+  }
+
+  @override
+  void dispose() {
+    for (final c in _roomsControllers.values) {
+      c.dispose();
+    }
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
-    final int numFloors = int.tryParse(totalFloors) ?? 0;
+    final p = context.watch<PostPropertyProvider>();
+    final int numFloors = int.tryParse(widget.totalFloors) ?? 0;
     if (numFloors == 0) return const SizedBox.shrink();
-    return const Padding(
-      padding: EdgeInsets.only(top: 24), // mt-6
-      child: PortalBlockHeading(
-        'Floor-wise Room Details',
-        subtitle: 'Specify room details for each floor',
+
+    // Floors removed by lowering Total Floors lose their controller, so
+    // raising it again starts that floor fresh rather than resurrecting
+    // stale typed text.
+    _roomsControllers.removeWhere((floor, c) {
+      if (floor <= numFloors) return false;
+      c.dispose();
+      return true;
+    });
+
+    return Padding(
+      padding: const EdgeInsets.only(top: 24), // mt-6
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          const PortalBlockHeading(
+            'Floor-wise Room Details',
+            subtitle: 'Specify room details for each floor',
+          ),
+          for (var floorNumber = 1; floorNumber <= numFloors; floorNumber++)
+            _floorCard(p, floorNumber),
+        ],
+      ),
+    );
+  }
+
+  Widget _floorCard(PostPropertyProvider p, int floorNumber) {
+    final entry = p.floorRoomDetails(floorNumber);
+    final totalRooms = (entry?['totalRooms'] as int?) ?? 0;
+    final rooms = (entry?['rooms'] as List?)?.cast<Map<String, dynamic>>() ??
+        const <Map<String, dynamic>>[];
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: PortalTheme.cardSurface,
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: PortalTheme.cardBorder),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(
+            children: [
+              const PortalIconTint('layers', color: _cFloors),
+              const SizedBox(width: 6),
+              Expanded(
+                child: Text('Floor $floorNumber',
+                    style: PortalTheme.inputLabel
+                        .copyWith(fontWeight: FontWeight.w600)),
+              ),
+              Text('Total Rooms:', style: PortalTheme.blockSubtitle),
+              const SizedBox(width: 6),
+              SizedBox(
+                width: 56,
+                child: PortalTextField(
+                  controller: _controllerFor(floorNumber, totalRooms),
+                  keyboardType: TextInputType.number,
+                  inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                  onChanged: (v) =>
+                      p.setFloorTotalRooms(floorNumber, int.tryParse(v) ?? 0),
+                ),
+              ),
+            ],
+          ),
+          if (totalRooms > 0) ...[
+            const SizedBox(height: 10),
+            Text('Room Types:', style: PortalTheme.blockSubtitle),
+            const SizedBox(height: 6),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: [
+                for (var roomNumber = 1; roomNumber <= totalRooms; roomNumber++)
+                  SizedBox(
+                    width: 168,
+                    child: Row(
+                      children: [
+                        Text('Room $roomNumber:',
+                            style: PortalTheme.inputLabel),
+                        const SizedBox(width: 6),
+                        Expanded(
+                          child: PortalSelect(
+                            value: (rooms.firstWhere(
+                                  (r) => r['roomNumber'] == roomNumber,
+                                  orElse: () => const <String, dynamic>{},
+                                )['roomType'] as String?) ??
+                                'Single Sharing',
+                            placeholder: 'Single Sharing',
+                            options: _kPgRoomTypes,
+                            onChanged: (v) =>
+                                p.setFloorRoomType(floorNumber, roomNumber, v),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+              ],
+            ),
+          ],
+        ],
       ),
     );
   }
 }
 
-/// Stands in for the portal's `BuildingFloorInventory` editor — a three-stage
-/// sub-wizard over `buildingInventory.floors[].companies[]`.
+/// `buildingInventory.floors[].floorFacing`, verbatim from the portal's
+/// inline `SelectItem` list in `BuildingFloorInventory` (Step 1).
+const List<String> _kBuildingFloorFacing = ['North', 'South', 'East', 'West'];
+
+/// Reproduction of the portal's `BuildingFloorInventory` editor
+/// (PropertyDimensionsStep.tsx:852-1170), adapted from its three-screen
+/// push/pop stepper (floor list -> office list -> office detail screen) to a
+/// mobile-appropriate accordion: one card per floor with its own fields
+/// (Step 1) and, once "Number of Offices" is set, an expandable mini-card per
+/// office (Steps 2+3 combined) — matching every other section of this step,
+/// which is a single scroll, not a sub-wizard.
 ///
-/// Same reason as [_FloorWiseRoomDetails]: those nested arrays have no
-/// representation in the provider, which stores `buildingInventory` as a flat
-/// map of scalars and preserves everything else verbatim through the merge. The
-/// scalar building fields above are fully editable; only the per-floor and
-/// per-office arrays are not.
-class _BuildingFloorInventory extends StatelessWidget {
+/// Bound to [PostPropertyProvider.setBuildingFloorField] /
+/// [PostPropertyProvider.setBuildingNumberOfCompanies] /
+/// [PostPropertyProvider.setBuildingOfficeField], which write straight into
+/// `buildingInventory.floors[]` — already included in every save via the
+/// existing `{...provider.buildingInventory}` spread in `_buildMetadata`.
+///
+/// The office detail form covers its five identifying/contact/financial
+/// fields (Office Name, Office Number, Contact Person, Phone Number, Monthly
+/// Rent); the portal's further ~30 optional facility-inventory fields per
+/// office (workstations, washrooms, pantry, power, security, IT, furniture,
+/// parking) are not collected here. Nothing is lost for web-created listings:
+/// [PostPropertyProvider.setBuildingOfficeField] only ever touches the one
+/// field it is passed, so every other key already on a company object
+/// (created on the web, or by [PostPropertyProvider._blankOffice] for a new
+/// one) survives untouched through edits.
+class _BuildingFloorInventory extends StatefulWidget {
   const _BuildingFloorInventory();
 
   @override
-  Widget build(BuildContext context) => const SizedBox.shrink();
+  State<_BuildingFloorInventory> createState() =>
+      _BuildingFloorInventoryState();
+}
+
+class _BuildingFloorInventoryState extends State<_BuildingFloorInventory> {
+  final Map<String, TextEditingController> _controllers = {};
+  final Set<String> _expandedOffices = {};
+
+  TextEditingController _ctrl(String key, String initial) {
+    return _controllers.putIfAbsent(
+        key, () => TextEditingController(text: initial));
+  }
+
+  @override
+  void dispose() {
+    for (final c in _controllers.values) {
+      c.dispose();
+    }
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final p = context.watch<PostPropertyProvider>();
+    final int totalFloors =
+        int.tryParse(p.buildingInventoryText('totalFloorsBuilding')) ?? 0;
+
+    if (totalFloors == 0) {
+      return Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: PortalTheme.cardSurface,
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(color: PortalTheme.cardBorder),
+        ),
+        child: Text(
+          'Please enter Total Floors in Building Level Details to manage '
+          'floor-wise inventory',
+          textAlign: TextAlign.center,
+          style: PortalTheme.blockSubtitle,
+        ),
+      );
+    }
+
+    // Controllers (and their accordion state) for floors/offices removed by
+    // lowering a count are dropped, so raising it again starts fresh rather
+    // than resurrecting stale typed text.
+    final validFloorKeys = List.generate(totalFloors, (i) => '${i + 1}:');
+    _controllers.removeWhere((key, c) {
+      if (validFloorKeys.any((k) => key.startsWith(k))) return false;
+      c.dispose();
+      return true;
+    });
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        for (var floorNumber = 1; floorNumber <= totalFloors; floorNumber++)
+          _floorCard(p, floorNumber),
+      ],
+    );
+  }
+
+  Widget _floorCard(PostPropertyProvider p, int floorNumber) {
+    final entry = p.buildingFloorEntry(floorNumber);
+    String text(String field) => entry?[field]?.toString() ?? '';
+    final numberOfCompanies = int.tryParse(text('numberOfCompanies')) ?? 0;
+    final companies = (entry?['companies'] as List?) ?? const [];
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: PortalTheme.cardSurface,
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: PortalTheme.cardBorder),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(
+            children: [
+              const PortalIconTint('layers', color: _cFloors),
+              const SizedBox(width: 6),
+              Text('Floor $floorNumber',
+                  style: PortalTheme.inputLabel
+                      .copyWith(fontWeight: FontWeight.w600)),
+            ],
+          ),
+          const SizedBox(height: 10),
+          Row(
+            children: [
+              Expanded(
+                child: PortalLabelledField(
+                  label: 'Floor Name',
+                  child: PortalTextField(
+                    controller: _ctrl('$floorNumber:floorName', text('floorName')),
+                    hint: 'e.g. Ground Floor',
+                    onChanged: (v) =>
+                        p.setBuildingFloorField(floorNumber, 'floorName', v),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: PortalLabelledField(
+                  label: 'Floor Area (Sq Ft)',
+                  child: PortalTextField(
+                    controller: _ctrl('$floorNumber:floorArea', text('floorArea')),
+                    hint: 'e.g. 5000',
+                    keyboardType: TextInputType.number,
+                    inputFormatters: _kNumericish,
+                    onChanged: (v) =>
+                        p.setBuildingFloorField(floorNumber, 'floorArea', v),
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          Row(
+            children: [
+              Expanded(
+                child: PortalLabelledField(
+                  label: 'Super Built-up Area (Sq Ft)',
+                  child: PortalTextField(
+                    controller: _ctrl('$floorNumber:superBuiltUpArea',
+                        text('superBuiltUpArea')),
+                    hint: 'e.g. 6000',
+                    keyboardType: TextInputType.number,
+                    inputFormatters: _kNumericish,
+                    onChanged: (v) => p.setBuildingFloorField(
+                        floorNumber, 'superBuiltUpArea', v),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: PortalLabelledField(
+                  label: 'Occupancy %',
+                  child: PortalTextField(
+                    controller: _ctrl('$floorNumber:floorOccupancyPercentage',
+                        text('floorOccupancyPercentage')),
+                    hint: 'e.g. 75',
+                    keyboardType: TextInputType.number,
+                    inputFormatters: _kNumericish,
+                    onChanged: (v) => p.setBuildingFloorField(
+                        floorNumber, 'floorOccupancyPercentage', v),
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          PortalLabelledField(
+            label: 'Floor Facing',
+            child: PortalSelect(
+              value: text('floorFacing').isEmpty ? null : text('floorFacing'),
+              placeholder: 'Select facing',
+              options: _kBuildingFloorFacing,
+              onChanged: (v) =>
+                  p.setBuildingFloorField(floorNumber, 'floorFacing', v),
+            ),
+          ),
+          const SizedBox(height: 10),
+          Wrap(
+            spacing: 16,
+            runSpacing: 8,
+            children: [
+              PortalCheckbox(
+                value: entry?['commonReceptionAvailable'] == true,
+                label: 'Common Reception',
+                onChanged: (v) => p.setBuildingFloorField(
+                    floorNumber, 'commonReceptionAvailable', v),
+              ),
+              PortalCheckbox(
+                value: entry?['commonWashroomAvailable'] == true,
+                label: 'Common Washroom',
+                onChanged: (v) => p.setBuildingFloorField(
+                    floorNumber, 'commonWashroomAvailable', v),
+              ),
+              PortalCheckbox(
+                value: entry?['commonPantryAvailable'] == true,
+                label: 'Common Pantry',
+                onChanged: (v) => p.setBuildingFloorField(
+                    floorNumber, 'commonPantryAvailable', v),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          Container(
+            padding: const EdgeInsets.only(top: 10),
+            decoration: BoxDecoration(
+              border: Border(top: BorderSide(color: PortalTheme.cardBorder)),
+            ),
+            child: PortalLabelledField(
+              label: 'Number of Offices on this Floor',
+              child: SizedBox(
+                width: 100,
+                child: PortalTextField(
+                  controller: _ctrl(
+                      '$floorNumber:numberOfCompanies', text('numberOfCompanies')),
+                  hint: 'e.g. 3',
+                  keyboardType: TextInputType.number,
+                  inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                  onChanged: (v) => p.setBuildingNumberOfCompanies(
+                      floorNumber, int.tryParse(v) ?? 0),
+                ),
+              ),
+            ),
+          ),
+          for (var i = 0; i < numberOfCompanies && i < companies.length; i++)
+            _officeCard(p, floorNumber, i,
+                (companies[i] as Map?) ?? const <String, dynamic>{}),
+        ],
+      ),
+    );
+  }
+
+  Widget _officeCard(
+    PostPropertyProvider p,
+    int floorNumber,
+    int companyIndex,
+    Map office,
+  ) {
+    String text(String field) => office[field]?.toString() ?? '';
+    final key = '$floorNumber:$companyIndex';
+    final expanded = _expandedOffices.contains(key);
+    final name = text('companyName');
+
+    return Container(
+      margin: const EdgeInsets.only(top: 10),
+      padding: const EdgeInsets.all(10),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: PortalTheme.cardBorder),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          GestureDetector(
+            behavior: HitTestBehavior.opaque,
+            onTap: () => setState(() {
+              if (expanded) {
+                _expandedOffices.remove(key);
+              } else {
+                _expandedOffices.add(key);
+              }
+            }),
+            child: Row(
+              children: [
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text('Office ${companyIndex + 1}',
+                          style: PortalTheme.inputLabel
+                              .copyWith(fontWeight: FontWeight.w600)),
+                      Text(name.isEmpty ? 'Not filled yet' : name,
+                          style: PortalTheme.blockSubtitle),
+                    ],
+                  ),
+                ),
+                Icon(
+                  expanded ? Icons.expand_less : Icons.expand_more,
+                  color: PortalTheme.slate400,
+                ),
+              ],
+            ),
+          ),
+          if (expanded) ...[
+            const SizedBox(height: 10),
+            PortalLabelledField(
+              label: 'Office Name',
+              required: true,
+              child: PortalTextField(
+                controller:
+                    _ctrl('$key:companyName', text('companyName')),
+                onChanged: (v) => p.setBuildingOfficeField(
+                    floorNumber, companyIndex, 'companyName', v),
+              ),
+            ),
+            const SizedBox(height: 10),
+            Row(
+              children: [
+                Expanded(
+                  child: PortalLabelledField(
+                    label: 'Office Number',
+                    child: PortalTextField(
+                      controller: _ctrl(
+                          '$key:officeNumber', text('officeNumber')),
+                      onChanged: (v) => p.setBuildingOfficeField(
+                          floorNumber, companyIndex, 'officeNumber', v),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: PortalLabelledField(
+                    label: 'Contact Person',
+                    child: PortalTextField(
+                      controller: _ctrl(
+                          '$key:contactPerson', text('contactPerson')),
+                      onChanged: (v) => p.setBuildingOfficeField(
+                          floorNumber, companyIndex, 'contactPerson', v),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 10),
+            Row(
+              children: [
+                Expanded(
+                  child: PortalLabelledField(
+                    label: 'Phone Number',
+                    child: PortalTextField(
+                      controller: _ctrl(
+                          '$key:phoneNumber', text('phoneNumber')),
+                      keyboardType: TextInputType.phone,
+                      onChanged: (v) => p.setBuildingOfficeField(
+                          floorNumber, companyIndex, 'phoneNumber', v),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: PortalLabelledField(
+                    label: 'Monthly Rent',
+                    child: PortalTextField(
+                      controller: _ctrl(
+                          '$key:monthlyRent', text('monthlyRent')),
+                      keyboardType: TextInputType.number,
+                      inputFormatters: _kNumericish,
+                      onChanged: (v) => p.setBuildingOfficeField(
+                          floorNumber, companyIndex, 'monthlyRent', v),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ],
+      ),
+    );
+  }
 }

@@ -188,6 +188,17 @@ class PostPropertyProvider extends ChangeNotifier {
   // the update-time metadata merge is what preserves them.
   final Map<String, List<dynamic>> _preservedLists = {};
 
+  // ── PG floor-wise room details (list of objects) ───────────────────────
+  //
+  // metadata.floorWiseRoomDetails is `{floorNumber, totalRooms, rooms:
+  // [{roomNumber, roomType}]}[]` (PropertyWizard.tsx). Lists of objects are
+  // excluded from the generic bag (see _hydrateBagFromMetadata) and land in
+  // _preservedLists instead; this is a mutable copy of that entry, built in
+  // initFromRawData, that the PG dimensions step actually edits. It is
+  // written explicitly by PropertyService for PG listings only — every other
+  // category keeps relying on the metadata merge, so nothing else changes.
+  List<Map<String, dynamic>> _floorWiseRoomDetails = [];
+
   // ── Builder project tag (optional, any category) ──────────────────────
   String _projectId = '';
   String _projectName = '';
@@ -345,20 +356,197 @@ class PostPropertyProvider extends ChangeNotifier {
   /// PG "Total Rooms" — the portal derives it as
   /// `floorWiseRoomDetails.reduce((s, f) => s + (f.totalRooms || 0), 0)`.
   int get totalRoomsAcrossFloors {
-    final list = _preservedLists['floorWiseRoomDetails'] ?? const [];
     var sum = 0;
-    for (final f in list) {
-      if (f is Map) {
-        final n = f['totalRooms'];
-        if (n is num) sum += n.toInt();
-      }
+    for (final f in _floorWiseRoomDetails) {
+      final n = f['totalRooms'];
+      if (n is num) sum += n.toInt();
     }
     return sum;
+  }
+
+  /// PG per-floor room details, one entry per floor number 1..totalFloors.
+  List<Map<String, dynamic>> get floorWiseRoomDetails =>
+      _floorWiseRoomDetails.map((f) => Map<String, dynamic>.unmodifiable(f)).toList();
+
+  Map<String, dynamic>? _floorEntry(int floorNumber) {
+    for (final f in _floorWiseRoomDetails) {
+      if (f['floorNumber'] == floorNumber) return f;
+    }
+    return null;
+  }
+
+  /// Room details for one floor, or `null` if that floor has no entry yet.
+  Map<String, dynamic>? floorRoomDetails(int floorNumber) => _floorEntry(floorNumber);
+
+  /// Sets a floor's total room count, mirroring the portal's
+  /// `handleFloorRoomsChange`: the `rooms[]` array is regenerated to match
+  /// the new count, keeping each existing room's type by room number and
+  /// defaulting freshly added rooms to 'Single Sharing'.
+  void setFloorTotalRooms(int floorNumber, int totalRooms) {
+    final clamped = totalRooms < 0 ? 0 : totalRooms;
+    var entry = _floorEntry(floorNumber);
+    final List<dynamic> existingRooms =
+        (entry?['rooms'] as List?) ?? const [];
+    final rooms = List<Map<String, dynamic>>.generate(clamped, (i) {
+      final roomNumber = i + 1;
+      final existing = existingRooms.firstWhere(
+        (r) => r is Map && r['roomNumber'] == roomNumber,
+        orElse: () => null,
+      );
+      return {
+        'roomNumber': roomNumber,
+        'roomType': (existing is Map ? existing['roomType'] : null) ??
+            'Single Sharing',
+      };
+    });
+
+    if (entry == null) {
+      entry = {'floorNumber': floorNumber, 'totalRooms': clamped, 'rooms': rooms};
+      _floorWiseRoomDetails = [..._floorWiseRoomDetails, entry]
+        ..sort((a, b) => (a['floorNumber'] as int).compareTo(b['floorNumber'] as int));
+    } else {
+      entry['totalRooms'] = clamped;
+      entry['rooms'] = rooms;
+    }
+    notifyListeners();
+  }
+
+  /// Sets a single room's type on a given floor, mirroring the portal's
+  /// `handleRoomTypeChange`.
+  void setFloorRoomType(int floorNumber, int roomNumber, String roomType) {
+    final entry = _floorEntry(floorNumber);
+    if (entry == null) return;
+    final rooms = (entry['rooms'] as List).cast<Map<String, dynamic>>();
+    for (final r in rooms) {
+      if (r['roomNumber'] == roomNumber) {
+        r['roomType'] = roomType;
+        break;
+      }
+    }
+    notifyListeners();
   }
 
   /// Reads a building-inventory value as text, for form fields.
   String buildingInventoryText(String key) =>
       _buildingInventory[key]?.toString() ?? '';
+
+  // ── Commercial floor-wise inventory (buildingInventory.floors[]) ──────
+  //
+  // Mirrors the portal's `BuildingFloorInventory` component
+  // (PropertyDimensionsStep.tsx:852-956). Stored inside `_buildingInventory`
+  // itself — not a separate field — so `_buildMetadata`'s existing
+  // `{...provider.buildingInventory}` spread picks up floor edits with no
+  // extra write path, the same way sub-keys the app never edits already
+  // survive there.
+  List<Map<String, dynamic>> get buildingFloors => (_buildingInventory['floors']
+          as List?)
+      ?.whereType<Map>()
+      .map((f) => Map<String, dynamic>.from(f))
+      .toList() ??
+      const [];
+
+  Map<String, dynamic>? buildingFloorEntry(int floorNumber) {
+    for (final f in buildingFloors) {
+      if (f['floorNumber'] == floorNumber) return f;
+    }
+    return null;
+  }
+
+  /// Default shape of one office, verbatim from the portal's
+  /// `handleNumberOfCompaniesChange` — every key an empty string so a newly
+  /// added office matches what a web-created listing's company object looks
+  /// like before it is filled in.
+  static Map<String, dynamic> _blankOffice() => {
+        'companyName': '',
+        'companyType': '',
+        'industryCategory': '',
+        'officeNumber': '',
+        'registrationNumber': '',
+        'gstNumber': '',
+        'website': '',
+        'email': '',
+        'phoneNumber': '',
+        'contactPerson': '',
+        'designation': '',
+        'occupiedArea': '',
+        'leaseStartDate': '',
+        'leaseEndDate': '',
+        'monthlyRent': '',
+        'securityDeposit': '',
+        'lockInPeriod': '',
+        'numberOfEmployees': '',
+        'seatingCapacity': '',
+      };
+
+  void _writeBuildingFloors(List<Map<String, dynamic>> floors) {
+    _buildingInventory = {..._buildingInventory, 'floors': floors};
+    notifyListeners();
+  }
+
+  /// Sets one field on a floor's own data (not an office within it) —
+  /// mirrors `handleFloorChange`. Creates the floor entry on first write.
+  void setBuildingFloorField(int floorNumber, String field, Object? value) {
+    final floors = buildingFloors;
+    final i = floors.indexWhere((f) => f['floorNumber'] == floorNumber);
+    if (i >= 0) {
+      floors[i] = {...floors[i], field: value};
+    } else {
+      floors.add({'floorNumber': floorNumber, field: value, 'companies': []});
+    }
+    _writeBuildingFloors(floors);
+  }
+
+  /// Sets a floor's office count, mirroring `handleNumberOfCompaniesChange`:
+  /// regenerates `companies[]` to the new length, keeping existing offices by
+  /// index and defaulting new ones to [_blankOffice].
+  void setBuildingNumberOfCompanies(int floorNumber, int numCompanies) {
+    final clamped = numCompanies < 0 ? 0 : numCompanies;
+    final floors = buildingFloors;
+    final i = floors.indexWhere((f) => f['floorNumber'] == floorNumber);
+    final existingCompanies =
+        (i >= 0 ? floors[i]['companies'] as List? : null) ?? const [];
+    final companies = List<Map<String, dynamic>>.generate(clamped, (idx) {
+      if (idx < existingCompanies.length) {
+        final c = existingCompanies[idx];
+        return c is Map ? Map<String, dynamic>.from(c) : _blankOffice();
+      }
+      return _blankOffice();
+    });
+
+    if (i >= 0) {
+      floors[i] = {
+        ...floors[i],
+        'numberOfCompanies': '$clamped',
+        'companies': companies,
+      };
+    } else {
+      floors.add({
+        'floorNumber': floorNumber,
+        'numberOfCompanies': '$clamped',
+        'companies': companies,
+      });
+    }
+    _writeBuildingFloors(floors);
+  }
+
+  /// Sets one field on a single office, mirroring `handleOfficeChange`. Only
+  /// the field named is touched, so every other key already on that office
+  /// (from a web-created listing, or from fields this editor doesn't expose)
+  /// survives untouched.
+  void setBuildingOfficeField(
+      int floorNumber, int companyIndex, String field, Object? value) {
+    final floors = buildingFloors;
+    final i = floors.indexWhere((f) => f['floorNumber'] == floorNumber);
+    if (i < 0) return;
+    final companies =
+        ((floors[i]['companies'] as List?) ?? const [])
+            .map((c) => c is Map ? Map<String, dynamic>.from(c) : _blankOffice())
+            .toList();
+    if (companyIndex < 0 || companyIndex >= companies.length) return;
+    companies[companyIndex] = {...companies[companyIndex], field: value};
+    floors[i] = {...floors[i], 'companies': companies};
+    _writeBuildingFloors(floors);
+  }
 
   String get projectId => _projectId;
   String get projectName => _projectName;
@@ -943,6 +1131,7 @@ class PostPropertyProvider extends ChangeNotifier {
     _mainDisplayMediaUrl = '';
     _buildingInventory = {};
     _preservedLists.clear();
+    _floorWiseRoomDetails = [];
     _projectId = '';
     _projectName = '';
     _projectLocation = '';
@@ -1056,6 +1245,12 @@ class PostPropertyProvider extends ChangeNotifier {
     _latitude = (propertyRow['latitude'] as num?)?.toDouble();
     _longitude = (propertyRow['longitude'] as num?)?.toDouble();
     _price = propertyRow['price']?.toString() ?? '';
+    // properties.rate_per_area is a real column, not metadata — same class of
+    // bug as amenities below: the metadata bag flush never sees it, so
+    // without this explicit read it silently reset to '' on every edit even
+    // though the value was correctly saved on create/update
+    // (property_service.dart's insert/update payload).
+    _ratePerArea = propertyRow['rate_per_area']?.toString() ?? '';
     // T1: map legacy Flutter enum spellings onto React's canonical values on
     // read, so a row written by an older build still matches the canonical
     // option lists (and, for area unit, still resolves to a DropdownButton
@@ -1108,6 +1303,19 @@ class PostPropertyProvider extends ChangeNotifier {
     if (amenitiesCol is List && amenitiesCol.isNotEmpty) {
       _list['amenities'] =
           amenitiesCol.where((e) => e != null).map((e) => e.toString()).toList();
+    }
+
+    // properties.hashtags is likewise a real column outside metadata — same
+    // fix as amenities/rate_per_area above. The column stores bare words
+    // (PropertyService._parseHashtags strips the '#' before writing); the
+    // field editor expects the '#'-prefixed, space-joined form, mirroring
+    // PropertyWizard.tsx:1272's `hashtags.map(h => '#'+h).join(' ')`.
+    final hashtagsCol = propertyRow['hashtags'];
+    if (hashtagsCol is List && hashtagsCol.isNotEmpty) {
+      _hashtags = hashtagsCol
+          .where((e) => e != null && e.toString().isNotEmpty)
+          .map((e) => '#$e')
+          .join(' ');
     }
 
     // Builder project tag. React reads the column first and falls back to the
@@ -1189,6 +1397,19 @@ class PostPropertyProvider extends ChangeNotifier {
     }
 
     _hydrateBagFromMetadata(meta);
+
+    // floorWiseRoomDetails is a list of objects, so the bag routed it into
+    // _preservedLists above; copy it into mutable editor state so the PG
+    // dimensions step can actually edit it without disturbing that raw
+    // snapshot (still the thing the update-time merge falls back on for
+    // any sub-shape this editor does not touch).
+    final rawFloors = _preservedLists['floorWiseRoomDetails'];
+    if (rawFloors != null) {
+      _floorWiseRoomDetails = rawFloors
+          .whereType<Map>()
+          .map((f) => Map<String, dynamic>.from(f))
+          .toList();
+    }
 
     if (subtableRow != null) {
       final String? cat = propertyRow['category']?.toString();

@@ -5,15 +5,20 @@ import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_text_styles.dart';
 import '../../../core/widgets/scale_tap.dart';
 
-/// Two-up "Create Content" tile grid (blueprint §4.1).
+/// "Create Content" tile grid (blueprint §4.1). Two-up normally; a third
+/// "Add Video" tile appears when [onAddVideo] is supplied — mirrors the
+/// portal's `CreateContent.tsx`, which only widens this grid to
+/// `grid-cols-3` for `userType === 'influencer'` (lines 379-390).
 class CreateContentGrid extends StatelessWidget {
   final VoidCallback onAddProperty;
   final VoidCallback onAddArticle;
+  final VoidCallback? onAddVideo;
 
   const CreateContentGrid({
     super.key,
     required this.onAddProperty,
     required this.onAddArticle,
+    this.onAddVideo,
   });
 
   @override
@@ -29,6 +34,7 @@ class CreateContentGrid extends StatelessWidget {
     // the prototype's `1fr 1fr` grid. Same pattern already used by
     // ProfileStatsRow in this scroll view. Two shallow tiles, so the extra
     // measuring pass costs nothing meaningful.
+    final addVideo = onAddVideo;
     return IntrinsicHeight(
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -48,6 +54,16 @@ class CreateContentGrid extends StatelessWidget {
               onTap: onAddArticle,
             ),
           ),
+          if (addVideo != null) ...[
+            const SizedBox(width: 10),
+            Expanded(
+              child: _ContentTile(
+                icon: Icons.videocam_rounded,
+                label: 'Add Video',
+                onTap: addVideo,
+              ),
+            ),
+          ],
         ],
       ),
     );

@@ -1060,6 +1060,14 @@ class PropertyService {
         for (final entry in _kPgHouseRuleSources.entries)
           entry.key: provider.boolVal(entry.value),
       };
+      // React always writes this array too (dbArray semantics — PropertyWizard
+      // .tsx), rebuilt from the Total Floors x per-floor Total Rooms/Room Type
+      // inputs (see PostPropertyProvider.setFloorTotalRooms/setFloorRoomType).
+      // Scoped to PG the same way pgHouseRules/isPg are above: this key is a
+      // list of objects, so writing it for any other category — where this
+      // editor never ran — would stomp whatever the metadata merge would
+      // otherwise have preserved there.
+      meta['floorWiseRoomDetails'] = provider.floorWiseRoomDetails;
     }
 
     // ── Commercial building inventory ─────────────────────────────────────

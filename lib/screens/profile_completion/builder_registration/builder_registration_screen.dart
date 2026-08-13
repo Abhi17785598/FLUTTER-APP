@@ -1,11 +1,93 @@
+// screens/profile_completion/builder_registration/builder_registration_screen.dart
+//
+// Mirrors `BuilderRegistration.tsx` field-for-field: same 7 steps (Personal,
+// Company, Address, Documents, Social, Account, Terms), same required-field
+// map (`STEP_REQUIRED`), same regex patterns (`PATTERNS`), same option lists
+// (`EXPERTISE_OPTIONS` / `LANGUAGE_OPTIONS` / `COUNTRY_CODES`), same upsert
+// payload shape (`handleSubmit`).
+//
+// The portal's old "Step 4: Project Information" has no JSX anywhere in that
+// file — `projectName`/`projectType`/… exist only in its TypeScript interface
+// and are never submitted. It is dropped here too, not carried over.
+//
+// Validation is modelled as an imperative `_errors` map keyed by field name,
+// computed on "Continue"/"Submit" — not live per-keystroke — because that is
+// exactly how the portal's `handleNext`/`handleSubmit` work: errors appear
+// only after an advance attempt, not while typing.
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import '../../../providers/auth_provider.dart';
-import '../../../services/profile_service.dart';
-import '../../role_home_router.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
+
 import '../../../core/utils/text_input_formatters.dart';
+import '../../../providers/auth_provider.dart';
+import '../../../services/geocoding_service.dart';
+import '../../../services/profile_media_service.dart';
+import '../../../services/profile_service.dart';
+import '../../../services/registration_draft_store.dart';
+import '../../../widgets/address_autocomplete_field.dart';
+import '../../../widgets/location_picker_map.dart';
+import '../../role_home_router.dart';
+
+// ── Portal constants, transcribed verbatim ──────────────────────────────────
+// (`BuilderRegistration.tsx:118-213`)
+
+const List<Map<String, String>> _kCountryCodes = [
+  {'code': '+91', 'country': 'India'},
+  {'code': '+1', 'country': 'USA'},
+  {'code': '+44', 'country': 'UK'},
+  {'code': '+61', 'country': 'Australia'},
+  {'code': '+971', 'country': 'UAE'},
+];
+
+final RegExp _emailPattern = RegExp(r'^[^\s@]+@[^\s@]+\.[^\s@]+$');
+final RegExp _mobilePattern = RegExp(r'^[6-9]\d{9}$');
+final RegExp _pincodePattern = RegExp(r'^\d{6}$');
+final RegExp _reraPattern = RegExp(r'^[A-Z]{2}\d{4}\d{4}$');
+final RegExp _websitePattern = RegExp(
+  r'^https?:\/\/(www\.)?[-a-zA-Z0-9@:%._+~#=]{1,256}\.[a-zA-Z0-9()]{1,6}\b',
+);
+final RegExp _gstPattern =
+    RegExp(r'^\d{2}[A-Z]{5}\d{4}[A-Z]{1}[A-Z\d]{1}[Z]{1}[A-Z\d]{1}$');
+final RegExp _panPattern = RegExp(r'^[A-Z]{5}\d{4}[A-Z]{1}$');
+
+const List<String> _kCompanyTypes = [
+  'Individual',
+  'Partnership',
+  'LLP',
+  'Private Limited',
+];
+
+const List<String> _kExpertiseOptions = [
+  'Luxury Properties',
+  'High-Rise Apartments',
+  'Commercial Leasing',
+  'Farmhouses & Land',
+  'Affordable Housing',
+  'First-Time Home Buyers',
+  'Industrial Spaces',
+  'Real Estate Investment Advisor',
+];
+
+const List<String> _kLanguageOptions = [
+  'English',
+  'Hindi',
+  'Marathi',
+  'Gujarati',
+  'Tamil',
+  'Telugu',
+  'Kannada',
+  'Malayalam',
+  'Bengali',
+  'Punjabi',
+];
+
+const List<String> _kGenderOptions = ['Male', 'Female', 'Other', 'Skip'];
+
+bool _isBlank(String? v) => v == null || v.trim().isEmpty;
 
 class BuilderRegistrationScreen extends StatefulWidget {
   const BuilderRegistrationScreen({super.key});
@@ -18,28 +100,38 @@ class BuilderRegistrationScreen extends StatefulWidget {
 class _BuilderRegistrationScreenState
     extends State<BuilderRegistrationScreen> {
   int currentStep = 0;
+  bool _isSubmitting = false;
+  final Map<String, String> _errors = {};
+  final _mediaService = ProfileMediaService();
+  final Set<String> _uploading = {};
+  final _draftStore = RegistrationDraftStore('builder_registration_draft');
 
   // ─── Step 1 – Personal Information ───────────────────────────────────────
   final _companyNameCtrl = TextEditingController();
   final _emailCtrl = TextEditingController();
   final _mobileCtrl = TextEditingController();
   final _altMobileCtrl = TextEditingController();
-  String? _selectedGender;
+  String _countryCode = '+91';
+  String _alternateCountryCode = '+91';
+  String? _gender;
   final _dobCtrl = TextEditingController();
-  // profile photo & company logo → placeholder strings
-  String _profilePhotoPath = '';
-  String _companyLogoPath = '';
+  String? _avatarUrl;
+  String? _companyLogoUrl;
+  bool _isEmailUser = false;
+  bool _isPhoneUser = false;
 
   // ─── Step 2 – Company Details ─────────────────────────────────────────────
-  String? _selectedCompanyType;
+  String? _companyType;
   final _reraNumberCtrl = TextEditingController();
   final _gstNumberCtrl = TextEditingController();
   final _panNumberCtrl = TextEditingController();
   final _yearsOfExpCtrl = TextEditingController();
   final _websiteCtrl = TextEditingController();
   final _aboutCompanyCtrl = TextEditingController();
-  final _areasOfExpertiseCtrl = TextEditingController();
-  final _languagesKnownCtrl = TextEditingController();
+  final List<String> _areasOfExpertise = [];
+  final List<String> _languagesKnown = [];
+  final _customAreaCtrl = TextEditingController();
+  final _customLangCtrl = TextEditingController();
 
   // ─── Step 3 – Address Information ────────────────────────────────────────
   final _officeAddressCtrl = TextEditingController();
@@ -47,29 +139,18 @@ class _BuilderRegistrationScreenState
   final _stateCtrl = TextEditingController();
   final _pincodeCtrl = TextEditingController();
   final _landmarkCtrl = TextEditingController();
+  // Not submitted — mirrors the portal, which only ever uses these to drive
+  // the map picker and geocoding, never to populate the profiles upsert.
+  double? _pickedLat;
+  double? _pickedLng;
 
-  // ─── Step 4 – Project Information ────────────────────────────────────────
-  final _projectNameCtrl = TextEditingController();
-  String? _selectedProjectType;
-  String? _selectedProjectStatus;
-  final _startingPriceCtrl = TextEditingController();
-  final _totalUnitsCtrl = TextEditingController();
-  final _totalTowersCtrl = TextEditingController();
-  final _totalAreaCtrl = TextEditingController();
-  final _amenitiesCtrl = TextEditingController();
-  final _possessionDateCtrl = TextEditingController();
+  // ─── Step 4 – Documents ──────────────────────────────────────────────────
+  String? _reraCertificateUrl;
+  String? _gstCertificateUrl;
+  String? _panCardUrl;
+  String? _registrationProofUrl;
 
-  // ─── Step 5 – Documents ──────────────────────────────────────────────────
-  // All placeholders – no actual upload logic
-  String _reraCertPath = '';
-  String _gstCertPath = '';
-  String _panCardPath = '';
-  String _regProofPath = '';
-  String _brochurePath = '';
-  String _floorPlanPath = '';
-  String _projectImagesPath = '';
-
-  // ─── Step 6 – Social Media ────────────────────────────────────────────────
+  // ─── Step 5 – Social Media ────────────────────────────────────────────────
   final _facebookCtrl = TextEditingController();
   final _instagramCtrl = TextEditingController();
   final _linkedinCtrl = TextEditingController();
@@ -77,147 +158,689 @@ class _BuilderRegistrationScreenState
   final _whatsappCtrl = TextEditingController();
   final _telegramCtrl = TextEditingController();
 
-  // ─── Step 7 – Account Setup ───────────────────────────────────────────────
+  // ─── Step 6 – Account Setup ───────────────────────────────────────────────
+  // No password field here — the account's password is already set at signup
+  // (auth_screen.dart's sign-up form collects it before this screen is ever
+  // reached), so asking again would just be a redundant, confusing prompt.
   final _usernameCtrl = TextEditingController();
+  Timer? _usernameDebounce;
+  bool? _usernameAvailable;
+  bool _usernameTaken = false;
 
-  // ─── Form Keys ────────────────────────────────────────────────────────────
-  final _step1Key = GlobalKey<FormState>();
-  final _step2Key = GlobalKey<FormState>();
-  final _step3Key = GlobalKey<FormState>();
-  final _step7Key = GlobalKey<FormState>();
+  // ─── Step 7 – Terms ───────────────────────────────────────────────────────
+  bool _termsAccepted = false;
+  bool _privacyAccepted = false;
 
   final List<String> _stepTitles = [
-    'Personal Information',
+    'Personal Info',
     'Company Details',
-    'Address Information',
-    'Project Information',
-    'Documents Upload',
-    'Social Media',
-    'Account Setup',
+    'Address',
+    'Documents',
+    'Socials',
+    'Account',
+    'Submit',
   ];
 
   final List<IconData> _stepIcons = [
     Icons.person_outline,
     Icons.business_outlined,
     Icons.location_on_outlined,
-    Icons.apartment_outlined,
-    Icons.folder_outlined,
+    Icons.description_outlined,
     Icons.share_outlined,
     Icons.lock_outline,
+    Icons.verified_outlined,
   ];
 
-  // ─── Navigation ───────────────────────────────────────────────────────────
-  bool _validateCurrentStep() {
-    switch (currentStep) {
-      case 0:
-        return _step1Key.currentState?.validate() ?? false;
-      case 1:
-        return _step2Key.currentState?.validate() ?? false;
-      case 2:
-        return _step3Key.currentState?.validate() ?? false;
-      case 6:
-        return _step7Key.currentState?.validate() ?? false;
-      default:
-        return true;
+  @override
+  void initState() {
+    super.initState();
+    // Mirrors BuilderRegistration.tsx:534-573 — the auth identity the user
+    // signed up with is pre-filled and locked so it can't drift from the
+    // account it actually belongs to.
+    final authUser = Supabase.instance.client.auth.currentUser;
+    final rawEmail = authUser?.email;
+    final rawPhone = authUser?.phone;
+
+    _isEmailUser = rawEmail != null &&
+        rawEmail.isNotEmpty &&
+        !rawEmail.endsWith('@propcid.app');
+    _isPhoneUser = (rawPhone != null && rawPhone.isNotEmpty) ||
+        (rawEmail != null && rawEmail.endsWith('@propcid.app'));
+
+    if (_isEmailUser) _emailCtrl.text = rawEmail!;
+    if (_isPhoneUser) {
+      if (rawPhone != null && rawPhone.isNotEmpty) {
+        final digits = rawPhone.replaceAll(RegExp(r'\D'), '');
+        _mobileCtrl.text =
+            digits.length > 10 ? digits.substring(digits.length - 10) : digits;
+      } else if (rawEmail != null) {
+        final m = RegExp(r'u(\d+)@').firstMatch(rawEmail);
+        if (m != null) _mobileCtrl.text = m.group(1)!;
+      }
+    }
+
+    _wireDraftAutoSave();
+    _restoreDraft();
+  }
+
+  // ─── Draft persistence — mirrors the portal's per-wizard localStorage
+  // autosave (e.g. BuilderRegistration.tsx:481-491's `autoSave`), restored on
+  // reopen so a half-filled form isn't lost between sessions. See
+  // RegistrationDraftStore for the save/load/expiry mechanics.
+  void _wireDraftAutoSave() {
+    for (final c in [
+      _companyNameCtrl, _emailCtrl, _mobileCtrl, _altMobileCtrl, _dobCtrl,
+      _reraNumberCtrl, _gstNumberCtrl, _panNumberCtrl, _yearsOfExpCtrl,
+      _websiteCtrl, _aboutCompanyCtrl,
+      _officeAddressCtrl, _cityCtrl, _stateCtrl, _pincodeCtrl, _landmarkCtrl,
+      _facebookCtrl, _instagramCtrl, _linkedinCtrl, _youtubeCtrl,
+      _whatsappCtrl, _telegramCtrl,
+      _usernameCtrl,
+    ]) {
+      c.addListener(_scheduleDraftSave);
     }
   }
 
+  void _scheduleDraftSave() => _draftStore.scheduleSave(_draftToJson);
+
+  Map<String, dynamic> _draftToJson() => {
+        'currentStep': currentStep,
+        'companyName': _companyNameCtrl.text,
+        'email': _emailCtrl.text,
+        'mobileNumber': _mobileCtrl.text,
+        'countryCode': _countryCode,
+        'alternateMobileNumber': _altMobileCtrl.text,
+        'alternateCountryCode': _alternateCountryCode,
+        'gender': _gender ?? '',
+        'dob': _dobCtrl.text,
+        'avatarUrl': _avatarUrl ?? '',
+        'companyLogoUrl': _companyLogoUrl ?? '',
+        'companyType': _companyType ?? '',
+        'reraNumber': _reraNumberCtrl.text,
+        'gstNumber': _gstNumberCtrl.text,
+        'panNumber': _panNumberCtrl.text,
+        'yearsOfExperience': _yearsOfExpCtrl.text,
+        'websiteUrl': _websiteCtrl.text,
+        'aboutCompany': _aboutCompanyCtrl.text,
+        'areasOfExpertise': _areasOfExpertise,
+        'languagesKnown': _languagesKnown,
+        'officeAddress': _officeAddressCtrl.text,
+        'city': _cityCtrl.text,
+        'state': _stateCtrl.text,
+        'pincode': _pincodeCtrl.text,
+        'landmark': _landmarkCtrl.text,
+        'pickedLat': _pickedLat,
+        'pickedLng': _pickedLng,
+        'reraCertificateUrl': _reraCertificateUrl ?? '',
+        'gstCertificateUrl': _gstCertificateUrl ?? '',
+        'panCardUrl': _panCardUrl ?? '',
+        'registrationProofUrl': _registrationProofUrl ?? '',
+        'facebookUrl': _facebookCtrl.text,
+        'instagramUrl': _instagramCtrl.text,
+        'linkedinUrl': _linkedinCtrl.text,
+        'youtubeUrl': _youtubeCtrl.text,
+        'whatsappNumber': _whatsappCtrl.text,
+        'telegramUrl': _telegramCtrl.text,
+        'username': _usernameCtrl.text,
+        'termsAccepted': _termsAccepted,
+        'privacyAccepted': _privacyAccepted,
+      };
+
+  Future<void> _restoreDraft() async {
+    final data = await _draftStore.load();
+    if (!mounted || data == null) return;
+
+    String s(String key) => data[key] as String? ?? '';
+    List<String> l(String key) => (data[key] as List<dynamic>?)?.cast<String>() ?? const [];
+
+    setState(() {
+      final step = data['currentStep'] as int?;
+      if (step != null && step >= 0 && step < _stepTitles.length) currentStep = step;
+
+      if (s('companyName').isNotEmpty) _companyNameCtrl.text = s('companyName');
+      if (s('email').isNotEmpty) _emailCtrl.text = s('email');
+      if (s('mobileNumber').isNotEmpty) _mobileCtrl.text = s('mobileNumber');
+      if (s('countryCode').isNotEmpty) _countryCode = s('countryCode');
+      if (s('alternateMobileNumber').isNotEmpty) {
+        _altMobileCtrl.text = s('alternateMobileNumber');
+      }
+      if (s('alternateCountryCode').isNotEmpty) {
+        _alternateCountryCode = s('alternateCountryCode');
+      }
+      if (s('gender').isNotEmpty) _gender = s('gender');
+      if (s('dob').isNotEmpty) _dobCtrl.text = s('dob');
+      if (s('avatarUrl').isNotEmpty) _avatarUrl = s('avatarUrl');
+      if (s('companyLogoUrl').isNotEmpty) _companyLogoUrl = s('companyLogoUrl');
+
+      if (s('companyType').isNotEmpty) _companyType = s('companyType');
+      if (s('reraNumber').isNotEmpty) _reraNumberCtrl.text = s('reraNumber');
+      if (s('gstNumber').isNotEmpty) _gstNumberCtrl.text = s('gstNumber');
+      if (s('panNumber').isNotEmpty) _panNumberCtrl.text = s('panNumber');
+      if (s('yearsOfExperience').isNotEmpty) {
+        _yearsOfExpCtrl.text = s('yearsOfExperience');
+      }
+      if (s('websiteUrl').isNotEmpty) _websiteCtrl.text = s('websiteUrl');
+      if (s('aboutCompany').isNotEmpty) _aboutCompanyCtrl.text = s('aboutCompany');
+      final expertise = l('areasOfExpertise');
+      if (expertise.isNotEmpty) {
+        _areasOfExpertise
+          ..clear()
+          ..addAll(expertise);
+      }
+      final languages = l('languagesKnown');
+      if (languages.isNotEmpty) {
+        _languagesKnown
+          ..clear()
+          ..addAll(languages);
+      }
+
+      if (s('officeAddress').isNotEmpty) _officeAddressCtrl.text = s('officeAddress');
+      if (s('city').isNotEmpty) _cityCtrl.text = s('city');
+      if (s('state').isNotEmpty) _stateCtrl.text = s('state');
+      if (s('pincode').isNotEmpty) _pincodeCtrl.text = s('pincode');
+      if (s('landmark').isNotEmpty) _landmarkCtrl.text = s('landmark');
+      _pickedLat = (data['pickedLat'] as num?)?.toDouble() ?? _pickedLat;
+      _pickedLng = (data['pickedLng'] as num?)?.toDouble() ?? _pickedLng;
+
+      if (s('reraCertificateUrl').isNotEmpty) {
+        _reraCertificateUrl = s('reraCertificateUrl');
+      }
+      if (s('gstCertificateUrl').isNotEmpty) {
+        _gstCertificateUrl = s('gstCertificateUrl');
+      }
+      if (s('panCardUrl').isNotEmpty) _panCardUrl = s('panCardUrl');
+      if (s('registrationProofUrl').isNotEmpty) {
+        _registrationProofUrl = s('registrationProofUrl');
+      }
+
+      if (s('facebookUrl').isNotEmpty) _facebookCtrl.text = s('facebookUrl');
+      if (s('instagramUrl').isNotEmpty) _instagramCtrl.text = s('instagramUrl');
+      if (s('linkedinUrl').isNotEmpty) _linkedinCtrl.text = s('linkedinUrl');
+      if (s('youtubeUrl').isNotEmpty) _youtubeCtrl.text = s('youtubeUrl');
+      if (s('whatsappNumber').isNotEmpty) _whatsappCtrl.text = s('whatsappNumber');
+      if (s('telegramUrl').isNotEmpty) _telegramCtrl.text = s('telegramUrl');
+
+      if (s('username').isNotEmpty) _usernameCtrl.text = s('username');
+      _termsAccepted = data['termsAccepted'] as bool? ?? _termsAccepted;
+      _privacyAccepted = data['privacyAccepted'] as bool? ?? _privacyAccepted;
+    });
+  }
+
+  // ─── Navigation ───────────────────────────────────────────────────────────
   void _nextStep() {
-    if (!_validateCurrentStep()) return;
+    final stepErrors = switch (currentStep) {
+      0 => _validateStep0(),
+      1 => _validateStep1(),
+      2 => _validateStep2(),
+      3 => _validateStep3(),
+      4 => _validateStep4(),
+      5 => _validateStep5(),
+      _ => <String, String>{},
+    };
+
+    setState(() {
+      _errors.clear();
+      _errors.addAll(stepErrors);
+    });
+
+    if (stepErrors.isNotEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content:
+              Text('Please fill all required fields and verify formats correctly.'),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return;
+    }
+
     if (currentStep < _stepTitles.length - 1) {
       setState(() => currentStep++);
+      _scheduleDraftSave();
     }
   }
 
   void _previousStep() {
-    if (currentStep > 0) setState(() => currentStep--);
+    if (currentStep > 0) {
+      setState(() {
+        currentStep--;
+        _errors.clear();
+      });
+      _scheduleDraftSave();
+    }
   }
 
- Future<void> _onSubmit() async {
-  if (!(_step7Key.currentState?.validate() ?? false)) return;
+  // ─── Per-step validation — mirrors STEP_REQUIRED + the custom checks in
+  // BuilderRegistration.tsx:786-875 ─────────────────────────────────────────
+  Map<String, String> _validateStep0() {
+    final e = <String, String>{};
+    if (_isBlank(_companyNameCtrl.text)) e['companyName'] = 'Company name is required.';
+    if (_isBlank(_emailCtrl.text)) {
+      e['email'] = 'Email address is required.';
+    } else if (!_emailPattern.hasMatch(_emailCtrl.text.trim())) {
+      e['email'] = 'Please enter a valid email address.';
+    }
+    if (_isBlank(_mobileCtrl.text)) {
+      e['mobileNumber'] = 'Mobile number is required.';
+    } else {
+      final digits = _mobileCtrl.text.replaceAll(RegExp(r'\D'), '');
+      if (_countryCode == '+91') {
+        if (!_mobilePattern.hasMatch(digits)) {
+          e['mobileNumber'] = 'Mobile number must be a valid 10-digit number.';
+        }
+      } else if (digits.length < 8 || digits.length > 12) {
+        e['mobileNumber'] = 'Phone number must be between 8 and 12 digits.';
+      }
+    }
+    if (_altMobileCtrl.text.trim().isNotEmpty) {
+      final digits = _altMobileCtrl.text.replaceAll(RegExp(r'\D'), '');
+      if (_alternateCountryCode == '+91') {
+        if (!_mobilePattern.hasMatch(digits)) {
+          e['alternateMobileNumber'] =
+              'Alternate number must be a valid 10-digit Indian mobile number.';
+        }
+      } else if (digits.length < 8 || digits.length > 12) {
+        e['alternateMobileNumber'] = 'Alternate number must be between 8 and 12 digits.';
+      }
+    }
+    if (_gender == null || _gender!.isEmpty) e['gender'] = 'Gender is required.';
+    if (_isBlank(_dobCtrl.text)) e['dob'] = 'Date of birth is required.';
+    if ((_avatarUrl ?? '').isEmpty) e['avatarUrl'] = 'Profile photo is required.';
+    if ((_companyLogoUrl ?? '').isEmpty) {
+      e['companyLogoUrl'] = 'Company logo is required.';
+    }
+    return e;
+  }
 
-  try {
-    await ProfileService().saveBuilderProfile(
-      companyName: _companyNameCtrl.text.trim(),
-      email: _emailCtrl.text.trim(),
-      mobile: _mobileCtrl.text.trim(),
-      city: _cityCtrl.text.trim(),
-      state: _stateCtrl.text.trim(),
-      officeAddress: _officeAddressCtrl.text.trim(),
-      pincode: _pincodeCtrl.text.trim(),
-      reraNumber: _reraNumberCtrl.text.trim(),
-      yearsOfExperience: _yearsOfExpCtrl.text.trim(),
-      website: _websiteCtrl.text.trim(),
-      aboutCompany: _aboutCompanyCtrl.text.trim(),
-      username: _usernameCtrl.text.trim(),
-      avatarUrl: _profilePhotoPath,
-    );
+  Map<String, String> _validateStep1() {
+    final e = <String, String>{};
+    if (_companyType == null || _companyType!.isEmpty) {
+      e['companyType'] = 'Company type is required.';
+    }
+    if (_isBlank(_reraNumberCtrl.text)) {
+      e['reraNumber'] = 'RERA number is required.';
+    } else if (!_reraPattern.hasMatch(_reraNumberCtrl.text.trim())) {
+      e['reraNumber'] = 'RERA Number should match format (e.g. MH12345678)';
+    }
+    if (_isBlank(_gstNumberCtrl.text)) {
+      e['gstNumber'] = 'GST number is required.';
+    } else if (!_gstPattern.hasMatch(_gstNumberCtrl.text.trim())) {
+      e['gstNumber'] = 'GST Number must be a valid 15-character GSTIN format.';
+    }
+    if (_isBlank(_panNumberCtrl.text)) {
+      e['panNumber'] = 'PAN number is required.';
+    } else if (!_panPattern.hasMatch(_panNumberCtrl.text.trim())) {
+      e['panNumber'] = 'PAN Card must be a valid 10-character PAN format.';
+    }
+    if (_isBlank(_yearsOfExpCtrl.text)) {
+      e['yearsOfExperience'] = 'Years of experience is required.';
+    }
+    if (_areasOfExpertise.isEmpty) {
+      e['areasOfExpertise'] = 'Areas of expertise is required.';
+    }
+    if (_languagesKnown.isEmpty) e['languagesKnown'] = 'Languages known is required.';
+    if (_isBlank(_websiteCtrl.text)) e['websiteUrl'] = 'Website URL is required.';
+    if (_isBlank(_aboutCompanyCtrl.text)) {
+      e['aboutCompany'] = 'About the company is required.';
+    }
+    return e;
+  }
 
+  Map<String, String> _validateStep2() {
+    final e = <String, String>{};
+    if (_isBlank(_officeAddressCtrl.text)) e['officeAddress'] = 'Office address is required.';
+    if (_isBlank(_cityCtrl.text)) e['city'] = 'City is required.';
+    if (_isBlank(_stateCtrl.text)) e['state'] = 'State is required.';
+    if (_isBlank(_pincodeCtrl.text)) {
+      e['pincode'] = 'Pincode is required.';
+    } else if (!_pincodePattern.hasMatch(_pincodeCtrl.text.trim())) {
+      e['pincode'] = 'Pincode must be a 6-digit number.';
+    }
+    return e;
+  }
+
+  Map<String, String> _validateStep3() {
+    final e = <String, String>{};
+    if ((_reraCertificateUrl ?? '').isEmpty) {
+      e['reraCertificateUrl'] = 'RERA certificate is required.';
+    }
+    if ((_gstCertificateUrl ?? '').isEmpty) {
+      e['gstCertificateUrl'] = 'GST certificate is required.';
+    }
+    if ((_panCardUrl ?? '').isEmpty) e['panCardUrl'] = 'PAN card copy is required.';
+    if ((_registrationProofUrl ?? '').isEmpty) {
+      e['registrationProofUrl'] = 'Company registration proof is required.';
+    }
+    return e;
+  }
+
+  Map<String, String> _validateStep4() {
+    final e = <String, String>{};
+    if (_facebookCtrl.text.trim().isNotEmpty &&
+        !_websitePattern.hasMatch(_facebookCtrl.text.trim())) {
+      e['facebookUrl'] = 'Invalid URL format.';
+    }
+    if (_instagramCtrl.text.trim().isNotEmpty &&
+        !_websitePattern.hasMatch(_instagramCtrl.text.trim())) {
+      e['instagramUrl'] = 'Invalid URL format.';
+    }
+    if (_linkedinCtrl.text.trim().isNotEmpty &&
+        !_websitePattern.hasMatch(_linkedinCtrl.text.trim())) {
+      e['linkedinUrl'] = 'Invalid URL format.';
+    }
+    if (_youtubeCtrl.text.trim().isNotEmpty &&
+        !_websitePattern.hasMatch(_youtubeCtrl.text.trim())) {
+      e['youtubeUrl'] = 'Invalid URL format.';
+    }
+    return e;
+  }
+
+  Map<String, String> _validateStep5() {
+    final e = <String, String>{};
+    final username = _usernameCtrl.text.trim();
+    if (username.length < 3) {
+      e['username'] = 'Username must be at least 3 characters.';
+    } else if (_usernameAvailable == null) {
+      e['username'] = 'Checking username availability. Please wait.';
+    } else if (_usernameTaken) {
+      e['username'] = 'This username is already taken.';
+    }
+    return e;
+  }
+
+  // ─── Username availability — mirrors BuilderRegistration.tsx:493-528 ─────
+  void _onUsernameChanged(String value) {
+    final cleaned =
+        value.replaceAll(RegExp(r'[^a-zA-Z0-9_]'), '').toLowerCase();
+    if (cleaned != value) {
+      _usernameCtrl.value = TextEditingValue(
+        text: cleaned,
+        selection: TextSelection.collapsed(offset: cleaned.length),
+      );
+      return; // the recursive onChanged(cleaned) call handles the debounce
+    }
+
+    _usernameDebounce?.cancel();
+    if (cleaned.length < 3) {
+      setState(() {
+        _usernameAvailable = null;
+        _usernameTaken = false;
+      });
+      return;
+    }
+    _usernameDebounce =
+        Timer(const Duration(milliseconds: 500), () => _checkUsername(cleaned));
+    setState(() {}); // repaint the suffix icon while the debounce is pending
+  }
+
+  Future<void> _checkUsername(String username) async {
+    try {
+      final data = await Supabase.instance.client
+          .from('profiles')
+          .select('username, user_id')
+          .eq('username', username)
+          .maybeSingle();
+      if (!mounted) return;
+      final currentUserId = Supabase.instance.client.auth.currentUser?.id;
+      final taken = data != null && data['user_id'] != currentUserId;
+      setState(() {
+        _usernameTaken = taken;
+        _usernameAvailable = !taken;
+      });
+    } catch (e) {
+      debugPrint('Username availability check failed: $e');
+    }
+  }
+
+  // ─── Uploads — real files via ProfileMediaService, replacing the old
+  // placeholder-string assignments ──────────────────────────────────────────
+  Future<void> _pickAndUploadAvatar() async {
+    final userId = Supabase.instance.client.auth.currentUser?.id;
+    if (userId == null) return;
+    setState(() => _uploading.add('avatarUrl'));
+    try {
+      final file = await _mediaService.pickAvatar();
+      if (file == null) return;
+      final url = await _mediaService.uploadAvatar(userId: userId, file: file);
+      if (mounted) {
+        setState(() => _avatarUrl = url);
+        _scheduleDraftSave();
+      }
+    } catch (e) {
+      _showUploadError(e);
+    } finally {
+      if (mounted) setState(() => _uploading.remove('avatarUrl'));
+    }
+  }
+
+  /// Handles the company logo and all four verification documents — every
+  /// kind other than the avatar goes through `uploadDocument`, which returns
+  /// the URL without writing it anywhere (see ProfileMediaService's
+  /// docstring); this screen holds the URL locally and sends it with the rest
+  /// of the form on submit.
+  Future<void> _pickAndUploadDocument(
+    String fieldKey,
+    ProfileDocumentKind kind,
+  ) async {
+    final userId = Supabase.instance.client.auth.currentUser?.id;
+    if (userId == null) return;
+    setState(() => _uploading.add(fieldKey));
+    try {
+      final file = await _mediaService.pickDocument();
+      if (file == null) return;
+      final url =
+          await _mediaService.uploadDocument(userId: userId, kind: kind, file: file);
+      if (!mounted) return;
+      setState(() {
+        switch (fieldKey) {
+          case 'companyLogoUrl':
+            _companyLogoUrl = url;
+          case 'reraCertificateUrl':
+            _reraCertificateUrl = url;
+          case 'gstCertificateUrl':
+            _gstCertificateUrl = url;
+          case 'panCardUrl':
+            _panCardUrl = url;
+          case 'registrationProofUrl':
+            _registrationProofUrl = url;
+        }
+      });
+      _scheduleDraftSave();
+    } catch (e) {
+      _showUploadError(e);
+    } finally {
+      if (mounted) setState(() => _uploading.remove(fieldKey));
+    }
+  }
+
+  void _showUploadError(Object e) {
     if (!mounted) return;
-
-    (await SharedPreferences.getInstance()).remove('pending_user_type');
-    await context.read<AuthProvider>().refreshProfile();
-
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Builder profile saved successfully'),
-        backgroundColor: Colors.green,
-      ),
-    );
-
-    await Future.delayed(
-  const Duration(milliseconds: 800),
-);
-
-if (!mounted) return;
-
-Navigator.of(context).pushAndRemoveUntil(
-  MaterialPageRoute(
-    builder: (_) => const RoleHomeRouter(),
-  ),
-  (route) => false,
-);
-
-  } catch (e) {
-    if (!mounted) return;
-
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(e.toString()),
-        backgroundColor: Colors.red,
-      ),
+      SnackBar(content: Text('Upload failed: $e'), backgroundColor: Colors.red),
     );
   }
-}
 
-  // ─── Date Picker helper ───────────────────────────────────────────────────
-  Future<void> _pickDate(TextEditingController ctrl) async {
+  // ─── Pill pickers — mirrors handleToggleArrayItem / handleAddCustomPill /
+  // handleRemoveArrayItem (BuilderRegistration.tsx:579-602) ─────────────────
+  void _toggleExpertise(String item) {
+    setState(() {
+      _areasOfExpertise.contains(item)
+          ? _areasOfExpertise.remove(item)
+          : _areasOfExpertise.add(item);
+    });
+    _scheduleDraftSave();
+  }
+
+  void _removeExpertise(String item) {
+    setState(() => _areasOfExpertise.remove(item));
+    _scheduleDraftSave();
+  }
+
+  void _addCustomExpertise(String value) {
+    final v = value.trim();
+    _customAreaCtrl.clear();
+    if (v.isEmpty || _areasOfExpertise.contains(v)) return;
+    setState(() => _areasOfExpertise.add(v));
+    _scheduleDraftSave();
+  }
+
+  void _toggleLanguage(String item) {
+    setState(() {
+      _languagesKnown.contains(item)
+          ? _languagesKnown.remove(item)
+          : _languagesKnown.add(item);
+    });
+    _scheduleDraftSave();
+  }
+
+  void _removeLanguage(String item) {
+    setState(() => _languagesKnown.remove(item));
+    _scheduleDraftSave();
+  }
+
+  void _addCustomLanguage(String value) {
+    final v = value.trim();
+    _customLangCtrl.clear();
+    if (v.isEmpty || _languagesKnown.contains(v)) return;
+    setState(() => _languagesKnown.add(v));
+    _scheduleDraftSave();
+  }
+
+  // ─── Date picker ──────────────────────────────────────────────────────────
+  Future<void> _pickDob() async {
+    final now = DateTime.now();
     final picked = await showDatePicker(
       context: context,
-      initialDate: DateTime(1990),
+      initialDate: DateTime(now.year - 30),
       firstDate: DateTime(1950),
-      lastDate: DateTime.now(),
+      lastDate: now,
     );
     if (picked != null) {
-      ctrl.text =
-          '${picked.day.toString().padLeft(2, '0')}/${picked.month.toString().padLeft(2, '0')}/${picked.year}';
+      setState(() {
+        _dobCtrl.text = '${picked.year.toString().padLeft(4, '0')}-'
+            '${picked.month.toString().padLeft(2, '0')}-'
+            '${picked.day.toString().padLeft(2, '0')}';
+      });
+      _scheduleDraftSave();
     }
   }
 
-  Future<void> _pickPossessionDate() async {
-    final picked = await showDatePicker(
-      context: context,
-      initialDate: DateTime.now().add(const Duration(days: 365)),
-      firstDate: DateTime.now(),
-      lastDate: DateTime(2040),
-    );
-    if (picked != null) {
-      _possessionDateCtrl.text =
-          '${picked.day.toString().padLeft(2, '0')}/${picked.month.toString().padLeft(2, '0')}/${picked.year}';
+  // ─── Map picker — mirrors BuilderRegistration.tsx:626-641's
+  // handleLocationSelect: keep the existing value when the geocode result
+  // didn't resolve that field, exactly like `addressDetails?.city || prev.city`.
+  // [updateOfficeAddress] is false for the autocomplete field's selections:
+  // it already wrote the full selected description into the controller
+  // itself (matching the portal's officeAddressAutocompleteRef, which fills
+  // `officeAddress` with `place.formatted_address`) — overwriting it here
+  // with the shorter parsed `addressLine1` would fight that. The map tap
+  // path has no such pre-filled text, so it still wants this.
+  void _onLocationSelected(
+    double lat,
+    double lng,
+    GeocodedAddress? address, {
+    bool updateOfficeAddress = true,
+  }) {
+    setState(() {
+      _pickedLat = lat;
+      _pickedLng = lng;
+      if (updateOfficeAddress && (address?.addressLine1 ?? '').isNotEmpty) {
+        _officeAddressCtrl.text = address!.addressLine1!;
+      }
+      if ((address?.city ?? '').isNotEmpty) _cityCtrl.text = address!.city!;
+      if ((address?.state ?? '').isNotEmpty) _stateCtrl.text = address!.state!;
+      if ((address?.pincode ?? '').isNotEmpty) _pincodeCtrl.text = address!.pincode!;
+      if ((address?.landmark ?? '').isNotEmpty) _landmarkCtrl.text = address!.landmark!;
+      _errors.remove('officeAddress');
+      _errors.remove('city');
+      _errors.remove('state');
+      _errors.remove('pincode');
+    });
+    _scheduleDraftSave();
+  }
+
+  // ─── Submit — mirrors BuilderRegistration.tsx:908-1021 ───────────────────
+  Future<void> _onSubmit() async {
+    if (!_termsAccepted || !_privacyAccepted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Please accept the Terms & Conditions and Privacy Policy.'),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return;
+    }
+
+    setState(() => _isSubmitting = true);
+    try {
+      await ProfileService().saveBuilderProfile({
+        'companyName': _companyNameCtrl.text.trim(),
+        'email': _emailCtrl.text.trim(),
+        'mobileNumber': _mobileCtrl.text.trim(),
+        'countryCode': _countryCode,
+        'alternateMobileNumber': _altMobileCtrl.text.trim(),
+        'alternateCountryCode': _alternateCountryCode,
+        'gender': _gender ?? '',
+        'dob': _dobCtrl.text.trim(),
+        'avatarUrl': _avatarUrl ?? '',
+        'companyLogoUrl': _companyLogoUrl ?? '',
+        'companyType': _companyType ?? '',
+        'reraNumber': _reraNumberCtrl.text.trim(),
+        'gstNumber': _gstNumberCtrl.text.trim(),
+        'panNumber': _panNumberCtrl.text.trim(),
+        'yearsOfExperience': _yearsOfExpCtrl.text.trim(),
+        'websiteUrl': _websiteCtrl.text.trim(),
+        'aboutCompany': _aboutCompanyCtrl.text.trim(),
+        'areasOfExpertise': _areasOfExpertise,
+        'languagesKnown': _languagesKnown,
+        'officeAddress': _officeAddressCtrl.text.trim(),
+        'city': _cityCtrl.text.trim(),
+        'state': _stateCtrl.text.trim(),
+        'pincode': _pincodeCtrl.text.trim(),
+        'landmark': _landmarkCtrl.text.trim(),
+        'reraCertificateUrl': _reraCertificateUrl ?? '',
+        'gstCertificateUrl': _gstCertificateUrl ?? '',
+        'panCardUrl': _panCardUrl ?? '',
+        'registrationProofUrl': _registrationProofUrl ?? '',
+        'facebookUrl': _facebookCtrl.text.trim(),
+        'instagramUrl': _instagramCtrl.text.trim(),
+        'linkedinUrl': _linkedinCtrl.text.trim(),
+        'youtubeUrl': _youtubeCtrl.text.trim(),
+        'whatsappNumber': _whatsappCtrl.text.trim(),
+        'telegramUrl': _telegramCtrl.text.trim(),
+        'username': _usernameCtrl.text.trim(),
+      });
+
+      if (!mounted) return;
+
+      (await SharedPreferences.getInstance()).remove('pending_user_type');
+      await _draftStore.clear();
+      await context.read<AuthProvider>().refreshProfile();
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Builder profile saved successfully'),
+          backgroundColor: Colors.green,
+        ),
+      );
+
+      await Future.delayed(const Duration(milliseconds: 800));
+      if (!mounted) return;
+
+      Navigator.of(context).pushAndRemoveUntil(
+        MaterialPageRoute(builder: (_) => const RoleHomeRouter()),
+        (route) => false,
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(e.toString()), backgroundColor: Colors.red),
+      );
+    } finally {
+      if (mounted) setState(() => _isSubmitting = false);
     }
   }
 
-  // ─── Shared UI Widgets ────────────────────────────────────────────────────
+  // ─── Shared UI widgets ────────────────────────────────────────────────────
   Widget _buildSectionTitle(String title) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 16, top: 8),
@@ -231,13 +854,22 @@ Navigator.of(context).pushAndRemoveUntil(
     );
   }
 
-  InputDecoration _inputDecoration(String label, {String? hint, Widget? suffix}) {
+  InputDecoration _inputDecoration(
+    String label, {
+    String? hint,
+    Widget? suffix,
+    Widget? prefix,
+    bool hasError = false,
+    EdgeInsetsGeometry? contentPadding,
+  }) {
+    final scheme = Theme.of(context).colorScheme;
     return InputDecoration(
-      labelText: label,
+      labelText: label.isEmpty ? null : label,
       hintText: hint,
       suffixIcon: suffix,
+      prefixIcon: prefix,
       filled: true,
-      fillColor: Theme.of(context).colorScheme.surfaceVariant.withOpacity(0.4),
+      fillColor: scheme.surfaceVariant.withOpacity(0.4),
       border: OutlineInputBorder(
         borderRadius: BorderRadius.circular(12),
         borderSide: BorderSide.none,
@@ -245,76 +877,101 @@ Navigator.of(context).pushAndRemoveUntil(
       enabledBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(12),
         borderSide: BorderSide(
-          color: Theme.of(context).colorScheme.outline.withOpacity(0.3),
+          color: hasError ? scheme.error : scheme.outline.withOpacity(0.3),
         ),
       ),
       focusedBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(12),
         borderSide: BorderSide(
-          color: Theme.of(context).colorScheme.primary,
+          color: hasError ? scheme.error : scheme.primary,
           width: 2,
         ),
       ),
-      errorBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(12),
-        borderSide: BorderSide(
-          color: Theme.of(context).colorScheme.error,
-        ),
-      ),
-      focusedErrorBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(12),
-        borderSide: BorderSide(
-          color: Theme.of(context).colorScheme.error,
-          width: 2,
-        ),
-      ),
-      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+      contentPadding:
+          contentPadding ?? const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
     );
   }
 
-  Widget _buildTextField({
+  Widget _errorText(String fieldKey) {
+    final msg = _errors[fieldKey];
+    if (msg == null) return const SizedBox.shrink();
+    return Padding(
+      padding: const EdgeInsets.only(top: 4, bottom: 4),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Icon(Icons.error_outline, size: 14, color: Colors.red),
+          const SizedBox(width: 4),
+          Expanded(
+            child: Text(msg, style: const TextStyle(fontSize: 12, color: Colors.red)),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _label(String text, {bool required = false}) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 6),
+      child: Text.rich(
+        TextSpan(
+          text: text,
+          style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13.5),
+          children: [
+            if (required)
+              const TextSpan(text: ' *', style: TextStyle(color: Colors.red)),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _field({
+    required String fieldKey,
     required TextEditingController controller,
     required String label,
-    String? hint,
     bool required = false,
+    String? hint,
     TextInputType keyboardType = TextInputType.text,
     List<TextInputFormatter>? inputFormatters,
     int maxLines = 1,
-    Widget? suffixIcon,
+    bool obscureText = false,
     bool readOnly = false,
     VoidCallback? onTap,
-    bool obscureText = false,
-    String? Function(String?)? validator,
+    Widget? suffixIcon,
+    void Function(String)? onChanged,
+    bool enabled = true,
   }) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 16),
-      child: TextFormField(
-        controller: controller,
-        readOnly: readOnly,
-        onTap: onTap,
-        obscureText: obscureText,
-        keyboardType: keyboardType,
-        inputFormatters: inputFormatters,
-        maxLines: maxLines,
-        decoration: _inputDecoration(
-          required ? '$label *' : label,
-          hint: hint,
-          suffix: suffixIcon,
-        ),
-        validator: validator ??
-            (required
-                ? (v) {
-                    if (v == null || v.trim().isEmpty) {
-                      return '$label is required';
-                    }
-                    return null;
-                  }
-                : null),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          TextField(
+            controller: controller,
+            keyboardType: keyboardType,
+            inputFormatters: inputFormatters,
+            maxLines: maxLines,
+            obscureText: obscureText,
+            readOnly: readOnly,
+            onTap: onTap,
+            onChanged: onChanged,
+            enabled: enabled,
+            decoration: _inputDecoration(
+              required ? '$label *' : label,
+              hint: hint,
+              suffix: suffixIcon,
+              hasError: _errors.containsKey(fieldKey),
+            ),
+          ),
+          _errorText(fieldKey),
+        ],
       ),
     );
   }
 
-  Widget _buildDropdown({
+  Widget _dropdown({
+    required String fieldKey,
     required String label,
     required String? value,
     required List<String> items,
@@ -323,93 +980,251 @@ Navigator.of(context).pushAndRemoveUntil(
   }) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 16),
-      child: DropdownButtonFormField<String>(
-        value: value,
-        decoration: _inputDecoration(required ? '$label *' : label),
-        items: items
-            .map((item) => DropdownMenuItem(value: item, child: Text(item)))
-            .toList(),
-        onChanged: onChanged,
-        validator: required
-            ? (v) => (v == null || v.isEmpty) ? '$label is required' : null
-            : null,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          DropdownButtonFormField<String>(
+            value: value,
+            decoration: _inputDecoration(
+              required ? '$label *' : label,
+              hasError: _errors.containsKey(fieldKey),
+            ),
+            items: items
+                .map((item) => DropdownMenuItem(value: item, child: Text(item)))
+                .toList(),
+            onChanged: onChanged,
+          ),
+          _errorText(fieldKey),
+        ],
       ),
     );
   }
 
-  Widget _buildUploadPlaceholder({
+  Widget _phoneField({
+    required String fieldKey,
+    required TextEditingController controller,
     required String label,
-    required String currentPath,
-    required VoidCallback onTap,
+    required String countryCode,
+    required void Function(String) onCountryChanged,
+    bool enabled = true,
     bool required = false,
   }) {
-    final hasFile = currentPath.isNotEmpty;
     return Padding(
       padding: const EdgeInsets.only(bottom: 16),
-      child: GestureDetector(
-        onTap: onTap,
-        child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
-          decoration: BoxDecoration(
-            color: Theme.of(context).colorScheme.surfaceVariant.withOpacity(0.4),
-            border: Border.all(
-              color: hasFile
-                  ? Theme.of(context).colorScheme.primary
-                  : Theme.of(context).colorScheme.outline.withOpacity(0.4),
-              width: hasFile ? 2 : 1,
-            ),
-            borderRadius: BorderRadius.circular(12),
-          ),
-          child: Row(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Icon(
-                hasFile ? Icons.check_circle : Icons.upload_file,
-                color: hasFile
-                    ? Theme.of(context).colorScheme.primary
-                    : Theme.of(context).colorScheme.onSurfaceVariant,
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Text(
-                  hasFile
-                      ? 'File selected'
-                      : 'Tap to upload ${required ? "$label *" : label}',
-                  style: TextStyle(
-                    color: hasFile
-                        ? Theme.of(context).colorScheme.primary
-                        : Theme.of(context).colorScheme.onSurfaceVariant,
+              SizedBox(
+                width: 100,
+                child: DropdownButtonFormField<String>(
+                  value: countryCode,
+                  isExpanded: true,
+                  icon: const Icon(Icons.arrow_drop_down, size: 18),
+                  decoration: _inputDecoration(
+                    '',
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 14),
                   ),
+                  items: _kCountryCodes
+                      .map((c) => DropdownMenuItem(
+                            value: c['code'],
+                            child: Text(c['code']!, overflow: TextOverflow.ellipsis),
+                          ))
+                      .toList(),
+                  onChanged: enabled
+                      ? (v) {
+                          if (v != null) onCountryChanged(v);
+                        }
+                      : null,
                 ),
               ),
-              Text(
-                'Browse',
-                style: TextStyle(
-                  color: Theme.of(context).colorScheme.primary,
-                  fontWeight: FontWeight.w600,
-                  fontSize: 13,
+              const SizedBox(width: 8),
+              Expanded(
+                child: TextField(
+                  controller: controller,
+                  enabled: enabled,
+                  keyboardType: TextInputType.phone,
+                  inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                  decoration: _inputDecoration(
+                    required ? '$label *' : label,
+                    hasError: _errors.containsKey(fieldKey),
+                  ),
                 ),
               ),
             ],
           ),
-        ),
+          _errorText(fieldKey),
+        ],
       ),
     );
   }
 
-  Widget _buildSocialField({
-    required TextEditingController controller,
+  Widget _uploadCard({
+    required String fieldKey,
     required String label,
-    required IconData icon,
-    required Color iconColor,
+    required String? url,
+    required VoidCallback onTap,
+    bool required = false,
+    String subtitle = '',
+    bool isImagePreview = false,
   }) {
+    final busy = _uploading.contains(fieldKey);
+    final has = (url ?? '').isNotEmpty;
+    final scheme = Theme.of(context).colorScheme;
     return Padding(
       padding: const EdgeInsets.only(bottom: 16),
-      child: TextFormField(
-        controller: controller,
-        keyboardType: TextInputType.url,
-        decoration: _inputDecoration(label).copyWith(
-          prefixIcon: Icon(icon, color: iconColor),
-        ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _label(label, required: required),
+          if (subtitle.isNotEmpty)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 6),
+              child: Text(
+                subtitle,
+                style: TextStyle(fontSize: 11.5, color: scheme.onSurfaceVariant),
+              ),
+            ),
+          GestureDetector(
+            onTap: busy ? null : onTap,
+            child: Container(
+              height: 108,
+              width: double.infinity,
+              decoration: BoxDecoration(
+                color: scheme.surfaceVariant.withOpacity(0.4),
+                border: Border.all(
+                  color: _errors.containsKey(fieldKey)
+                      ? scheme.error
+                      : (has ? scheme.primary : scheme.outline.withOpacity(0.4)),
+                  width: has ? 2 : 1,
+                ),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Center(
+                child: busy
+                    ? const Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          SizedBox(
+                            width: 20,
+                            height: 20,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          ),
+                          SizedBox(height: 8),
+                          Text('Uploading...', style: TextStyle(fontSize: 12)),
+                        ],
+                      )
+                    : has
+                        ? (isImagePreview
+                            ? ClipRRect(
+                                borderRadius: BorderRadius.circular(8),
+                                child: Image.network(
+                                  url!,
+                                  height: 64,
+                                  width: 64,
+                                  fit: BoxFit.cover,
+                                ),
+                              )
+                            : Column(
+                                mainAxisSize: MainAxisSize.min,
+                                children: const [
+                                  Icon(Icons.check_circle, color: Colors.green, size: 30),
+                                  SizedBox(height: 6),
+                                  Text('Uploaded', style: TextStyle(fontSize: 12)),
+                                ],
+                              ))
+                        : Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(Icons.upload_file, color: scheme.onSurfaceVariant),
+                              const SizedBox(height: 6),
+                              const Text('Tap to upload', style: TextStyle(fontSize: 12)),
+                            ],
+                          ),
+              ),
+            ),
+          ),
+          _errorText(fieldKey),
+        ],
+      ),
+    );
+  }
+
+  Widget _pillPicker({
+    required String fieldKey,
+    required String label,
+    required List<String> selected,
+    required List<String> options,
+    required TextEditingController customCtrl,
+    required void Function(String) onToggle,
+    required void Function(String) onRemove,
+    required void Function(String) onAddCustom,
+  }) {
+    final scheme = Theme.of(context).colorScheme;
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _label(label),
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              color: scheme.surfaceVariant.withOpacity(0.3),
+              border: Border.all(color: scheme.outline.withOpacity(0.3)),
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: selected.isEmpty
+                ? Text(
+                    'Select from below or add a custom entry',
+                    style: TextStyle(fontSize: 12, color: scheme.onSurfaceVariant),
+                  )
+                : Wrap(
+                    spacing: 6,
+                    runSpacing: 6,
+                    children: selected
+                        .map((s) => Chip(
+                              label: Text(s, style: const TextStyle(fontSize: 12)),
+                              onDeleted: () => onRemove(s),
+                              deleteIcon: const Icon(Icons.close, size: 14),
+                            ))
+                        .toList(),
+                  ),
+          ),
+          const SizedBox(height: 8),
+          Row(
+            children: [
+              Expanded(
+                child: TextField(
+                  controller: customCtrl,
+                  decoration: _inputDecoration('Add custom...'),
+                  onSubmitted: onAddCustom,
+                ),
+              ),
+              const SizedBox(width: 8),
+              OutlinedButton(
+                onPressed: () => onAddCustom(customCtrl.text),
+                child: const Text('Add'),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Wrap(
+            spacing: 6,
+            runSpacing: 6,
+            children: options
+                .where((o) => !selected.contains(o))
+                .map((o) => ActionChip(
+                      label: Text('+ $o', style: const TextStyle(fontSize: 11)),
+                      onPressed: () => onToggle(o),
+                    ))
+                .toList(),
+          ),
+          _errorText(fieldKey),
+        ],
       ),
     );
   }
@@ -429,8 +1244,7 @@ Navigator.of(context).pushAndRemoveUntil(
                   ),
             ),
             Container(
-              padding:
-                  const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
               decoration: BoxDecoration(
                 color: Theme.of(context).colorScheme.primaryContainer,
                 borderRadius: BorderRadius.circular(20),
@@ -452,557 +1266,582 @@ Navigator.of(context).pushAndRemoveUntil(
           child: LinearProgressIndicator(
             value: (currentStep + 1) / _stepTitles.length,
             minHeight: 8,
-            backgroundColor:
-                Theme.of(context).colorScheme.surfaceVariant,
+            backgroundColor: Theme.of(context).colorScheme.surfaceVariant,
           ),
         ),
-    
         const SizedBox(height: 20),
       ],
     );
   }
 
-  // ─── Step 1 Content ───────────────────────────────────────────────────────
+  // ─── Step 1 — Personal & Primary Information ─────────────────────────────
+  Widget _buildStep0() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _buildSectionTitle('Personal & Primary Information'),
+        _field(
+          fieldKey: 'companyName',
+          controller: _companyNameCtrl,
+          label: 'Builder/Company Name',
+          required: true,
+        ),
+        _field(
+          fieldKey: 'email',
+          controller: _emailCtrl,
+          label: 'Email Address',
+          required: true,
+          keyboardType: TextInputType.emailAddress,
+          enabled: !_isEmailUser,
+        ),
+        _phoneField(
+          fieldKey: 'mobileNumber',
+          controller: _mobileCtrl,
+          label: 'Phone Number',
+          countryCode: _countryCode,
+          onCountryChanged: (v) {
+            setState(() => _countryCode = v);
+            _scheduleDraftSave();
+          },
+          enabled: !_isPhoneUser,
+          required: true,
+        ),
+        _phoneField(
+          fieldKey: 'alternateMobileNumber',
+          controller: _altMobileCtrl,
+          label: 'Alternate Mobile Number',
+          countryCode: _alternateCountryCode,
+          onCountryChanged: (v) {
+            setState(() => _alternateCountryCode = v);
+            _scheduleDraftSave();
+          },
+        ),
+        _label('Gender', required: true),
+        Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          children: _kGenderOptions.map((g) {
+            final selected = _gender == g;
+            return ChoiceChip(
+              label: Text(g == 'Skip' ? 'N/A' : g),
+              selected: selected,
+              onSelected: (_) {
+                setState(() => _gender = g);
+                _scheduleDraftSave();
+              },
+            );
+          }).toList(),
+        ),
+        _errorText('gender'),
+        const SizedBox(height: 16),
+        _field(
+          fieldKey: 'dob',
+          controller: _dobCtrl,
+          label: 'Date of Birth',
+          required: true,
+          readOnly: true,
+          onTap: _pickDob,
+          suffixIcon: const Icon(Icons.calendar_today_outlined),
+        ),
+        _buildSectionTitle('Photos'),
+        _uploadCard(
+          fieldKey: 'avatarUrl',
+          label: 'Profile Photo',
+          url: _avatarUrl,
+          onTap: _pickAndUploadAvatar,
+          required: true,
+          isImagePreview: true,
+        ),
+        _uploadCard(
+          fieldKey: 'companyLogoUrl',
+          label: 'Company Logo',
+          url: _companyLogoUrl,
+          onTap: () =>
+              _pickAndUploadDocument('companyLogoUrl', ProfileDocumentKind.companyLogo),
+          required: true,
+          isImagePreview: true,
+        ),
+      ],
+    );
+  }
+
+  // ─── Step 2 — Company Details & Registrations ────────────────────────────
   Widget _buildStep1() {
-    return Form(
-      key: _step1Key,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          _buildSectionTitle('Basic Information'),
-          _buildTextField(
-            controller: _companyNameCtrl,
-            label: 'Company Name',
-            required: true,
-          ),
-          _buildTextField(
-            controller: _emailCtrl,
-            label: 'Email',
-            required: true,
-            keyboardType: TextInputType.emailAddress,
-            validator: (v) {
-              if (v == null || v.trim().isEmpty) return 'Email is required';
-              final emailRegex = RegExp(r'^[^@]+@[^@]+\.[^@]+');
-              if (!emailRegex.hasMatch(v.trim())) {
-                return 'Enter a valid email address';
-              }
-              return null;
-            },
-          ),
-          _buildTextField(
-            controller: _mobileCtrl,
-            label: 'Mobile Number',
-            required: true,
-            keyboardType: TextInputType.phone,
-            inputFormatters: [
-              FilteringTextInputFormatter.digitsOnly,
-              LengthLimitingTextInputFormatter(10),
-            ],
-            validator: (v) {
-              if (v == null || v.trim().isEmpty) {
-                return 'Mobile Number is required';
-              }
-              if (v.trim().length != 10) {
-                return 'Enter a valid 10-digit mobile number';
-              }
-              return null;
-            },
-          ),
-          _buildTextField(
-            controller: _altMobileCtrl,
-            label: 'Alternate Mobile Number',
-            keyboardType: TextInputType.phone,
-            inputFormatters: [
-              FilteringTextInputFormatter.digitsOnly,
-              LengthLimitingTextInputFormatter(10),
-            ],
-          ),
-          _buildDropdown(
-            label: 'Gender',
-            value: _selectedGender,
-            items: ['Male', 'Female', 'Other', 'Prefer not to say'],
-            onChanged: (v) => setState(() => _selectedGender = v),
-          ),
-          _buildTextField(
-            controller: _dobCtrl,
-            label: 'Date of Birth',
-            hint: 'DD/MM/YYYY',
-            readOnly: true,
-            onTap: () => _pickDate(_dobCtrl),
-            suffixIcon: const Icon(Icons.calendar_today_outlined),
-          ),
-          _buildSectionTitle('Photos'),
-          _buildUploadPlaceholder(
-            label: 'Profile Photo',
-            currentPath: _profilePhotoPath,
-            onTap: () {
-              // Placeholder – image picker not connected yet
-              setState(() => _profilePhotoPath = 'placeholder_profile.jpg');
-            },
-          ),
-          _buildUploadPlaceholder(
-            label: 'Company Logo',
-            currentPath: _companyLogoPath,
-            onTap: () {
-              setState(() => _companyLogoPath = 'placeholder_logo.jpg');
-            },
-          ),
-        ],
-      ),
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _buildSectionTitle('Company Details & Registrations'),
+        _dropdown(
+          fieldKey: 'companyType',
+          label: 'Company Type',
+          value: _companyType,
+          items: _kCompanyTypes,
+          onChanged: (v) {
+            setState(() => _companyType = v);
+            _scheduleDraftSave();
+          },
+          required: true,
+        ),
+        _field(
+          fieldKey: 'reraNumber',
+          controller: _reraNumberCtrl,
+          label: 'RERA Registration Number',
+          required: true,
+          hint: 'e.g. MH12345678',
+          inputFormatters: [const UpperCaseTextFormatter()],
+        ),
+        _field(
+          fieldKey: 'gstNumber',
+          controller: _gstNumberCtrl,
+          label: 'GST Number',
+          required: true,
+          hint: '15-digit GSTIN',
+          inputFormatters: [
+            const UpperCaseTextFormatter(),
+            LengthLimitingTextInputFormatter(15),
+          ],
+        ),
+        _field(
+          fieldKey: 'panNumber',
+          controller: _panNumberCtrl,
+          label: 'PAN Number',
+          required: true,
+          hint: '10-character PAN number',
+          inputFormatters: [
+            const UpperCaseTextFormatter(),
+            LengthLimitingTextInputFormatter(10),
+          ],
+        ),
+        _field(
+          fieldKey: 'yearsOfExperience',
+          controller: _yearsOfExpCtrl,
+          label: 'Years of Experience',
+          required: true,
+          keyboardType: TextInputType.number,
+          inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+        ),
+        _pillPicker(
+          fieldKey: 'areasOfExpertise',
+          label: 'Areas of Expertise',
+          selected: _areasOfExpertise,
+          options: _kExpertiseOptions,
+          customCtrl: _customAreaCtrl,
+          onToggle: _toggleExpertise,
+          onRemove: _removeExpertise,
+          onAddCustom: _addCustomExpertise,
+        ),
+        _pillPicker(
+          fieldKey: 'languagesKnown',
+          label: 'Languages Known',
+          selected: _languagesKnown,
+          options: _kLanguageOptions,
+          customCtrl: _customLangCtrl,
+          onToggle: _toggleLanguage,
+          onRemove: _removeLanguage,
+          onAddCustom: _addCustomLanguage,
+        ),
+        _field(
+          fieldKey: 'websiteUrl',
+          controller: _websiteCtrl,
+          label: 'Website URL',
+          required: true,
+          keyboardType: TextInputType.url,
+          hint: 'e.g. https://www.mycompany.com',
+        ),
+        _field(
+          fieldKey: 'aboutCompany',
+          controller: _aboutCompanyCtrl,
+          label: 'About Company / Corporate Bio',
+          required: true,
+          maxLines: 4,
+          hint: 'Write brief history and milestones about your company',
+        ),
+      ],
     );
   }
 
-  // ─── Step 2 Content ───────────────────────────────────────────────────────
+  // ─── Step 3 — Office Address & Location ──────────────────────────────────
   Widget _buildStep2() {
-    return Form(
-      key: _step2Key,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          _buildSectionTitle('Company Details'),
-          _buildDropdown(
-            label: 'Company Type',
-            value: _selectedCompanyType,
-            items: [
-              'Private Limited',
-              'Public Limited',
-              'LLP',
-              'Proprietorship',
-              'Partnership',
-              'Other',
-            ],
-            onChanged: (v) => setState(() => _selectedCompanyType = v),
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _buildSectionTitle('Office Address & Location'),
+        _label('Google Maps Location Picker'),
+        Padding(
+          padding: const EdgeInsets.only(bottom: 16),
+          child: LocationPickerMap(
+            initialLat: _pickedLat,
+            initialLng: _pickedLng,
+            onLocationSelected: _onLocationSelected,
           ),
-          _buildTextField(
-            controller: _reraNumberCtrl,
-            label: 'RERA Number',
-            required: true,
-          ),
-          _buildTextField(
-            controller: _gstNumberCtrl,
-            label: 'GST Number',
-            inputFormatters: [
-              UpperCaseTextFormatter(),
-              LengthLimitingTextInputFormatter(15),
-            ],
-          ),
-          _buildTextField(
-            controller: _panNumberCtrl,
-            label: 'PAN Number',
-            inputFormatters: [
-              UpperCaseTextFormatter(),
-              LengthLimitingTextInputFormatter(10),
+        ),
+        Padding(
+          padding: const EdgeInsets.only(bottom: 16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              AddressAutocompleteField(
+                controller: _officeAddressCtrl,
+                decoration: _inputDecoration(
+                  'Office Address *',
+                  hasError: _errors.containsKey('officeAddress'),
+                ),
+                maxLines: 2,
+                onPlaceSelected: (address, lat, lng) => _onLocationSelected(
+                  lat,
+                  lng,
+                  address,
+                  updateOfficeAddress: false,
+                ),
+              ),
+              _errorText('officeAddress'),
             ],
           ),
-          _buildTextField(
-            controller: _yearsOfExpCtrl,
-            label: 'Years of Experience',
-            keyboardType: TextInputType.number,
-            inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-          ),
-          _buildTextField(
-            controller: _websiteCtrl,
-            label: 'Website',
-            keyboardType: TextInputType.url,
-            hint: 'https://yourcompany.com',
-          ),
-          _buildTextField(
-            controller: _aboutCompanyCtrl,
-            label: 'About Company',
-            maxLines: 4,
-            hint: 'Describe your company...',
-          ),
-          _buildTextField(
-            controller: _areasOfExpertiseCtrl,
-            label: 'Areas of Expertise',
-            hint: 'e.g., Residential, Commercial, Luxury',
-          ),
-          _buildTextField(
-            controller: _languagesKnownCtrl,
-            label: 'Languages Known',
-            hint: 'e.g., English, Hindi, Marathi',
-          ),
-        ],
-      ),
+        ),
+        _field(fieldKey: 'city', controller: _cityCtrl, label: 'Work City', required: true),
+        _field(fieldKey: 'state', controller: _stateCtrl, label: 'State', required: true),
+        _field(
+          fieldKey: 'pincode',
+          controller: _pincodeCtrl,
+          label: 'Pincode',
+          required: true,
+          keyboardType: TextInputType.number,
+          inputFormatters: [
+            FilteringTextInputFormatter.digitsOnly,
+            LengthLimitingTextInputFormatter(6),
+          ],
+        ),
+        _field(
+          fieldKey: 'landmark',
+          controller: _landmarkCtrl,
+          label: 'Landmark',
+          hint: 'Famous landmark near office',
+        ),
+      ],
     );
   }
 
-  // ─── Step 3 Content ───────────────────────────────────────────────────────
+  // ─── Step 4 — Verification Documents Upload ──────────────────────────────
   Widget _buildStep3() {
-    return Form(
-      key: _step3Key,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          _buildSectionTitle('Office Address'),
-          _buildTextField(
-            controller: _officeAddressCtrl,
-            label: 'Office Address',
-            maxLines: 2,
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _buildSectionTitle('Verification Documents Upload'),
+        const Padding(
+          padding: EdgeInsets.only(bottom: 12),
+          child: Text(
+            'Upload official corporate documentation. Images required for approval.',
+            style: TextStyle(fontSize: 12.5, color: Colors.grey),
           ),
-          _buildTextField(
-            controller: _cityCtrl,
-            label: 'City',
-            required: true,
+        ),
+        _uploadCard(
+          fieldKey: 'reraCertificateUrl',
+          label: 'RERA Registration Certificate',
+          url: _reraCertificateUrl,
+          onTap: () =>
+              _pickAndUploadDocument('reraCertificateUrl', ProfileDocumentKind.rera),
+          required: true,
+          subtitle: 'Government approved RERA copy.',
+        ),
+        _uploadCard(
+          fieldKey: 'gstCertificateUrl',
+          label: 'GST Certificate',
+          url: _gstCertificateUrl,
+          onTap: () =>
+              _pickAndUploadDocument('gstCertificateUrl', ProfileDocumentKind.gst),
+          required: true,
+          subtitle: 'Corporate GST identification copy.',
+        ),
+        _uploadCard(
+          fieldKey: 'panCardUrl',
+          label: 'Company/Owner PAN Card',
+          url: _panCardUrl,
+          onTap: () => _pickAndUploadDocument('panCardUrl', ProfileDocumentKind.pan),
+          required: true,
+          subtitle: 'Government approved PAN Card.',
+        ),
+        _uploadCard(
+          fieldKey: 'registrationProofUrl',
+          label: 'Company Registration Proof',
+          url: _registrationProofUrl,
+          onTap: () => _pickAndUploadDocument(
+            'registrationProofUrl',
+            ProfileDocumentKind.registrationProof,
           ),
-          _buildTextField(
-            controller: _stateCtrl,
-            label: 'State',
-            required: true,
-          ),
-          _buildTextField(
-            controller: _pincodeCtrl,
-            label: 'Pincode',
-            keyboardType: TextInputType.number,
-            inputFormatters: [
-              FilteringTextInputFormatter.digitsOnly,
-              LengthLimitingTextInputFormatter(6),
-            ],
-          ),
-          _buildTextField(
-            controller: _landmarkCtrl,
-            label: 'Landmark',
-            hint: 'Near...',
-          ),
-        ],
-      ),
+          required: true,
+          subtitle: 'Incorporation certificate, Partnership deed etc.',
+        ),
+      ],
     );
   }
 
-  // ─── Step 4 Content ───────────────────────────────────────────────────────
+  // ─── Step 5 — Social Media Links & Connectivity ──────────────────────────
   Widget _buildStep4() {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        _buildSectionTitle('Project Information'),
-        _buildTextField(
-          controller: _projectNameCtrl,
-          label: 'Project Name',
+        _buildSectionTitle('Social Media Links & Connectivity'),
+        const Padding(
+          padding: EdgeInsets.only(bottom: 12),
+          child: Text(
+            'Connect your professional networks — all optional.',
+            style: TextStyle(fontSize: 12.5, color: Colors.grey),
+          ),
         ),
-        _buildDropdown(
-          label: 'Project Type',
-          value: _selectedProjectType,
-          items: [
-            'Residential',
-            'Commercial',
-            'Mixed Use',
-            'Industrial',
-            'Plots',
-            'Township',
-          ],
-          onChanged: (v) => setState(() => _selectedProjectType = v),
+        _field(
+          fieldKey: 'facebookUrl',
+          controller: _facebookCtrl,
+          label: 'Facebook Business Profile',
+          hint: 'e.g. https://facebook.com/mycompany',
+          keyboardType: TextInputType.url,
         ),
-        _buildDropdown(
-          label: 'Project Status',
-          value: _selectedProjectStatus,
-          items: [
-            'Upcoming',
-            'Under Construction',
-            'Ready to Move',
-            'Completed',
-          ],
-          onChanged: (v) => setState(() => _selectedProjectStatus = v),
+        _field(
+          fieldKey: 'instagramUrl',
+          controller: _instagramCtrl,
+          label: 'Instagram Business Handle',
+          hint: 'e.g. https://instagram.com/mycompany',
+          keyboardType: TextInputType.url,
         ),
-        _buildTextField(
-          controller: _startingPriceCtrl,
-          label: 'Starting Price (₹)',
-          keyboardType: TextInputType.number,
-          inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+        _field(
+          fieldKey: 'linkedinUrl',
+          controller: _linkedinCtrl,
+          label: 'LinkedIn Corporate Page',
+          hint: 'e.g. https://linkedin.com/company/mycompany',
+          keyboardType: TextInputType.url,
         ),
-        Row(
-          children: [
-            Expanded(
-              child: _buildTextField(
-                controller: _totalUnitsCtrl,
-                label: 'Total Units',
-                keyboardType: TextInputType.number,
-                inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-              ),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: _buildTextField(
-                controller: _totalTowersCtrl,
-                label: 'Total Towers',
-                keyboardType: TextInputType.number,
-                inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-              ),
-            ),
-          ],
+        _field(
+          fieldKey: 'youtubeUrl',
+          controller: _youtubeCtrl,
+          label: 'YouTube Channel Link',
+          hint: 'e.g. https://youtube.com/c/mycompany',
+          keyboardType: TextInputType.url,
         ),
-        _buildTextField(
-          controller: _totalAreaCtrl,
-          label: 'Total Area (sq ft)',
-          keyboardType: TextInputType.number,
-          inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+        _field(
+          fieldKey: 'whatsappNumber',
+          controller: _whatsappCtrl,
+          label: 'WhatsApp Business Number',
+          hint: 'WhatsApp active number',
         ),
-        _buildTextField(
-          controller: _amenitiesCtrl,
-          label: 'Amenities',
-          maxLines: 3,
-          hint: 'e.g., Swimming Pool, Gym, Clubhouse...',
-        ),
-        _buildTextField(
-          controller: _possessionDateCtrl,
-          label: 'Possession Date',
-          hint: 'DD/MM/YYYY',
-          readOnly: true,
-          onTap: _pickPossessionDate,
-          suffixIcon: const Icon(Icons.calendar_today_outlined),
+        _field(
+          fieldKey: 'telegramUrl',
+          controller: _telegramCtrl,
+          label: 'Telegram Link',
+          hint: 'https://t.me/yourchannel',
         ),
       ],
     );
   }
 
-  // ─── Step 5 Content ───────────────────────────────────────────────────────
+  // ─── Step 6 — Account Setup & Verifications ──────────────────────────────
   Widget _buildStep5() {
+    final usernameLen = _usernameCtrl.text.trim().length;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        _buildSectionTitle('Required Documents'),
-        _buildUploadPlaceholder(
-          label: 'RERA Certificate',
-          currentPath: _reraCertPath,
-          onTap: () => setState(() => _reraCertPath = 'rera_cert.pdf'),
+        _buildSectionTitle('Account Setup & Verifications'),
+        _field(
+          fieldKey: 'username',
+          controller: _usernameCtrl,
+          label: 'Choose Unique Username',
+          required: true,
+          hint: 'Choose username',
+          onChanged: _onUsernameChanged,
+          suffixIcon: usernameLen >= 3
+              ? (_usernameTaken
+                  ? const Icon(Icons.close, color: Colors.red)
+                  : (_usernameAvailable == true
+                      ? const Icon(Icons.check, color: Colors.green)
+                      : null))
+              : null,
         ),
-        _buildUploadPlaceholder(
-          label: 'GST Certificate',
-          currentPath: _gstCertPath,
-          onTap: () => setState(() => _gstCertPath = 'gst_cert.pdf'),
-        ),
-        _buildUploadPlaceholder(
-          label: 'PAN Card',
-          currentPath: _panCardPath,
-          onTap: () => setState(() => _panCardPath = 'pan_card.pdf'),
-        ),
-        _buildUploadPlaceholder(
-          label: 'Registration Proof',
-          currentPath: _regProofPath,
-          onTap: () => setState(() => _regProofPath = 'reg_proof.pdf'),
-        ),
-        _buildSectionTitle('Project Documents'),
-        _buildUploadPlaceholder(
-          label: 'Brochure',
-          currentPath: _brochurePath,
-          onTap: () => setState(() => _brochurePath = 'brochure.pdf'),
-        ),
-        _buildUploadPlaceholder(
-          label: 'Floor Plan',
-          currentPath: _floorPlanPath,
-          onTap: () => setState(() => _floorPlanPath = 'floor_plan.pdf'),
-        ),
-        _buildUploadPlaceholder(
-          label: 'Project Images',
-          currentPath: _projectImagesPath,
-          onTap: () => setState(() => _projectImagesPath = 'images.zip'),
-        ),
-        Container(
-          padding: const EdgeInsets.all(12),
-          decoration: BoxDecoration(
-            color: Theme.of(context).colorScheme.tertiaryContainer.withOpacity(0.5),
-            borderRadius: BorderRadius.circular(10),
+        if (usernameLen >= 3 && !_usernameTaken && _usernameAvailable == true)
+          const Padding(
+            padding: EdgeInsets.only(bottom: 8),
+            child: Text('Username is available!', style: TextStyle(fontSize: 12, color: Colors.green)),
           ),
-          child: Row(
-            children: [
-              Icon(
-                Icons.info_outline,
-                size: 18,
-                color: Theme.of(context).colorScheme.tertiary,
-              ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: Text(
-                  'Accepted formats: PDF, JPG, PNG. Max size: 10MB per file.',
-                  style: TextStyle(
-                    fontSize: 12,
-                    color: Theme.of(context).colorScheme.onTertiaryContainer,
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ),
       ],
     );
   }
 
-  // ─── Step 6 Content ───────────────────────────────────────────────────────
+  // ─── Step 7 — Terms Acceptance & Submission ──────────────────────────────
+  // Builder's own portal (BuilderRegistration.tsx) has no review/summary
+  // section on this step at all — unlike broker's and influencer's, which
+  // both show one. Added here anyway for parity with the other two
+  // registration screens and so the user can double-check before submitting.
+  Widget _reviewRow(String label, String value) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SizedBox(
+            width: 120,
+            child: Text(
+              label,
+              style: TextStyle(
+                fontSize: 11.5,
+                fontWeight: FontWeight.w600,
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
+              ),
+            ),
+          ),
+          Expanded(
+            child: Text(
+              value.trim().isEmpty ? '—' : value,
+              style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _reviewSection(
+    String title,
+    List<MapEntry<String, String>> rows, {
+    bool initiallyExpanded = false,
+  }) {
+    return Theme(
+      data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
+      child: ExpansionTile(
+        initiallyExpanded: initiallyExpanded,
+        tilePadding: const EdgeInsets.symmetric(horizontal: 12),
+        childrenPadding: const EdgeInsets.fromLTRB(12, 0, 12, 10),
+        title: Text(title, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+        children: rows.map((r) => _reviewRow(r.key, r.value)).toList(),
+      ),
+    );
+  }
+
+  Widget _buildReviewSummary() {
+    final divider = Divider(
+      height: 1,
+      color: Theme.of(context).colorScheme.outline.withOpacity(0.2),
+    );
+    return Container(
+      margin: const EdgeInsets.only(bottom: 16),
+      decoration: BoxDecoration(
+        border: Border.all(color: Theme.of(context).colorScheme.outline.withOpacity(0.3)),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: Column(
+        children: [
+          _reviewSection(
+            'Personal Information',
+            [
+              MapEntry('Company Name', _companyNameCtrl.text),
+              MapEntry('Email', _emailCtrl.text),
+              MapEntry('Phone', '$_countryCode ${_mobileCtrl.text}'),
+              MapEntry('DOB', _dobCtrl.text),
+            ],
+            initiallyExpanded: true,
+          ),
+          divider,
+          _reviewSection('Company Details', [
+            MapEntry('Company Type', _companyType ?? ''),
+            MapEntry('RERA Number', _reraNumberCtrl.text),
+            MapEntry('Experience', '${_yearsOfExpCtrl.text} Years'),
+          ]),
+          divider,
+          _reviewSection('Address Details', [
+            MapEntry('Office Address', _officeAddressCtrl.text),
+            MapEntry('City & State', '${_cityCtrl.text}, ${_stateCtrl.text}'),
+            MapEntry('Pincode', _pincodeCtrl.text),
+          ]),
+        ],
+      ),
+    );
+  }
+
   Widget _buildStep6() {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        _buildSectionTitle('Social Media Profiles'),
-        const Padding(
-          padding: EdgeInsets.only(bottom: 16),
-          child: Text(
-            'Add your social media links to help buyers connect with you.',
-            style: TextStyle(fontSize: 13, color: Colors.grey),
+        _buildSectionTitle('Terms Acceptance & Submission'),
+        _buildReviewSummary(),
+        Container(
+          padding: const EdgeInsets.all(14),
+          decoration: BoxDecoration(
+            color: Theme.of(context).colorScheme.surfaceVariant.withOpacity(0.4),
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: const [
+              Text(
+                'Platform Undertakings & Rules:',
+                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+              ),
+              SizedBox(height: 8),
+              Text(
+                '•  I verify that the listed RERA certificate matches all details of my company.',
+                style: TextStyle(fontSize: 12),
+              ),
+              SizedBox(height: 4),
+              Text(
+                '•  I authorize PropCID real estate platform audit members to check RERA status.',
+                style: TextStyle(fontSize: 12),
+              ),
+              SizedBox(height: 4),
+              Text(
+                '•  We will process and verify your registration values in 24-48 hours.',
+                style: TextStyle(fontSize: 12),
+              ),
+              SizedBox(height: 4),
+              Text(
+                '•  We do not charge listing commissions or fees unless specified under '
+                'separate corporate contracts.',
+                style: TextStyle(fontSize: 12),
+              ),
+            ],
           ),
         ),
-        _buildSocialField(
-          controller: _facebookCtrl,
-          label: 'Facebook',
-          icon: Icons.facebook,
-          iconColor: const Color(0xFF1877F2),
+        const SizedBox(height: 16),
+        CheckboxListTile(
+          contentPadding: EdgeInsets.zero,
+          value: _termsAccepted,
+          onChanged: (v) {
+            setState(() => _termsAccepted = v ?? false);
+            _scheduleDraftSave();
+          },
+          controlAffinity: ListTileControlAffinity.leading,
+          title: const Text('I accept the Terms & Conditions.', style: TextStyle(fontSize: 13)),
         ),
-        _buildSocialField(
-          controller: _instagramCtrl,
-          label: 'Instagram',
-          icon: Icons.camera_alt_outlined,
-          iconColor: const Color(0xFFE1306C),
-        ),
-        _buildSocialField(
-          controller: _linkedinCtrl,
-          label: 'LinkedIn',
-          icon: Icons.work_outline,
-          iconColor: const Color(0xFF0A66C2),
-        ),
-        _buildSocialField(
-          controller: _youtubeCtrl,
-          label: 'YouTube',
-          icon: Icons.play_circle_outline,
-          iconColor: const Color(0xFFFF0000),
-        ),
-        _buildSocialField(
-          controller: _whatsappCtrl,
-          label: 'WhatsApp',
-          icon: Icons.chat_outlined,
-          iconColor: const Color(0xFF25D366),
-        ),
-        _buildSocialField(
-          controller: _telegramCtrl,
-          label: 'Telegram',
-          icon: Icons.send_outlined,
-          iconColor: const Color(0xFF26A5E4),
+        CheckboxListTile(
+          contentPadding: EdgeInsets.zero,
+          value: _privacyAccepted,
+          onChanged: (v) {
+            setState(() => _privacyAccepted = v ?? false);
+            _scheduleDraftSave();
+          },
+          controlAffinity: ListTileControlAffinity.leading,
+          title: const Text(
+            'I agree to the Privacy Policy of the platform.',
+            style: TextStyle(fontSize: 13),
+          ),
         ),
       ],
     );
   }
-
-// ─── Step 7 Content ───────────────────────────────────────────────────────
-Widget _buildStep7() {
-  return Form(
-    key: _step7Key,
-    child: Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        _buildSectionTitle('Complete Registration'),
-
-        _buildTextField(
-          controller: _usernameCtrl,
-          label: 'Username',
-          required: true,
-          hint: 'Choose a unique username',
-          validator: (v) {
-            if (v == null || v.trim().isEmpty) {
-              return 'Username is required';
-            }
-
-            if (v.trim().length < 3) {
-              return 'Username must be at least 3 characters';
-            }
-
-            final usernameRegex =
-                RegExp(r'^[a-zA-Z0-9_]+$');
-
-            if (!usernameRegex.hasMatch(v.trim())) {
-              return 'Only letters, numbers, and underscores allowed';
-            }
-
-            return null;
-          },
-        ),
-
-        const SizedBox(height: 20),
-
-        Container(
-          padding: const EdgeInsets.all(14),
-          decoration: BoxDecoration(
-            color: Theme.of(context)
-                .colorScheme
-                .primaryContainer
-                .withOpacity(0.3),
-            borderRadius: BorderRadius.circular(12),
-          ),
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Icon(
-                Icons.info_outline,
-                color: Theme.of(context).colorScheme.primary,
-              ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: Text(
-                  'Your account has already been created during Sign Up. '
-                  'Complete your profile and submit registration to continue.',
-                  style: TextStyle(
-                    fontSize: 13,
-                    color: Theme.of(context)
-                        .colorScheme
-                        .onPrimaryContainer,
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ),
-
-        const SizedBox(height: 20),
-
-        RichText(
-          text: TextSpan(
-            style: TextStyle(
-              fontSize: 13,
-              color: Theme.of(context)
-                  .colorScheme
-                  .onSurface
-                  .withOpacity(0.6),
-            ),
-            children: [
-              const TextSpan(
-                text: 'By registering, you agree to our ',
-              ),
-              TextSpan(
-                text: 'Terms of Service',
-                style: TextStyle(
-                  color: Theme.of(context).colorScheme.primary,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-              const TextSpan(text: ' and '),
-              TextSpan(
-                text: 'Privacy Policy',
-                style: TextStyle(
-                  color: Theme.of(context).colorScheme.primary,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-            ],
-          ),
-        ),
-      ],
-    ),
-  );
-}
 
   // ─── Step content router ──────────────────────────────────────────────────
   Widget _buildCurrentStep() {
     switch (currentStep) {
       case 0:
-        return _buildStep1();
+        return _buildStep0();
       case 1:
-        return _buildStep2();
+        return _buildStep1();
       case 2:
-        return _buildStep3();
+        return _buildStep2();
       case 3:
-        return _buildStep4();
+        return _buildStep3();
       case 4:
-        return _buildStep5();
+        return _buildStep4();
       case 5:
-        return _buildStep6();
+        return _buildStep5();
       case 6:
-        return _buildStep7();
+        return _buildStep6();
       default:
         return const SizedBox();
     }
@@ -1029,14 +1868,12 @@ Widget _buildStep7() {
             Expanded(
               flex: 1,
               child: OutlinedButton.icon(
-                onPressed: _previousStep,
+                onPressed: _isSubmitting ? null : _previousStep,
                 icon: const Icon(Icons.arrow_back, size: 18),
                 label: const Text('Back'),
                 style: OutlinedButton.styleFrom(
                   padding: const EdgeInsets.symmetric(vertical: 14),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                 ),
               ),
             ),
@@ -1044,17 +1881,25 @@ Widget _buildStep7() {
           Expanded(
             flex: 2,
             child: FilledButton.icon(
-              onPressed: isLastStep ? _onSubmit : _nextStep,
-              icon: Icon(
-                isLastStep ? Icons.check_circle_outline : Icons.arrow_forward,
-                size: 18,
+              onPressed: _isSubmitting ? null : (isLastStep ? _onSubmit : _nextStep),
+              icon: _isSubmitting
+                  ? const SizedBox(
+                      width: 16,
+                      height: 16,
+                      child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                    )
+                  : Icon(
+                      isLastStep ? Icons.check_circle_outline : Icons.arrow_forward,
+                      size: 18,
+                    ),
+              label: Text(
+                _isSubmitting
+                    ? 'Submitting...'
+                    : (isLastStep ? 'Submit Registration' : 'Continue'),
               ),
-              label: Text(isLastStep ? 'Submit Registration' : 'Continue'),
               style: FilledButton.styleFrom(
                 padding: const EdgeInsets.symmetric(vertical: 14),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
               ),
             ),
           ),
@@ -1114,6 +1959,8 @@ Widget _buildStep7() {
 
   @override
   void dispose() {
+    _draftStore.dispose();
+    _usernameDebounce?.cancel();
     _companyNameCtrl.dispose();
     _emailCtrl.dispose();
     _mobileCtrl.dispose();
@@ -1125,20 +1972,13 @@ Widget _buildStep7() {
     _yearsOfExpCtrl.dispose();
     _websiteCtrl.dispose();
     _aboutCompanyCtrl.dispose();
-    _areasOfExpertiseCtrl.dispose();
-    _languagesKnownCtrl.dispose();
+    _customAreaCtrl.dispose();
+    _customLangCtrl.dispose();
     _officeAddressCtrl.dispose();
     _cityCtrl.dispose();
     _stateCtrl.dispose();
     _pincodeCtrl.dispose();
     _landmarkCtrl.dispose();
-    _projectNameCtrl.dispose();
-    _startingPriceCtrl.dispose();
-    _totalUnitsCtrl.dispose();
-    _totalTowersCtrl.dispose();
-    _totalAreaCtrl.dispose();
-    _amenitiesCtrl.dispose();
-    _possessionDateCtrl.dispose();
     _facebookCtrl.dispose();
     _instagramCtrl.dispose();
     _linkedinCtrl.dispose();
@@ -1149,5 +1989,3 @@ Widget _buildStep7() {
     super.dispose();
   }
 }
-
-// ─── Helper formatter ─────────────────────────────────────────────────────────

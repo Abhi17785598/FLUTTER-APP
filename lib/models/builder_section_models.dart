@@ -51,6 +51,7 @@ class InventoryUnit {
     this.floorNumber,
     this.areaSqft = 0,
     this.price = 0,
+    this.facingDirection,
   });
 
   final String id;
@@ -66,9 +67,14 @@ class InventoryUnit {
   final double areaSqft;
   final double price;
 
+  /// `ProjectInventoryManager`'s and `InventoryTableEditor`'s
+  /// `facing_direction` column — present in the schema since the first
+  /// migration but never read by this model until now.
+  final String? facingDirection;
+
   static const String columns =
       'id, project_id, unit_type, unit_number, floor_number, area_sqft, '
-      'price, status';
+      'price, status, facing_direction';
 
   factory InventoryUnit.fromSupabase(Map<String, dynamic> json) {
     return InventoryUnit(
@@ -80,6 +86,7 @@ class InventoryUnit {
       floorNumber: _int(json['floor_number']),
       areaSqft: _double(json['area_sqft']),
       price: _double(json['price']),
+      facingDirection: _nullIfEmpty(json['facing_direction']),
     );
   }
 }

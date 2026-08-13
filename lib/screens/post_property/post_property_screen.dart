@@ -416,12 +416,51 @@ class _NavigationBar extends StatelessWidget {
     );
   }
 
+  /// Wires the already-ported validation engine
+  /// (`PostPropertyProvider.issuesForStep`/`allStepIssues`/`firstInvalidStep`,
+  /// a verbatim port of the portal's rule tables) to actual user feedback.
+  /// Previously `nextStep()`/`submit()` ran unconditionally — a step with a
+  /// blank required field just silently failed to advance with no message at
+  /// all, since nothing in the UI ever asked the provider whether the step
+  /// was valid.
   void _onPrimaryAction(BuildContext context, PostPropertyProvider provider) {
     if (!provider.isLastStep) {
+      final issues = provider.issuesForStep(provider.currentStep);
+      if (issues.isNotEmpty) {
+        _showValidationIssues(context, issues);
+        return;
+      }
       provider.nextStep();
       return;
     }
+
+    // Mirrors the portal's handleSubmit re-validating every step and jumping
+    // back to the first offending one before publishing.
+    final allIssues = provider.allStepIssues;
+    if (allIssues.isNotEmpty) {
+      final firstStep = provider.firstInvalidStep;
+      if (firstStep != null) {
+        provider.goToStep(firstStep);
+        _showValidationIssues(context, allIssues[firstStep]!);
+      }
+      return;
+    }
+
     _submitProperty(context, provider);
+  }
+
+  void _showValidationIssues(BuildContext context, List<ListingIssue> issues) {
+    if (issues.isEmpty) return;
+    final labels = issues.map((i) => i.label).join(', ');
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(
+        SnackBar(
+          content: Text('Please complete: $labels'),
+          backgroundColor: Colors.red.shade700,
+          duration: const Duration(seconds: 4),
+        ),
+      );
   }
 
   Future<void> _submitProperty(

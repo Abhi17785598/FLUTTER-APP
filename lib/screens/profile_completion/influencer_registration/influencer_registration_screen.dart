@@ -1,10 +1,129 @@
+// screens/profile_completion/influencer_registration/influencer_registration_screen.dart
+//
+// Mirrors `InfluencerRegistration.tsx` field-for-field: same 8 real steps
+// (Personal, Profile, Location, Social, Content, Documents, Account, Terms),
+// same required-field map (`STEP_REQUIRED`), same regex patterns, same
+// option lists, same upsert payload shape (`handleSubmit`).
+//
+// The portal's `stepsList` (its left-hand stepper) shows a 9th entry, "Bank
+// Details", between Documents and Account — but `renderStepContent`'s switch
+// has no `case` for it, `InfluencerFormData` has no bank fields, and nothing
+// is ever submitted for it. It is a stale label with zero implementation, so
+// it is dropped here too, along with `portfolioLinks`/
+// `previousBrandCollaborations`/`areasCovered`, which are declared and
+// submitted (always empty) but never have a rendered field either.
+//
+// No password field on the Account step — same fix as the other two
+// registration screens, since the account's password is already set at
+// signup.
+//
+// Validation is an imperative `_errors` map computed on "Continue"/"Submit",
+// matching how the portal's `handleNext`/`handleSubmit` work.
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
+
 import '../../../providers/auth_provider.dart';
+import '../../../services/geocoding_service.dart';
+import '../../../services/profile_media_service.dart';
 import '../../../services/profile_service.dart';
+import '../../../services/registration_draft_store.dart';
+import '../../../widgets/address_autocomplete_field.dart';
+import '../../../widgets/location_picker_map.dart';
 import '../../role_home_router.dart';
+
+// ── Portal constants, transcribed verbatim (InfluencerRegistration.tsx:112-169)
+
+const List<Map<String, String>> _kCountryCodes = [
+  {'code': '+91', 'country': 'India'},
+  {'code': '+1', 'country': 'USA'},
+  {'code': '+44', 'country': 'UK'},
+  {'code': '+971', 'country': 'UAE'},
+];
+
+final RegExp _emailPattern = RegExp(r'^[^\s@]+@[^\s@]+\.[^\s@]+$');
+final RegExp _mobilePattern = RegExp(r'^[6-9]\d{9}$');
+final RegExp _websitePattern = RegExp(
+  r'^https?:\/\/(www\.)?[-a-zA-Z0-9@:%._+~#=]{1,256}\.[a-zA-Z0-9()]{1,6}\b',
+);
+
+const List<String> _kLanguageOptions = [
+  'English',
+  'Hindi',
+  'Marathi',
+  'Gujarati',
+  'Tamil',
+  'Telugu',
+  'Kannada',
+  'Malayalam',
+  'Bengali',
+  'Punjabi',
+];
+
+const List<String> _kCategoryOptions = [
+  'Real Estate Influencer',
+  'Lifestyle Creator',
+  'YouTuber',
+  'Instagram Creator',
+  'Blogger',
+  'Affiliate Marketer',
+  'Property Reviewer',
+  'Finance Creator',
+];
+
+const List<String> _kPlatformOptions = [
+  'Instagram',
+  'YouTube',
+  'Facebook',
+  'LinkedIn',
+  'TikTok',
+  'Blogger / Web',
+  'Telegram / WhatsApp',
+  'Twitter / X',
+];
+
+const List<String> _kAudienceOptions = [
+  'Property Seekers / Buyers',
+  'Real Estate Investors',
+  'Millennials / First-time Buyers',
+  'Luxury Property Buyers',
+  'General Lifestyle Audience',
+  'Brokers & Builders Network',
+];
+
+const List<String> _kContentTypeOptions = [
+  'Reels',
+  'Shorts',
+  'YouTube Videos',
+  'Property Tours',
+  'Reviews',
+  'Stories',
+  'Posts',
+  'Live Sessions',
+];
+
+const List<String> _kPromotionTypeOptions = [
+  'Paid Promotion',
+  'Affiliate Marketing',
+  'Lead Generation',
+  'Brand Collaboration',
+];
+
+/// `genderOpt === "Prefer not to say" ? "N/A" : genderOpt === "Non-Binary" ?
+/// "Other" : genderOpt` (InfluencerRegistration.tsx:1170) — the label shown
+/// differs from the value stored for two of the four options.
+const List<String> _kGenderValues = ['Male', 'Female', 'Non-Binary', 'Prefer not to say'];
+String _genderLabel(String value) => switch (value) {
+      'Prefer not to say' => 'N/A',
+      'Non-Binary' => 'Other',
+      _ => value,
+    };
+
+bool _isBlank(String? v) => v == null || v.trim().isEmpty;
 
 class InfluencerRegistrationScreen extends StatefulWidget {
   const InfluencerRegistrationScreen({super.key});
@@ -17,31 +136,44 @@ class InfluencerRegistrationScreen extends StatefulWidget {
 class _InfluencerRegistrationScreenState
     extends State<InfluencerRegistrationScreen> {
   int currentStep = 0;
+  bool _isSubmitting = false;
+  final Map<String, String> _errors = {};
+  final _mediaService = ProfileMediaService();
+  final Set<String> _uploading = {};
+  final _draftStore = RegistrationDraftStore('influencer_registration_draft');
 
   // ─── Step 1 – Personal Information ───────────────────────────────────────
   final _fullNameCtrl = TextEditingController();
   final _emailCtrl = TextEditingController();
   final _mobileCtrl = TextEditingController();
   final _altMobileCtrl = TextEditingController();
-  String? _selectedGender;
+  String _countryCode = '+91';
+  String _alternateCountryCode = '+91';
+  String? _gender;
   final _dobCtrl = TextEditingController();
-  // avatar → placeholder string
-  String _avatarPath = '';
+  String? _avatarUrl;
+  bool _isEmailUser = false;
+  bool _isPhoneUser = false;
 
   // ─── Step 2 – Influencer Profile ─────────────────────────────────────────
-  String? _selectedCategory;
+  String? _category;
   final _bioCtrl = TextEditingController();
-  final _languagesKnownCtrl = TextEditingController();
+  final List<String> _languagesKnown = [];
+  final _customLangCtrl = TextEditingController();
   final _yearsOfExpCtrl = TextEditingController();
-  String? _selectedAudienceType;
-  String? _selectedPrimaryPlatform;
+  String? _audienceType;
+  String? _primaryContentPlatform;
 
-  // ─── Step 3 – Address Information ────────────────────────────────────────
+  // ─── Step 3 – Office / Work Location ─────────────────────────────────────
   final _officeAddressCtrl = TextEditingController();
   final _cityCtrl = TextEditingController();
   final _stateCtrl = TextEditingController();
   final _pincodeCtrl = TextEditingController();
   final _landmarkCtrl = TextEditingController();
+  // Sent as social_media.latitude/longitude (InfluencerRegistration.tsx:941-942)
+  // — unlike the builder/broker screens, the portal actually persists these.
+  double? _pickedLat;
+  double? _pickedLng;
 
   // ─── Step 4 – Social Media Details ───────────────────────────────────────
   final _instagramUsernameCtrl = TextEditingController();
@@ -55,172 +187,709 @@ class _InfluencerRegistrationScreenState
   final _websiteCtrl = TextEditingController();
   final _whatsappCtrl = TextEditingController();
 
-  // ─── Step 5 – Content & Promotion ────────────────────────────────────────
-  final Set<String> _selectedContentTypes = {};
-  final Set<String> _selectedPromotionTypes = {};
-  final _portfolioLinksCtrl = TextEditingController();
-  final _previousCollabsCtrl = TextEditingController();
+  // ─── Step 5 – Content & Promotion Details ────────────────────────────────
+  final List<String> _contentTypes = [];
+  final List<String> _preferredPromotionTypes = [];
 
-  // ─── Step 6 – Documents ──────────────────────────────────────────────────
-  // All placeholders – no actual upload logic
-  String _aadhaarCardPath = '';
-  String _panCardPath = '';
+  // ─── Step 6 – Verification & Documents ───────────────────────────────────
+  String? _aadhaarCardUrl;
+  String? _panCardUrl;
 
   // ─── Step 7 – Account Setup ───────────────────────────────────────────────
   final _usernameCtrl = TextEditingController();
+  Timer? _usernameDebounce;
+  bool? _usernameAvailable;
+  bool _usernameTaken = false;
 
-  // ─── Form Keys ────────────────────────────────────────────────────────────
-  final _step1Key = GlobalKey<FormState>();
-  final _step2Key = GlobalKey<FormState>();
-  final _step3Key = GlobalKey<FormState>();
-  final _step7Key = GlobalKey<FormState>();
+  // ─── Step 8 – Terms ───────────────────────────────────────────────────────
+  bool _termsAccepted = false;
+  bool _privacyAccepted = false;
+  bool _promoAccepted = false;
 
   final List<String> _stepTitles = [
-    'Personal Information',
-    'Influencer Profile',
-    'Address Information',
-    'Social Media Details',
-    'Content & Promotion',
-    'Documents Upload',
-    'Account Setup',
+    'Personal',
+    'Profile',
+    'Location',
+    'Social',
+    'Content',
+    'Documents',
+    'Account',
+    'Submit',
   ];
 
   final List<IconData> _stepIcons = [
     Icons.person_outline,
-    Icons.star_border_outlined,
+    Icons.badge_outlined,
     Icons.location_on_outlined,
     Icons.share_outlined,
-    Icons.campaign_outlined,
-    Icons.folder_outlined,
+    Icons.trending_up_outlined,
+    Icons.description_outlined,
     Icons.lock_outline,
+    Icons.verified_outlined,
   ];
 
-  final List<String> _contentTypeOptions = [
-    'Reels',
-    'Stories',
-    'Vlogs',
-    'Live Streams',
-    'Podcasts',
-    'Blog Posts',
-    'Short Videos',
-    'Photography',
-  ];
+  @override
+  void initState() {
+    super.initState();
+    // Mirrors InfluencerRegistration.tsx:438-476.
+    final authUser = Supabase.instance.client.auth.currentUser;
+    final rawEmail = authUser?.email;
+    final rawPhone = authUser?.phone;
 
-  final List<String> _promotionTypeOptions = [
-    'Sponsored Posts',
-    'Brand Ambassador',
-    'Product Reviews',
-    'Giveaways',
-    'Affiliate Marketing',
-    'Event Coverage',
-  ];
+    _isEmailUser = rawEmail != null &&
+        rawEmail.isNotEmpty &&
+        !rawEmail.endsWith('@propcid.app');
+    _isPhoneUser = (rawPhone != null && rawPhone.isNotEmpty) ||
+        (rawEmail != null && rawEmail.endsWith('@propcid.app'));
 
-  // ─── Navigation ───────────────────────────────────────────────────────────
-  bool _validateCurrentStep() {
-    switch (currentStep) {
-      case 0:
-        return _step1Key.currentState?.validate() ?? false;
-      case 1:
-        return _step2Key.currentState?.validate() ?? false;
-      case 2:
-        return _step3Key.currentState?.validate() ?? false;
-      case 6:
-        return _step7Key.currentState?.validate() ?? false;
-      default:
-        return true;
+    if (_isEmailUser) _emailCtrl.text = rawEmail!;
+    if (_isPhoneUser) {
+      if (rawPhone != null && rawPhone.isNotEmpty) {
+        final digits = rawPhone.replaceAll(RegExp(r'\D'), '');
+        _mobileCtrl.text =
+            digits.length > 10 ? digits.substring(digits.length - 10) : digits;
+      } else if (rawEmail != null) {
+        final m = RegExp(r'u(\d+)@').firstMatch(rawEmail);
+        if (m != null) _mobileCtrl.text = m.group(1)!;
+      }
+    }
+
+    // The sign-up form (auth_screen.dart) already asked for this and stored
+    // it as Supabase auth's `display_name` user metadata — pre-fill instead
+    // of asking a second time. Mirrors the portal's own
+    // `fullName: basicInfo.fullName || ...` restore
+    // (InfluencerRegistration.tsx), just reading Supabase auth metadata
+    // instead of the portal's sessionStorage-based "basic info" step, which
+    // this app doesn't have.
+    final metadataName = authUser?.userMetadata?['display_name'] as String?;
+    if (metadataName != null && metadataName.trim().isNotEmpty) {
+      _fullNameCtrl.text = metadataName.trim();
+    }
+
+    _wireDraftAutoSave();
+    _restoreDraft();
+  }
+
+  // ─── Draft persistence — mirrors the portal's per-wizard localStorage
+  // autosave (e.g. InfluencerRegistration.tsx:417-428's `autoSave`), restored
+  // on reopen so a half-filled form isn't lost between sessions. See
+  // RegistrationDraftStore for the save/load/expiry mechanics.
+  void _wireDraftAutoSave() {
+    for (final c in [
+      _fullNameCtrl, _emailCtrl, _mobileCtrl, _altMobileCtrl, _dobCtrl,
+      _bioCtrl, _yearsOfExpCtrl,
+      _officeAddressCtrl, _cityCtrl, _stateCtrl, _pincodeCtrl, _landmarkCtrl,
+      _instagramUsernameCtrl, _instagramFollowersCtrl, _youtubeChannelCtrl,
+      _youtubeSubscribersCtrl, _facebookPageCtrl, _linkedinCtrl, _twitterCtrl,
+      _telegramCtrl, _websiteCtrl, _whatsappCtrl,
+      _usernameCtrl,
+    ]) {
+      c.addListener(_scheduleDraftSave);
     }
   }
 
+  void _scheduleDraftSave() => _draftStore.scheduleSave(_draftToJson);
+
+  Map<String, dynamic> _draftToJson() => {
+        'currentStep': currentStep,
+        'fullName': _fullNameCtrl.text,
+        'email': _emailCtrl.text,
+        'mobileNumber': _mobileCtrl.text,
+        'countryCode': _countryCode,
+        'alternateMobileNumber': _altMobileCtrl.text,
+        'alternateCountryCode': _alternateCountryCode,
+        'gender': _gender ?? '',
+        'dob': _dobCtrl.text,
+        'avatarUrl': _avatarUrl ?? '',
+        'category': _category ?? '',
+        'bio': _bioCtrl.text,
+        'languagesKnown': _languagesKnown,
+        'yearsOfExperience': _yearsOfExpCtrl.text,
+        'audienceType': _audienceType ?? '',
+        'primaryContentPlatform': _primaryContentPlatform ?? '',
+        'officeAddress': _officeAddressCtrl.text,
+        'city': _cityCtrl.text,
+        'state': _stateCtrl.text,
+        'pincode': _pincodeCtrl.text,
+        'landmark': _landmarkCtrl.text,
+        'pickedLat': _pickedLat,
+        'pickedLng': _pickedLng,
+        'instagramUsername': _instagramUsernameCtrl.text,
+        'instagramFollowers': _instagramFollowersCtrl.text,
+        'youtubeChannelLink': _youtubeChannelCtrl.text,
+        'youtubeSubscribers': _youtubeSubscribersCtrl.text,
+        'facebookPageLink': _facebookPageCtrl.text,
+        'linkedinProfileUrl': _linkedinCtrl.text,
+        'twitterProfileUrl': _twitterCtrl.text,
+        'telegramChannelLink': _telegramCtrl.text,
+        'websiteUrl': _websiteCtrl.text,
+        'whatsappNumber': _whatsappCtrl.text,
+        'contentTypes': _contentTypes,
+        'preferredPromotionTypes': _preferredPromotionTypes,
+        'aadhaarCardUrl': _aadhaarCardUrl ?? '',
+        'panCardUrl': _panCardUrl ?? '',
+        'username': _usernameCtrl.text,
+        'termsAccepted': _termsAccepted,
+        'privacyAccepted': _privacyAccepted,
+        'promoAccepted': _promoAccepted,
+      };
+
+  Future<void> _restoreDraft() async {
+    final data = await _draftStore.load();
+    if (!mounted || data == null) return;
+
+    String s(String key) => data[key] as String? ?? '';
+    List<String> l(String key) => (data[key] as List<dynamic>?)?.cast<String>() ?? const [];
+
+    setState(() {
+      final step = data['currentStep'] as int?;
+      if (step != null && step >= 0 && step < _stepTitles.length) currentStep = step;
+
+      if (s('fullName').isNotEmpty) _fullNameCtrl.text = s('fullName');
+      if (s('email').isNotEmpty) _emailCtrl.text = s('email');
+      if (s('mobileNumber').isNotEmpty) _mobileCtrl.text = s('mobileNumber');
+      if (s('countryCode').isNotEmpty) _countryCode = s('countryCode');
+      if (s('alternateMobileNumber').isNotEmpty) {
+        _altMobileCtrl.text = s('alternateMobileNumber');
+      }
+      if (s('alternateCountryCode').isNotEmpty) {
+        _alternateCountryCode = s('alternateCountryCode');
+      }
+      if (s('gender').isNotEmpty) _gender = s('gender');
+      if (s('dob').isNotEmpty) _dobCtrl.text = s('dob');
+      if (s('avatarUrl').isNotEmpty) _avatarUrl = s('avatarUrl');
+
+      if (s('category').isNotEmpty) _category = s('category');
+      if (s('bio').isNotEmpty) _bioCtrl.text = s('bio');
+      final languages = l('languagesKnown');
+      if (languages.isNotEmpty) {
+        _languagesKnown
+          ..clear()
+          ..addAll(languages);
+      }
+      if (s('yearsOfExperience').isNotEmpty) {
+        _yearsOfExpCtrl.text = s('yearsOfExperience');
+      }
+      if (s('audienceType').isNotEmpty) _audienceType = s('audienceType');
+      if (s('primaryContentPlatform').isNotEmpty) {
+        _primaryContentPlatform = s('primaryContentPlatform');
+      }
+
+      if (s('officeAddress').isNotEmpty) _officeAddressCtrl.text = s('officeAddress');
+      if (s('city').isNotEmpty) _cityCtrl.text = s('city');
+      if (s('state').isNotEmpty) _stateCtrl.text = s('state');
+      if (s('pincode').isNotEmpty) _pincodeCtrl.text = s('pincode');
+      if (s('landmark').isNotEmpty) _landmarkCtrl.text = s('landmark');
+      _pickedLat = (data['pickedLat'] as num?)?.toDouble() ?? _pickedLat;
+      _pickedLng = (data['pickedLng'] as num?)?.toDouble() ?? _pickedLng;
+
+      if (s('instagramUsername').isNotEmpty) {
+        _instagramUsernameCtrl.text = s('instagramUsername');
+      }
+      if (s('instagramFollowers').isNotEmpty) {
+        _instagramFollowersCtrl.text = s('instagramFollowers');
+      }
+      if (s('youtubeChannelLink').isNotEmpty) {
+        _youtubeChannelCtrl.text = s('youtubeChannelLink');
+      }
+      if (s('youtubeSubscribers').isNotEmpty) {
+        _youtubeSubscribersCtrl.text = s('youtubeSubscribers');
+      }
+      if (s('facebookPageLink').isNotEmpty) _facebookPageCtrl.text = s('facebookPageLink');
+      if (s('linkedinProfileUrl').isNotEmpty) _linkedinCtrl.text = s('linkedinProfileUrl');
+      if (s('twitterProfileUrl').isNotEmpty) _twitterCtrl.text = s('twitterProfileUrl');
+      if (s('telegramChannelLink').isNotEmpty) _telegramCtrl.text = s('telegramChannelLink');
+      if (s('websiteUrl').isNotEmpty) _websiteCtrl.text = s('websiteUrl');
+      if (s('whatsappNumber').isNotEmpty) _whatsappCtrl.text = s('whatsappNumber');
+
+      final contentTypes = l('contentTypes');
+      if (contentTypes.isNotEmpty) {
+        _contentTypes
+          ..clear()
+          ..addAll(contentTypes);
+      }
+      final promotionTypes = l('preferredPromotionTypes');
+      if (promotionTypes.isNotEmpty) {
+        _preferredPromotionTypes
+          ..clear()
+          ..addAll(promotionTypes);
+      }
+
+      if (s('aadhaarCardUrl').isNotEmpty) _aadhaarCardUrl = s('aadhaarCardUrl');
+      if (s('panCardUrl').isNotEmpty) _panCardUrl = s('panCardUrl');
+
+      if (s('username').isNotEmpty) _usernameCtrl.text = s('username');
+      _termsAccepted = data['termsAccepted'] as bool? ?? _termsAccepted;
+      _privacyAccepted = data['privacyAccepted'] as bool? ?? _privacyAccepted;
+      _promoAccepted = data['promoAccepted'] as bool? ?? _promoAccepted;
+    });
+  }
+
+  // ─── Navigation ───────────────────────────────────────────────────────────
   void _nextStep() {
-    if (!_validateCurrentStep()) return;
+    final stepErrors = switch (currentStep) {
+      0 => _validateStep0(),
+      1 => _validateStep1(),
+      2 => _validateStep2(),
+      3 => _validateStep3(),
+      4 => _validateStep4(),
+      5 => _validateStep5(),
+      6 => _validateStep6(),
+      _ => <String, String>{},
+    };
+
+    setState(() {
+      _errors.clear();
+      _errors.addAll(stepErrors);
+    });
+
+    if (stepErrors.isNotEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Please fill out or fix the required fields to continue.'),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return;
+    }
+
     if (currentStep < _stepTitles.length - 1) {
       setState(() => currentStep++);
+      _scheduleDraftSave();
     }
   }
 
   void _previousStep() {
-    if (currentStep > 0) setState(() => currentStep--);
-  }
-
- Future<void> _onSubmit() async {
-  if (!(_step7Key.currentState?.validate() ?? false)) return;
-
-  try {
-    await ProfileService().saveInfluencerProfile(
-      fullName: _fullNameCtrl.text.trim(),
-      email: _emailCtrl.text.trim(),
-      mobileNumber: _mobileCtrl.text.trim(),
-      city: _cityCtrl.text.trim(),
-      state: _stateCtrl.text.trim(),
-      bio: _bioCtrl.text.trim(),
-      instagramUsername: _instagramUsernameCtrl.text.trim(),
-      youtubeChannelLink: _youtubeChannelCtrl.text.trim(),
-      contentTypes: _selectedContentTypes.toList(),
-      preferredPromotionTypes: _selectedPromotionTypes.toList(),
-      portfolioLinks: _portfolioLinksCtrl.text
-          .split(',')
-          .map((e) => e.trim())
-          .where((e) => e.isNotEmpty)
-          .toList(),
-      previousBrandCollaborations: _previousCollabsCtrl.text
-          .split(',')
-          .map((e) => e.trim())
-          .where((e) => e.isNotEmpty)
-          .toList(),
-    );
-
-    if (!mounted) return;
-
-    (await SharedPreferences.getInstance()).remove('pending_user_type');
-    await context.read<AuthProvider>().refreshProfile();
-
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text(
-          'Influencer profile saved successfully',
-        ),
-      ),
-    );
-
-    await Future.delayed(
-  const Duration(milliseconds: 800),
-);
-
-if (!mounted) return;
-
-Navigator.of(context).pushAndRemoveUntil(
-  MaterialPageRoute(
-  builder: (_) => const RoleHomeRouter(),
-  ),
-  (route) => false,
-);
-
-  } catch (e) {
-    if (!mounted) return;
-
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(e.toString()),
-      ),
-    );
-  }
-}
-
-  // ─── Date Picker helper ───────────────────────────────────────────────────
-  Future<void> _pickDate(TextEditingController ctrl) async {
-    final picked = await showDatePicker(
-      context: context,
-      initialDate: DateTime(1995),
-      firstDate: DateTime(1950),
-      lastDate: DateTime.now(),
-    );
-    if (picked != null) {
-      ctrl.text =
-          '${picked.day.toString().padLeft(2, '0')}/${picked.month.toString().padLeft(2, '0')}/${picked.year}';
+    if (currentStep > 0) {
+      setState(() {
+        currentStep--;
+        _errors.clear();
+      });
+      _scheduleDraftSave();
     }
   }
 
-  // ─── Shared UI Widgets ────────────────────────────────────────────────────
+  // ─── Per-step validation — mirrors STEP_REQUIRED + the custom checks in
+  // InfluencerRegistration.tsx:781-843 ──────────────────────────────────────
+  Map<String, String> _validateStep0() {
+    final e = <String, String>{};
+    if ((_avatarUrl ?? '').isEmpty) e['avatarUrl'] = 'Profile photo is required.';
+    if (_isBlank(_fullNameCtrl.text)) e['fullName'] = 'Full name is required.';
+    if (_isBlank(_emailCtrl.text)) {
+      e['email'] = 'Email address is required.';
+    } else if (!_emailPattern.hasMatch(_emailCtrl.text.trim())) {
+      e['email'] = 'Please enter a valid email address.';
+    }
+    if (_isBlank(_mobileCtrl.text)) {
+      e['mobileNumber'] = 'Mobile number is required.';
+    } else {
+      // Mirrors the portal exactly: unlike the alternate number below, the
+      // primary mobile check here does not branch on country code.
+      final digits = _mobileCtrl.text.replaceAll(RegExp(r'\D'), '');
+      if (!_mobilePattern.hasMatch(digits)) {
+        e['mobileNumber'] = 'Mobile number must be a valid 10-digit number.';
+      }
+    }
+    if (_altMobileCtrl.text.trim().isNotEmpty) {
+      final digits = _altMobileCtrl.text.replaceAll(RegExp(r'\D'), '');
+      if (_alternateCountryCode == '+91') {
+        if (!_mobilePattern.hasMatch(digits)) {
+          e['alternateMobileNumber'] =
+              'Alternate number must be a valid 10-digit Indian mobile number.';
+        }
+      } else if (digits.length < 8 || digits.length > 12) {
+        e['alternateMobileNumber'] = 'Alternate number must be between 8 and 12 digits.';
+      }
+    }
+    if (_gender == null || _gender!.isEmpty) e['gender'] = 'Gender is required.';
+    if (_isBlank(_dobCtrl.text)) e['dob'] = 'Date of birth is required.';
+    return e;
+  }
+
+  Map<String, String> _validateStep1() {
+    final e = <String, String>{};
+    if (_category == null || _category!.isEmpty) e['category'] = 'Category is required.';
+    if (_primaryContentPlatform == null || _primaryContentPlatform!.isEmpty) {
+      e['primaryContentPlatform'] = 'Primary content platform is required.';
+    }
+    if (_isBlank(_yearsOfExpCtrl.text)) {
+      e['yearsOfExperience'] = 'Years of experience is required.';
+    }
+    if (_audienceType == null || _audienceType!.isEmpty) {
+      e['audienceType'] = 'Audience type is required.';
+    }
+    if (_isBlank(_bioCtrl.text)) e['bio'] = 'Bio is required.';
+    if (_languagesKnown.isEmpty) e['languagesKnown'] = 'Languages known is required.';
+    return e;
+  }
+
+  Map<String, String> _validateStep2() {
+    final e = <String, String>{};
+    if (_isBlank(_officeAddressCtrl.text)) {
+      e['officeAddress'] = 'Office / work address is required.';
+    }
+    if (_isBlank(_cityCtrl.text)) e['city'] = 'City is required.';
+    if (_isBlank(_stateCtrl.text)) e['state'] = 'State is required.';
+    if (_isBlank(_pincodeCtrl.text)) e['pincode'] = 'Pincode is required.';
+    if (_isBlank(_landmarkCtrl.text)) e['landmark'] = 'Landmark is required.';
+    return e;
+  }
+
+  Map<String, String> _validateStep3() {
+    final e = <String, String>{};
+    if (_isBlank(_instagramUsernameCtrl.text)) {
+      e['instagramUsername'] = 'Instagram username is required.';
+    }
+    if (_isBlank(_instagramFollowersCtrl.text)) {
+      e['instagramFollowers'] = 'Instagram followers is required.';
+    }
+    if (_isBlank(_youtubeChannelCtrl.text)) {
+      e['youtubeChannelLink'] = 'YouTube channel link is required.';
+    } else if (!_websitePattern.hasMatch(_youtubeChannelCtrl.text.trim())) {
+      e['youtubeChannelLink'] = 'Please enter a valid URL.';
+    }
+    if (_isBlank(_youtubeSubscribersCtrl.text)) {
+      e['youtubeSubscribers'] = 'YouTube subscribers is required.';
+    }
+    if (_isBlank(_facebookPageCtrl.text)) {
+      e['facebookPageLink'] = 'Facebook page link is required.';
+    } else if (!_websitePattern.hasMatch(_facebookPageCtrl.text.trim())) {
+      e['facebookPageLink'] = 'Please enter a valid URL.';
+    }
+    if (_isBlank(_linkedinCtrl.text)) {
+      e['linkedinProfileUrl'] = 'LinkedIn profile URL is required.';
+    } else if (!_websitePattern.hasMatch(_linkedinCtrl.text.trim())) {
+      e['linkedinProfileUrl'] = 'Please enter a valid URL.';
+    }
+    if (_isBlank(_twitterCtrl.text)) {
+      e['twitterProfileUrl'] = 'Twitter / X profile URL is required.';
+    } else if (!_websitePattern.hasMatch(_twitterCtrl.text.trim())) {
+      e['twitterProfileUrl'] = 'Please enter a valid URL.';
+    }
+    if (_isBlank(_telegramCtrl.text)) {
+      e['telegramChannelLink'] = 'Telegram channel link is required.';
+    } else if (!_websitePattern.hasMatch(_telegramCtrl.text.trim())) {
+      e['telegramChannelLink'] = 'Please enter a valid URL.';
+    }
+    if (_isBlank(_websiteCtrl.text)) {
+      e['websiteUrl'] = 'Website URL is required.';
+    } else if (!_websitePattern.hasMatch(_websiteCtrl.text.trim())) {
+      e['websiteUrl'] = 'Please enter a valid URL.';
+    }
+    if (_isBlank(_whatsappCtrl.text)) {
+      e['whatsappNumber'] = 'WhatsApp number is required.';
+    }
+    return e;
+  }
+
+  Map<String, String> _validateStep4() {
+    final e = <String, String>{};
+    if (_contentTypes.isEmpty) e['contentTypes'] = 'Content types is required.';
+    if (_preferredPromotionTypes.isEmpty) {
+      e['preferredPromotionTypes'] = 'Preferred promotion types is required.';
+    }
+    return e;
+  }
+
+  Map<String, String> _validateStep5() {
+    final e = <String, String>{};
+    if ((_aadhaarCardUrl ?? '').isEmpty) e['aadhaarCardUrl'] = 'Aadhaar card is required.';
+    if ((_panCardUrl ?? '').isEmpty) e['panCardUrl'] = 'PAN card is required.';
+    return e;
+  }
+
+  Map<String, String> _validateStep6() {
+    final e = <String, String>{};
+    final username = _usernameCtrl.text.trim();
+    if (username.length < 3) {
+      e['username'] = 'Username must be at least 3 characters.';
+    } else if (_usernameAvailable == null) {
+      e['username'] = 'Checking username availability. Please wait.';
+    } else if (_usernameTaken) {
+      e['username'] = 'This username is already taken.';
+    }
+    return e;
+  }
+
+  // ─── Username availability ────────────────────────────────────────────────
+  void _onUsernameChanged(String value) {
+    final cleaned =
+        value.replaceAll(RegExp(r'[^a-zA-Z0-9_]'), '').toLowerCase();
+    if (cleaned != value) {
+      _usernameCtrl.value = TextEditingValue(
+        text: cleaned,
+        selection: TextSelection.collapsed(offset: cleaned.length),
+      );
+      return;
+    }
+
+    _usernameDebounce?.cancel();
+    if (cleaned.length < 3) {
+      setState(() {
+        _usernameAvailable = null;
+        _usernameTaken = false;
+      });
+      return;
+    }
+    _usernameDebounce =
+        Timer(const Duration(milliseconds: 500), () => _checkUsername(cleaned));
+    setState(() {});
+  }
+
+  Future<void> _checkUsername(String username) async {
+    try {
+      final data = await Supabase.instance.client
+          .from('profiles')
+          .select('username, user_id')
+          .eq('username', username)
+          .maybeSingle();
+      if (!mounted) return;
+      final currentUserId = Supabase.instance.client.auth.currentUser?.id;
+      final taken = data != null && data['user_id'] != currentUserId;
+      setState(() {
+        _usernameTaken = taken;
+        _usernameAvailable = !taken;
+      });
+    } catch (e) {
+      debugPrint('Username availability check failed: $e');
+    }
+  }
+
+  // ─── Uploads — real files via ProfileMediaService ────────────────────────
+  Future<void> _pickAndUploadAvatar() async {
+    final userId = Supabase.instance.client.auth.currentUser?.id;
+    if (userId == null) return;
+    setState(() => _uploading.add('avatarUrl'));
+    try {
+      final file = await _mediaService.pickAvatar();
+      if (file == null) return;
+      final url = await _mediaService.uploadAvatar(userId: userId, file: file);
+      if (mounted) {
+        setState(() => _avatarUrl = url);
+        _scheduleDraftSave();
+      }
+    } catch (e) {
+      _showUploadError(e);
+    } finally {
+      if (mounted) setState(() => _uploading.remove('avatarUrl'));
+    }
+  }
+
+  Future<void> _pickAndUploadDocument(
+    String fieldKey,
+    ProfileDocumentKind kind,
+  ) async {
+    final userId = Supabase.instance.client.auth.currentUser?.id;
+    if (userId == null) return;
+    setState(() => _uploading.add(fieldKey));
+    try {
+      final file = await _mediaService.pickDocument();
+      if (file == null) return;
+      final url =
+          await _mediaService.uploadDocument(userId: userId, kind: kind, file: file);
+      if (!mounted) return;
+      setState(() {
+        switch (fieldKey) {
+          case 'aadhaarCardUrl':
+            _aadhaarCardUrl = url;
+          case 'panCardUrl':
+            _panCardUrl = url;
+        }
+      });
+      _scheduleDraftSave();
+    } catch (e) {
+      _showUploadError(e);
+    } finally {
+      if (mounted) setState(() => _uploading.remove(fieldKey));
+    }
+  }
+
+  void _showUploadError(Object e) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('Upload failed: $e'), backgroundColor: Colors.red),
+    );
+  }
+
+  // ─── Languages pill picker ────────────────────────────────────────────────
+  void _toggleLanguage(String item) {
+    setState(() {
+      _languagesKnown.contains(item)
+          ? _languagesKnown.remove(item)
+          : _languagesKnown.add(item);
+    });
+    _scheduleDraftSave();
+  }
+
+  void _removeLanguage(String item) {
+    setState(() => _languagesKnown.remove(item));
+    _scheduleDraftSave();
+  }
+
+  void _addCustomLanguage(String value) {
+    final v = value.trim();
+    _customLangCtrl.clear();
+    if (v.isEmpty || _languagesKnown.contains(v)) return;
+    setState(() => _languagesKnown.add(v));
+    _scheduleDraftSave();
+  }
+
+  void _toggleContentType(String item) {
+    setState(() {
+      _contentTypes.contains(item)
+          ? _contentTypes.remove(item)
+          : _contentTypes.add(item);
+    });
+    _scheduleDraftSave();
+  }
+
+  void _togglePromotionType(String item) {
+    setState(() {
+      _preferredPromotionTypes.contains(item)
+          ? _preferredPromotionTypes.remove(item)
+          : _preferredPromotionTypes.add(item);
+    });
+    _scheduleDraftSave();
+  }
+
+  // ─── Date picker ──────────────────────────────────────────────────────────
+  Future<void> _pickDob() async {
+    final now = DateTime.now();
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: DateTime(now.year - 25),
+      firstDate: DateTime(1950),
+      lastDate: now,
+    );
+    if (picked != null) {
+      setState(() {
+        _dobCtrl.text = '${picked.year.toString().padLeft(4, '0')}-'
+            '${picked.month.toString().padLeft(2, '0')}-'
+            '${picked.day.toString().padLeft(2, '0')}';
+      });
+      _scheduleDraftSave();
+    }
+  }
+
+  // ─── Map picker — mirrors InfluencerRegistration.tsx:485-507's
+  // handleLocationSelect: keep the existing value when the geocode result
+  // didn't resolve that field.
+  // [updateOfficeAddress] is false for the autocomplete field's selections:
+  // it already wrote the full selected description into the controller
+  // itself (matching the portal, which fills `officeAddress` with
+  // `place.formatted_address`) — overwriting it here with the shorter parsed
+  // `addressLine1` would fight that. The map tap path has no pre-filled
+  // text, so it still wants this.
+  void _onLocationSelected(
+    double lat,
+    double lng,
+    GeocodedAddress? address, {
+    bool updateOfficeAddress = true,
+  }) {
+    setState(() {
+      _pickedLat = lat;
+      _pickedLng = lng;
+      if (updateOfficeAddress && (address?.addressLine1 ?? '').isNotEmpty) {
+        _officeAddressCtrl.text = address!.addressLine1!;
+      }
+      if ((address?.city ?? '').isNotEmpty) _cityCtrl.text = address!.city!;
+      if ((address?.state ?? '').isNotEmpty) _stateCtrl.text = address!.state!;
+      if ((address?.pincode ?? '').isNotEmpty) _pincodeCtrl.text = address!.pincode!;
+      if ((address?.landmark ?? '').isNotEmpty) _landmarkCtrl.text = address!.landmark!;
+      _errors.remove('officeAddress');
+      _errors.remove('city');
+      _errors.remove('state');
+      _errors.remove('pincode');
+      if ((address?.landmark ?? '').isNotEmpty) _errors.remove('landmark');
+    });
+    _scheduleDraftSave();
+  }
+
+  // ─── Submit — mirrors InfluencerRegistration.tsx:875-981 ─────────────────
+  Future<void> _onSubmit() async {
+    if (!_termsAccepted || !_privacyAccepted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Please accept the Terms & Conditions and Privacy Policy.'),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return;
+    }
+
+    setState(() => _isSubmitting = true);
+    try {
+      await ProfileService().saveInfluencerProfile({
+        'fullName': _fullNameCtrl.text.trim(),
+        'email': _emailCtrl.text.trim(),
+        'mobileNumber': _mobileCtrl.text.trim(),
+        'countryCode': _countryCode,
+        'alternateMobileNumber': _altMobileCtrl.text.trim(),
+        'alternateCountryCode': _alternateCountryCode,
+        'gender': _gender ?? '',
+        'dob': _dobCtrl.text.trim(),
+        'avatarUrl': _avatarUrl ?? '',
+        'category': _category ?? '',
+        'primaryContentPlatform': _primaryContentPlatform ?? '',
+        'yearsOfExperience': _yearsOfExpCtrl.text.trim(),
+        'audienceType': _audienceType ?? '',
+        'bio': _bioCtrl.text.trim(),
+        'languagesKnown': _languagesKnown,
+        'officeAddress': _officeAddressCtrl.text.trim(),
+        'city': _cityCtrl.text.trim(),
+        'state': _stateCtrl.text.trim(),
+        'pincode': _pincodeCtrl.text.trim(),
+        'landmark': _landmarkCtrl.text.trim(),
+        'latitude': _pickedLat,
+        'longitude': _pickedLng,
+        'instagramUsername': _instagramUsernameCtrl.text.trim(),
+        'instagramFollowers': _instagramFollowersCtrl.text.trim(),
+        'youtubeChannelLink': _youtubeChannelCtrl.text.trim(),
+        'youtubeSubscribers': _youtubeSubscribersCtrl.text.trim(),
+        'facebookPageLink': _facebookPageCtrl.text.trim(),
+        'linkedinProfileUrl': _linkedinCtrl.text.trim(),
+        'twitterProfileUrl': _twitterCtrl.text.trim(),
+        'telegramChannelLink': _telegramCtrl.text.trim(),
+        'websiteUrl': _websiteCtrl.text.trim(),
+        'whatsappNumber': _whatsappCtrl.text.trim(),
+        'contentTypes': _contentTypes,
+        'preferredPromotionTypes': _preferredPromotionTypes,
+        'aadhaarCardUrl': _aadhaarCardUrl ?? '',
+        'panCardUrl': _panCardUrl ?? '',
+        'username': _usernameCtrl.text.trim(),
+      });
+
+      if (!mounted) return;
+
+      (await SharedPreferences.getInstance()).remove('pending_user_type');
+      await _draftStore.clear();
+      await context.read<AuthProvider>().refreshProfile();
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Influencer profile saved successfully'),
+          backgroundColor: Colors.green,
+        ),
+      );
+
+      await Future.delayed(const Duration(milliseconds: 800));
+      if (!mounted) return;
+
+      Navigator.of(context).pushAndRemoveUntil(
+        MaterialPageRoute(builder: (_) => const RoleHomeRouter()),
+        (route) => false,
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(e.toString()), backgroundColor: Colors.red),
+      );
+    } finally {
+      if (mounted) setState(() => _isSubmitting = false);
+    }
+  }
+
+  // ─── Shared UI widgets ────────────────────────────────────────────────────
   Widget _buildSectionTitle(String title) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 16, top: 8),
@@ -234,13 +903,20 @@ Navigator.of(context).pushAndRemoveUntil(
     );
   }
 
-  InputDecoration _inputDecoration(String label, {String? hint, Widget? suffix}) {
+  InputDecoration _inputDecoration(
+    String label, {
+    String? hint,
+    Widget? suffix,
+    bool hasError = false,
+    EdgeInsetsGeometry? contentPadding,
+  }) {
+    final scheme = Theme.of(context).colorScheme;
     return InputDecoration(
-      labelText: label,
+      labelText: label.isEmpty ? null : label,
       hintText: hint,
       suffixIcon: suffix,
       filled: true,
-      fillColor: Theme.of(context).colorScheme.surfaceVariant.withOpacity(0.4),
+      fillColor: scheme.surfaceVariant.withOpacity(0.4),
       border: OutlineInputBorder(
         borderRadius: BorderRadius.circular(12),
         borderSide: BorderSide.none,
@@ -248,76 +924,99 @@ Navigator.of(context).pushAndRemoveUntil(
       enabledBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(12),
         borderSide: BorderSide(
-          color: Theme.of(context).colorScheme.outline.withOpacity(0.3),
+          color: hasError ? scheme.error : scheme.outline.withOpacity(0.3),
         ),
       ),
       focusedBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(12),
         borderSide: BorderSide(
-          color: Theme.of(context).colorScheme.primary,
+          color: hasError ? scheme.error : scheme.primary,
           width: 2,
         ),
       ),
-      errorBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(12),
-        borderSide: BorderSide(
-          color: Theme.of(context).colorScheme.error,
-        ),
-      ),
-      focusedErrorBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(12),
-        borderSide: BorderSide(
-          color: Theme.of(context).colorScheme.error,
-          width: 2,
-        ),
-      ),
-      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+      contentPadding:
+          contentPadding ?? const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
     );
   }
 
-  Widget _buildTextField({
+  Widget _errorText(String fieldKey) {
+    final msg = _errors[fieldKey];
+    if (msg == null) return const SizedBox.shrink();
+    return Padding(
+      padding: const EdgeInsets.only(top: 4, bottom: 4),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Icon(Icons.error_outline, size: 14, color: Colors.red),
+          const SizedBox(width: 4),
+          Expanded(
+            child: Text(msg, style: const TextStyle(fontSize: 12, color: Colors.red)),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _label(String text, {bool required = false}) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 6),
+      child: Text.rich(
+        TextSpan(
+          text: text,
+          style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13.5),
+          children: [
+            if (required)
+              const TextSpan(text: ' *', style: TextStyle(color: Colors.red)),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _field({
+    required String fieldKey,
     required TextEditingController controller,
     required String label,
-    String? hint,
     bool required = false,
+    String? hint,
     TextInputType keyboardType = TextInputType.text,
     List<TextInputFormatter>? inputFormatters,
     int maxLines = 1,
-    Widget? suffixIcon,
     bool readOnly = false,
     VoidCallback? onTap,
-    bool obscureText = false,
-    String? Function(String?)? validator,
+    Widget? suffixIcon,
+    void Function(String)? onChanged,
+    bool enabled = true,
   }) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 16),
-      child: TextFormField(
-        controller: controller,
-        readOnly: readOnly,
-        onTap: onTap,
-        obscureText: obscureText,
-        keyboardType: keyboardType,
-        inputFormatters: inputFormatters,
-        maxLines: maxLines,
-        decoration: _inputDecoration(
-          required ? '$label *' : label,
-          hint: hint,
-          suffix: suffixIcon,
-        ),
-        validator: validator ??
-            (required
-                ? (v) {
-                    if (v == null || v.trim().isEmpty) {
-                      return '$label is required';
-                    }
-                    return null;
-                  }
-                : null),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          TextField(
+            controller: controller,
+            keyboardType: keyboardType,
+            inputFormatters: inputFormatters,
+            maxLines: maxLines,
+            readOnly: readOnly,
+            onTap: onTap,
+            onChanged: onChanged,
+            enabled: enabled,
+            decoration: _inputDecoration(
+              required ? '$label *' : label,
+              hint: hint,
+              suffix: suffixIcon,
+              hasError: _errors.containsKey(fieldKey),
+            ),
+          ),
+          _errorText(fieldKey),
+        ],
       ),
     );
   }
 
-  Widget _buildDropdown({
+  Widget _dropdown({
+    required String fieldKey,
     required String label,
     required String? value,
     required List<String> items,
@@ -326,159 +1025,281 @@ Navigator.of(context).pushAndRemoveUntil(
   }) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 16),
-      child: DropdownButtonFormField<String>(
-        value: value,
-        decoration: _inputDecoration(required ? '$label *' : label),
-        items: items
-            .map((item) => DropdownMenuItem(value: item, child: Text(item)))
-            .toList(),
-        onChanged: onChanged,
-        validator: required
-            ? (v) => (v == null || v.isEmpty) ? '$label is required' : null
-            : null,
-      ),
-    );
-  }
-
-  Widget _buildUploadPlaceholder({
-    required String label,
-    required String currentPath,
-    required VoidCallback onTap,
-    bool required = false,
-  }) {
-    final hasFile = currentPath.isNotEmpty;
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 16),
-      child: GestureDetector(
-        onTap: onTap,
-        child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
-          decoration: BoxDecoration(
-            color: Theme.of(context).colorScheme.surfaceVariant.withOpacity(0.4),
-            border: Border.all(
-              color: hasFile
-                  ? Theme.of(context).colorScheme.primary
-                  : Theme.of(context).colorScheme.outline.withOpacity(0.4),
-              width: hasFile ? 2 : 1,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          DropdownButtonFormField<String>(
+            value: value,
+            decoration: _inputDecoration(
+              required ? '$label *' : label,
+              hasError: _errors.containsKey(fieldKey),
             ),
-            borderRadius: BorderRadius.circular(12),
+            items: items
+                .map((item) => DropdownMenuItem(value: item, child: Text(item)))
+                .toList(),
+            onChanged: onChanged,
           ),
-          child: Row(
-            children: [
-              Icon(
-                hasFile ? Icons.check_circle : Icons.upload_file,
-                color: hasFile
-                    ? Theme.of(context).colorScheme.primary
-                    : Theme.of(context).colorScheme.onSurfaceVariant,
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Text(
-                  hasFile
-                      ? 'File selected'
-                      : 'Tap to upload ${required ? "$label *" : label}',
-                  style: TextStyle(
-                    color: hasFile
-                        ? Theme.of(context).colorScheme.primary
-                        : Theme.of(context).colorScheme.onSurfaceVariant,
-                  ),
-                ),
-              ),
-              Text(
-                'Browse',
-                style: TextStyle(
-                  color: Theme.of(context).colorScheme.primary,
-                  fontWeight: FontWeight.w600,
-                  fontSize: 13,
-                ),
-              ),
-            ],
-          ),
-        ),
+          _errorText(fieldKey),
+        ],
       ),
     );
   }
 
-  Widget _buildSocialField({
+  Widget _phoneField({
+    required String fieldKey,
     required TextEditingController controller,
     required String label,
-    required IconData icon,
-    required Color iconColor,
-    TextInputType keyboardType = TextInputType.url,
-    List<TextInputFormatter>? inputFormatters,
-  }) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 16),
-      child: TextFormField(
-        controller: controller,
-        keyboardType: keyboardType,
-        inputFormatters: inputFormatters,
-        decoration: _inputDecoration(label).copyWith(
-          prefixIcon: Icon(icon, color: iconColor),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildMultiSelectChips({
-    required String title,
-    required List<String> options,
-    required Set<String> selectedValues,
+    required String countryCode,
+    required void Function(String) onCountryChanged,
+    bool enabled = true,
+    bool required = false,
   }) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Padding(
-            padding: const EdgeInsets.only(bottom: 10),
-            child: Text(
-              title,
-              style: TextStyle(
-                fontWeight: FontWeight.w600,
-                fontSize: 14,
-                color: Theme.of(context).colorScheme.onSurface,
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              SizedBox(
+                width: 100,
+                child: DropdownButtonFormField<String>(
+                  value: countryCode,
+                  isExpanded: true,
+                  icon: const Icon(Icons.arrow_drop_down, size: 18),
+                  decoration: _inputDecoration(
+                    '',
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 14),
+                  ),
+                  items: _kCountryCodes
+                      .map((c) => DropdownMenuItem(
+                            value: c['code'],
+                            child: Text(c['code']!, overflow: TextOverflow.ellipsis),
+                          ))
+                      .toList(),
+                  onChanged: enabled
+                      ? (v) {
+                          if (v != null) onCountryChanged(v);
+                        }
+                      : null,
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: TextField(
+                  controller: controller,
+                  enabled: enabled,
+                  keyboardType: TextInputType.phone,
+                  inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                  decoration: _inputDecoration(
+                    required ? '$label *' : label,
+                    hasError: _errors.containsKey(fieldKey),
+                  ),
+                ),
+              ),
+            ],
+          ),
+          _errorText(fieldKey),
+        ],
+      ),
+    );
+  }
+
+  Widget _uploadCard({
+    required String fieldKey,
+    required String label,
+    required String? url,
+    required VoidCallback onTap,
+    bool required = false,
+    String subtitle = '',
+    bool isImagePreview = false,
+  }) {
+    final busy = _uploading.contains(fieldKey);
+    final has = (url ?? '').isNotEmpty;
+    final scheme = Theme.of(context).colorScheme;
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _label(label, required: required),
+          if (subtitle.isNotEmpty)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 6),
+              child: Text(
+                subtitle,
+                style: TextStyle(fontSize: 11.5, color: scheme.onSurfaceVariant),
+              ),
+            ),
+          GestureDetector(
+            onTap: busy ? null : onTap,
+            child: Container(
+              height: 108,
+              width: double.infinity,
+              decoration: BoxDecoration(
+                color: scheme.surfaceVariant.withOpacity(0.4),
+                border: Border.all(
+                  color: _errors.containsKey(fieldKey)
+                      ? scheme.error
+                      : (has ? scheme.primary : scheme.outline.withOpacity(0.4)),
+                  width: has ? 2 : 1,
+                ),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Center(
+                child: busy
+                    ? const Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          SizedBox(
+                            width: 20,
+                            height: 20,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          ),
+                          SizedBox(height: 8),
+                          Text('Uploading...', style: TextStyle(fontSize: 12)),
+                        ],
+                      )
+                    : has
+                        ? (isImagePreview
+                            ? ClipRRect(
+                                borderRadius: BorderRadius.circular(8),
+                                child: Image.network(
+                                  url!,
+                                  height: 64,
+                                  width: 64,
+                                  fit: BoxFit.cover,
+                                ),
+                              )
+                            : Column(
+                                mainAxisSize: MainAxisSize.min,
+                                children: const [
+                                  Icon(Icons.check_circle, color: Colors.green, size: 30),
+                                  SizedBox(height: 6),
+                                  Text('Uploaded', style: TextStyle(fontSize: 12)),
+                                ],
+                              ))
+                        : Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(Icons.upload_file, color: scheme.onSurfaceVariant),
+                              const SizedBox(height: 6),
+                              const Text('Tap to upload', style: TextStyle(fontSize: 12)),
+                            ],
+                          ),
               ),
             ),
           ),
+          _errorText(fieldKey),
+        ],
+      ),
+    );
+  }
+
+  Widget _pillPicker({
+    required String fieldKey,
+    required String label,
+    required List<String> selected,
+    required List<String> options,
+    required TextEditingController customCtrl,
+    required void Function(String) onToggle,
+    required void Function(String) onRemove,
+    required void Function(String) onAddCustom,
+  }) {
+    final scheme = Theme.of(context).colorScheme;
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _label(label),
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              color: scheme.surfaceVariant.withOpacity(0.3),
+              border: Border.all(color: scheme.outline.withOpacity(0.3)),
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: selected.isEmpty
+                ? Text(
+                    'Select from below or add a custom entry',
+                    style: TextStyle(fontSize: 12, color: scheme.onSurfaceVariant),
+                  )
+                : Wrap(
+                    spacing: 6,
+                    runSpacing: 6,
+                    children: selected
+                        .map((s) => Chip(
+                              label: Text(s, style: const TextStyle(fontSize: 12)),
+                              onDeleted: () => onRemove(s),
+                              deleteIcon: const Icon(Icons.close, size: 14),
+                            ))
+                        .toList(),
+                  ),
+          ),
+          const SizedBox(height: 8),
+          Row(
+            children: [
+              Expanded(
+                child: TextField(
+                  controller: customCtrl,
+                  decoration: _inputDecoration('Add custom...'),
+                  onSubmitted: onAddCustom,
+                ),
+              ),
+              const SizedBox(width: 8),
+              OutlinedButton(
+                onPressed: () => onAddCustom(customCtrl.text),
+                child: const Text('Add'),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
           Wrap(
-            spacing: 10,
-            runSpacing: 10,
-            children: options.map((option) {
-              final isSelected = selectedValues.contains(option);
-              return FilterChip(
-                label: Text(option),
-                selected: isSelected,
-                onSelected: (selected) {
-                  setState(() {
-                    if (selected) {
-                      selectedValues.add(option);
-                    } else {
-                      selectedValues.remove(option);
-                    }
-                  });
-                },
-                showCheckmark: false,
-                selectedColor: Theme.of(context).colorScheme.primaryContainer,
-                labelStyle: TextStyle(
-                  color: isSelected
-                      ? Theme.of(context).colorScheme.onPrimaryContainer
-                      : Theme.of(context).colorScheme.onSurfaceVariant,
-                  fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
-                ),
-                backgroundColor:
-                    Theme.of(context).colorScheme.surfaceVariant.withOpacity(0.4),
-                side: BorderSide(
-                  color: isSelected
-                      ? Theme.of(context).colorScheme.primary
-                      : Theme.of(context).colorScheme.outline.withOpacity(0.3),
-                ),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(20),
-                ),
+            spacing: 6,
+            runSpacing: 6,
+            children: options
+                .where((o) => !selected.contains(o))
+                .map((o) => ActionChip(
+                      label: Text('+ $o', style: const TextStyle(fontSize: 11)),
+                      onPressed: () => onToggle(o),
+                    ))
+                .toList(),
+          ),
+          _errorText(fieldKey),
+        ],
+      ),
+    );
+  }
+
+  Widget _multiToggle({
+    required String fieldKey,
+    required String label,
+    required List<String> selected,
+    required List<String> options,
+    required void Function(String) onToggle,
+  }) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _label(label, required: true),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: options.map((o) {
+              final active = selected.contains(o);
+              return ChoiceChip(
+                label: Text(o, style: const TextStyle(fontSize: 12)),
+                selected: active,
+                onSelected: (_) => onToggle(o),
               );
             }).toList(),
           ),
+          _errorText(fieldKey),
         ],
       ),
     );
@@ -492,17 +1313,14 @@ Navigator.of(context).pushAndRemoveUntil(
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            Expanded(
-              child: Text(
-                _stepTitles[currentStep],
-                style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                      fontWeight: FontWeight.bold,
-                    ),
-              ),
+            Text(
+              _stepTitles[currentStep],
+              style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                    fontWeight: FontWeight.bold,
+                  ),
             ),
             Container(
-              padding:
-                  const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
               decoration: BoxDecoration(
                 color: Theme.of(context).colorScheme.primaryContainer,
                 borderRadius: BorderRadius.circular(20),
@@ -524,508 +1342,633 @@ Navigator.of(context).pushAndRemoveUntil(
           child: LinearProgressIndicator(
             value: (currentStep + 1) / _stepTitles.length,
             minHeight: 8,
-            backgroundColor:
-                Theme.of(context).colorScheme.surfaceVariant,
+            backgroundColor: Theme.of(context).colorScheme.surfaceVariant,
           ),
         ),
-       
         const SizedBox(height: 20),
       ],
     );
   }
 
-  // ─── Step 1 Content ───────────────────────────────────────────────────────
+  // ─── Step 1 — Personal Information ───────────────────────────────────────
+  Widget _buildStep0() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _buildSectionTitle('Personal Information'),
+        _uploadCard(
+          fieldKey: 'avatarUrl',
+          label: 'Profile Photo (Creator Photo)',
+          url: _avatarUrl,
+          onTap: _pickAndUploadAvatar,
+          required: true,
+          isImagePreview: true,
+        ),
+        _field(
+          fieldKey: 'fullName',
+          controller: _fullNameCtrl,
+          label: 'Full Name',
+          required: true,
+          hint: 'e.g. Shubham Gosaii',
+        ),
+        _field(
+          fieldKey: 'email',
+          controller: _emailCtrl,
+          label: 'Email Address',
+          required: true,
+          keyboardType: TextInputType.emailAddress,
+          enabled: !_isEmailUser,
+        ),
+        _phoneField(
+          fieldKey: 'mobileNumber',
+          controller: _mobileCtrl,
+          label: 'Mobile Number',
+          countryCode: _countryCode,
+          onCountryChanged: (v) {
+            setState(() => _countryCode = v);
+            _scheduleDraftSave();
+          },
+          enabled: !_isPhoneUser,
+          required: true,
+        ),
+        _phoneField(
+          fieldKey: 'alternateMobileNumber',
+          controller: _altMobileCtrl,
+          label: 'Alternate Mobile Number',
+          countryCode: _alternateCountryCode,
+          onCountryChanged: (v) {
+            setState(() => _alternateCountryCode = v);
+            _scheduleDraftSave();
+          },
+        ),
+        _label('Gender', required: true),
+        Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          children: _kGenderValues.map((g) {
+            final selected = _gender == g;
+            return ChoiceChip(
+              label: Text(_genderLabel(g)),
+              selected: selected,
+              onSelected: (_) {
+                setState(() => _gender = g);
+                _scheduleDraftSave();
+              },
+            );
+          }).toList(),
+        ),
+        _errorText('gender'),
+        const SizedBox(height: 16),
+        _field(
+          fieldKey: 'dob',
+          controller: _dobCtrl,
+          label: 'Date of Birth',
+          required: true,
+          readOnly: true,
+          onTap: _pickDob,
+          suffixIcon: const Icon(Icons.calendar_today_outlined),
+        ),
+      ],
+    );
+  }
+
+  // ─── Step 2 — Influencer Profile ─────────────────────────────────────────
   Widget _buildStep1() {
-    return Form(
-      key: _step1Key,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          _buildSectionTitle('Basic Information'),
-          _buildTextField(
-            controller: _fullNameCtrl,
-            label: 'Full Name',
-            required: true,
-          ),
-          _buildTextField(
-            controller: _emailCtrl,
-            label: 'Email',
-            required: true,
-            keyboardType: TextInputType.emailAddress,
-            validator: (v) {
-              if (v == null || v.trim().isEmpty) return 'Email is required';
-              final emailRegex = RegExp(r'^[^@]+@[^@]+\.[^@]+');
-              if (!emailRegex.hasMatch(v.trim())) {
-                return 'Enter a valid email address';
-              }
-              return null;
-            },
-          ),
-          _buildTextField(
-            controller: _mobileCtrl,
-            label: 'Mobile Number',
-            required: true,
-            keyboardType: TextInputType.phone,
-            inputFormatters: [
-              FilteringTextInputFormatter.digitsOnly,
-              LengthLimitingTextInputFormatter(10),
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _buildSectionTitle('Influencer Profile'),
+        _dropdown(
+          fieldKey: 'category',
+          label: 'Influencer Category',
+          value: _category,
+          items: _kCategoryOptions,
+          onChanged: (v) {
+            setState(() => _category = v);
+            _scheduleDraftSave();
+          },
+          required: true,
+        ),
+        _dropdown(
+          fieldKey: 'primaryContentPlatform',
+          label: 'Primary Platform',
+          value: _primaryContentPlatform,
+          items: _kPlatformOptions,
+          onChanged: (v) {
+            setState(() => _primaryContentPlatform = v);
+            _scheduleDraftSave();
+          },
+          required: true,
+        ),
+        _field(
+          fieldKey: 'yearsOfExperience',
+          controller: _yearsOfExpCtrl,
+          label: 'Years of Experience as Creator',
+          required: true,
+          hint: 'e.g. 5',
+          keyboardType: TextInputType.number,
+          inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+        ),
+        _dropdown(
+          fieldKey: 'audienceType',
+          label: 'Audience Niche Type',
+          value: _audienceType,
+          items: _kAudienceOptions,
+          onChanged: (v) {
+            setState(() => _audienceType = v);
+            _scheduleDraftSave();
+          },
+          required: true,
+        ),
+        Padding(
+          padding: const EdgeInsets.only(bottom: 16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              TextField(
+                controller: _bioCtrl,
+                maxLines: 4,
+                decoration: _inputDecoration(
+                  'Bio / About Me * (Minimum 10 words)',
+                  hint: 'Share your creator journey, previous successful property '
+                      'walkthroughs, or review channels...',
+                  hasError: _errors.containsKey('bio'),
+                ),
+              ),
+              _errorText('bio'),
             ],
-            validator: (v) {
-              if (v == null || v.trim().isEmpty) {
-                return 'Mobile Number is required';
-              }
-              if (v.trim().length != 10) {
-                return 'Enter a valid 10-digit mobile number';
-              }
-              return null;
-            },
           ),
-          _buildTextField(
-            controller: _altMobileCtrl,
-            label: 'Alternate Mobile Number',
-            keyboardType: TextInputType.phone,
-            inputFormatters: [
-              FilteringTextInputFormatter.digitsOnly,
-              LengthLimitingTextInputFormatter(10),
-            ],
-          ),
-          _buildDropdown(
-            label: 'Gender',
-            value: _selectedGender,
-            items: ['Male', 'Female', 'Other', 'Prefer not to say'],
-            onChanged: (v) => setState(() => _selectedGender = v),
-          ),
-          _buildTextField(
-            controller: _dobCtrl,
-            label: 'Date of Birth',
-            hint: 'DD/MM/YYYY',
-            readOnly: true,
-            onTap: () => _pickDate(_dobCtrl),
-            suffixIcon: const Icon(Icons.calendar_today_outlined),
-          ),
-          _buildSectionTitle('Photo'),
-          _buildUploadPlaceholder(
-            label: 'Avatar',
-            currentPath: _avatarPath,
-            onTap: () {
-              // Placeholder – image picker not connected yet
-              setState(() => _avatarPath = 'placeholder_avatar.jpg');
-            },
-          ),
-        ],
-      ),
+        ),
+        _pillPicker(
+          fieldKey: 'languagesKnown',
+          label: 'Languages Known',
+          selected: _languagesKnown,
+          options: _kLanguageOptions,
+          customCtrl: _customLangCtrl,
+          onToggle: _toggleLanguage,
+          onRemove: _removeLanguage,
+          onAddCustom: _addCustomLanguage,
+        ),
+      ],
     );
   }
 
-  // ─── Step 2 Content ───────────────────────────────────────────────────────
+  // ─── Step 3 — Office / Work Location ─────────────────────────────────────
   Widget _buildStep2() {
-    return Form(
-      key: _step2Key,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          _buildSectionTitle('Influencer Profile'),
-          _buildDropdown(
-            label: 'Category',
-            value: _selectedCategory,
-            required: true,
-            items: [
-              'Fashion & Lifestyle',
-              'Beauty & Cosmetics',
-              'Food & Cooking',
-              'Travel',
-              'Fitness & Health',
-              'Technology',
-              'Gaming',
-              'Finance',
-              'Education',
-              'Comedy & Entertainment',
-              'Parenting',
-              'Real Estate',
-              'Other',
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _buildSectionTitle('Office / Work Location'),
+        _label('Google Maps Location Picker'),
+        Padding(
+          padding: const EdgeInsets.only(bottom: 16),
+          child: LocationPickerMap(
+            initialLat: _pickedLat,
+            initialLng: _pickedLng,
+            onLocationSelected: _onLocationSelected,
+          ),
+        ),
+        Padding(
+          padding: const EdgeInsets.only(bottom: 16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              AddressAutocompleteField(
+                controller: _officeAddressCtrl,
+                decoration: _inputDecoration(
+                  'Office / Work Address *',
+                  hasError: _errors.containsKey('officeAddress'),
+                ),
+                maxLines: 2,
+                onPlaceSelected: (address, lat, lng) => _onLocationSelected(
+                  lat,
+                  lng,
+                  address,
+                  updateOfficeAddress: false,
+                ),
+              ),
+              _errorText('officeAddress'),
             ],
-            onChanged: (v) => setState(() => _selectedCategory = v),
           ),
-          _buildTextField(
-            controller: _bioCtrl,
-            label: 'Bio',
-            maxLines: 4,
-            hint: 'Tell us about yourself...',
-          ),
-          _buildTextField(
-            controller: _languagesKnownCtrl,
-            label: 'Languages Known',
-            hint: 'e.g., English, Hindi, Marathi',
-          ),
-          _buildTextField(
-            controller: _yearsOfExpCtrl,
-            label: 'Years of Experience',
-            keyboardType: TextInputType.number,
-            inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-          ),
-          _buildDropdown(
-            label: 'Audience Type',
-            value: _selectedAudienceType,
-            items: [
-              'Local',
-              'Regional',
-              'National',
-              'International',
-              'Niche Community',
-            ],
-            onChanged: (v) => setState(() => _selectedAudienceType = v),
-          ),
-          _buildDropdown(
-            label: 'Primary Content Platform',
-            value: _selectedPrimaryPlatform,
-            items: [
-              'Instagram',
-              'YouTube',
-              'Facebook',
-              'TikTok',
-              'LinkedIn',
-              'Twitter / X',
-              'Blog',
-              'Podcast',
-            ],
-            onChanged: (v) => setState(() => _selectedPrimaryPlatform = v),
-          ),
-        ],
-      ),
+        ),
+        _field(fieldKey: 'city', controller: _cityCtrl, label: 'Work City', required: true),
+        _field(fieldKey: 'state', controller: _stateCtrl, label: 'State', required: true),
+        _field(
+          fieldKey: 'pincode',
+          controller: _pincodeCtrl,
+          label: 'Pincode',
+          required: true,
+          hint: '6-digit pincode',
+          keyboardType: TextInputType.number,
+          inputFormatters: [
+            FilteringTextInputFormatter.digitsOnly,
+            LengthLimitingTextInputFormatter(6),
+          ],
+        ),
+        _field(
+          fieldKey: 'landmark',
+          controller: _landmarkCtrl,
+          label: 'Landmark',
+          required: true,
+          hint: 'Famous landmark near office',
+        ),
+      ],
     );
   }
 
-  // ─── Step 3 Content ───────────────────────────────────────────────────────
+  // ─── Step 4 — Social Media Details ───────────────────────────────────────
   Widget _buildStep3() {
-    return Form(
-      key: _step3Key,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          _buildSectionTitle('Office / Residential Address'),
-          _buildTextField(
-            controller: _officeAddressCtrl,
-            label: 'Office Address',
-            maxLines: 2,
-          ),
-          _buildTextField(
-            controller: _cityCtrl,
-            label: 'City',
-            required: true,
-          ),
-          _buildTextField(
-            controller: _stateCtrl,
-            label: 'State',
-            required: true,
-          ),
-          _buildTextField(
-            controller: _pincodeCtrl,
-            label: 'Pincode',
-            keyboardType: TextInputType.number,
-            inputFormatters: [
-              FilteringTextInputFormatter.digitsOnly,
-              LengthLimitingTextInputFormatter(6),
-            ],
-          ),
-          _buildTextField(
-            controller: _landmarkCtrl,
-            label: 'Landmark',
-            hint: 'Near...',
-          ),
-        ],
-      ),
-    );
-  }
-
-  // ─── Step 4 Content ───────────────────────────────────────────────────────
-  Widget _buildStep4() {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         _buildSectionTitle('Social Media Details'),
         const Padding(
-          padding: EdgeInsets.only(bottom: 16),
+          padding: EdgeInsets.only(bottom: 12),
           child: Text(
-            'Add your social media profiles and reach metrics.',
-            style: TextStyle(fontSize: 13, color: Colors.grey),
+            'Connect your verified handle details and viewer statistics.',
+            style: TextStyle(fontSize: 12.5, color: Colors.grey),
           ),
         ),
-        _buildSocialField(
+        _field(
+          fieldKey: 'instagramUsername',
           controller: _instagramUsernameCtrl,
-          label: 'Instagram Username',
-          icon: Icons.camera_alt_outlined,
-          iconColor: const Color(0xFFE1306C),
-          keyboardType: TextInputType.text,
+          label: 'Instagram Profile Link',
+          required: true,
+          hint: 'https://instagram.com/creator_handle',
+          keyboardType: TextInputType.url,
         ),
-        _buildTextField(
+        _field(
+          fieldKey: 'instagramFollowers',
           controller: _instagramFollowersCtrl,
-          label: 'Instagram Followers',
+          label: 'Instagram Followers Count',
+          required: true,
+          hint: 'e.g. 50000',
           keyboardType: TextInputType.number,
           inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-          suffixIcon: const Icon(Icons.groups_outlined),
         ),
-        _buildSocialField(
+        _field(
+          fieldKey: 'youtubeChannelLink',
           controller: _youtubeChannelCtrl,
-          label: 'YouTube Channel',
-          icon: Icons.play_circle_outline,
-          iconColor: const Color(0xFFFF0000),
-          keyboardType: TextInputType.text,
+          label: 'YouTube Channel Link',
+          required: true,
+          hint: 'https://youtube.com/c/yourchannel',
+          keyboardType: TextInputType.url,
         ),
-        _buildTextField(
+        _field(
+          fieldKey: 'youtubeSubscribers',
           controller: _youtubeSubscribersCtrl,
-          label: 'YouTube Subscribers',
+          label: 'YouTube Subscribers Count',
+          required: true,
+          hint: 'e.g. 100000',
           keyboardType: TextInputType.number,
           inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-          suffixIcon: const Icon(Icons.groups_outlined),
         ),
-        _buildSocialField(
+        _field(
+          fieldKey: 'facebookPageLink',
           controller: _facebookPageCtrl,
-          label: 'Facebook Page',
-          icon: Icons.facebook,
-          iconColor: const Color(0xFF1877F2),
-          keyboardType: TextInputType.text,
+          label: 'Facebook Page Link',
+          required: true,
+          hint: 'https://facebook.com/yourpage',
+          keyboardType: TextInputType.url,
         ),
-        _buildSocialField(
+        _field(
+          fieldKey: 'linkedinProfileUrl',
           controller: _linkedinCtrl,
-          label: 'LinkedIn',
-          icon: Icons.work_outline,
-          iconColor: const Color(0xFF0A66C2),
+          label: 'LinkedIn Profile URL',
+          required: true,
+          hint: 'https://linkedin.com/in/username',
+          keyboardType: TextInputType.url,
         ),
-        _buildSocialField(
+        _field(
+          fieldKey: 'twitterProfileUrl',
           controller: _twitterCtrl,
-          label: 'Twitter / X',
-          icon: Icons.alternate_email,
-          iconColor: const Color(0xFF1DA1F2),
-          keyboardType: TextInputType.text,
+          label: 'Twitter / X Profile URL',
+          required: true,
+          hint: 'https://x.com/username',
+          keyboardType: TextInputType.url,
         ),
-        _buildSocialField(
+        _field(
+          fieldKey: 'telegramChannelLink',
           controller: _telegramCtrl,
-          label: 'Telegram',
-          icon: Icons.send_outlined,
-          iconColor: const Color(0xFF26A5E4),
+          label: 'Telegram Channel Link',
+          required: true,
+          hint: 'https://t.me/channelname',
+          keyboardType: TextInputType.url,
         ),
-        _buildSocialField(
+        _field(
+          fieldKey: 'websiteUrl',
           controller: _websiteCtrl,
-          label: 'Website',
-          icon: Icons.language_outlined,
-          iconColor: const Color(0xFF6750A4),
+          label: 'Website / Blog URL',
+          required: true,
+          hint: 'https://mycreatorblog.com',
+          keyboardType: TextInputType.url,
         ),
-        _buildSocialField(
+        _field(
+          fieldKey: 'whatsappNumber',
           controller: _whatsappCtrl,
-          label: 'WhatsApp',
-          icon: Icons.chat_outlined,
-          iconColor: const Color(0xFF25D366),
+          label: 'WhatsApp Contact Number',
+          required: true,
+          hint: 'e.g. 9876543210',
           keyboardType: TextInputType.phone,
-          inputFormatters: [
-            FilteringTextInputFormatter.digitsOnly,
-            LengthLimitingTextInputFormatter(10),
-          ],
+          inputFormatters: [FilteringTextInputFormatter.digitsOnly],
         ),
       ],
     );
   }
 
-  // ─── Step 5 Content ───────────────────────────────────────────────────────
+  // ─── Step 5 — Content & Promotion Details ────────────────────────────────
+  Widget _buildStep4() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _buildSectionTitle('Content & Promotion Details'),
+        const Padding(
+          padding: EdgeInsets.only(bottom: 12),
+          child: Text(
+            'Specify your promotional channels and active content portfolio.',
+            style: TextStyle(fontSize: 12.5, color: Colors.grey),
+          ),
+        ),
+        _multiToggle(
+          fieldKey: 'contentTypes',
+          label: 'Content Types',
+          selected: _contentTypes,
+          options: _kContentTypeOptions,
+          onToggle: _toggleContentType,
+        ),
+        _multiToggle(
+          fieldKey: 'preferredPromotionTypes',
+          label: 'Preferred Promotion Type',
+          selected: _preferredPromotionTypes,
+          options: _kPromotionTypeOptions,
+          onToggle: _togglePromotionType,
+        ),
+      ],
+    );
+  }
+
+  // ─── Step 6 — Verification & Documents ───────────────────────────────────
   Widget _buildStep5() {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        _buildSectionTitle('Content & Promotion'),
-        _buildMultiSelectChips(
-          title: 'Content Types',
-          options: _contentTypeOptions,
-          selectedValues: _selectedContentTypes,
+        _buildSectionTitle('Verification & Documents'),
+        const Padding(
+          padding: EdgeInsets.only(bottom: 12),
+          child: Text(
+            'Upload identification credentials to activate your Creator '
+            'Verification Badge.',
+            style: TextStyle(fontSize: 12.5, color: Colors.grey),
+          ),
         ),
-        _buildMultiSelectChips(
-          title: 'Promotion Types',
-          options: _promotionTypeOptions,
-          selectedValues: _selectedPromotionTypes,
+        _uploadCard(
+          fieldKey: 'aadhaarCardUrl',
+          label: 'Aadhaar Card',
+          url: _aadhaarCardUrl,
+          onTap: () => _pickAndUploadDocument('aadhaarCardUrl', ProfileDocumentKind.aadhaar),
+          required: true,
+          subtitle: 'Government ID card details for verification.',
         ),
-        _buildTextField(
-          controller: _portfolioLinksCtrl,
-          label: 'Portfolio Links',
-          maxLines: 3,
-          hint: 'Add links separated by commas',
-        ),
-        _buildTextField(
-          controller: _previousCollabsCtrl,
-          label: 'Previous Brand Collaborations',
-          maxLines: 3,
-          hint: 'e.g., Nike, Zomato, Myntra...',
+        _uploadCard(
+          fieldKey: 'panCardUrl',
+          label: 'PAN Card',
+          url: _panCardUrl,
+          onTap: () => _pickAndUploadDocument('panCardUrl', ProfileDocumentKind.pan),
+          required: true,
+          subtitle: 'Primary PAN Card details.',
         ),
       ],
     );
   }
 
-  // ─── Step 6 Content ───────────────────────────────────────────────────────
+  // ─── Step 7 — Account Setup ───────────────────────────────────────────────
   Widget _buildStep6() {
+    final usernameLen = _usernameCtrl.text.trim().length;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        _buildSectionTitle('Identity Documents'),
-        _buildUploadPlaceholder(
-          label: 'Aadhaar Card',
-          currentPath: _aadhaarCardPath,
-          onTap: () => setState(() => _aadhaarCardPath = 'aadhaar_card.pdf'),
+        _buildSectionTitle('Account Setup'),
+        _field(
+          fieldKey: 'username',
+          controller: _usernameCtrl,
+          label: 'Select Unique Username',
+          required: true,
+          hint: 'e.g. shubham_gosaii',
+          onChanged: _onUsernameChanged,
+          suffixIcon: usernameLen >= 3
+              ? (_usernameTaken
+                  ? const Icon(Icons.close, color: Colors.red)
+                  : (_usernameAvailable == true
+                      ? const Icon(Icons.check, color: Colors.green)
+                      : null))
+              : null,
         ),
-        _buildUploadPlaceholder(
-          label: 'PAN Card',
-          currentPath: _panCardPath,
-          onTap: () => setState(() => _panCardPath = 'pan_card.pdf'),
-        ),
-        Container(
-          padding: const EdgeInsets.all(12),
-          decoration: BoxDecoration(
-            color: Theme.of(context).colorScheme.tertiaryContainer.withOpacity(0.5),
-            borderRadius: BorderRadius.circular(10),
+        if (usernameLen >= 3 && !_usernameTaken && _usernameAvailable == true)
+          const Padding(
+            padding: EdgeInsets.only(bottom: 8),
+            child: Text('Username is available!', style: TextStyle(fontSize: 12, color: Colors.green)),
+          )
+        else if (usernameLen == 0)
+          const Padding(
+            padding: EdgeInsets.only(bottom: 8),
+            child: Text(
+              'Only letters, numbers, and underscores are allowed. Min 3 characters.',
+              style: TextStyle(fontSize: 12, color: Colors.grey),
+            ),
           ),
-          child: Row(
-            children: [
-              Icon(
-                Icons.info_outline,
-                size: 18,
-                color: Theme.of(context).colorScheme.tertiary,
+      ],
+    );
+  }
+
+  // ─── Step 8 — Terms & Submit Application ─────────────────────────────────
+  // Mirrors InfluencerRegistration.tsx:1840-1901's accordion summary.
+  Widget _reviewRow(String label, String value) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SizedBox(
+            width: 120,
+            child: Text(
+              label,
+              style: TextStyle(
+                fontSize: 11.5,
+                fontWeight: FontWeight.w600,
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
               ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: Text(
-                  'Accepted formats: PDF, JPG, PNG. Max size: 10MB per file.',
-                  style: TextStyle(
-                    fontSize: 12,
-                    color: Theme.of(context).colorScheme.onTertiaryContainer,
-                  ),
-                ),
+            ),
+          ),
+          Expanded(
+            child: Text(
+              value.trim().isEmpty ? '—' : value,
+              style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _reviewSection(
+    String title,
+    List<MapEntry<String, String>> rows, {
+    bool initiallyExpanded = false,
+  }) {
+    return Theme(
+      data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
+      child: ExpansionTile(
+        initiallyExpanded: initiallyExpanded,
+        tilePadding: const EdgeInsets.symmetric(horizontal: 12),
+        childrenPadding: const EdgeInsets.fromLTRB(12, 0, 12, 10),
+        title: Text(title, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+        children: rows.map((r) => _reviewRow(r.key, r.value)).toList(),
+      ),
+    );
+  }
+
+  Widget _buildReviewSummary() {
+    final divider = Divider(
+      height: 1,
+      color: Theme.of(context).colorScheme.outline.withOpacity(0.2),
+    );
+    final instagram = _instagramUsernameCtrl.text.trim().isEmpty
+        ? '—'
+        : '${_instagramUsernameCtrl.text.trim()} '
+            '(${_instagramFollowersCtrl.text.trim().isEmpty ? "0" : _instagramFollowersCtrl.text.trim()} followers)';
+    final youtube = _youtubeChannelCtrl.text.trim().isEmpty
+        ? '—'
+        : 'Channel (${_youtubeSubscribersCtrl.text.trim().isEmpty ? "0" : _youtubeSubscribersCtrl.text.trim()} subscribers)';
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 16),
+      decoration: BoxDecoration(
+        border: Border.all(color: Theme.of(context).colorScheme.outline.withOpacity(0.3)),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: Column(
+        children: [
+          _reviewSection(
+            'Personal Information',
+            [
+              MapEntry('Full Name', _fullNameCtrl.text),
+              MapEntry(
+                'Creator Username',
+                _usernameCtrl.text.trim().isEmpty ? '' : '@${_usernameCtrl.text.trim()}',
               ),
+              MapEntry('Email', _emailCtrl.text),
+              MapEntry('Phone', '$_countryCode ${_mobileCtrl.text}'),
+              MapEntry('Gender', _gender ?? ''),
+              MapEntry('DOB', _dobCtrl.text),
             ],
+            initiallyExpanded: true,
+          ),
+          divider,
+          _reviewSection('Creator Profile', [
+            MapEntry('Category', _category ?? ''),
+            MapEntry('Experience', '${_yearsOfExpCtrl.text} Years'),
+            MapEntry('Languages Spoken', _languagesKnown.join(', ')),
+            MapEntry('Office Address', _officeAddressCtrl.text),
+            MapEntry('City & State', '${_cityCtrl.text}, ${_stateCtrl.text}'),
+            MapEntry('Pincode', _pincodeCtrl.text),
+            MapEntry('Landmark', _landmarkCtrl.text),
+            MapEntry('Bio / About', _bioCtrl.text),
+          ]),
+          divider,
+          _reviewSection('Social Presence', [
+            MapEntry('Instagram', instagram),
+            MapEntry('YouTube', youtube),
+            MapEntry('Website', _websiteCtrl.text),
+            MapEntry('WhatsApp', _whatsappCtrl.text),
+          ]),
+          divider,
+          _reviewSection('Content & Promotion', [
+            MapEntry('Content Types', _contentTypes.join(', ')),
+            MapEntry('Promotion Types', _preferredPromotionTypes.join(', ')),
+          ]),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildStep7() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _buildSectionTitle('Terms & Submit Application'),
+        _buildReviewSummary(),
+        const Padding(
+          padding: EdgeInsets.only(bottom: 8),
+          child: Text(
+            'Review guidelines and verify before launching.',
+            style: TextStyle(fontSize: 12.5, color: Colors.grey),
+          ),
+        ),
+        CheckboxListTile(
+          contentPadding: EdgeInsets.zero,
+          value: _termsAccepted,
+          onChanged: (v) {
+            setState(() => _termsAccepted = v ?? false);
+            _scheduleDraftSave();
+          },
+          controlAffinity: ListTileControlAffinity.leading,
+          title: const Text(
+            'I accept the Terms and Conditions, content production standards '
+            'and verified publisher guidelines.',
+            style: TextStyle(fontSize: 13),
+          ),
+        ),
+        CheckboxListTile(
+          contentPadding: EdgeInsets.zero,
+          value: _privacyAccepted,
+          onChanged: (v) {
+            setState(() => _privacyAccepted = v ?? false);
+            _scheduleDraftSave();
+          },
+          controlAffinity: ListTileControlAffinity.leading,
+          title: const Text(
+            'I accept the Privacy Policy and authorize PropCID to review '
+            'social channel analytical counts.',
+            style: TextStyle(fontSize: 13),
+          ),
+        ),
+        CheckboxListTile(
+          contentPadding: EdgeInsets.zero,
+          value: _promoAccepted,
+          onChanged: (v) {
+            setState(() => _promoAccepted = v ?? false);
+            _scheduleDraftSave();
+          },
+          controlAffinity: ListTileControlAffinity.leading,
+          title: const Text(
+            'Yes, sign me up for upcoming broker campaigns, brand collaborations, '
+            'and creator tool updates.',
+            style: TextStyle(fontSize: 13),
           ),
         ),
       ],
     );
   }
-
-  // ─── Step 7 Content ───────────────────────────────────────────────────────
-Widget _buildStep7() {
-  return Form(
-    key: _step7Key,
-    child: Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        _buildSectionTitle('Complete Registration'),
-
-        _buildTextField(
-          controller: _usernameCtrl,
-          label: 'Username',
-          required: true,
-          hint: 'Choose a unique username',
-          validator: (v) {
-            if (v == null || v.trim().isEmpty) {
-              return 'Username is required';
-            }
-
-            if (v.trim().length < 3) {
-              return 'Username must be at least 3 characters';
-            }
-
-            final usernameRegex =
-                RegExp(r'^[a-zA-Z0-9_]+$');
-
-            if (!usernameRegex.hasMatch(v.trim())) {
-              return 'Only letters, numbers, and underscores allowed';
-            }
-
-            return null;
-          },
-        ),
-
-        const SizedBox(height: 20),
-
-        Container(
-          padding: const EdgeInsets.all(14),
-          decoration: BoxDecoration(
-            color: Theme.of(context)
-                .colorScheme
-                .primaryContainer
-                .withOpacity(0.3),
-            borderRadius: BorderRadius.circular(12),
-          ),
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Icon(
-                Icons.info_outline,
-                color: Theme.of(context).colorScheme.primary,
-              ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: Text(
-                  'Your account has already been created during Sign Up. '
-                  'Complete your profile and submit registration to continue.',
-                  style: TextStyle(
-                    fontSize: 13,
-                    color: Theme.of(context)
-                        .colorScheme
-                        .onPrimaryContainer,
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ),
-
-        const SizedBox(height: 20),
-
-        RichText(
-          text: TextSpan(
-            style: TextStyle(
-              fontSize: 13,
-              color: Theme.of(context)
-                  .colorScheme
-                  .onSurface
-                  .withOpacity(0.6),
-            ),
-            children: [
-              const TextSpan(
-                text: 'By registering, you agree to our ',
-              ),
-              TextSpan(
-                text: 'Terms of Service',
-                style: TextStyle(
-                  color: Theme.of(context).colorScheme.primary,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-              const TextSpan(text: ' and '),
-              TextSpan(
-                text: 'Privacy Policy',
-                style: TextStyle(
-                  color: Theme.of(context).colorScheme.primary,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-            ],
-          ),
-        ),
-      ],
-    ),
-  );
-}
 
   // ─── Step content router ──────────────────────────────────────────────────
   Widget _buildCurrentStep() {
     switch (currentStep) {
       case 0:
-        return _buildStep1();
+        return _buildStep0();
       case 1:
-        return _buildStep2();
+        return _buildStep1();
       case 2:
-        return _buildStep3();
+        return _buildStep2();
       case 3:
-        return _buildStep4();
+        return _buildStep3();
       case 4:
-        return _buildStep5();
+        return _buildStep4();
       case 5:
-        return _buildStep6();
+        return _buildStep5();
       case 6:
+        return _buildStep6();
+      case 7:
         return _buildStep7();
       default:
         return const SizedBox();
@@ -1053,14 +1996,12 @@ Widget _buildStep7() {
             Expanded(
               flex: 1,
               child: OutlinedButton.icon(
-                onPressed: _previousStep,
+                onPressed: _isSubmitting ? null : _previousStep,
                 icon: const Icon(Icons.arrow_back, size: 18),
                 label: const Text('Back'),
                 style: OutlinedButton.styleFrom(
                   padding: const EdgeInsets.symmetric(vertical: 14),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                 ),
               ),
             ),
@@ -1068,17 +2009,25 @@ Widget _buildStep7() {
           Expanded(
             flex: 2,
             child: FilledButton.icon(
-              onPressed: isLastStep ? _onSubmit : _nextStep,
-              icon: Icon(
-                isLastStep ? Icons.check_circle_outline : Icons.arrow_forward,
-                size: 18,
+              onPressed: _isSubmitting ? null : (isLastStep ? _onSubmit : _nextStep),
+              icon: _isSubmitting
+                  ? const SizedBox(
+                      width: 16,
+                      height: 16,
+                      child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                    )
+                  : Icon(
+                      isLastStep ? Icons.check_circle_outline : Icons.arrow_forward,
+                      size: 18,
+                    ),
+              label: Text(
+                _isSubmitting
+                    ? 'Submitting...'
+                    : (isLastStep ? 'Submit Registration' : 'Continue'),
               ),
-              label: Text(isLastStep ? 'Submit Registration' : 'Continue'),
               style: FilledButton.styleFrom(
                 padding: const EdgeInsets.symmetric(vertical: 14),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
               ),
             ),
           ),
@@ -1138,13 +2087,15 @@ Widget _buildStep7() {
 
   @override
   void dispose() {
+    _draftStore.dispose();
+    _usernameDebounce?.cancel();
     _fullNameCtrl.dispose();
     _emailCtrl.dispose();
     _mobileCtrl.dispose();
     _altMobileCtrl.dispose();
     _dobCtrl.dispose();
     _bioCtrl.dispose();
-    _languagesKnownCtrl.dispose();
+    _customLangCtrl.dispose();
     _yearsOfExpCtrl.dispose();
     _officeAddressCtrl.dispose();
     _cityCtrl.dispose();
@@ -1161,8 +2112,6 @@ Widget _buildStep7() {
     _telegramCtrl.dispose();
     _websiteCtrl.dispose();
     _whatsappCtrl.dispose();
-    _portfolioLinksCtrl.dispose();
-    _previousCollabsCtrl.dispose();
     _usernameCtrl.dispose();
     super.dispose();
   }

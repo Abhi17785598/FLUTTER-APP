@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../../../providers/post_property_provider.dart';
+import '../../../services/geocoding_service.dart';
+import '../../../widgets/location_picker_map.dart';
 import '../listing_constants.dart';
 import '../portal_kit.dart';
 import '../portal_theme.dart';
@@ -15,9 +17,14 @@ import '../widgets/project_tag_selector.dart';
 /// listing type does not vary this step — so the category switch below is the
 /// whole of that logic.
 ///
-/// Single intentional deviation: the Google Maps location picker is omitted
-/// (the app has no map implementation). Its section, heading, position and
-/// spacing are kept, and no field is reordered because of it.
+/// The portal's Google Maps picker (left third of the location grid) is now
+/// reproduced via [LocationPickerMap] — the same map/reverse-geocoding widget
+/// already used by the builder/broker/influencer registration wizards. Tapping
+/// it fills address/city/state/pincode/landmark and the provider's
+/// latitude/longitude, exactly like `GoogleLocationPicker`'s
+/// `onLocationSelect`. The address field itself stays a plain text field
+/// (unlike the registration wizards' autocomplete-as-you-type version) —
+/// that's a separate affordance not touched here.
 class BasicInfoStep extends StatefulWidget {
   const BasicInfoStep({super.key});
 
@@ -363,6 +370,33 @@ class _BasicInfoStepState extends State<BasicInfoStep> {
 
   // ── Location Details ────────────────────────────────────────────────────
 
+  /// Mirrors `handleLocationSelect` in the portal's `BasicInfoStep.tsx`: keep
+  /// the existing value when the geocode result didn't resolve that field.
+  void _onLocationSelected(double lat, double lng, GeocodedAddress? address) {
+    setState(() {
+      if ((address?.addressLine1 ?? '').isNotEmpty) {
+        _address.text = address!.addressLine1!;
+      }
+      if ((address?.city ?? '').isNotEmpty) _city.text = address!.city!;
+      if ((address?.state ?? '').isNotEmpty) {
+        _stateField.text = address!.state!;
+      }
+      if ((address?.pincode ?? '').isNotEmpty) {
+        _pincode.text = address!.pincode!;
+      }
+      if ((address?.landmark ?? '').isNotEmpty) {
+        _landmark.text = address!.landmark!;
+      }
+    });
+    _p.setLocation(_address.text);
+    _p.setCity(_city.text);
+    _p.setState(_stateField.text);
+    _p.setPincode(_pincode.text);
+    _p.setLandmark(_landmark.text);
+    _p.setLatitude(lat);
+    _p.setLongitude(lng);
+  }
+
   Widget _locationDetails() => Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -372,10 +406,17 @@ class _BasicInfoStepState extends State<BasicInfoStep> {
             iconBg: PortalTheme.accentSurface, // bg-blue-100
             iconColor: PortalTheme.iconBlue, // text-blue-600
           ),
-          // The portal renders a Google Maps picker in the left third of this
-          // grid. Omitted — the app has no map implementation. The section,
-          // its heading, position and spacing are unchanged, and no field
-          // below is reordered because of the omission.
+          // Reproduction of the portal's Google Maps picker — tap to drop a
+          // pin, reverse-geocoded into the fields below.
+          ClipRRect(
+            borderRadius: BorderRadius.circular(12),
+            child: LocationPickerMap(
+              initialLat: _p.latitude,
+              initialLng: _p.longitude,
+              onLocationSelected: _onLocationSelected,
+            ),
+          ),
+          const SizedBox(height: 16),
           PortalField(
             label: 'Property Address',
             required: true,
