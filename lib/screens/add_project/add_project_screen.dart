@@ -32,7 +32,12 @@ import 'steps/project_review_step.dart';
 
 /// Entry point. Pass [editingProject] to open the wizard on an existing project.
 class AddProjectScreen extends StatelessWidget {
-  const AddProjectScreen({super.key, this.editingProject, this.providerOverride});
+  const AddProjectScreen({
+    super.key,
+    this.editingProject,
+    this.providerOverride,
+    this.builderIdOverride,
+  });
 
   /// When set, the wizard pre-fills every field and submits an UPDATE.
   final ProjectModel? editingProject;
@@ -41,11 +46,20 @@ class AddProjectScreen extends StatelessWidget {
   @visibleForTesting
   final AddProjectProvider? providerOverride;
 
+  /// The workspace this project belongs to, when it differs from the
+  /// signed-in user — a team member managing a builder's projects, never the
+  /// builder's own use of this screen. `null` (the default) keeps the
+  /// existing behaviour exactly as it was: the signed-in user's own id.
+  final String? builderIdOverride;
+
   @override
   Widget build(BuildContext context) {
     return ChangeNotifierProvider<AddProjectProvider>(
       create: (_) => providerOverride ?? AddProjectProvider(),
-      child: AddProjectWizardView(editingProject: editingProject),
+      child: AddProjectWizardView(
+        editingProject: editingProject,
+        builderIdOverride: builderIdOverride,
+      ),
     );
   }
 }
@@ -56,9 +70,16 @@ class AddProjectScreen extends StatelessWidget {
 /// exactly why `PostPropertyWizardView` is public.
 @visibleForTesting
 class AddProjectWizardView extends StatefulWidget {
-  const AddProjectWizardView({super.key, this.editingProject});
+  const AddProjectWizardView({
+    super.key,
+    this.editingProject,
+    this.builderIdOverride,
+  });
 
   final ProjectModel? editingProject;
+
+  /// See `AddProjectScreen.builderIdOverride`.
+  final String? builderIdOverride;
 
   @override
   State<AddProjectWizardView> createState() => _AddProjectWizardViewState();
@@ -162,6 +183,7 @@ class _AddProjectWizardViewState extends State<AddProjectWizardView> {
                   _NavigationBar(
                     provider: provider,
                     horizontalPadding: horizontalPadding,
+                    builderIdOverride: widget.builderIdOverride,
                   ),
                 ],
               ),
@@ -253,10 +275,14 @@ class _NavigationBar extends StatelessWidget {
   const _NavigationBar({
     required this.provider,
     required this.horizontalPadding,
+    this.builderIdOverride,
   });
 
   final AddProjectProvider provider;
   final double horizontalPadding;
+
+  /// See `AddProjectScreen.builderIdOverride`.
+  final String? builderIdOverride;
 
   @override
   Widget build(BuildContext context) {
@@ -296,7 +322,7 @@ class _NavigationBar extends StatelessWidget {
 
   Future<void> _submit(BuildContext context) async {
     final provider = context.read<AddProjectProvider>();
-    final builderId = context.read<AuthProvider>().userId;
+    final builderId = builderIdOverride ?? context.read<AuthProvider>().userId;
 
     if (builderId == null) {
       ScaffoldMessenger.of(context).showSnackBar(

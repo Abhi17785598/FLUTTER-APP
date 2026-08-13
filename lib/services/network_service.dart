@@ -4,15 +4,18 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../models/network_models.dart';
 import '../models/network_stats.dart';
 
-/// Read-only reads for the Network feature.
+/// Mostly read-only reads for the Network feature.
 ///
 /// Grew in three steps: the Profile screen's accepted-connection count
 /// (blueprint §9), the hub's four KPIs (Phase 6), and the leaf screens'
 /// memberships / leads / referrals / channels (Phase 9).
 ///
-/// Every method is a `select`. All the Network writes React owns — accepting or
-/// declining an invitation, assigning a lead, creating a referral or a channel,
-/// sending a bulk message — stay with the web portal.
+/// Almost every method is a `select`; the Network writes React owns —
+/// accepting or declining an invitation, creating a referral or a channel,
+/// sending a bulk message — stay with the web portal. [updateLeadStatus] is
+/// the one exception, added for the Team Workspace's Leads tab, which mirrors
+/// a write `TeamLeadsView.tsx:67-82` already makes for a builder team member
+/// — not a broker-side write this class was otherwise guarding against.
 class NetworkService {
   final SupabaseClient _supabase = Supabase.instance.client;
 
@@ -156,6 +159,23 @@ class NetworkService {
           .toList();
     } catch (e) {
       debugPrint('NetworkService.listLeads failed: $e');
+      rethrow;
+    }
+  }
+
+  /// Sets one lead's status. `TeamLeadsView.tsx:67-82`: an UPDATE by id, no
+  /// other column touched, no client-side check of who may call this —
+  /// `network_leads`'s own RLS (`Team members can update builder leads`,
+  /// builder-level, matching [listLeads]'s own `isBuilder` reads) is what
+  /// actually authorizes it.
+  Future<void> updateLeadStatus(String leadId, String status) async {
+    try {
+      await _supabase
+          .from('network_leads')
+          .update({'status': status})
+          .eq('id', leadId);
+    } catch (e) {
+      debugPrint('NetworkService.updateLeadStatus failed: $e');
       rethrow;
     }
   }

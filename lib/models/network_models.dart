@@ -126,6 +126,12 @@ class NetworkLead {
   final DateTime? assignedAt;
   final DateTime? createdAt;
 
+  /// Free-form `jsonb`. `NetworkService.listLeads`'s `.select()` already
+  /// fetches it (a bare `select()` is `select("*")`) — only the model was
+  /// never taught to keep it. Needed for [displayName]/[displayPhone], which
+  /// `TeamLeadsView.tsx:102-103` reads the same way.
+  final Map<String, dynamic>? metadata;
+
   const NetworkLead({
     required this.id,
     required this.leadType,
@@ -137,9 +143,11 @@ class NetworkLead {
     this.notes,
     this.assignedAt,
     this.createdAt,
+    this.metadata,
   });
 
   factory NetworkLead.fromJson(Map<String, dynamic> json) {
+    final rawMetadata = json['metadata'];
     return NetworkLead(
       id: '${json['id'] ?? ''}',
       leadType: '${json['lead_type'] ?? ''}',
@@ -151,7 +159,24 @@ class NetworkLead {
       notes: json['notes'] as String?,
       assignedAt: _date(json['assigned_at']),
       createdAt: _date(json['created_at']),
+      metadata: rawMetadata is Map
+          ? Map<String, dynamic>.from(rawMetadata)
+          : null,
     );
+  }
+
+  /// `TeamLeadsView.tsx:102`: `metadata?.name || metadata?.customer_name || "Lead"`.
+  String get displayName {
+    final name = metadata?['name'] ?? metadata?['customer_name'];
+    final text = name?.toString().trim() ?? '';
+    return text.isEmpty ? 'Lead' : text;
+  }
+
+  /// `TeamLeadsView.tsx:103`: `metadata?.phone || metadata?.contact`.
+  String? get displayPhone {
+    final phone = metadata?['phone'] ?? metadata?['contact'];
+    final text = phone?.toString().trim() ?? '';
+    return text.isEmpty ? null : text;
   }
 }
 

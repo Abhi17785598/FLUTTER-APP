@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'app_navigator.dart';
 import 'core/constants/app_constants.dart';
 import 'core/navigation/manage_dashboard_dispatcher.dart';
+import 'core/navigation/pending_invitation_gate.dart';
 import 'core/theme/app_theme.dart';
 import 'core/animations/page_transitions.dart';
 import 'voice_agent/widgets/floating_ai_orb.dart';
@@ -55,6 +56,8 @@ import 'screens/profile_completion/builder_registration/builder_registration_scr
 import 'screens/profile_completion/broker_registration/broker_registration_screen.dart';
 import 'screens/profile_completion/influencer_registration/influencer_registration_screen.dart';
 import 'screens/role_home_router.dart';
+import 'screens/team/pending_invitation_screen.dart';
+import 'screens/team/team_workspace_screen.dart';
 // ─────────────────────────────────────────────
 
 class PropertyApp extends StatelessWidget {
@@ -68,10 +71,18 @@ class PropertyApp extends StatelessWidget {
       theme: AppTheme.lightTheme,
       navigatorKey: appNavigatorKey,
       home: const SplashScreen(),
-      // Inject the draggable AI orb overlay on every screen.
+      // Inject the draggable AI orb overlay on every screen, and — wrapped
+      // around that, so it sees every screen the same way `TeamInviteGate`
+      // sees every route outside `<Routes>` — the silent pending-invitation
+      // redirect.
       builder: (context, child) {
-        return Stack(
-          children: [child ?? const SizedBox.shrink(), const FloatingAiOrb()],
+        return PendingInvitationGate(
+          child: Stack(
+            children: [
+              child ?? const SizedBox.shrink(),
+              const FloatingAiOrb(),
+            ],
+          ),
         );
       },
       onGenerateRoute: (settings) {
@@ -206,6 +217,24 @@ class PropertyApp extends StatelessWidget {
             return PremiumPageRoute(
               settings: settings,
               builder: (context) => const ManageDashboardDispatcher(),
+            );
+
+          // Mobile mirror of the portal's `/accept-invite`. Pushed only by
+          // PendingInvitationGate for now — no deep link reaches this yet.
+          case AppConstants.pendingInvitationScreen:
+            return PremiumPageRoute(
+              settings: settings,
+              builder: (context) => const PendingInvitationScreen(),
+            );
+
+          // Mobile mirror of the portal's `/team-workspace`. Reached via
+          // ManageDashboardDispatcher's `team_member` case, the Workspace
+          // Drawer / More sheet's additive destination, or the
+          // pending-invitation screen after a successful acceptance.
+          case AppConstants.teamWorkspaceScreen:
+            return PremiumPageRoute(
+              settings: settings,
+              builder: (context) => const TeamWorkspaceScreen(),
             );
 
           // Phase 6 hubs. Named routes rather than direct pushes, so the drawer

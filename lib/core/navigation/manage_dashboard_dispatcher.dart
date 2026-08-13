@@ -7,6 +7,7 @@ import '../../screens/dashboard/builder_dashboard_screen.dart';
 import '../../screens/dashboard/individual_dashboard_screen.dart';
 import '../../screens/dashboard/influencer_dashboard_screen.dart';
 import '../../screens/stubs/coming_soon_screen.dart';
+import '../../screens/team/team_workspace_screen.dart';
 import '../theme/app_colors.dart';
 
 /// Resolves the current user's role to the correct dashboard screen.
@@ -43,6 +44,15 @@ class ManageDashboardDispatcher extends StatelessWidget {
         return const InfluencerDashboardScreen();
       case 'individual':
         return const IndividualDashboardScreen();
+      // `ProfileDispatch.tsx:59`'s literal switch case: `profiles.user_type`
+      // is set to `'team_member'` only for a brand-new invitee with no prior
+      // profile (`accept-team-invite/index.ts:131-151`) — never inferred
+      // from an active membership, which an existing builder/broker/
+      // individual/influencer can also hold without their own `userType`
+      // ever becoming this value. See `WorkspaceDestinations.teamWorkspace`
+      // for how an existing user reaches the same screen instead.
+      case 'team_member':
+        return const TeamWorkspaceScreen();
       default:
         // Previously a "Dashboard — coming soon" snackbar that pushed nothing.
         // As a route we are already on screen, so the same message is rendered

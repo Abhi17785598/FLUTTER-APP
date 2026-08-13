@@ -180,6 +180,7 @@ class BuilderOffer {
 class BuilderTeamMember {
   const BuilderTeamMember({
     required this.id,
+    this.builderId,
     required this.memberUserId,
     this.email,
     this.modules = const [],
@@ -189,6 +190,14 @@ class BuilderTeamMember {
   });
 
   final String id;
+
+  /// Redundant when this came from `listMembers(builderId)` — the caller
+  /// already knows it — but load-bearing for the invitee-side reads
+  /// (`myActiveMemberships`), which, like `TeamMemberDashboard.tsx:56-64`,
+  /// span every builder the member has joined and need it to tell those
+  /// rows apart.
+  final String? builderId;
+
   final String memberUserId;
   final String? email;
 
@@ -206,11 +215,13 @@ class BuilderTeamMember {
   final DateTime? createdAt;
 
   static const String columns =
-      'id, member_user_id, email, modules, project_ids, status, created_at';
+      'id, builder_id, member_user_id, email, modules, project_ids, status, '
+      'created_at';
 
   factory BuilderTeamMember.fromSupabase(Map<String, dynamic> json) {
     return BuilderTeamMember(
       id: json['id']?.toString() ?? '',
+      builderId: _nullIfEmpty(json['builder_id']),
       memberUserId: json['member_user_id']?.toString() ?? '',
       email: _nullIfEmpty(json['email']),
       modules: _stringList(json['modules']),
@@ -230,15 +241,23 @@ class BuilderTeamMember {
 class BuilderTeamInvitation {
   const BuilderTeamInvitation({
     required this.id,
+    this.builderId,
     required this.email,
     this.modules = const [],
     this.projectIds,
     this.status = 'pending',
+    this.token,
     this.expiresAt,
     this.createdAt,
   });
 
   final String id;
+
+  /// Redundant from `listInvitations(builderId)`; load-bearing for
+  /// `myPendingInvitations`, which — like `AcceptInvite.tsx:57-69` and
+  /// `TeamInviteGate.tsx`'s email-based lookup — spans every builder that
+  /// has invited this person, so the row must say which one.
+  final String? builderId;
 
   /// NOT NULL.
   final String email;
@@ -249,19 +268,28 @@ class BuilderTeamInvitation {
   /// ('pending','accepted','revoked','expired').
   final String status;
 
+  /// The invitation link's `?token=` value. `accept-team-invite` only checks
+  /// it when the caller supplies one (`index.ts:58-60`); the builder's own
+  /// list view never needed it before, so this is exclusively for the
+  /// invitee-side accept call.
+  final String? token;
+
   /// NOT NULL, defaults to `now() + 7 days`.
   final DateTime? expiresAt;
 
   final DateTime? createdAt;
 
   static const String columns =
-      'id, email, modules, project_ids, status, expires_at, created_at';
+      'id, builder_id, email, modules, project_ids, status, token, '
+      'expires_at, created_at';
 
   factory BuilderTeamInvitation.fromSupabase(Map<String, dynamic> json) {
     return BuilderTeamInvitation(
       id: json['id']?.toString() ?? '',
+      builderId: _nullIfEmpty(json['builder_id']),
       email: json['email']?.toString() ?? '',
       modules: _stringList(json['modules']),
+      token: _nullIfEmpty(json['token']),
       projectIds: json['project_ids'] == null
           ? null
           : _stringList(json['project_ids']),

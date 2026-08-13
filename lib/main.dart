@@ -1,9 +1,12 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 
 import 'app.dart';
+import 'core/navigation/invite_deep_link_handler.dart';
 import 'providers/navigation_provider.dart';
 import 'providers/notification_provider.dart';
 import 'providers/property_provider.dart';
@@ -43,10 +46,16 @@ Future<void> main() async {
 
   _registerVoiceAgentTools();
 
+  // Constructed here rather than via the provider's own `create:` so
+  // `InviteDeepLinkHandler` can read the exact same instance's
+  // `isLoggedIn` — the provider tree isn't reachable from outside a
+  // `BuildContext`, and this handler is not one.
+  final authProvider = AuthProvider();
+
   runApp(
     MultiProvider(
       providers: [
-        ChangeNotifierProvider(create: (_) => AuthProvider()),
+        ChangeNotifierProvider.value(value: authProvider),
         ChangeNotifierProvider(create: (_) => NavigationProvider()),
         ChangeNotifierProvider(create: (_) => PropertyProvider()),
         ChangeNotifierProvider(create: (_) => FilterProvider()),
@@ -81,4 +90,9 @@ Future<void> main() async {
       child: const PropertyApp(),
     ),
   );
+
+  // Fire-and-forget: `start()` checks the link that launched a cold start,
+  // then keeps listening. Runs after `runApp` so `appNavigatorKey` is
+  // already attached if a link is already waiting.
+  unawaited(InviteDeepLinkHandler(authProvider: authProvider).start());
 }

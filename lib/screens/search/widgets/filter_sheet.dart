@@ -322,8 +322,13 @@ class _FilterSheetState extends State<_FilterSheet> {
                     _buildBudget(),
                     const SizedBox(height: 18),
                     _buildMinMax(),
-                    const SizedBox(height: AppConstants.spacingXL),
-                    _buildBedrooms(),
+                    // Bedrooms is residential-only, same as subtype; the
+                    // portal hides the whole block (not just disables it)
+                    // for every other category.
+                    if (_category == 'residential') ...[
+                      const SizedBox(height: AppConstants.spacingXL),
+                      _buildBedrooms(),
+                    ],
                     const SizedBox(height: AppConstants.spacingXL),
                     _buildSubtypeAndPostedBy(),
                   ],
@@ -469,10 +474,14 @@ class _FilterSheetState extends State<_FilterSheet> {
             selectedValue: _category,
             onSelected: (value) => setState(() {
               _category = value;
-              // Subtype only means anything under Residential, so it cannot
-              // outlive a switch away from it — the same pairing the results
-              // chip row enforces when the category chip is cleared.
-              if (value != 'residential') _subtype = null;
+              // Subtype and bedrooms only mean anything under Residential, so
+              // neither can outlive a switch away from it — the same pairing
+              // the results chip row enforces when the category chip is
+              // cleared.
+              if (value != 'residential') {
+                _subtype = null;
+                _bhk = null;
+              }
               _openField = _OpenField.none;
             }),
           ),

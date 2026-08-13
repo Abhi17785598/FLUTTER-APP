@@ -61,6 +61,15 @@ class WorkspaceDestinations {
     navigator.pushNamed(AppConstants.manageDashboardScreen);
   }
 
+  /// The additive Team Workspace destination for an existing user with an
+  /// active `builder_team_members` row — the mirror of
+  /// `ProfileDashboardShell.tsx`'s nav link. Only shown by the caller when
+  /// `AuthProvider.hasTeamMembership` is true; this method itself does no
+  /// gating, matching every other destination here.
+  static void teamWorkspace(NavigatorState navigator) {
+    navigator.pushNamed(AppConstants.teamWorkspaceScreen);
+  }
+
   /// Network — memberships, leads and referrals (Phase 6).
   ///
   /// The drawer and the More sheet share this one destination.
