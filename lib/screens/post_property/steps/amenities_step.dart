@@ -31,40 +31,62 @@ class _AmenitiesStepState extends State<AmenitiesStep> {
   late final TextEditingController _buildingMaintenanceController;
   late final TextEditingController _totalCarParkingController;
   late final TextEditingController _totalBikeParkingController;
+  late final TextEditingController _serviceLiftCountController;
+  late final TextEditingController _camChargesController;
 
-  static const _electricityOptions = ['Full', 'Partial', 'None'];
-  static const _waterOptions = ['24 Hours', '12 Hours', 'Rare'];
+  /// Building facility toggles, all under buildingInventory
+  /// (AmenitiesStep.tsx:585-991) — none are required by the portal's rules,
+  /// so these were simply missing rather than blocking anything.
+  static const _buildingFacilityToggles = [
+    ('access24x7', '24x7 Access'),
+    ('powerBackup', 'Power Backup'),
+    ('dgBackupAvailable', 'DG Backup Available'),
+    ('fireSafetySystem', 'Fire Safety System'),
+    ('smokeDetectors', 'Smoke Detectors'),
+    ('sprinklerSystem', 'Sprinkler System'),
+    ('emergencyExits', 'Emergency Exits'),
+    ('cctvCoverage', 'CCTV Coverage'),
+    ('accessControlSystem', 'Access Control System'),
+    ('visitorManagementSystem', 'Visitor Management System'),
+    ('wheelchairAccessibility', 'Wheelchair Accessibility'),
+    ('centralAirConditioning', 'Central Air Conditioning'),
+    ('waterSupply', 'Water Supply'),
+    ('sewageConnection', 'Sewage Connection'),
+    ('highSpeedInternet', 'High Speed Internet'),
+    ('basementParking', 'Basement Parking'),
+    ('surfaceParking', 'Surface Parking'),
+    ('multiLevelParking', 'Multi-Level Parking'),
+    // Portal genuinely renders Visitor Parking twice — once here
+    // (buildingInventory-scoped, AmenitiesStep.tsx:966-976) and once in the
+    // general Parking Details card above (top-level field, same label,
+    // different key) — not a Flutter duplication bug, matched intentionally.
+    ('visitorParking', 'Visitor Parking'),
+    ('evChargingStations', 'EV Charging Stations'),
+  ];
 
   static const _suitableForOptions = [
     'Office', 'Retail', 'Restaurant', 'Clinic', 'Salon', 'Gym', 'Warehouse',
-    'Manufacturing', 'Startup', 'IT Company', 'Franchise',
+    'Manufacturing', 'Startup', 'IT Company', 'Franchise', 'Showroom',
   ];
 
-  static const _officeFeatures = [
-    'Reception Area', 'Waiting Area', 'Conference Room', 'Conference Hall',
-    'Meeting Room', 'Open Workspace', 'Cafeteria', 'Biometric Entry',
+  // Portal's commercialOfficeBuildingAmenityList (AmenitiesStep.tsx) — one
+  // 19-item list, all toggled into the shared `amenities` array. Flutter used
+  // to split this across two lists (one of them writing to a separate
+  // `officeFeatures` key the portal never reads), which also dropped "DG
+  // Backup" and "Wheelchair Accessibility" and relabelled "Waiting Lounge" as
+  // "Waiting Area".
+  static const _officeBuildingFeatures = [
+    'Reception Area', 'Waiting Lounge', 'Conference Room', 'Meeting Room',
+    'Open Workspace', 'Cafeteria', 'Biometric Entry', 'Service Lift',
+    'Escalator', 'Security Guard', 'CCTV', 'Fire Fighting System',
+    'Fire Exit', 'Fiber Connectivity', 'Intercom', 'DG Backup',
+    'Solar Backup', 'ATM', 'Wheelchair Accessibility',
   ];
 
   static const _retailFeatures = [
     'Glass Frontage', 'Display Area', 'Signage Space', 'Dock Height',
-    'Truck Parking', 'Loading/Unloading Area', 'Crane Facility',
+    'Truck Parking', 'Loading Area', 'Crane Facility',
     'Storage Racks', 'Ventilation',
-  ];
-
-  static const _buildingAmenities = [
-    'Service Lift', 'Escalator', 'Security Guard', 'CCTV', 'Fire Fighting System',
-    'Fire Exit', 'Fiber Connectivity', 'Intercom', 'Solar Backup', 'ATM',
-  ];
-
-  static const _utilityLicenseToggles = [
-    ('electricityAvailability', 'Electricity Available'),
-    ('electricityChargesExtra', 'Electricity Charges Extra'),
-    ('waterChargesExtra', 'Water Charges Extra'),
-    ('fireLicense', 'Fire License'),
-    ('tradeLicense', 'Trade License'),
-    ('foodLicense', 'Food License (FSSAI)'),
-    ('pollutionClearance', 'Pollution Clearance'),
-    ('industrialApproval', 'Industrial Approval'),
   ];
 
   static const _parkingToggles = [
@@ -80,7 +102,7 @@ class _AmenitiesStepState extends State<AmenitiesStep> {
   static const _pgSafetyToggles = [
     ('cctvCoverage', 'CCTV Coverage'),
     ('biometricAccess', 'Biometric Access'),
-    ('policeVerificationRequired', 'Police Verification Required'),
+    ('policeVerificationRequired', 'Police Verification'),
     ('visitorEntryRegister', 'Visitor Entry Register'),
   ];
 
@@ -109,6 +131,10 @@ class _AmenitiesStepState extends State<AmenitiesStep> {
         text: inv.buildingInventoryText('totalCarParking'));
     _totalBikeParkingController = TextEditingController(
         text: inv.buildingInventoryText('totalBikeParking'));
+    _serviceLiftCountController = TextEditingController(
+        text: inv.buildingInventoryText('serviceLiftCount'));
+    _camChargesController = TextEditingController(
+        text: inv.buildingInventoryText('commonAreaMaintenanceCharges'));
     final p = context.read<PostPropertyProvider>();
     _coveredParkingController = TextEditingController(text: p.coveredParking);
     _openParkingController = TextEditingController(text: p.openParking);
@@ -128,6 +154,8 @@ class _AmenitiesStepState extends State<AmenitiesStep> {
     _buildingMaintenanceController.dispose();
     _totalCarParkingController.dispose();
     _totalBikeParkingController.dispose();
+    _serviceLiftCountController.dispose();
+    _camChargesController.dispose();
     _coveredParkingController.dispose();
     _openParkingController.dispose();
     _liftsController.dispose();
@@ -286,119 +314,13 @@ class _AmenitiesStepState extends State<AmenitiesStep> {
     );
   }
 
+  /// Utilities / Parking & Lifts / Key Facilities used to render here for
+  /// every non-commercial category — none of the three has any counterpart
+  /// anywhere in the portal's AmenitiesStep.tsx, for any category. Removed
+  /// per explicit request; the category-specific sections below (Residential,
+  /// PG, Others) are the only things the portal actually shows here.
   Widget _buildDefaultSection(BuildContext context, PostPropertyProvider provider) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        WizardCard(
-          icon: Icons.bolt_outlined,
-          title: 'Utilities',
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              WizardField(
-                label: 'Electricity Backup',
-                child: WizardChipGroup(
-                  options: _electricityOptions,
-                  selected: provider.electricityBackup,
-                  onSelected: (v) =>
-                      context.read<PostPropertyProvider>().setElectricityBackup(v),
-                ),
-              ),
-              const WizardDivider(),
-              WizardField(
-                label: 'Water Availability',
-                child: WizardChipGroup(
-                  options: _waterOptions,
-                  selected: provider.waterAvailability,
-                  onSelected: (v) =>
-                      context.read<PostPropertyProvider>().setWaterAvailability(v),
-                ),
-              ),
-            ],
-          ),
-        ),
-        const SizedBox(height: 20),
-        WizardCard(
-          icon: Icons.local_parking_outlined,
-          title: 'Parking & Lifts',
-          child: Row(
-            children: [
-              Expanded(
-                child: WizardField(
-                  label: 'Covered Parking',
-                  child: WizardTextField(
-                    controller: _coveredParkingController,
-                    hint: '0',
-                    keyboardType: TextInputType.number,
-                    onChanged: (v) =>
-                        context.read<PostPropertyProvider>().setCoveredParking(v),
-                  ),
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: WizardField(
-                  label: 'Open Parking',
-                  child: WizardTextField(
-                    controller: _openParkingController,
-                    hint: '0',
-                    keyboardType: TextInputType.number,
-                    onChanged: (v) =>
-                        context.read<PostPropertyProvider>().setOpenParking(v),
-                  ),
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: WizardField(
-                  label: 'Lifts Available',
-                  child: WizardTextField(
-                    controller: _liftsController,
-                    hint: '0',
-                    keyboardType: TextInputType.number,
-                    onChanged: (v) =>
-                        context.read<PostPropertyProvider>().setNumberOfLifts(v),
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ),
-        const SizedBox(height: 20),
-        WizardCard(
-          icon: Icons.checklist_outlined,
-          title: 'Key Facilities',
-          child: Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            children: [
-              WizardCheckboxTile(
-                label: 'Gas Pipeline',
-                value: provider.gasPipeline,
-                onChanged: (v) => context.read<PostPropertyProvider>().setGasPipeline(v),
-              ),
-              WizardCheckboxTile(
-                label: 'Internet Available',
-                value: provider.internetAvailability,
-                onChanged: (v) =>
-                    context.read<PostPropertyProvider>().setInternetAvailability(v),
-              ),
-              WizardCheckboxTile(
-                label: 'Solar Power',
-                value: provider.solarPower,
-                onChanged: (v) => context.read<PostPropertyProvider>().setSolarPower(v),
-              ),
-              WizardCheckboxTile(
-                label: 'Security / Guard',
-                value: provider.guardRoom,
-                onChanged: (v) => context.read<PostPropertyProvider>().setGuardRoom(v),
-              ),
-            ],
-          ),
-        ),
-      ],
-    );
+    return const SizedBox.shrink();
   }
 
   /// Building facilities, all stored inside the nested `buildingInventory`
@@ -467,7 +389,7 @@ class _AmenitiesStepState extends State<AmenitiesStep> {
                 ],
               ),
               const WizardDivider(),
-              numField('maintenanceCharges', 'Building Maintenance Charges *',
+              numField('maintenanceCharges', 'Maintenance Charges *',
                   _buildingMaintenanceController),
               const WizardDivider(),
               Row(
@@ -480,6 +402,28 @@ class _AmenitiesStepState extends State<AmenitiesStep> {
                       child: numField('totalBikeParking',
                           'Total Bike Parking *', _totalBikeParkingController)),
                 ],
+              ),
+              const WizardDivider(),
+              numField('serviceLiftCount', 'Service Lift Count',
+                  _serviceLiftCountController),
+              const WizardDivider(),
+              numField('commonAreaMaintenanceCharges',
+                  'Common Area Maintenance Charges', _camChargesController),
+              const WizardDivider(),
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: _buildingFacilityToggles.map((t) {
+                  final value =
+                      (provider.buildingInventoryValue(t.$1) as bool?) ?? false;
+                  return WizardCheckboxTile(
+                    label: t.$2,
+                    value: value,
+                    onChanged: (v) => context
+                        .read<PostPropertyProvider>()
+                        .setBuildingInventoryValue(t.$1, v),
+                  );
+                }).toList(),
               ),
             ],
           ),
@@ -506,7 +450,7 @@ class _AmenitiesStepState extends State<AmenitiesStep> {
         const SizedBox(height: 20),
         WizardCard(
           icon: Icons.storefront_outlined,
-          title: 'Current Business Details',
+          title: 'Current Business',
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -538,12 +482,22 @@ class _AmenitiesStepState extends State<AmenitiesStep> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               WizardField(
-                label: 'Office Features',
+                label: 'Office & Building Features',
                 child: WizardMultiChipGroup(
-                  options: _officeFeatures,
-                  selected: provider.listVal('officeFeatures'),
-                  onChanged: (v) =>
-                      context.read<PostPropertyProvider>().setListVal('officeFeatures', v),
+                  options: _officeBuildingFeatures,
+                  selected: provider
+                      .listVal('amenities')
+                      .where(_officeBuildingFeatures.contains)
+                      .toList(),
+                  onChanged: (v) {
+                    final others = provider
+                        .listVal('amenities')
+                        .where((a) => !_officeBuildingFeatures.contains(a))
+                        .toList();
+                    context
+                        .read<PostPropertyProvider>()
+                        .setListVal('amenities', [...others, ...v]);
+                  },
                 ),
               ),
               const WizardDivider(),
@@ -554,16 +508,6 @@ class _AmenitiesStepState extends State<AmenitiesStep> {
                   selected: provider.listVal('retailFeatures'),
                   onChanged: (v) =>
                       context.read<PostPropertyProvider>().setListVal('retailFeatures', v),
-                ),
-              ),
-              const WizardDivider(),
-              WizardField(
-                label: 'Building Amenities',
-                child: WizardMultiChipGroup(
-                  options: _buildingAmenities,
-                  selected: provider.listVal('amenities'),
-                  onChanged: (v) =>
-                      context.read<PostPropertyProvider>().setListVal('amenities', v),
                 ),
               ),
             ],
@@ -653,15 +597,49 @@ class _AmenitiesStepState extends State<AmenitiesStep> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              WizardField(
-                label: 'Total Parking Spaces',
-                child: WizardTextField(
-                  controller: _totalParkingController,
-                  hint: '0',
-                  keyboardType: TextInputType.number,
-                  onChanged: (v) =>
-                      context.read<PostPropertyProvider>().setText('totalParking', v),
-                ),
+              // commercialParkingList (AmenitiesStep.tsx:78-82) — three
+              // numeric fields; Covered/Open Parking were missing here.
+              Row(
+                children: [
+                  Expanded(
+                    child: WizardField(
+                      label: 'Total Parking',
+                      child: WizardTextField(
+                        controller: _totalParkingController,
+                        hint: '0',
+                        keyboardType: TextInputType.number,
+                        onChanged: (v) =>
+                            context.read<PostPropertyProvider>().setText('totalParking', v),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: WizardField(
+                      label: 'Covered Parking',
+                      child: WizardTextField(
+                        controller: _coveredParkingController,
+                        hint: '0',
+                        keyboardType: TextInputType.number,
+                        onChanged: (v) =>
+                            context.read<PostPropertyProvider>().setCoveredParking(v),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: WizardField(
+                      label: 'Open Parking',
+                      child: WizardTextField(
+                        controller: _openParkingController,
+                        hint: '0',
+                        keyboardType: TextInputType.number,
+                        onChanged: (v) =>
+                            context.read<PostPropertyProvider>().setOpenParking(v),
+                      ),
+                    ),
+                  ),
+                ],
               ),
               const WizardDivider(),
               Wrap(
@@ -679,22 +657,6 @@ class _AmenitiesStepState extends State<AmenitiesStep> {
             ],
           ),
         ),
-        const SizedBox(height: 20),
-        WizardCard(
-          icon: Icons.verified_outlined,
-          title: 'Utilities, Licenses & Approvals',
-          child: Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            children: _utilityLicenseToggles.map((t) {
-              return WizardCheckboxTile(
-                label: t.$2,
-                value: provider.boolVal(t.$1),
-                onChanged: (v) => context.read<PostPropertyProvider>().setBoolVal(t.$1, v),
-              );
-            }).toList(),
-          ),
-        ),
       ],
     );
   }
@@ -706,6 +668,22 @@ class _AmenitiesStepState extends State<AmenitiesStep> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          WizardField(
+            label: 'Room Amenities',
+            child: Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: kPgRoomAmenities.map((o) {
+                return WizardCheckboxTile(
+                  label: o.label,
+                  value: provider.boolVal(o.id),
+                  onChanged: (v) =>
+                      context.read<PostPropertyProvider>().setBoolVal(o.id, v),
+                );
+              }).toList(),
+            ),
+          ),
+          const WizardDivider(),
           WizardMultiChipGroup(
             // From the T0 constants: Flutter's hand-typed copy had
             // 'Gym/Fitness Center' where React writes
@@ -726,6 +704,22 @@ class _AmenitiesStepState extends State<AmenitiesStep> {
                   label: t.$2,
                   value: provider.boolVal(t.$1),
                   onChanged: (v) => context.read<PostPropertyProvider>().setBoolVal(t.$1, v),
+                );
+              }).toList(),
+            ),
+          ),
+          const WizardDivider(),
+          WizardField(
+            label: 'Tenant Rules',
+            child: Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: kPgTenantRules.map((o) {
+                return WizardCheckboxTile(
+                  label: o.label,
+                  value: provider.boolVal(o.id),
+                  onChanged: (v) =>
+                      context.read<PostPropertyProvider>().setBoolVal(o.id, v),
                 );
               }).toList(),
             ),

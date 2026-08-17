@@ -169,11 +169,11 @@ void main() {
   });
 
   group('Migration end state', () {
-    test('the map pin is the only remaining gap', () {
-      // Documented as the outstanding enhancement rather than implemented:
-      // React resolves latitude/longitude from Google Places, which needs a
-      // picker Flutter does not have.
-      expect(kFieldsNotYetCollectable, {'latitude'});
+    test('the map pin gap is closed', () {
+      // The map pin was the last outstanding gap; LocationPickerMap and the
+      // Property Address field's autocomplete now both set
+      // latitude/longitude, so nothing is left uncollectable.
+      expect(kFieldsNotYetCollectable, isEmpty);
     });
 
     test('every category and listing type can be completed end to end', () {

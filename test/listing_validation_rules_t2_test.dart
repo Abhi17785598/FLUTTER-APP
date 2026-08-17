@@ -36,9 +36,14 @@ void main() {
     test('land gets land dimensions, never bedrooms or soil-free fields', () {
       final f = firingFields('Dimensions', PropertyCategory.land, ListingIntent.sell);
       expect(f, containsAll(<String>[
-        'front', 'back', 'right', 'left', 'surveyNumber', 'fsiFarAllowed',
-        'floorAllowed', 'heightRestriction', 'soilType', 'area', 'availableFrom',
+        'front', 'back', 'right', 'left', 'surveyNumber',
+        'soilType', 'area', 'availableFrom',
       ]));
+      // fsiFarAllowed/floorAllowed/heightRestriction are collected but have
+      // no rule at all in propertyListingRules.ts for Land — optional there.
+      expect(f, isNot(contains('fsiFarAllowed')));
+      expect(f, isNot(contains('floorAllowed')));
+      expect(f, isNot(contains('heightRestriction')));
       expect(f, isNot(contains('bedrooms')));
       expect(f, isNot(contains('bathrooms')));
       expect(f, isNot(contains('carpetArea')));
@@ -251,14 +256,21 @@ void main() {
       expect(res, isNot(contains('ownerManagerName')));
 
       final pg = firingFields('Media', PropertyCategory.pg, ListingIntent.rent);
-      expect(pg, containsAll(<String>['ownerManagerName', 'alternateNumber']));
+      expect(pg, contains('ownerManagerName'));
+      // alternateNumber's own rule in propertyListingRules.ts is permanently
+      // disabled (`applies: () => false`) — it never fires for any category,
+      // PG included, even though the field is collected.
+      expect(pg, isNot(contains('alternateNumber')));
     });
   });
 
   group('Enforcement gate', () {
-    test('un-collectable rules never block a save', () {
-      // The map pin has no picker in any category, so its rule must be
-      // evaluated (parity with React) but never block.
+    test('every rule field the app collects is enforced identically gated or not', () {
+      // The map pin used to be the one example of a rule that must be
+      // evaluated (parity with React) but never block, because no input
+      // collected it yet. LocationPickerMap / AddressAutocompleteField now
+      // set latitude/longitude, so gated and ungated results are identical —
+      // see "the not-yet-collectable set is down to the map pin" below.
       final p = PostPropertyProvider()
         ..setCategory(PropertyCategory.residential)
         ..setListingIntent(ListingIntent.sell);
@@ -271,17 +283,16 @@ void main() {
           .map((i) => i.field)
           .toSet();
 
-      expect(ungated, contains('latitude'));
-      expect(gated, isNot(contains('latitude')));
-      // Fields Flutter DOES collect are still enforced.
-      expect(gated, containsAll(<String>['title', 'city', 'state']));
+      expect(gated, ungated);
+      expect(gated, containsAll(<String>['title', 'city', 'state', 'latitude']));
     });
 
-    test('the not-yet-collectable set is down to the map pin', () {
-      // This list shrank with every category phase. All ten have landed, so
-      // the only rule field without an input is the map pin — which is not
-      // category-specific and has no picker in any flow.
-      expect(kFieldsNotYetCollectable, {'latitude'});
+    test('the not-yet-collectable set is now empty', () {
+      // This list shrank with every category phase, then the map pin — the
+      // last rule field with no matching input — closed when the address
+      // field's autocomplete + the map picker both started setting
+      // latitude/longitude.
+      expect(kFieldsNotYetCollectable, isEmpty);
     });
   });
 

@@ -36,8 +36,7 @@ class _VoiceAgentPanelState extends State<VoiceAgentPanel> {
             provider.agentState == VoiceAgentStateEnum.listening;
         final isProcessing =
             provider.agentState == VoiceAgentStateEnum.processing;
-        final isSpeaking =
-            provider.agentState == VoiceAgentStateEnum.speaking;
+        final isSpeaking = provider.agentState == VoiceAgentStateEnum.speaking;
 
         return DraggableScrollableSheet(
           initialChildSize: 0.65,
@@ -45,129 +44,135 @@ class _VoiceAgentPanelState extends State<VoiceAgentPanel> {
           maxChildSize: 0.92,
           expand: false,
           builder: (context, scrollController) {
-            return Container(
-              decoration: BoxDecoration(
-                color: Theme.of(context).colorScheme.surface,
-                borderRadius:
-                    const BorderRadius.vertical(top: Radius.circular(20)),
+            return Padding(
+              padding: EdgeInsets.only(
+                bottom: MediaQuery.of(context).viewInsets.bottom,
               ),
-              child: Column(
-                children: [
-                  // Drag handle
-                  Center(
-                    child: Container(
-                      margin: const EdgeInsets.only(top: 10, bottom: 4),
-                      width: 40,
-                      height: 4,
-                      decoration: BoxDecoration(
-                        color: Colors.grey.shade300,
-                        borderRadius: BorderRadius.circular(2),
+              child: Container(
+                decoration: BoxDecoration(
+                  color: Theme.of(context).colorScheme.surface,
+                  borderRadius: const BorderRadius.vertical(
+                    top: Radius.circular(20),
+                  ),
+                ),
+                child: Column(
+                  children: [
+                    // Drag handle
+                    Center(
+                      child: Container(
+                        margin: const EdgeInsets.only(top: 10, bottom: 4),
+                        width: 40,
+                        height: 4,
+                        decoration: BoxDecoration(
+                          color: Colors.grey.shade300,
+                          borderRadius: BorderRadius.circular(2),
+                        ),
                       ),
                     ),
-                  ),
-                  // Header
-                  Padding(
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: 16, vertical: 8),
-                    child: Row(
-                      children: [
-                        Icon(Icons.auto_awesome,
-                            color: Theme.of(context).colorScheme.primary),
-                        const SizedBox(width: 8),
-                        Text(
-                          'PropCID Assistant',
-                          style: Theme.of(context)
-                              .textTheme
-                              .titleMedium
-                              ?.copyWith(fontWeight: FontWeight.w600),
-                        ),
-                        const Spacer(),
-                        IconButton(
-                          icon: const Icon(Icons.delete_outline, size: 20),
-                          tooltip: 'Clear conversation',
-                          onPressed: provider.clearConversation,
-                        ),
-                        IconButton(
-                          icon: Icon(provider.isTtsEnabled
-                              ? Icons.volume_up
-                              : Icons.volume_off),
-                          tooltip: provider.isTtsEnabled
-                              ? 'Mute voice'
-                              : 'Enable voice',
-                          onPressed: provider.toggleTts,
-                        ),
-                        IconButton(
-                          icon: const Icon(Icons.close),
-                          onPressed: () => Navigator.of(context).pop(),
-                        ),
-                      ],
-                    ),
-                  ),
-                  const Divider(height: 1),
-                  // Conversation history
-                  Expanded(
-                    child: const ConversationHistory(),
-                  ),
-                  // Listening indicator
-                  if (isListening) ...[
-                    const SizedBox(height: 8),
-                    VoiceWaveform(isActive: isListening),
-                    const SizedBox(height: 4),
-                    if (provider.liveTranscript.isNotEmpty)
-                      Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 16),
-                        child: Text(
-                          provider.liveTranscript,
-                          style: Theme.of(context)
-                              .textTheme
-                              .bodySmall
-                              ?.copyWith(color: Colors.grey.shade600),
-                          textAlign: TextAlign.center,
-                        ),
+                    // Header
+                    Padding(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 8,
                       ),
-                    const SizedBox(height: 8),
-                  ],
-                  // Processing indicator
-                  if (isProcessing)
-                    const Padding(
-                      padding: EdgeInsets.symmetric(vertical: 8),
-                      child: LinearProgressIndicator(),
-                    ),
-                  // Speaking indicator
-                  if (isSpeaking)
-                    const Padding(
-                      padding: EdgeInsets.symmetric(vertical: 8),
                       child: Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
                         children: [
-                          Icon(Icons.volume_up, size: 16, color: Colors.grey),
-                          SizedBox(width: 8),
+                          Icon(
+                            Icons.auto_awesome,
+                            color: Theme.of(context).colorScheme.primary,
+                          ),
+                          const SizedBox(width: 8),
                           Text(
-                            'Speaking…',
-                            style: TextStyle(color: Colors.grey),
+                            'PropCID Assistant',
+                            style: Theme.of(context).textTheme.titleMedium
+                                ?.copyWith(fontWeight: FontWeight.w600),
+                          ),
+                          const Spacer(),
+                          IconButton(
+                            icon: const Icon(Icons.delete_outline, size: 20),
+                            tooltip: 'Clear conversation',
+                            onPressed: provider.clearConversation,
+                          ),
+                          IconButton(
+                            icon: Icon(
+                              provider.isTtsEnabled
+                                  ? Icons.volume_up
+                                  : Icons.volume_off,
+                            ),
+                            tooltip: provider.isTtsEnabled
+                                ? 'Mute voice'
+                                : 'Enable voice',
+                            onPressed: provider.toggleTts,
+                          ),
+                          IconButton(
+                            icon: const Icon(Icons.close),
+                            onPressed: () => Navigator.of(context).pop(),
                           ),
                         ],
                       ),
                     ),
-                  // Quick chips
-                  if (!isListening && !isProcessing && !isSpeaking)
-                    _QuickChips(provider: provider),
-                  // Input row
-                  _InputRow(
-                    controller: _textController,
-                    isListening: isListening,
-                    isProcessing: isProcessing,
-                    isSpeaking: isSpeaking,
-                    onSend: () => _send(provider),
-                    onMic: () {
-                      if (isListening) {
-                        provider.stopListening();
-                      } else {
-                        provider.startListening(context);
-                      }
-                    },
-                  ),
-                ],
+                    const Divider(height: 1),
+                    // Conversation history
+                    Expanded(child: const ConversationHistory()),
+                    // Listening indicator
+                    if (isListening) ...[
+                      const SizedBox(height: 8),
+                      VoiceWaveform(isActive: isListening),
+                      const SizedBox(height: 4),
+                      if (provider.liveTranscript.isNotEmpty)
+                        Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 16),
+                          child: Text(
+                            provider.liveTranscript,
+                            style: Theme.of(context).textTheme.bodySmall
+                                ?.copyWith(color: Colors.grey.shade600),
+                            textAlign: TextAlign.center,
+                          ),
+                        ),
+                      const SizedBox(height: 8),
+                    ],
+                    // Processing indicator
+                    if (isProcessing)
+                      const Padding(
+                        padding: EdgeInsets.symmetric(vertical: 8),
+                        child: LinearProgressIndicator(),
+                      ),
+                    // Speaking indicator
+                    if (isSpeaking)
+                      const Padding(
+                        padding: EdgeInsets.symmetric(vertical: 8),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(Icons.volume_up, size: 16, color: Colors.grey),
+                            SizedBox(width: 8),
+                            Text(
+                              'Speaking…',
+                              style: TextStyle(color: Colors.grey),
+                            ),
+                          ],
+                        ),
+                      ),
+                    // Quick chips
+                    if (!isListening && !isProcessing && !isSpeaking)
+                      _QuickChips(provider: provider),
+                    // Input row
+                    _InputRow(
+                      controller: _textController,
+                      isListening: isListening,
+                      isProcessing: isProcessing,
+                      isSpeaking: isSpeaking,
+                      onSend: () => _send(provider),
+                      onMic: () {
+                        if (isListening) {
+                          provider.stopListening();
+                        } else {
+                          provider.startListening(context);
+                        }
+                      },
+                    ),
+                  ],
+                ),
               ),
             );
           },
@@ -237,10 +242,12 @@ class _InputRow extends StatelessWidget {
                   hintText: isListening
                       ? 'Listening…'
                       : isProcessing
-                          ? 'Processing…'
-                          : 'Type a command…',
+                      ? 'Processing…'
+                      : 'Type a command…',
                   contentPadding: const EdgeInsets.symmetric(
-                      horizontal: 16, vertical: 10),
+                    horizontal: 16,
+                    vertical: 10,
+                  ),
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(24),
                     borderSide: BorderSide.none,
@@ -253,7 +260,9 @@ class _InputRow extends StatelessWidget {
             // Send button
             IconButton.filled(
               icon: const Icon(Icons.send),
-              onPressed: isListening || isProcessing || isSpeaking ? null : onSend,
+              onPressed: isListening || isProcessing || isSpeaking
+                  ? null
+                  : onSend,
             ),
           ],
         ),

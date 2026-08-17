@@ -211,10 +211,11 @@ void main() {
   });
 
   group('Migration-wide completeness', () {
-    test('only the map pin remains without an input', () {
-      // Every category phase has landed; latitude/longitude is the one
-      // outstanding gap and is not category-specific.
-      expect(kFieldsNotYetCollectable, {'latitude'});
+    test('every rule field now has a matching input', () {
+      // Every category phase has landed, and the former map-pin gap closed
+      // once LocationPickerMap / AddressAutocompleteField started setting
+      // latitude/longitude.
+      expect(kFieldsNotYetCollectable, isEmpty);
     });
 
     test('every category can be completed end to end', () {

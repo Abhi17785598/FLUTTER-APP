@@ -63,27 +63,24 @@ void main() {
       }
     });
 
-    test('Khasra, FSI/FAR, floors, height and soil all block until filled', () {
+    test('Khasra and soil block until filled; FSI/FAR, floors and height are optional', () {
+      // fsiFarAllowed/floorAllowed/heightRestriction are collected but have
+      // no rule at all in the portal's propertyListingRules.ts for Land —
+      // they're optional there, so they must never appear as blockers here.
       final p = land();
       expect(
           blockers(p, WizardStep.dimensions),
-          containsAll(<String>[
-            'surveyNumber', 'fsiFarAllowed', 'floorAllowed',
-            'heightRestriction', 'soilType',
-          ]));
+          containsAll(<String>['surveyNumber', 'soilType']));
+      for (final f in ['fsiFarAllowed', 'floorAllowed', 'heightRestriction']) {
+        expect(blockers(p, WizardStep.dimensions), isNot(contains(f)));
+      }
 
       p
         ..setText('surveyNumber', '123/4')
-        ..setText('fsiFarAllowed', '1.5')
-        ..setText('floorAllowed', '3')
-        ..setText('heightRestriction', '15')
         ..setText('soilType', 'Alluvial Soil');
 
       final after = blockers(p, WizardStep.dimensions);
-      for (final f in [
-        'surveyNumber', 'fsiFarAllowed', 'floorAllowed', 'heightRestriction',
-        'soilType',
-      ]) {
+      for (final f in ['surveyNumber', 'soilType']) {
         expect(after, isNot(contains(f)));
       }
     });

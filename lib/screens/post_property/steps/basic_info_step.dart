@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../../../core/theme/app_colors.dart';
 import '../../../providers/post_property_provider.dart';
 import '../../../services/geocoding_service.dart';
+import '../../../widgets/address_autocomplete_field.dart';
 import '../../../widgets/location_picker_map.dart';
 import '../listing_constants.dart';
 import '../portal_kit.dart';
@@ -17,14 +19,15 @@ import '../widgets/project_tag_selector.dart';
 /// listing type does not vary this step — so the category switch below is the
 /// whole of that logic.
 ///
-/// The portal's Google Maps picker (left third of the location grid) is now
+/// The portal's Google Maps picker (left third of the location grid) is
 /// reproduced via [LocationPickerMap] — the same map/reverse-geocoding widget
 /// already used by the builder/broker/influencer registration wizards. Tapping
 /// it fills address/city/state/pincode/landmark and the provider's
 /// latitude/longitude, exactly like `GoogleLocationPicker`'s
-/// `onLocationSelect`. The address field itself stays a plain text field
-/// (unlike the registration wizards' autocomplete-as-you-type version) —
-/// that's a separate affordance not touched here.
+/// `onLocationSelect`. The Property Address field itself uses
+/// [AddressAutocompleteField] — the same type-ahead widget those wizards use
+/// — so typing an address surfaces suggestions the same way selecting a
+/// suggestion or tapping the map both resolve through [_onLocationSelected].
 class BasicInfoStep extends StatefulWidget {
   const BasicInfoStep({super.key});
 
@@ -50,6 +53,11 @@ class _BasicInfoStepState extends State<BasicInfoStep> {
     _description = TextEditingController(text: p.description);
     _pgPropertyName = TextEditingController(text: p.text('pgPropertyName'));
     _address = TextEditingController(text: p.location);
+    // AddressAutocompleteField has no plain onChanged of its own (only
+    // onPlaceSelected, fired when a suggestion is tapped) — without this,
+    // typing a full address and never tapping a suggestion left the provider's
+    // location empty, same as not typing anything at all.
+    _address.addListener(() => _p.setLocation(_address.text));
     _city = TextEditingController(text: p.city);
     _stateField = TextEditingController(text: p.state);
     _pincode = TextEditingController(text: p.pincode);
@@ -420,11 +428,35 @@ class _BasicInfoStepState extends State<BasicInfoStep> {
           PortalField(
             label: 'Property Address',
             required: true,
-            child: PortalTextField(
+            child: AddressAutocompleteField(
               controller: _address,
-              hint:
-                  'Type to search property address (Google Maps auto-complete)...',
-              onChanged: (v) => _p.setLocation(v),
+              decoration: InputDecoration(
+                isDense: true,
+                filled: true,
+                fillColor: PortalTheme.cardSurface,
+                contentPadding:
+                    const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                hintText:
+                    'Type to search property address (Google Maps auto-complete)...',
+                hintStyle: PortalTheme.inputText.copyWith(
+                  color: AppColors.textHint,
+                ),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(6),
+                  borderSide: BorderSide(color: PortalTheme.cardBorder),
+                ),
+                enabledBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(6),
+                  borderSide: BorderSide(color: PortalTheme.cardBorder),
+                ),
+                focusedBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(6),
+                  borderSide: BorderSide(color: AppColors.primary, width: 1.5),
+                ),
+              ),
+              maxLines: 2,
+              onPlaceSelected: (address, lat, lng) =>
+                  _onLocationSelected(lat, lng, address),
             ),
           ),
           const SizedBox(height: 16),

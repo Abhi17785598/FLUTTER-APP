@@ -1,5 +1,6 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
 import '../../../core/theme/app_colors.dart';
@@ -21,8 +22,7 @@ class MediaContactStep extends StatefulWidget {
 class _MediaContactStepState extends State<MediaContactStep> {
   /// Photo categories for the current listing, straight from the T0
   /// constants. React swaps the whole set for land — Sajra / Land video /
-  /// Land images / Others (MediaAndFinalStep.tsx:32) — and Flutter shipped
-  /// neither the land set nor the `property_video` entry of the default one.
+  /// Land images / Others (MediaAndFinalStep.tsx:32).
   List<ListingOption> _categoriesFor(PropertyCategory? category) =>
       category == PropertyCategory.land
           ? kLandImageCategories
@@ -83,6 +83,21 @@ class _MediaContactStepState extends State<MediaContactStep> {
   // at all.
   static const int _maxImageDimension = 1920;
   static const int _imageQuality = 82;
+  // Portal's own hard ceiling (MediaAndFinalStep.tsx:74-77) — a rejected file
+  // just isn't added, same as the portal's alert-and-skip behavior.
+  static const int _maxFileBytes = 10 * 1024 * 1024;
+
+  /// True once any file over the portal's 10MB ceiling was rejected —
+  /// surfaced as a snackbar, the mobile equivalent of the portal's `alert()`.
+  Future<bool> _tooLarge(XFile file) async {
+    if (await file.length() <= _maxFileBytes) return false;
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('${file.name} is over 10MB and was skipped.')),
+      );
+    }
+    return true;
+  }
 
   Future<void> _pickFromGallery() async {
     final images = await _picker.pickMultiImage(
@@ -94,6 +109,7 @@ class _MediaContactStepState extends State<MediaContactStep> {
     final provider = context.read<PostPropertyProvider>();
     final category = _activeCategory(_categoriesFor(provider.category));
     for (final image in images) {
+      if (await _tooLarge(image)) continue;
       provider.addMediaItem(image, category);
     }
   }
@@ -106,10 +122,32 @@ class _MediaContactStepState extends State<MediaContactStep> {
       imageQuality: _imageQuality,
     );
     if (!mounted || image == null) return;
+    if (await _tooLarge(image)) return;
     final provider = context.read<PostPropertyProvider>();
     provider.addMediaItem(
         image, _activeCategory(_categoriesFor(provider.category)));
   }
+
+  /// The portal accepts `video/*` alongside images on the same picker
+  /// (MediaAndFinalStep.tsx:222) — Flutter only ever exposed a "Property
+  /// Video"/"Land video" category a user could tag a *photo* with, with no
+  /// way to actually attach a video file.
+  Future<void> _pickVideo() async {
+    final video = await _picker.pickVideo(source: ImageSource.gallery);
+    if (!mounted || video == null) return;
+    if (await _tooLarge(video)) return;
+    final provider = context.read<PostPropertyProvider>();
+    final categories = _categoriesFor(provider.category);
+    final videoCategory = categories.any((c) => c.id == 'property_video')
+        ? 'property_video'
+        : categories.any((c) => c.id == 'land_video')
+            ? 'land_video'
+            : _activeCategory(categories);
+    provider.addMediaItem(video, videoCategory);
+  }
+
+  bool _isVideoCategory(String category) =>
+      category == 'property_video' || category == 'land_video';
 
   String _categoryLabel(List<ListingOption> options, String id) {
     for (final o in options) {
@@ -177,6 +215,22 @@ class _MediaContactStepState extends State<MediaContactStep> {
                       onPressed: _pickFromCamera,
                       icon: const Icon(Icons.camera_alt_outlined),
                       label: const Text('Camera'),
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: AppColors.primary,
+                        side: BorderSide(color: AppColors.primary),
+                        padding: const EdgeInsets.symmetric(vertical: 12),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: OutlinedButton.icon(
+                      onPressed: _pickVideo,
+                      icon: const Icon(Icons.videocam_outlined),
+                      label: const Text('Video'),
                       style: OutlinedButton.styleFrom(
                         foregroundColor: AppColors.primary,
                         side: BorderSide(color: AppColors.primary),
@@ -323,14 +377,23 @@ class _MediaContactStepState extends State<MediaContactStep> {
                             children: [
                               ClipRRect(
                                 borderRadius: BorderRadius.circular(12),
-                                child: Image.file(
-                                  File(item.file.path),
-                                  fit: BoxFit.cover,
-                                  errorBuilder: (context, error, stackTrace) => Container(
-                                    color: Colors.grey.shade200,
-                                    child: const Icon(Icons.broken_image),
-                                  ),
-                                ),
+                                child: _isVideoCategory(item.category)
+                                    ? Container(
+                                        color: Colors.grey.shade800,
+                                        child: const Icon(
+                                          Icons.play_circle_outline,
+                                          color: Colors.white,
+                                          size: 32,
+                                        ),
+                                      )
+                                    : Image.file(
+                                        File(item.file.path),
+                                        fit: BoxFit.cover,
+                                        errorBuilder: (context, error, stackTrace) => Container(
+                                          color: Colors.grey.shade200,
+                                          child: const Icon(Icons.broken_image),
+                                        ),
+                                      ),
                               ),
                               Positioned(
                                 top: 4,
@@ -389,6 +452,11 @@ class _MediaContactStepState extends State<MediaContactStep> {
                   child: WizardTextField(
                     controller: _alternateNumberController,
                     hint: '+91 98765 00000',
+                    keyboardType: TextInputType.phone,
+                    inputFormatters: [
+                      FilteringTextInputFormatter.digitsOnly,
+                      LengthLimitingTextInputFormatter(10),
+                    ],
                     onChanged: (v) =>
                         context.read<PostPropertyProvider>().setText('alternateNumber', v),
                   ),
@@ -400,6 +468,9 @@ class _MediaContactStepState extends State<MediaContactStep> {
                 child: WizardTextField(
                   controller: _contactNameController,
                   hint: 'Your full name',
+                  inputFormatters: [
+                    FilteringTextInputFormatter.allow(RegExp(r'[a-zA-Z\s]')),
+                  ],
                   onChanged: (v) => context.read<PostPropertyProvider>().setContactName(v),
                 ),
               ),
@@ -412,6 +483,11 @@ class _MediaContactStepState extends State<MediaContactStep> {
                       child: WizardTextField(
                         controller: _contactPhoneController,
                         hint: '+91 98765 43210',
+                        keyboardType: TextInputType.phone,
+                        inputFormatters: [
+                          FilteringTextInputFormatter.digitsOnly,
+                          LengthLimitingTextInputFormatter(10),
+                        ],
                         onChanged: (v) =>
                             context.read<PostPropertyProvider>().setContactPhone(v),
                       ),
@@ -441,6 +517,11 @@ class _MediaContactStepState extends State<MediaContactStep> {
                       child: WizardTextField(
                         controller: _whatsappController,
                         hint: '+91 98765 43210',
+                        keyboardType: TextInputType.phone,
+                        inputFormatters: [
+                          FilteringTextInputFormatter.digitsOnly,
+                          LengthLimitingTextInputFormatter(10),
+                        ],
                         onChanged: (v) =>
                             context.read<PostPropertyProvider>().setWhatsappNumber(v),
                       ),

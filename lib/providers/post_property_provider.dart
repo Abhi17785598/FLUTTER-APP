@@ -1,3 +1,4 @@
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import '../models/tagged_project.dart';
@@ -210,6 +211,11 @@ class PostPropertyProvider extends ChangeNotifier {
   List<MediaRef> _existingMedia = [];
   String _mainDisplayMediaUrl = '';
 
+  // Land's "Ownership Document Upload" (LegalDetailsStep.tsx's land branch) —
+  // local only, same as the Property Images picker: no upload happens yet,
+  // the file is just held for the eventual backend integration phase.
+  PlatformFile? _ownershipDocument;
+
   // ── Step 8: Media & Contact ───────────────────────────────────────────
   final List<MediaItem> _mediaItems = [];
   String _contactName = '';
@@ -327,6 +333,7 @@ class PostPropertyProvider extends ChangeNotifier {
   bool get reraRegistered => _reraRegistered;
   String get reraNumber => _reraNumber;
   bool get saleDeed => _saleDeed;
+  PlatformFile? get ownershipDocument => _ownershipDocument;
   bool get registryCopy => _registryCopy;
   bool get nocAvailable => _nocAvailable;
   bool get encumbranceFree => _encumbranceFree;
@@ -875,6 +882,11 @@ class PostPropertyProvider extends ChangeNotifier {
     notifyListeners();
   }
 
+  void setOwnershipDocument(PlatformFile? value) {
+    _ownershipDocument = value;
+    notifyListeners();
+  }
+
   void setRegistryCopy(bool value) {
     _registryCopy = value;
     notifyListeners();
@@ -1334,6 +1346,11 @@ class PostPropertyProvider extends ChangeNotifier {
     _pincode = meta['pincode']?.toString() ?? '';
     _landmark = meta['landmark']?.toString() ?? '';
     _propertyCondition = meta['propertyCondition']?.toString();
+    // Authoritative source for the Basic Info furnishing dropdown
+    // (Raw/Semi-Furnished/Fully-Furnished) — read it back before the
+    // subtable-boolean fallback below runs, so an edit doesn't discard the
+    // real stored value in favour of a derived guess.
+    _furnishingType = meta['furnishingType']?.toString();
     _constructionAge = meta['constructionAge']?.toString();
     _availabilityStatus = meta['availabilityStatus']?.toString();
     final availItems = meta['availableItems'];
@@ -1344,7 +1361,10 @@ class PostPropertyProvider extends ChangeNotifier {
     _openParking = meta['openParking']?.toString() ?? '';
     _gasPipeline = meta['gasPipeline'] as bool? ?? false;
     _internetAvailability = meta['internetAvailability'] as bool? ?? false;
-    _solarPower = meta['solarPower'] as bool? ?? false;
+    // Portal's real key is `solarBackup` (PropertyWizard.tsx) — `solarPower`
+    // was a mismatched key Flutter used to read/write instead, kept here only
+    // as a fallback for rows an older app build already saved under it.
+    _solarPower = (meta['solarBackup'] ?? meta['solarPower']) as bool? ?? false;
     _guardRoom = meta['guardRoom'] as bool? ?? false;
     _reraRegistered = meta['reraRegistered'] as bool? ?? false;
     _reraNumber = meta['reraNumber']?.toString() ?? '';
@@ -1418,8 +1438,14 @@ class PostPropertyProvider extends ChangeNotifier {
         _bathrooms = subtableRow['bathrooms']?.toString() ?? '';
         _carpetArea = subtableRow['carpet_area_sqft']?.toString() ?? '';
         _balconies = subtableRow['balconies']?.toString() ?? '';
-        final bool furnished = subtableRow['furnished'] as bool? ?? false;
-        _furnishingType = furnished ? 'Furnished' : 'Unfurnished';
+        // Fallback only — a row with metadata.furnishingType already set
+        // (the normal case) keeps that value; this just covers legacy rows
+        // from before the key existed, using the real dropdown vocabulary
+        // rather than a Furnished/Unfurnished pair the UI doesn't offer.
+        if (_furnishingType == null || _furnishingType!.isEmpty) {
+          final bool furnished = subtableRow['furnished'] as bool? ?? false;
+          _furnishingType = furnished ? 'Fully-Furnished' : 'Raw';
+        }
         _coveredParking = subtableRow['parking_spaces']?.toString() ?? '';
         _floorNo = subtableRow['floor_number']?.toString() ?? '';
         _totalFloors = subtableRow['total_floors']?.toString() ?? '';
@@ -1427,8 +1453,11 @@ class PostPropertyProvider extends ChangeNotifier {
         if (facingDir != null && facingDir.isNotEmpty) _facing = facingDir;
       } else if (cat == 'commercial') {
         _carpetArea = subtableRow['carpet_area_sqft']?.toString() ?? '';
-        final bool furnished = subtableRow['furnished'] as bool? ?? false;
-        _furnishingType = furnished ? 'Furnished' : 'Unfurnished';
+        // Fallback only — see the residential branch above.
+        if (_furnishingType == null || _furnishingType!.isEmpty) {
+          final bool furnished = subtableRow['furnished'] as bool? ?? false;
+          _furnishingType = furnished ? 'Fully-Furnished' : 'Raw';
+        }
         setText('washrooms', subtableRow['washrooms']?.toString() ?? '');
         setText('totalParking', subtableRow['parking_spaces']?.toString() ?? '');
         setText('floorNumber', subtableRow['floor_number']?.toString() ?? '');
@@ -1486,7 +1515,7 @@ class PostPropertyProvider extends ChangeNotifier {
     'propertyCondition', 'constructionAge', 'availabilityStatus',
     'availableItems',
     'electricityBackup', 'waterAvailability', 'numberOfLifts', 'openParking',
-    'gasPipeline', 'internetAvailability', 'solarPower', 'guardRoom',
+    'gasPipeline', 'internetAvailability', 'solarBackup', 'solarPower', 'guardRoom',
     'reraRegistered', 'reraNumber',
     'saleDeed', 'registryCopy', 'nocAvailable', 'encumbranceFree',
     'loanApproved', 'propertyApproved',

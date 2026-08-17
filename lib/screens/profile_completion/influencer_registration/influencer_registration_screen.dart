@@ -2059,7 +2059,12 @@ class _InfluencerRegistrationScreenState
   // ─── Bottom Navigation Buttons ────────────────────────────────────────────
   Widget _buildNavigationButtons() {
     final isLastStep = currentStep == _stepTitles.length - 1;
-    return Container(
+    // SafeArea so this bar clears the system nav bar / gesture inset on
+    // devices with on-screen navigation buttons — it sits in `body`, not
+    // `bottomNavigationBar`, so Scaffold doesn't reserve that space itself.
+    return SafeArea(
+      top: false,
+      child: Container(
       padding: const EdgeInsets.fromLTRB(20, 12, 20, 20),
       decoration: BoxDecoration(
         color: Theme.of(context).colorScheme.surface,
@@ -2113,6 +2118,7 @@ class _InfluencerRegistrationScreenState
             ),
           ),
         ],
+      ),
       ),
     );
   }

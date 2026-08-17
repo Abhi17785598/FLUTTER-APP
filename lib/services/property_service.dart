@@ -767,8 +767,12 @@ class PropertyService {
       'built_up_area_sqft': double.tryParse(provider.area),
       'carpet_area_sqft': double.tryParse(provider.carpetArea),
       'balconies': int.tryParse(provider.balconies),
-      'furnished': provider.furnishingType == 'Furnished' ||
-          provider.furnishingType == 'Semi-Furnished',
+      // Portal rule (BasicInfoStep.tsx): furnished = value !== 'Raw', i.e.
+      // both Semi- and Fully-Furnished count. The previous check for the
+      // literal 'Furnished' never matched anything the dropdown can actually
+      // produce, and omitted 'Fully-Furnished' entirely.
+      'furnished': provider.furnishingType == 'Semi-Furnished' ||
+          provider.furnishingType == 'Fully-Furnished',
       'parking_spaces': int.tryParse(provider.coveredParking),
       'floor_number': int.tryParse(provider.floorNo),
       'total_floors': int.tryParse(provider.totalFloors),
@@ -793,8 +797,12 @@ class PropertyService {
       // Commercial dimensions use dedicated bag keys, not the typed floorNo/totalFloors
       'floor_number': int.tryParse(provider.text('floorNumber')),
       'total_floors': int.tryParse(provider.text('totalFloorsCommercial')),
-      'furnished': provider.furnishingType == 'Furnished' ||
-          provider.furnishingType == 'Semi-Furnished',
+      // Portal rule (BasicInfoStep.tsx): furnished = value !== 'Raw', i.e.
+      // both Semi- and Fully-Furnished count. The previous check for the
+      // literal 'Furnished' never matched anything the dropdown can actually
+      // produce, and omitted 'Fully-Furnished' entirely.
+      'furnished': provider.furnishingType == 'Semi-Furnished' ||
+          provider.furnishingType == 'Fully-Furnished',
       // React maps guardRoom → cafeteria; defaults to false if not set in commercial UI
       'cafeteria': provider.guardRoom,
       'power_load_kw': double.tryParse(provider.text('powerLoad')) ?? 0,
@@ -996,7 +1004,9 @@ class PropertyService {
     // Booleans always included (default false is meaningful)
     meta['gasPipeline'] = provider.gasPipeline;
     meta['internetAvailability'] = provider.internetAvailability;
-    meta['solarPower'] = provider.solarPower;
+    // Portal's real key is `solarBackup` — see the hydration-side comment in
+    // post_property_provider.dart for why this was previously `solarPower`.
+    meta['solarBackup'] = provider.solarPower;
     meta['guardRoom'] = provider.guardRoom;
 
     // ── Step 6: Legal ─────────────────────────────────────────────────────
@@ -1211,8 +1221,12 @@ class PropertyService {
       'built_up_area_sqft': double.tryParse(provider.area),
       'carpet_area_sqft': double.tryParse(provider.carpetArea),
       'balconies': int.tryParse(provider.balconies),
-      'furnished': provider.furnishingType == 'Furnished' ||
-          provider.furnishingType == 'Semi-Furnished',
+      // Portal rule (BasicInfoStep.tsx): furnished = value !== 'Raw', i.e.
+      // both Semi- and Fully-Furnished count. The previous check for the
+      // literal 'Furnished' never matched anything the dropdown can actually
+      // produce, and omitted 'Fully-Furnished' entirely.
+      'furnished': provider.furnishingType == 'Semi-Furnished' ||
+          provider.furnishingType == 'Fully-Furnished',
       'parking_spaces': int.tryParse(provider.coveredParking),
       'floor_number': int.tryParse(provider.floorNo),
       'total_floors': int.tryParse(provider.totalFloors),
@@ -1233,8 +1247,12 @@ class PropertyService {
       'parking_spaces': int.tryParse(provider.text('totalParking')),
       'floor_number': int.tryParse(provider.text('floorNumber')),
       'total_floors': int.tryParse(provider.text('totalFloorsCommercial')),
-      'furnished': provider.furnishingType == 'Furnished' ||
-          provider.furnishingType == 'Semi-Furnished',
+      // Portal rule (BasicInfoStep.tsx): furnished = value !== 'Raw', i.e.
+      // both Semi- and Fully-Furnished count. The previous check for the
+      // literal 'Furnished' never matched anything the dropdown can actually
+      // produce, and omitted 'Fully-Furnished' entirely.
+      'furnished': provider.furnishingType == 'Semi-Furnished' ||
+          provider.furnishingType == 'Fully-Furnished',
       'cafeteria': provider.guardRoom,
     }, onConflict: 'property_id');
   }

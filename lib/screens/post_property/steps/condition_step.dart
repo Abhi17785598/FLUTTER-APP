@@ -4,86 +4,57 @@ import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_text_styles.dart';
 import '../../../core/widgets/wizard_kit.dart';
 import '../../../providers/post_property_provider.dart';
+import '../listing_constants.dart';
+import '../portal_kit.dart';
 
-/// Step 4: property condition, construction age, availability status,
-/// furnishing type and available items — with Commercial-specific option
-/// sets and a PG-specific Food & Housekeeping block. Mirrors the React
-/// FurnishingStep (labelled "Condition" in the stepper).
+/// Step 4: property condition, building condition (Residential/Commercial),
+/// available-from date and a read-only furnishing summary — plus a
+/// PG-specific Food & Housekeeping block. Mirrors the React ConditionStep
+/// (labelled "Condition" in the stepper).
 class ConditionStep extends StatelessWidget {
   const ConditionStep({super.key});
 
-  static const _conditionsDefault = [
-    'New', 'Resale', 'Under Construction', 'Ready to Move', 'Off-Plan', 'Renovated', 'Other',
-  ];
-
-  static const _conditionsCommercial = [
-    'New', 'Resale', 'Under Construction', 'Ready to Move',
-    'Off-Plan', 'Bare Shell', 'Warm Shell', 'Fully Furnished', 'Other',
-  ];
-
-  static const _constructionAges = [
-    ('newly_constructed', 'Newly Constructed'),
-    ('0-2_years', '0-2 Years'),
-    ('2-5_years', '2-5 Years'),
-    ('5-10_years', '5-10 Years'),
-    ('10+_years', '> 10 Years'),
-  ];
-
-  static const _availabilityStatuses = ['Available', 'Sold Out', 'Rented'];
-
-  static const _furnishingTypesDefault = ['Furnished', 'Semi-Furnished', 'Unfurnished'];
-
-  static const _furnishingTypesCommercial = [
-    'Furnished', 'Semi-Furnished', 'Unfurnished', 'Bare Shell', 'Warm Shell',
-  ];
-
-  static const _availableItemsResidential = [
-    'Bed', 'Sofa', 'Wardrobe', 'Modular Kitchen', 'AC', 'Fan', 'Geyser',
-    'Refrigerator', 'Washing Machine', 'TV', 'Desks', 'Chairs',
-  ];
-
-  static const _availableItemsCommercial = [
-    'Air Conditioner', 'Central AC', 'Modular Workstations', 'Workstations',
-    'Tables', 'Chairs', 'Reception Desk', 'Meeting Room Setup', 'Pantry',
-    'Server Room', 'Storage Area', 'Cabinets', 'False Ceiling',
-  ];
-
   static const _mealOptions = ['Breakfast', 'Lunch', 'Dinner', 'Tea / Snacks'];
+
+  // Per-meal item pickers, shown when that meal is ticked in Meals Included
+  // (ConditionStep.tsx:254-337) — previously missing in Flutter entirely.
+  static const _breakfastItems = [
+    'Paratha', 'Bread & Butter', 'Eggs', 'Omelette', 'Poha', 'Upma', 'Idli',
+    'Dosa', 'Cereal', 'Milk', 'Tea', 'Coffee', 'Fruits', 'Sandwich',
+  ];
+
+  static const _lunchItems = [
+    'Rice', 'Dal', 'Roti/Chapati', 'Vegetable Curry', 'Dal Makhani', 'Paneer',
+    'Chicken', 'Fish', 'Curry', 'Salad', 'Yogurt', 'Pickle',
+  ];
+
+  static const _dinnerItems = [
+    'Rice', 'Dal', 'Roti/Chapati', 'Vegetable Curry', 'Dal Makhani', 'Paneer',
+    'Chicken', 'Fish', 'Curry', 'Salad', 'Yogurt', 'Pickle', 'Soup',
+  ];
+
+  static const _teaSnacksItems = [
+    'Tea', 'Coffee', 'Biscuits', 'Cookies', 'Chips', 'Namkeen', 'Samosa',
+    'Pakora', 'Sandwich', 'Maggi', 'Fruits', 'Juice', 'Milk',
+  ];
 
   static const _cleaningFrequencies = ['Daily', 'Alternate Days', 'Weekly', 'On Demand'];
 
   static const _linenFrequencies = ['Daily', 'Alternate Days', 'Weekly', 'Fortnightly'];
 
-  static String? _constructionAgeLabel(String? code) {
-    for (final entry in _constructionAges) {
-      if (entry.$1 == code) return entry.$2;
-    }
-    return null;
-  }
-
   @override
   Widget build(BuildContext context) {
     final provider = context.watch<PostPropertyProvider>();
-    final isCommercial = provider.category == PropertyCategory.commercial;
     final isPg = provider.category == PropertyCategory.pg;
-
-    final conditions = isCommercial ? _conditionsCommercial : _conditionsDefault;
-    final furnishingTypes =
-        isCommercial ? _furnishingTypesCommercial : _furnishingTypesDefault;
-    final availableItemOptions =
-        isCommercial ? _availableItemsCommercial : _availableItemsResidential;
-    final itemsBagKey = isCommercial ? 'furnishedItems' : null;
-
-    final showAvailableItems = provider.furnishingType == 'Furnished' ||
-        provider.furnishingType == 'Semi-Furnished';
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // Building condition, commercial only — both fields live inside the
-        // nested buildingInventory object (ConditionStep.tsx spreads into it)
-        // and both are required by the rules for this category.
-        if (provider.category == PropertyCategory.commercial) ...[
+        // Building condition — residential and commercial, both required by
+        // the portal for these two categories (ConditionStep.tsx's
+        // BuildingCondition() renders for isResidential || isCommercial).
+        if (provider.category == PropertyCategory.commercial ||
+            provider.category == PropertyCategory.residential) ...[
           const _BuildingConditionCard(),
           const SizedBox(height: 20),
         ],
@@ -97,36 +68,11 @@ class ConditionStep extends StatelessWidget {
               WizardField(
                 label: 'Property Condition',
                 child: WizardChipGroup(
-                  options: conditions,
+                  options: kPropertyConditions,
                   selected: provider.propertyCondition,
                   onSelected: (v) => context
                       .read<PostPropertyProvider>()
                       .setPropertyCondition(v),
-                ),
-              ),
-              const WizardDivider(),
-              WizardField(
-                label: 'Construction Age',
-                child: WizardChipGroup(
-                  options: _constructionAges.map((e) => e.$2).toList(),
-                  selected: _constructionAgeLabel(provider.constructionAge),
-                  onSelected: (label) {
-                    final code = _constructionAges
-                        .firstWhere((e) => e.$2 == label)
-                        .$1;
-                    context.read<PostPropertyProvider>().setConstructionAge(code);
-                  },
-                ),
-              ),
-              const WizardDivider(),
-              WizardField(
-                label: 'Availability Status',
-                child: WizardChipGroup(
-                  options: _availabilityStatuses,
-                  selected: provider.availabilityStatus,
-                  onSelected: (v) => context
-                      .read<PostPropertyProvider>()
-                      .setAvailabilityStatus(v),
                 ),
               ),
               const WizardDivider(),
@@ -140,45 +86,35 @@ class ConditionStep extends StatelessWidget {
             ],
           ),
         ),
-        const SizedBox(height: 20),
-        WizardCard(
-          icon: Icons.chair_outlined,
-          title: 'Furnishing',
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              WizardField(
-                label: 'Furnishing Type *',
-                child: WizardChipGroup(
-                  options: furnishingTypes,
-                  selected: provider.furnishingType,
-                  onSelected: (v) =>
-                      context.read<PostPropertyProvider>().setFurnishingType(v),
-                ),
-              ),
-              if (showAvailableItems) ...[
-                const WizardDivider(),
+        // Not shown for PG, per explicit request — furnishedType's own rule
+        // (BasicInfoStep.tsx) only ever applies to Commercial, so PG has no
+        // furnishing concept to summarize here at all.
+        if (!isPg) ...[
+          const SizedBox(height: 20),
+          WizardCard(
+            icon: Icons.chair_outlined,
+            title: 'Furnishing',
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Read-only here — Furnishing Type is set on the Basic Info
+                // step (the portal's single Raw/Semi-Furnished/Fully-Furnished
+                // control). A second editable picker used to live here with a
+                // different vocabulary, silently overwriting whichever step
+                // the user visited last.
                 WizardField(
-                  label: 'Available Items',
-                  child: WizardMultiChipGroup(
-                    options: availableItemOptions,
-                    selected: itemsBagKey == null
-                        ? provider.availableItems
-                        : provider.listVal(itemsBagKey),
-                    onChanged: (items) {
-                      final p = context.read<PostPropertyProvider>();
-                      if (itemsBagKey == null) {
-                        p.setAvailableItems(items);
-                      } else {
-                        p.setListVal(itemsBagKey, items);
-                      }
-                    },
+                  label: 'Furnishing Type',
+                  child: PortalReadOnlyBox(
+                    (provider.furnishingType == null ||
+                            provider.furnishingType!.isEmpty)
+                        ? 'Set on Basic Info'
+                        : provider.furnishingType!,
                   ),
                 ),
               ],
-            ],
+            ),
           ),
-        ),
+        ],
         if (isPg) ...[
           const SizedBox(height: 20),
           WizardCard(
@@ -230,6 +166,58 @@ class ConditionStep extends StatelessWidget {
                         context.read<PostPropertyProvider>().setListVal('mealsIncluded', v),
                   ),
                 ),
+                if (provider.listVal('mealsIncluded').contains('Breakfast')) ...[
+                  const SizedBox(height: 12),
+                  WizardField(
+                    label: 'Breakfast Items',
+                    child: WizardMultiChipGroup(
+                      options: _breakfastItems,
+                      selected: provider.listVal('breakfastItems'),
+                      onChanged: (v) => context
+                          .read<PostPropertyProvider>()
+                          .setListVal('breakfastItems', v),
+                    ),
+                  ),
+                ],
+                if (provider.listVal('mealsIncluded').contains('Lunch')) ...[
+                  const SizedBox(height: 12),
+                  WizardField(
+                    label: 'Lunch Items',
+                    child: WizardMultiChipGroup(
+                      options: _lunchItems,
+                      selected: provider.listVal('lunchItems'),
+                      onChanged: (v) => context
+                          .read<PostPropertyProvider>()
+                          .setListVal('lunchItems', v),
+                    ),
+                  ),
+                ],
+                if (provider.listVal('mealsIncluded').contains('Dinner')) ...[
+                  const SizedBox(height: 12),
+                  WizardField(
+                    label: 'Dinner Items',
+                    child: WizardMultiChipGroup(
+                      options: _dinnerItems,
+                      selected: provider.listVal('dinnerItems'),
+                      onChanged: (v) => context
+                          .read<PostPropertyProvider>()
+                          .setListVal('dinnerItems', v),
+                    ),
+                  ),
+                ],
+                if (provider.listVal('mealsIncluded').contains('Tea / Snacks')) ...[
+                  const SizedBox(height: 12),
+                  WizardField(
+                    label: 'Tea / Snacks Items',
+                    child: WizardMultiChipGroup(
+                      options: _teaSnacksItems,
+                      selected: provider.listVal('teaSnacksItems'),
+                      onChanged: (v) => context
+                          .read<PostPropertyProvider>()
+                          .setListVal('teaSnacksItems', v),
+                    ),
+                  ),
+                ],
               ],
             ),
           ),
@@ -302,8 +290,9 @@ class ConditionStep extends StatelessWidget {
   }
 }
 
-/// Commercial building condition. Separate stateful widget so [ConditionStep]
-/// can stay stateless while Building Age still gets a proper controller.
+/// Building condition (residential + commercial). Separate stateful widget so
+/// [ConditionStep] can stay stateless while Building Age still gets a proper
+/// controller.
 class _BuildingConditionCard extends StatefulWidget {
   const _BuildingConditionCard();
 
@@ -349,7 +338,7 @@ class _BuildingConditionCardState extends State<_BuildingConditionCard> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           WizardField(
-            label: 'Building Age *',
+            label: 'Building Age',
             child: WizardTextField(
               controller: _buildingAgeController,
               hint: 'e.g., 5 years',
@@ -360,7 +349,7 @@ class _BuildingConditionCardState extends State<_BuildingConditionCard> {
           ),
           const WizardDivider(),
           WizardField(
-            label: 'Building Ownership Type *',
+            label: 'Ownership Type',
             child: WizardChipGroup(
               options: _kBuildingOwnershipTypes,
               selected:
@@ -371,6 +360,16 @@ class _BuildingConditionCardState extends State<_BuildingConditionCard> {
                   .read<PostPropertyProvider>()
                   .setBuildingInventoryValue('ownershipTypeBuilding', v),
             ),
+          ),
+          const WizardDivider(),
+          WizardCheckboxTile(
+            label: 'Corner Property',
+            value:
+                (provider.buildingInventoryValue('cornerPropertyBuilding') as bool?) ??
+                    false,
+            onChanged: (v) => context
+                .read<PostPropertyProvider>()
+                .setBuildingInventoryValue('cornerPropertyBuilding', v),
           ),
         ],
       ),

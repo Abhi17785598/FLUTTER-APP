@@ -256,12 +256,11 @@ class _PricingStepState extends State<PricingStep> {
                   const WizardDivider(),
                 ],
                 // React shows "Society charges" for apartments and
-                // "Maintenance charges" for everything else, and its rules
-                // require whichever one is on screen (propertyListingRules.ts:
-                // societyCharges applies isApartment && rent/lease;
-                // maintenanceCharges applies !isApartment && !isLand &&
-                // rent/lease). Rendering both would demand a value the web
-                // never asks for.
+                // "Maintenance charges" for everything else EXCEPT Land and
+                // EXCEPT sell listings (propertyListingRules.ts: societyCharges
+                // applies isApartment && rent/lease; maintenanceCharges
+                // applies !isApartment && !isLand && rent/lease) — neither
+                // field exists on Land or on a sell listing at all.
                 if (_isApartmentRental(provider))
                   WizardField(
                     label: 'Society Charges (Monthly) *',
@@ -274,7 +273,8 @@ class _PricingStepState extends State<PricingStep> {
                           .setText('societyCharges', v),
                     ),
                   )
-                else
+                else if (isRentOrLease &&
+                    provider.category != PropertyCategory.land)
                   WizardField(
                     label: 'Maintenance Charges (Monthly)',
                     child: WizardTextField(
@@ -657,13 +657,17 @@ class _PricingStepState extends State<PricingStep> {
             spacing: 8,
             runSpacing: 8,
             children: [
-              WizardCheckboxTile(
-                label: 'Price is Negotiable',
-                value: provider.priceNegotiable,
-                onChanged: (v) =>
-                    context.read<PostPropertyProvider>().setPriceNegotiable(v),
-              ),
-              if (isSell) ...[
+              // Portal shows Price Negotiable / All Inclusive / Tax & Govt
+              // Included only for Land and Residential, across every listing
+              // type (not gated on sell) — never for Commercial/PG/Others.
+              if (provider.category == PropertyCategory.land ||
+                  provider.category == PropertyCategory.residential) ...[
+                WizardCheckboxTile(
+                  label: 'Price is Negotiable',
+                  value: provider.priceNegotiable,
+                  onChanged: (v) =>
+                      context.read<PostPropertyProvider>().setPriceNegotiable(v),
+                ),
                 WizardCheckboxTile(
                   label: 'All Inclusive Price',
                   value: provider.allInclusivePriceToggle,
@@ -678,13 +682,14 @@ class _PricingStepState extends State<PricingStep> {
                       .read<PostPropertyProvider>()
                       .setTaxGovtChargesIncluded(v),
                 ),
+              ],
+              if (isSell)
                 WizardCheckboxTile(
                   label: 'Loan Available',
                   value: provider.loanAvailability,
                   onChanged: (v) =>
                       context.read<PostPropertyProvider>().setLoanAvailability(v),
                 ),
-              ],
             ],
           ),
         ),

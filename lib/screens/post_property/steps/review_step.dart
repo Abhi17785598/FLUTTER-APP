@@ -186,9 +186,18 @@ class ReviewStep extends StatelessWidget {
             WizardStep.media,
           ),
           rows: [
-            ('Images Selected', '${provider.mediaItems.length}'),
+            // Include existingMedia (populated when editing a listing that
+            // already has photos) — matching the count the media-step
+            // validation rule itself uses, so Review can't show a lower
+            // number than what's actually required/saved.
+            (
+              'Images Selected',
+              '${provider.mediaItems.length + provider.existingMedia.length}'
+            ),
             ('Contact Name', _dash(provider.contactName)),
             ('Contact Phone', _dash(provider.contactPhone)),
+            if (provider.whatsappNumber.isNotEmpty)
+              ('WhatsApp Number', provider.whatsappNumber),
             ('Contact Email', _dash(provider.contactEmail)),
             if (provider.hashtags.isNotEmpty) ('Hashtags', provider.hashtags),
           ],
@@ -207,8 +216,8 @@ class ReviewStep extends StatelessWidget {
               const SizedBox(width: 10),
               Expanded(
                 child: Text(
-                  'This is a preview only. Submitting your listing to the '
-                  'server will be enabled in a later update.',
+                  'Review everything above before submitting — use Edit on '
+                  'any section to make changes.',
                   style: AppTextStyles.caption.copyWith(
                     color: AppColors.textPrimary,
                   ),

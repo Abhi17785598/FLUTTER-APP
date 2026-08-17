@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import '../theme/app_colors.dart';
 import '../theme/app_text_styles.dart';
 
@@ -106,6 +107,7 @@ class WizardTextField extends StatelessWidget {
   final IconData? prefixIcon;
   final TextInputType? keyboardType;
   final int maxLines;
+  final List<TextInputFormatter>? inputFormatters;
 
   const WizardTextField({
     super.key,
@@ -115,6 +117,7 @@ class WizardTextField extends StatelessWidget {
     this.prefixIcon,
     this.keyboardType,
     this.maxLines = 1,
+    this.inputFormatters,
   });
 
   @override
@@ -128,6 +131,7 @@ class WizardTextField extends StatelessWidget {
         controller: controller,
         keyboardType: keyboardType,
         maxLines: maxLines,
+        inputFormatters: inputFormatters,
         onChanged: onChanged,
         style: AppTextStyles.body.copyWith(color: AppColors.textPrimary),
         decoration: InputDecoration(

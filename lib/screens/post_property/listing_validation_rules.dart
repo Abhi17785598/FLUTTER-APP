@@ -213,7 +213,9 @@ final List<ListingRule> _basicInfoRules = [
   const ListingRule(field: 'city', label: 'City'),
   const ListingRule(field: 'state', label: 'State'),
   ListingRule(field: 'pincode', label: 'Pincode', validate: validPincode),
-  const ListingRule(field: 'landmark', label: 'Landmark'),
+  // Landmark has no rule in the portal's own propertyListingRules.ts — it's
+  // collected (see basic_info_step.dart) but never required there, so it
+  // isn't required here either.
   ListingRule(
     // Both coordinates come from the same map pin, so they are validated as
     // one requirement — "pick a spot on the map" rather than two cryptic
@@ -246,13 +248,11 @@ final List<ListingRule> _dimensionRules = [
   ListingRule(field: 'right', label: 'Right dimension', applies: _isLand),
   ListingRule(field: 'left', label: 'Left dimension', applies: _isLand),
   ListingRule(field: 'surveyNumber', label: 'Khasra number', applies: _isLand),
-  ListingRule(
-      field: 'fsiFarAllowed', label: 'FSI / FAR allowed', applies: _isLand),
-  ListingRule(field: 'floorAllowed', label: 'Floors allowed', applies: _isLand),
-  ListingRule(
-      field: 'heightRestriction',
-      label: 'Height restriction',
-      applies: _isLand),
+  // fsiFarAllowed / floorAllowed / heightRestriction are collected (see
+  // property_dimensions_step.dart) but have no rule at all in the portal's
+  // propertyListingRules.ts for Land — they're optional there, so requiring
+  // them here blocked new Land listings over fields the website never asks
+  // for.
   ListingRule(field: 'soilType', label: 'Soil type', applies: _isLand),
 
   // RESIDENTIAL — shared between the apartment and house layouts.
@@ -551,11 +551,14 @@ final List<ListingRule> _mediaRules = [
       field: 'ownerManagerName',
       label: 'PG owner / manager name',
       applies: _isPg),
+  // The portal's own rule for this field is permanently disabled
+  // (`applies: () => false` in propertyListingRules.ts, no validator) — it's
+  // collected (media_contact_step.dart) but the website never requires or
+  // format-checks it, for PG or any other category.
   ListingRule(
       field: 'alternateNumber',
       label: 'Alternate contact number',
-      applies: _isPg,
-      validate: validPhone),
+      applies: (d) => false),
   const ListingRule(field: 'contactName', label: 'Contact name'),
   ListingRule(
       field: 'contactPhone', label: 'Phone number', validate: validPhone),
@@ -676,7 +679,11 @@ const Set<String> kFlutterCollectableFields = {
   'builtUpArea', // T6: house layout
   // T8: land specification block
   'landSubtype', 'landUseMasterPlan', 'front', 'back', 'right', 'left',
-  'surveyNumber', 'fsiFarAllowed', 'floorAllowed', 'heightRestriction',
+  'surveyNumber',
+  // Map pin — LocationPickerMap already sets both (basic_info_step.dart);
+  // this was collected but missing from this set, so the rule above was
+  // silently never enforced even though the portal requires a map pin.
+  'latitude', 'longitude',
   // T10: commercial building block
   'buildingName', 'buildingCode', 'totalFloorsBuilding',
   'buildingAge', 'ownershipTypeBuilding',

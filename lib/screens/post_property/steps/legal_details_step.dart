@@ -1,12 +1,15 @@
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import '../../../core/theme/app_colors.dart';
+import '../../../core/theme/app_text_styles.dart';
 import '../../../core/widgets/wizard_kit.dart';
 import '../../../providers/post_property_provider.dart';
 import '../listing_constants.dart';
 
-/// Step 6: RERA status, available legal documents, facing and bank approvals
-/// (shared) — plus Commercial-specific approvals/licenses and PG-specific
-/// house rules & legal approvals. Mirrors the React LegalDetailsStep.
+/// Step 6: available legal documents (shared) — plus Land ownership,
+/// Commercial-specific approvals/licenses and PG-specific house rules &
+/// legal approvals. Mirrors the React LegalDetailsStep.
 class LegalDetailsStep extends StatefulWidget {
   const LegalDetailsStep({super.key});
 
@@ -15,23 +18,23 @@ class LegalDetailsStep extends StatefulWidget {
 }
 
 class _LegalDetailsStepState extends State<LegalDetailsStep> {
-  /// Land record flags, keyed by their canonical React metadata names
-  /// (the land fillMetadata block, PropertyWizard.tsx:1576).
+  /// Land's document/status flags, verbatim from the portal's
+  /// LandGeneralDocuments() (LegalDetailsStep.tsx:47-62) — 9 total, in the
+  /// same 3-per-row order; Sale Deed / Khatoni is rendered separately below
+  /// since it's a named provider field shared with every other category's
+  /// documents card, not a bag key like the rest of these.
   static const List<(String, String)> _kLandLegalFlags = [
-    ('mutationAvailable', 'Mutation Available'),
-    ('registryAvailable', 'Registry Available'),
-    ('pattaAvailable', 'Patta Available'),
-    ('khataAvailable', 'Khata Available'),
-    ('jamabandiAvailable', 'Jamabandi Available'),
-    ('courtCasePending', 'Court Case Pending'),
-    ('bankLoanApproved', 'Bank Loan Approved'),
+    ('registeredAgreement', 'Registered Agreement'),
+    ('unregisteredAgreement', 'Unregistered Agreement'),
+    ('mutationAvailable', 'Mutation'),
+    ('pattaAvailable', 'Patta / Chitta'),
+    ('khataAvailable', 'Khata Certificate'),
+    ('jamabandiAvailable', 'Jamabandi / Fard'),
+    ('courtCasePending', 'Court Case (if any)'),
+    ('bankLoanApproved', 'Bank Loan'),
   ];
 
   late final TextEditingController _ownerNameController;
-
-  static const _facingOptions = [
-    'East', 'West', 'North', 'South', 'North-East', 'North-West', 'South-East', 'South-West',
-  ];
 
   static const _commercialApprovals = [
     ('fireNoc', 'Fire NOC / License'),
@@ -54,8 +57,6 @@ class _LegalDetailsStepState extends State<LegalDetailsStep> {
     ('visitorsAllowedPg', 'Visitors Allowed'),
   ];
 
-  late final TextEditingController _reraNumberController;
-  late final TextEditingController _approvedByBanksController;
   late final TextEditingController _quietHoursController;
 
   @override
@@ -64,17 +65,12 @@ class _LegalDetailsStepState extends State<LegalDetailsStep> {
     _ownerNameController = TextEditingController(
         text: context.read<PostPropertyProvider>().text('ownerName'));
     final provider = context.read<PostPropertyProvider>();
-    _reraNumberController = TextEditingController(text: provider.reraNumber);
-    _approvedByBanksController =
-        TextEditingController(text: provider.approvedByBanks.join(', '));
     _quietHoursController = TextEditingController(text: provider.text('quietHours'));
   }
 
   @override
   void dispose() {
     _ownerNameController.dispose();
-    _reraNumberController.dispose();
-    _approvedByBanksController.dispose();
     _quietHoursController.dispose();
     super.dispose();
   }
@@ -88,14 +84,41 @@ class _LegalDetailsStepState extends State<LegalDetailsStep> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // Land ownership + legal status. React renders these only for land
-        // (LegalDetailsStep.tsx) and its rules require ownershipType and
-        // ownerName for that category; Flutter had no land block at all, so
-        // both rules fired with nothing on screen to satisfy them.
+        // Land: documents/status first, then ownership + upload — matching
+        // the portal's Legal & Approvals screen order for this category.
+        // React renders these only for land (LegalDetailsStep.tsx) and its
+        // rules require ownershipType and ownerName for that category;
+        // Flutter had no land block at all, so both rules fired with nothing
+        // on screen to satisfy them.
         if (provider.category == PropertyCategory.land) ...[
           WizardCard(
+            icon: Icons.fact_check_outlined,
+            title: 'Available Documents & Status',
+            child: Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: [
+                WizardCheckboxTile(
+                  label: 'Sale Deed / Khatoni',
+                  value: provider.saleDeed,
+                  onChanged: (v) =>
+                      context.read<PostPropertyProvider>().setSaleDeed(v),
+                ),
+                for (final flag in _kLandLegalFlags)
+                  WizardCheckboxTile(
+                    label: flag.$2,
+                    value: provider.boolVal(flag.$1),
+                    onChanged: (v) => context
+                        .read<PostPropertyProvider>()
+                        .setBoolVal(flag.$1, v),
+                  ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 20),
+          WizardCard(
             icon: Icons.gavel_outlined,
-            title: 'Land Ownership',
+            title: 'Land Ownership & Legal Documents',
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -122,101 +145,100 @@ class _LegalDetailsStepState extends State<LegalDetailsStep> {
                         .setText('ownerName', v),
                   ),
                 ),
-              ],
-            ),
-          ),
-          const SizedBox(height: 20),
-          WizardCard(
-            icon: Icons.fact_check_outlined,
-            title: 'Land Records & Status',
-            child: Wrap(
-              spacing: 8,
-              runSpacing: 8,
-              children: [
-                for (final flag in _kLandLegalFlags)
-                  WizardCheckboxTile(
-                    label: flag.$2,
-                    value: provider.boolVal(flag.$1),
-                    onChanged: (v) => context
-                        .read<PostPropertyProvider>()
-                        .setBoolVal(flag.$1, v),
+                const WizardDivider(),
+                WizardField(
+                  label: 'Ownership Document Upload',
+                  child: _OwnershipDocumentPicker(
+                    file: provider.ownershipDocument,
                   ),
+                ),
               ],
             ),
           ),
           const SizedBox(height: 20),
         ],
 
-        WizardCard(
-          icon: Icons.verified_outlined,
-          title: 'RERA',
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              WizardCheckboxTile(
-                label: 'RERA Registered',
-                value: provider.reraRegistered,
-                onChanged: (v) =>
-                    context.read<PostPropertyProvider>().setReraRegistered(v),
-              ),
-              if (provider.reraRegistered) ...[
+        // RERA has no counterpart anywhere in the portal's
+        // LegalDetailsStep.tsx, for any category — it belongs to the
+        // Builder Project flow, not a per-listing field. Removed per
+        // explicit request (confirmed against source for Land, Residential
+        // and Commercial).
+        // Portal's generic documents card (ResidentialDocuments /
+        // CommercialResidentialDocuments) never renders for Land — Land gets
+        // only its own "Available Documents & Status" card above.
+        if (provider.category != PropertyCategory.land) ...[
+          const SizedBox(height: 20),
+          WizardCard(
+            icon: Icons.description_outlined,
+            title: 'Available Documents & Status',
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Standalone, above the grid — matches ResidentialDocuments()/
+                // CommercialResidentialDocuments() exactly. "Loan Approved"
+                // used to sit in the grid below with no portal counterpart
+                // anywhere in this step (a dead metadata field, never
+                // rendered on the website) — removed.
+                WizardCheckboxTile(
+                  label: 'Property Approved by Authority',
+                  value: provider.propertyApproved,
+                  onChanged: (v) =>
+                      context.read<PostPropertyProvider>().setPropertyApproved(v),
+                ),
                 const WizardDivider(),
-                WizardField(
-                  label: 'RERA Number',
-                  child: WizardTextField(
-                    controller: _reraNumberController,
-                    hint: 'e.g., P12345678',
-                    onChanged: (v) =>
-                        context.read<PostPropertyProvider>().setReraNumber(v),
-                  ),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: [
+                    WizardCheckboxTile(
+                      label: 'Sale Deed',
+                      value: provider.saleDeed,
+                      onChanged: (v) =>
+                          context.read<PostPropertyProvider>().setSaleDeed(v),
+                    ),
+                    // CommercialResidentialDocuments() omits Registry Copy —
+                    // only ResidentialDocuments() (and the categories that
+                    // share it) has it (LegalDetailsStep.tsx:152 vs 172-177).
+                    if (!isCommercial)
+                      WizardCheckboxTile(
+                        label: 'Registry Copy',
+                        value: provider.registryCopy,
+                        onChanged: (v) =>
+                            context.read<PostPropertyProvider>().setRegistryCopy(v),
+                      ),
+                    WizardCheckboxTile(
+                      label: 'Registered Agreement',
+                      value: provider.boolVal('registeredAgreement'),
+                      onChanged: (v) => context
+                          .read<PostPropertyProvider>()
+                          .setBoolVal('registeredAgreement', v),
+                    ),
+                    WizardCheckboxTile(
+                      label: 'Unregistered Agreement',
+                      value: provider.boolVal('unregisteredAgreement'),
+                      onChanged: (v) => context
+                          .read<PostPropertyProvider>()
+                          .setBoolVal('unregisteredAgreement', v),
+                    ),
+                    WizardCheckboxTile(
+                      label: "NOC's Available",
+                      value: provider.nocAvailable,
+                      onChanged: (v) =>
+                          context.read<PostPropertyProvider>().setNocAvailable(v),
+                    ),
+                    WizardCheckboxTile(
+                      label: 'Encumbrance Free',
+                      value: provider.encumbranceFree,
+                      onChanged: (v) => context
+                          .read<PostPropertyProvider>()
+                          .setEncumbranceFree(v),
+                    ),
+                  ],
                 ),
               ],
-            ],
+            ),
           ),
-        ),
-        const SizedBox(height: 20),
-        WizardCard(
-          icon: Icons.description_outlined,
-          title: 'Available Documents & Status',
-          child: Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            children: [
-              WizardCheckboxTile(
-                label: 'Sale Deed',
-                value: provider.saleDeed,
-                onChanged: (v) => context.read<PostPropertyProvider>().setSaleDeed(v),
-              ),
-              WizardCheckboxTile(
-                label: 'Registry Copy',
-                value: provider.registryCopy,
-                onChanged: (v) => context.read<PostPropertyProvider>().setRegistryCopy(v),
-              ),
-              WizardCheckboxTile(
-                label: 'NOC Available',
-                value: provider.nocAvailable,
-                onChanged: (v) => context.read<PostPropertyProvider>().setNocAvailable(v),
-              ),
-              WizardCheckboxTile(
-                label: 'Encumbrance Free',
-                value: provider.encumbranceFree,
-                onChanged: (v) =>
-                    context.read<PostPropertyProvider>().setEncumbranceFree(v),
-              ),
-              WizardCheckboxTile(
-                label: 'Loan Approved',
-                value: provider.loanApproved,
-                onChanged: (v) => context.read<PostPropertyProvider>().setLoanApproved(v),
-              ),
-              WizardCheckboxTile(
-                label: 'Property Approved',
-                value: provider.propertyApproved,
-                onChanged: (v) =>
-                    context.read<PostPropertyProvider>().setPropertyApproved(v),
-              ),
-            ],
-          ),
-        ),
+        ],
         if (isCommercial) ...[
           const SizedBox(height: 20),
           WizardCard(
@@ -295,36 +317,76 @@ class _LegalDetailsStepState extends State<LegalDetailsStep> {
             ),
           ),
         ],
-        const SizedBox(height: 20),
-        WizardCard(
-          icon: Icons.explore_outlined,
-          title: 'Facing & Bank Approvals',
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              WizardField(
-                label: 'Property Facing',
-                child: WizardChipGroup(
-                  options: _facingOptions,
-                  selected: provider.facing,
-                  onSelected: (v) => context.read<PostPropertyProvider>().setFacing(v),
-                ),
-              ),
-              const WizardDivider(),
-              WizardField(
-                label: 'Approved By Banks',
-                child: WizardTextField(
-                  controller: _approvedByBanksController,
-                  hint: 'e.g., SBI, HDFC',
-                  onChanged: (v) => context.read<PostPropertyProvider>().setApprovedByBanks(
-                        v.split(',').map((s) => s.trim()).where((s) => s.isNotEmpty).toList(),
-                      ),
-                ),
-              ),
-            ],
-          ),
-        ),
+        // Facing has no counterpart in LegalDetailsStep.tsx for any category
+        // (the portal's facing selector lives on the Dimensions step, PG
+        // only) and Approved By Banks is defined but never invoked anywhere
+        // in the portal's component — both removed per explicit request.
       ],
+    );
+  }
+}
+
+/// Land's "Ownership Document Upload" dropzone (LegalDetailsStep.tsx's land
+/// branch) — PDF/JPG/PNG, capped at 10MB same as the Media step's photo
+/// ceiling. Local-only: no upload happens yet, matching the Property Images
+/// picker's own established pattern.
+class _OwnershipDocumentPicker extends StatelessWidget {
+  const _OwnershipDocumentPicker({required this.file});
+
+  final PlatformFile? file;
+
+  static const int _maxBytes = 10 * 1024 * 1024;
+
+  Future<void> _pick(BuildContext context) async {
+    final result = await FilePicker.platform.pickFiles(
+      type: FileType.custom,
+      allowedExtensions: const ['pdf', 'jpg', 'jpeg', 'png'],
+    );
+    final picked = result?.files.singleOrNull;
+    if (picked == null) return;
+    if (picked.size > _maxBytes) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('${picked.name} is over 10MB and was skipped.')),
+        );
+      }
+      return;
+    }
+    if (context.mounted) {
+      context.read<PostPropertyProvider>().setOwnershipDocument(picked);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: () => _pick(context),
+      borderRadius: BorderRadius.circular(12),
+      child: Container(
+        width: double.infinity,
+        padding: const EdgeInsets.symmetric(vertical: 20),
+        decoration: BoxDecoration(
+          border: Border.all(color: AppColors.hairline, width: 1.5),
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: Column(
+          children: [
+            Icon(Icons.upload_outlined, color: AppColors.textSecondary),
+            const SizedBox(height: 8),
+            Text(
+              file == null ? 'Click to upload ownership documents' : file!.name,
+              style: AppTextStyles.body.copyWith(color: AppColors.textPrimary),
+              textAlign: TextAlign.center,
+              overflow: TextOverflow.ellipsis,
+            ),
+            const SizedBox(height: 4),
+            Text(
+              'PDF, JPG, PNG (Max 10MB)',
+              style: AppTextStyles.caption.copyWith(color: AppColors.textHint),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }
