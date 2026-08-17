@@ -1,12 +1,14 @@
 import 'dart:async';
 
 import 'package:flutter/foundation.dart' show kDebugMode, kIsWeb;
+import 'package:flutter/gestures.dart' show TapGestureRecognizer;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart' show PlatformException;
 import 'package:provider/provider.dart';
 import 'package:razorpay_flutter/razorpay_flutter.dart';
 
 import '../../config/role_plan_config.dart';
+import '../../core/animations/page_transitions.dart';
 import '../../core/constants/app_constants.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_text_styles.dart';
@@ -16,6 +18,7 @@ import '../../providers/subscription_provider.dart';
 import '../../services/payment_service.dart';
 import '../../widgets/shared/section_header_back_button.dart';
 import '../../widgets/shared/toggle_row.dart';
+import 'billing_policies_screen.dart';
 // Only the saving-pill copy is still taken from the old catalogue; the plan
 // ladder itself now comes from `role_plan_config.dart`. Shown rather than
 // imported wholesale because both files export a `PlanDefinition`.
@@ -136,7 +139,68 @@ class _UpgradeViewState extends State<_UpgradeView> {
   /// paid downgrade still bills.
   VoidCallback? _ctaFor(PlanDefinition plan, {required bool isCurrent}) {
     if (isCurrent || _busyPlan != null) return null;
-    return plan.isFree ? () => _switchToFree(plan) : () => _startCheckout(plan);
+    return plan.isFree
+        ? () => _switchToFree(plan)
+        : () => _openCheckoutReview(plan);
+  }
+
+  /// The review step the portal always shows before Razorpay: `PricingCard`
+  /// and `UpgradePlanCard` both set `isCheckoutOpen = true` on this same tap
+  /// (`PricingCard.tsx:89-114`), which mounts `CheckoutModal` — a price
+  /// breakdown plus a Terms/Privacy/Refund gate — and only *that* modal's own
+  /// "Pay Now" button calls `processPayment()`.
+  ///
+  /// This does the same job with the same two calls the rest of this screen
+  /// already makes: [PaymentService.previewOrder] for the numbers
+  /// (`CheckoutModal`'s `OrderSummary`, quoted server-side so the breakdown
+  /// can never drift from what `create-order` would actually charge — see
+  /// `previewOrder`'s doc comment), then, only once the user accepts, the
+  /// unchanged [_startCheckout] for the real order + Razorpay + verification.
+  Future<void> _openCheckoutReview(PlanDefinition plan) async {
+    if (!_requireSignIn()) return;
+
+    // Same guard as `_startCheckout` — failing here means the review sheet
+    // never opens for a charge that could not happen anyway, rather than
+    // opening it and only then discovering Razorpay has no web sheet to show.
+    if (kIsWeb) {
+      _toast(
+        'Payments are only available in the PropCid mobile app. '
+        'Use the web portal to change your plan in a browser.',
+        isError: true,
+      );
+      return;
+    }
+
+    setState(() => _busyPlan = plan.id);
+    PaymentQuote quote;
+    try {
+      quote = await _payments.previewOrder(
+        planId: plan.id.wire,
+        billingCycle: _yearly ? 'yearly' : 'monthly',
+      );
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _busyPlan = null);
+      _toast(_messageFor(e, fallback: 'Could not load pricing. Please try again.'),
+          isError: true);
+      return;
+    }
+    if (!mounted) return;
+    setState(() => _busyPlan = null);
+
+    final confirmed = await showModalBottomSheet<bool>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (_) => _CheckoutReviewSheet(
+        plan: plan,
+        quote: quote,
+        yearly: _yearly,
+      ),
+    );
+    if (confirmed != true || !mounted) return;
+
+    await _startCheckout(plan);
   }
 
   /// Drops to Free. No payment, so no checkout — `manage-subscription` alone.
@@ -846,6 +910,305 @@ class _PlanCta extends StatelessWidget {
       label: plan.cta,
       button: true,
       child: ScaleTap(onTap: onTap, child: button),
+    );
+  }
+}
+
+/// The portal's `CheckoutModal` (`CheckoutModal.tsx`): plan recap, the
+/// `OrderSummary` price breakdown, and a required Terms/Privacy/Refund
+/// checkbox gating a "Pay Now" button. Pops `true` on Pay Now, `false`/`null`
+/// on cancel — [_UpgradeViewState._openCheckoutReview] is what turns a `true`
+/// into the actual checkout.
+///
+/// Currency is not offered here — unlike the portal, this app only ever
+/// charges INR (`PaymentService.createOrder`'s `currency` defaults to `'INR'`
+/// and nothing in this screen changes it), so the portal's currency selector
+/// has nothing to switch between here.
+class _CheckoutReviewSheet extends StatefulWidget {
+  const _CheckoutReviewSheet({
+    required this.plan,
+    required this.quote,
+    required this.yearly,
+  });
+
+  final PlanDefinition plan;
+  final PaymentQuote quote;
+  final bool yearly;
+
+  @override
+  State<_CheckoutReviewSheet> createState() => _CheckoutReviewSheetState();
+}
+
+class _CheckoutReviewSheetState extends State<_CheckoutReviewSheet> {
+  bool _termsAccepted = false;
+
+  /// Whole rupees print bare (`₹499`); a non-zero paise remainder — possible
+  /// on a prorated credit — keeps two decimals rather than silently rounding.
+  String _money(double v) =>
+      v == v.roundToDouble() ? '₹${v.round()}' : '₹${v.toStringAsFixed(2)}';
+
+  void _openPolicies() {
+    Navigator.of(context).push(
+      PremiumPageRoute(builder: (_) => const BillingPoliciesScreen()),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final plan = widget.plan;
+    final quote = widget.quote;
+
+    return SafeArea(
+      top: false,
+      child: Container(
+        margin: EdgeInsets.only(
+          bottom: MediaQuery.of(context).viewInsets.bottom,
+        ),
+        decoration: const BoxDecoration(
+          color: AppColors.cardBackground,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+        ),
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.fromLTRB(20, 12, 20, 24),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Center(
+                child: Container(
+                  width: 36,
+                  height: 4,
+                  margin: const EdgeInsets.only(bottom: 16),
+                  decoration: BoxDecoration(
+                    color: AppColors.textHint.withValues(alpha: 0.4),
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+              ),
+              Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      'Complete Your Purchase',
+                      style: AppTextStyles.heading3.copyWith(fontSize: 17),
+                    ),
+                  ),
+                  IconButton(
+                    onPressed: () => Navigator.of(context).pop(false),
+                    icon: const Icon(Icons.close),
+                    color: AppColors.textHint,
+                    padding: EdgeInsets.zero,
+                    constraints: const BoxConstraints(),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 4),
+              Text(
+                "You're upgrading to the ${plan.name} plan",
+                style: AppTextStyles.caption.copyWith(fontSize: 12.5),
+              ),
+              const SizedBox(height: 18),
+
+              // Plan recap card.
+              Container(
+                padding: const EdgeInsets.all(14),
+                decoration: BoxDecoration(
+                  color: AppColors.background,
+                  borderRadius: BorderRadius.circular(AppConstants.cardRadius),
+                ),
+                child: Row(
+                  children: [
+                    Container(
+                      width: 36,
+                      height: 36,
+                      decoration: BoxDecoration(
+                        color: plan.tintBackground,
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: Icon(plan.icon, size: 18, color: plan.tint),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Text(
+                        plan.name,
+                        style: AppTextStyles.body.copyWith(
+                          fontWeight: FontWeight.w700,
+                          fontSize: 14,
+                        ),
+                      ),
+                    ),
+                    Text(
+                      widget.yearly ? 'Yearly billing' : 'Monthly billing',
+                      style: AppTextStyles.caption.copyWith(fontSize: 12),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 16),
+
+              // Order summary — the portal's `OrderSummary.tsx`.
+              _SummaryRow(label: 'Subtotal', value: _money(quote.displaySubtotal)),
+              if (quote.tax > 0) ...[
+                const SizedBox(height: 8),
+                _SummaryRow(
+                  label: 'GST (18%)',
+                  value: _money(quote.displayTax),
+                ),
+              ],
+              if (quote.discount > 0) ...[
+                const SizedBox(height: 8),
+                _SummaryRow(
+                  label: 'Unused time credit',
+                  value: '- ${_money(quote.displayDiscount)}',
+                  valueColor: AppColors.success,
+                ),
+              ],
+              const Padding(
+                padding: EdgeInsets.symmetric(vertical: 10),
+                child: Divider(height: 1),
+              ),
+              _SummaryRow(
+                label: 'Total',
+                value: _money(quote.displayTotal),
+                bold: true,
+              ),
+              const SizedBox(height: 4),
+              Text(
+                'Inclusive of all taxes',
+                style: AppTextStyles.caption.copyWith(fontSize: 11),
+              ),
+              const SizedBox(height: 16),
+
+              // Secure-payment notice — `CheckoutModal.tsx:201-217`.
+              Container(
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: AppColors.primaryLight,
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Icon(Icons.lock_outline, size: 15, color: AppColors.primary),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        "You'll be redirected to Razorpay's secure checkout "
+                        'to complete this payment.',
+                        style: AppTextStyles.caption.copyWith(fontSize: 11.5),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 16),
+
+              // Terms gate — `CheckoutModal.tsx:252-320`.
+              GestureDetector(
+                behavior: HitTestBehavior.opaque,
+                onTap: () => setState(() => _termsAccepted = !_termsAccepted),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    SizedBox(
+                      width: 20,
+                      height: 20,
+                      child: Checkbox(
+                        value: _termsAccepted,
+                        onChanged: (v) =>
+                            setState(() => _termsAccepted = v ?? false),
+                        activeColor: AppColors.primary,
+                        materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Padding(
+                        padding: const EdgeInsets.only(top: 2),
+                        child: RichText(
+                          text: TextSpan(
+                            style: AppTextStyles.caption.copyWith(
+                              fontSize: 12,
+                              color: AppColors.textPrimary,
+                            ),
+                            children: [
+                              const TextSpan(text: 'I agree to the '),
+                              TextSpan(
+                                text: 'Terms of Service, Privacy Policy and '
+                                    'Refund Policy',
+                                style: const TextStyle(
+                                  color: AppColors.primary,
+                                  fontWeight: FontWeight.w600,
+                                  decoration: TextDecoration.underline,
+                                ),
+                                recognizer: TapGestureRecognizer()
+                                  ..onTap = _openPolicies,
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 18),
+
+              // Pay Now — the single button that hands off to Razorpay.
+              SizedBox(
+                height: 48,
+                child: ElevatedButton(
+                  onPressed:
+                      _termsAccepted ? () => Navigator.of(context).pop(true) : null,
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppColors.primary,
+                    disabledBackgroundColor: AppColors.textHint.withValues(alpha: 0.3),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(AppConstants.buttonRadius),
+                    ),
+                    elevation: 0,
+                  ),
+                  child: Text(
+                    'Pay Now · ${_money(quote.displayTotal)}',
+                    style: AppTextStyles.button.copyWith(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w700,
+                      color: Colors.white,
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _SummaryRow extends StatelessWidget {
+  const _SummaryRow({
+    required this.label,
+    required this.value,
+    this.bold = false,
+    this.valueColor,
+  });
+
+  final String label;
+  final String value;
+  final bool bold;
+  final Color? valueColor;
+
+  @override
+  Widget build(BuildContext context) {
+    final style = bold
+        ? AppTextStyles.body.copyWith(fontSize: 15, fontWeight: FontWeight.w800)
+        : AppTextStyles.body.copyWith(fontSize: 13);
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [
+        Text(label, style: style.copyWith(color: AppColors.textPrimary)),
+        Text(value, style: style.copyWith(color: valueColor ?? style.color)),
+      ],
     );
   }
 }

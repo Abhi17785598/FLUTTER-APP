@@ -81,6 +81,20 @@ class AuthProvider extends ChangeNotifier {
 
           _userEmail = currentUser.email ?? '';
 
+          // Set synchronously from the session the auth SDK already has,
+          // rather than waiting on _fetchUserProfile's async `profiles`
+          // round-trip below. `currentUser.id` never changes once a session
+          // exists — unlike _userRole/_userType/_profileCity, it needs no DB
+          // read to be correct. Previously this only got set deep inside
+          // _fetchUserProfile after that call succeeded, so isLoggedIn could
+          // read true while userId was still null for the length of that
+          // round-trip (or forever, if the fetch failed) — exactly the
+          // window a screen that gates a write on `userId != null` (e.g.
+          // Post Property's publish check) could lose to, most visibly right
+          // after an OAuth redirect where the user taps the primary action
+          // before the profile fetch has had a chance to land.
+          _userId = currentUser.id;
+
           _fetchUserProfile();
         }
       } else {

@@ -139,6 +139,33 @@ class PaymentService {
     return order;
   }
 
+  /// Quotes what a checkout would charge, without creating a Razorpay order or
+  /// a `payments` row.
+  ///
+  /// `create-order` supports a `preview: true` mode for exactly this
+  /// (`create-order/index.ts:90-95,196-208`) — the same subtotal/tax/proration
+  /// arithmetic [createOrder] would charge, computed server-side so the
+  /// checkout review screen never has to reproduce `computeOrderAmount`'s GST
+  /// and proration rules on the client and risk drifting from them. Read-only:
+  /// no row is written, so calling this on every plan-card tap (before the user
+  /// has committed to paying) is safe, unlike [createOrder] itself.
+  Future<PaymentQuote> previewOrder({
+    required String planId,
+    required String billingCycle,
+    String currency = 'INR',
+  }) async {
+    final data = await _invoke(
+      'create-order',
+      body: {
+        'planId': planId,
+        'billingCycle': billingCycle,
+        'currency': currency,
+        'preview': true,
+      },
+    );
+    return PaymentQuote.fromJson(data);
+  }
+
   /// Verifies a completed Razorpay payment and activates the subscription.
   ///
   /// `PaymentContext.tsx:362-374`. The signature is checked server-side against the
@@ -274,4 +301,54 @@ class PaymentOrder {
         final String v => int.tryParse(v) ?? 0,
         _ => 0,
       };
+}
+
+/// What `create-order`'s `preview: true` mode returns — the same figures
+/// [PaymentOrder] would be charged, before any order or payment row exists.
+///
+/// All money fields are in the **smallest currency unit**, same as
+/// [PaymentOrder.amount] — divide by 100 for display.
+class PaymentQuote {
+  const PaymentQuote({
+    required this.months,
+    required this.subtotal,
+    required this.tax,
+    required this.discount,
+    required this.total,
+    required this.currency,
+  });
+
+  /// Billing periods covered — 1 for monthly, 12 for yearly.
+  final int months;
+
+  /// Pre-tax plan charge for [months], before any proration credit.
+  final int subtotal;
+
+  /// GST, INR only — zero for every other currency (`computeOrderAmount`).
+  final int tax;
+
+  /// Unused-time credit from an active subscription, applied against this
+  /// charge. Zero for a first purchase or a same-currency lapse.
+  final int discount;
+
+  /// What would actually be charged: `subtotal + tax - discount`.
+  final int total;
+
+  final String currency;
+
+  double get displaySubtotal => subtotal / 100;
+  double get displayTax => tax / 100;
+  double get displayDiscount => discount / 100;
+  double get displayTotal => total / 100;
+
+  factory PaymentQuote.fromJson(Map<String, dynamic> json) {
+    return PaymentQuote(
+      months: PaymentOrder._asInt(json['months']),
+      subtotal: PaymentOrder._asInt(json['subtotal']),
+      tax: PaymentOrder._asInt(json['tax']),
+      discount: PaymentOrder._asInt(json['discount']),
+      total: PaymentOrder._asInt(json['total']),
+      currency: '${json['currency'] ?? 'INR'}',
+    );
+  }
 }

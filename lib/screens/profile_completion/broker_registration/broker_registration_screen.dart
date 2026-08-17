@@ -1146,7 +1146,13 @@ class _BrokerRegistrationScreenState extends State<BrokerRegistrationScreen> {
                     runSpacing: 6,
                     children: selected
                         .map((s) => Chip(
-                              label: Text(s, style: const TextStyle(fontSize: 12)),
+                              label: Text(
+                                s,
+                                style: const TextStyle(
+                                  fontSize: 12,
+                                  color: Colors.black87,
+                                ),
+                              ),
                               onDeleted: () => onRemove(s),
                               deleteIcon: const Icon(Icons.close, size: 14),
                             ))
@@ -1177,7 +1183,13 @@ class _BrokerRegistrationScreenState extends State<BrokerRegistrationScreen> {
             children: options
                 .where((o) => !selected.contains(o))
                 .map((o) => ActionChip(
-                      label: Text('+ $o', style: const TextStyle(fontSize: 11)),
+                      label: Text(
+                        '+ $o',
+                        style: const TextStyle(
+                          fontSize: 11,
+                          color: Colors.black87,
+                        ),
+                      ),
                       onPressed: () => onToggle(o),
                     ))
                 .toList(),

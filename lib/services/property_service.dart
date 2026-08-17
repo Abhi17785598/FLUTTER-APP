@@ -59,11 +59,15 @@ const Set<String> _kUiOnlyFields = {'ratePerAreaUnit'};
 class PropertyService {
   final _supabase = Supabase.instance.client;
 
+  /// Home feed (hero banner + rails). Matches `searchProperties`' pair of
+  /// filters (below) — `status='active'` alone let pending, unapproved
+  /// listings appear on the public Home screen.
   Future<List<Map<String, dynamic>>> getProperties() async {
     final data = await _supabase
         .from('properties')
       .select('*,properties_residential(*),properties_commercial(*),properties_land(*)')
         .eq('status', 'active')
+        .eq('approval_status', 'approved')
         .order('created_at', ascending: false);
 
     return List<Map<String, dynamic>>.from(data);

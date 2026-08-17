@@ -102,7 +102,12 @@ class AppTheme {
       chipTheme: ChipThemeData(
         backgroundColor: AppColors.cardBackground,
         selectedColor: AppColors.primaryLight,
-        labelStyle: AppTextStyles.chip,
+        // AppTextStyles.chip is deliberately colorless — every other call site
+        // in the app does `.copyWith(color: ...)` itself. A ChoiceChip with no
+        // per-instance label style (e.g. builder_registration_screen.dart's
+        // Gender picker) has nothing to copyWith onto, so it rendered with no
+        // visible color at all here.
+        labelStyle: AppTextStyles.chip.copyWith(color: AppColors.textPrimary),
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(8),
         ),

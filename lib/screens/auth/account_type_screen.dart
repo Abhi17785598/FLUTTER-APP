@@ -1,12 +1,10 @@
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
-import '../../providers/auth_provider.dart';
 import '../home/home_screen.dart';
 import '../profile_completion/builder_registration/builder_registration_screen.dart';
 import '../profile_completion/broker_registration/broker_registration_screen.dart';
 import '../profile_completion/influencer_registration/influencer_registration_screen.dart';
+import 'individual_profile_details_screen.dart';
 
 /// Shown when an authenticated user has no user_type — typically a first-time
 /// Google Sign-In user. The user picks their account type here, which stores
@@ -29,17 +27,17 @@ class _AccountTypeScreenState extends State<AccountTypeScreen> {
       final prefs = await SharedPreferences.getInstance();
 
       if (type == 'individual') {
-        // Individual users have no registration form — write profile immediately.
-        await Supabase.instance.client
-            .from('profiles')
-            .update({'user_type': 'individual', 'profile_complete': true})
-            .eq('user_id', widget.userId);
-        await prefs.remove('pending_user_type');
+        // Individual users have no multi-step registration form, but the
+        // portal's ProfileCompletion.tsx still collects name + phone for
+        // them before the profile write — see
+        // IndividualProfileDetailsScreen, which performs that same write
+        // (plus the two fields) and continues to Home itself.
         if (mounted) {
-          await context.read<AuthProvider>().refreshProfile();
-          Navigator.of(context).pushAndRemoveUntil(
-            MaterialPageRoute(builder: (_) => const HomeScreen()),
-            (route) => false,
+          Navigator.of(context).push(
+            MaterialPageRoute(
+              builder: (_) =>
+                  IndividualProfileDetailsScreen(userId: widget.userId),
+            ),
           );
         }
       } else {
