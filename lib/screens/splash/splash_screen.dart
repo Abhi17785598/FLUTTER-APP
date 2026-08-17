@@ -216,9 +216,31 @@ if (profile == null) {
 if (profile['user_type'] == null) {
   // Authenticated but type not yet written — happens when the user confirmed
   // their email and was redirected back while the app was in background.
-  // Use the type they selected on the signup form (stored in SharedPreferences).
+  // Use the type they selected on the signup form (stored in SharedPreferences)
+  // — but only if it was stored for THIS account. Unscoped, this survived
+  // sign-out and a different Google account reaching this same null-user_type
+  // state would otherwise inherit whatever role somebody else picked in an
+  // earlier session (see AccountTypeScreen's 'pending_user_type_uid').
   final pendingType = prefs.getString('pending_user_type');
-  if (pendingType == 'builder') {
+  final pendingForUid = prefs.getString('pending_user_type_uid');
+  final pendingIsForThisUser = pendingType != null && pendingForUid == user.id;
+
+  if (!pendingIsForThisUser) {
+    if (pendingType != null) {
+      await prefs.remove('pending_user_type');
+      await prefs.remove('pending_user_type_uid');
+    }
+    // No pending type for this account — first-time Google user who has not
+    // selected an account type yet. Show the lightweight selection screen.
+    if (mounted) {
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(
+          builder: (_) => AccountTypeScreen(userId: user.id),
+        ),
+      );
+    }
+  } else if (pendingType == 'builder') {
     Navigator.pushReplacementNamed(context, '/builder-profile');
   } else if (pendingType == 'broker') {
     Navigator.pushReplacementNamed(context, '/broker-profile');
@@ -230,21 +252,13 @@ if (profile['user_type'] == null) {
         .update({'user_type': 'individual', 'profile_complete': true})
         .eq('user_id', user.id);
     await prefs.remove('pending_user_type');
+    await prefs.remove('pending_user_type_uid');
     if (mounted) {
       Navigator.pushReplacement(
         context,
         MaterialPageRoute(builder: (_) => const HomeScreen()),
       );
     }
-  } else {
-    // Authenticated but no pending type — first-time Google user who has not
-    // selected an account type yet. Show the lightweight selection screen.
-    Navigator.pushReplacement(
-      context,
-      MaterialPageRoute(
-        builder: (_) => AccountTypeScreen(userId: user.id),
-      ),
-    );
   }
   return;
 }

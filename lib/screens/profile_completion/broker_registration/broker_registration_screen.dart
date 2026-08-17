@@ -13,9 +13,11 @@
 // hardcodes them), but there is no step here to collect them, matching the
 // portal exactly.
 //
-// No password field on the Account step — the account's password is already
-// set at signup (auth_screen.dart's sign-up form collects it before this
-// screen is ever reached), same fix as the builder registration screen.
+// Password IS on the Account step, alongside Username — auth_screen.dart's
+// sign-up form now creates the account with a random placeholder password;
+// this step's Password/Confirm Password fields set the real one via
+// Supabase's updateUser(password:) on submit, same as the builder
+// registration screen.
 //
 // Validation is an imperative `_errors` map computed on "Continue"/"Submit",
 // not live per-keystroke — matching how the portal's `handleNext`/
@@ -158,6 +160,10 @@ class _BrokerRegistrationScreenState extends State<BrokerRegistrationScreen> {
 
   // ─── Step 6 – Account Setup ───────────────────────────────────────────────
   final _usernameCtrl = TextEditingController();
+  final _passwordCtrl = TextEditingController();
+  final _confirmPasswordCtrl = TextEditingController();
+  bool _passwordVisible = false;
+  bool _confirmPasswordVisible = false;
   Timer? _usernameDebounce;
   bool? _usernameAvailable;
   bool _usernameTaken = false;
@@ -521,7 +527,23 @@ class _BrokerRegistrationScreenState extends State<BrokerRegistrationScreen> {
     } else if (_usernameTaken) {
       e['username'] = 'This username is already taken.';
     }
+    final passwordErr = _validatePassword();
+    if (passwordErr != null) e['password'] = passwordErr;
     return e;
+  }
+
+  /// Same rule the sign-up form used to enforce directly (auth_screen.dart)
+  /// before password collection moved here.
+  String? _validatePassword() {
+    if (_passwordCtrl.text.isEmpty) return 'Password is required.';
+    if (_passwordCtrl.text.length < 6) {
+      return 'Password must be at least 6 characters.';
+    }
+    if (_confirmPasswordCtrl.text.isEmpty) return 'Please confirm your password.';
+    if (_passwordCtrl.text != _confirmPasswordCtrl.text) {
+      return 'Passwords do not match.';
+    }
+    return null;
   }
 
   // ─── Username availability — mirrors BrokerRegistration.tsx:386-421 ──────
@@ -736,8 +758,23 @@ class _BrokerRegistrationScreenState extends State<BrokerRegistrationScreen> {
       return;
     }
 
+    final passwordErr = _validatePassword();
+    if (passwordErr != null) {
+      setState(() => _errors['password'] = passwordErr);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(passwordErr), backgroundColor: Colors.red),
+      );
+      return;
+    }
+
     setState(() => _isSubmitting = true);
     try {
+      // Sets the real, person-chosen password over the random placeholder
+      // auth_screen.dart's sign-up created the account with.
+      await Supabase.instance.client.auth.updateUser(
+        UserAttributes(password: _passwordCtrl.text),
+      );
+
       await ProfileService().saveBrokerProfile({
         'fullName': _fullNameCtrl.text.trim(),
         'email': _emailCtrl.text.trim(),
@@ -775,7 +812,9 @@ class _BrokerRegistrationScreenState extends State<BrokerRegistrationScreen> {
 
       if (!mounted) return;
 
-      (await SharedPreferences.getInstance()).remove('pending_user_type');
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.remove('pending_user_type');
+      await prefs.remove('pending_user_type_uid');
       await _draftStore.clear();
       await context.read<AuthProvider>().refreshProfile();
 
@@ -896,6 +935,7 @@ class _BrokerRegistrationScreenState extends State<BrokerRegistrationScreen> {
     TextInputType keyboardType = TextInputType.text,
     List<TextInputFormatter>? inputFormatters,
     int maxLines = 1,
+    bool obscureText = false,
     bool readOnly = false,
     VoidCallback? onTap,
     Widget? suffixIcon,
@@ -912,6 +952,7 @@ class _BrokerRegistrationScreenState extends State<BrokerRegistrationScreen> {
             keyboardType: keyboardType,
             inputFormatters: inputFormatters,
             maxLines: maxLines,
+            obscureText: obscureText,
             readOnly: readOnly,
             onTap: onTap,
             onChanged: onChanged,
@@ -1605,6 +1646,31 @@ class _BrokerRegistrationScreenState extends State<BrokerRegistrationScreen> {
             padding: EdgeInsets.only(bottom: 8),
             child: Text('Username is available!', style: TextStyle(fontSize: 12, color: Colors.green)),
           ),
+        _field(
+          fieldKey: 'password',
+          controller: _passwordCtrl,
+          label: 'Password',
+          required: true,
+          hint: 'Min. 6 characters',
+          obscureText: !_passwordVisible,
+          suffixIcon: IconButton(
+            icon: Icon(_passwordVisible ? Icons.visibility_off : Icons.visibility),
+            onPressed: () => setState(() => _passwordVisible = !_passwordVisible),
+          ),
+        ),
+        _field(
+          fieldKey: 'confirmPassword',
+          controller: _confirmPasswordCtrl,
+          label: 'Confirm Password',
+          required: true,
+          hint: 'Re-enter your password',
+          obscureText: !_confirmPasswordVisible,
+          suffixIcon: IconButton(
+            icon: Icon(_confirmPasswordVisible ? Icons.visibility_off : Icons.visibility),
+            onPressed: () =>
+                setState(() => _confirmPasswordVisible = !_confirmPasswordVisible),
+          ),
+        ),
       ],
     );
   }
@@ -1920,6 +1986,8 @@ class _BrokerRegistrationScreenState extends State<BrokerRegistrationScreen> {
     _whatsappCtrl.dispose();
     _telegramCtrl.dispose();
     _usernameCtrl.dispose();
+    _passwordCtrl.dispose();
+    _confirmPasswordCtrl.dispose();
     super.dispose();
   }
 }

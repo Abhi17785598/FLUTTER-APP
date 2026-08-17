@@ -159,10 +159,15 @@ class _BuilderRegistrationScreenState
   final _telegramCtrl = TextEditingController();
 
   // ─── Step 6 – Account Setup ───────────────────────────────────────────────
-  // No password field here — the account's password is already set at signup
-  // (auth_screen.dart's sign-up form collects it before this screen is ever
-  // reached), so asking again would just be a redundant, confusing prompt.
+  // Password is asked for here now, not on auth_screen.dart's sign-up form —
+  // that form creates the account with a random placeholder password, and
+  // _onSubmit below sets the real one via Supabase's updateUser(password:)
+  // once this step is actually submitted.
   final _usernameCtrl = TextEditingController();
+  final _passwordCtrl = TextEditingController();
+  final _confirmPasswordCtrl = TextEditingController();
+  bool _passwordVisible = false;
+  bool _confirmPasswordVisible = false;
   Timer? _usernameDebounce;
   bool? _usernameAvailable;
   bool _usernameTaken = false;
@@ -545,7 +550,23 @@ class _BuilderRegistrationScreenState
     } else if (_usernameTaken) {
       e['username'] = 'This username is already taken.';
     }
+    final passwordErr = _validatePassword();
+    if (passwordErr != null) e['password'] = passwordErr;
     return e;
+  }
+
+  /// Same rule the sign-up form used to enforce directly (auth_screen.dart)
+  /// before password collection moved here.
+  String? _validatePassword() {
+    if (_passwordCtrl.text.isEmpty) return 'Password is required.';
+    if (_passwordCtrl.text.length < 6) {
+      return 'Password must be at least 6 characters.';
+    }
+    if (_confirmPasswordCtrl.text.isEmpty) return 'Please confirm your password.';
+    if (_passwordCtrl.text != _confirmPasswordCtrl.text) {
+      return 'Passwords do not match.';
+    }
+    return null;
   }
 
   // ─── Username availability — mirrors BuilderRegistration.tsx:493-528 ─────
@@ -770,8 +791,23 @@ class _BuilderRegistrationScreenState
       return;
     }
 
+    final passwordErr = _validatePassword();
+    if (passwordErr != null) {
+      setState(() => _errors['password'] = passwordErr);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(passwordErr), backgroundColor: Colors.red),
+      );
+      return;
+    }
+
     setState(() => _isSubmitting = true);
     try {
+      // Sets the real, person-chosen password over the random placeholder
+      // auth_screen.dart's sign-up created the account with.
+      await Supabase.instance.client.auth.updateUser(
+        UserAttributes(password: _passwordCtrl.text),
+      );
+
       await ProfileService().saveBuilderProfile({
         'companyName': _companyNameCtrl.text.trim(),
         'email': _emailCtrl.text.trim(),
@@ -812,7 +848,9 @@ class _BuilderRegistrationScreenState
 
       if (!mounted) return;
 
-      (await SharedPreferences.getInstance()).remove('pending_user_type');
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.remove('pending_user_type');
+      await prefs.remove('pending_user_type_uid');
       await _draftStore.clear();
       await context.read<AuthProvider>().refreshProfile();
 
@@ -1671,6 +1709,31 @@ class _BuilderRegistrationScreenState
             padding: EdgeInsets.only(bottom: 8),
             child: Text('Username is available!', style: TextStyle(fontSize: 12, color: Colors.green)),
           ),
+        _field(
+          fieldKey: 'password',
+          controller: _passwordCtrl,
+          label: 'Password',
+          required: true,
+          hint: 'Min. 6 characters',
+          obscureText: !_passwordVisible,
+          suffixIcon: IconButton(
+            icon: Icon(_passwordVisible ? Icons.visibility_off : Icons.visibility),
+            onPressed: () => setState(() => _passwordVisible = !_passwordVisible),
+          ),
+        ),
+        _field(
+          fieldKey: 'confirmPassword',
+          controller: _confirmPasswordCtrl,
+          label: 'Confirm Password',
+          required: true,
+          hint: 'Re-enter your password',
+          obscureText: !_confirmPasswordVisible,
+          suffixIcon: IconButton(
+            icon: Icon(_confirmPasswordVisible ? Icons.visibility_off : Icons.visibility),
+            onPressed: () =>
+                setState(() => _confirmPasswordVisible = !_confirmPasswordVisible),
+          ),
+        ),
       ],
     );
   }
@@ -1998,6 +2061,8 @@ class _BuilderRegistrationScreenState
     _whatsappCtrl.dispose();
     _telegramCtrl.dispose();
     _usernameCtrl.dispose();
+    _passwordCtrl.dispose();
+    _confirmPasswordCtrl.dispose();
     super.dispose();
   }
 }

@@ -84,6 +84,25 @@ class _OtpScreenState extends State<OtpScreen> {
     if (error == null) {
       final userId = Supabase.instance.client.auth.currentUser?.id;
       if (userId != null) {
+        // `widget.name` already reaches the send-otp edge function's `verify`
+        // action (AuthService.verifyOtp -> name:), but that action only uses
+        // it for a "customers" lead-capture row — it never writes
+        // profiles.display_name. Without this, everything reached after
+        // sign-in (AccountTypeScreen, the individual/builder/broker/
+        // influencer forms) sees an empty name and makes the person retype
+        // what they just typed here.
+        final name = widget.name;
+        if (name != null && name.isNotEmpty) {
+          try {
+            await Supabase.instance.client
+                .from('profiles')
+                .update({'display_name': name})
+                .eq('user_id', userId);
+          } catch (e) {
+            debugPrint('OtpScreen: failed to persist display_name: $e');
+          }
+        }
+        if (!mounted) return;
         await routeAfterAuth(context, userId);
       }
       return;

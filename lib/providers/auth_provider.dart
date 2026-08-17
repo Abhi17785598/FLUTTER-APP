@@ -4,6 +4,7 @@ import '../app_navigator.dart';
 import '../models/builder_section_models.dart';
 import '../services/auth_service.dart';
 import '../services/builder_sections_service.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 class AuthProvider extends ChangeNotifier {
@@ -369,7 +370,18 @@ class AuthProvider extends ChangeNotifier {
       );
 
       if (authResponse.session == null) {
-        // Supabase requires email confirmation — no session yet.
+        // Supabase requires email confirmation — no session yet, but GoTrue
+        // already created the auth.users row, so its id is on the response.
+        // auth_screen.dart's _handleSignUp already wrote 'pending_user_type'
+        // for this attempt (before this call even started) — this is just
+        // the matching scope, so a later sign-in with a DIFFERENT account
+        // can't pick up this account's still-pending choice. Same reasoning
+        // as AccountTypeScreen's 'pending_user_type_uid' write.
+        final pendingUserId = authResponse.user?.id;
+        if (pendingUserId != null) {
+          (await SharedPreferences.getInstance())
+              .setString('pending_user_type_uid', pendingUserId);
+        }
         // Return a non-null message so the caller shows a confirmation prompt
         // instead of calling updateProfileData() with no logged-in user.
         return '__email_confirmation_required__';
@@ -413,6 +425,20 @@ class AuthProvider extends ChangeNotifier {
 
   Future<void> logout() async {
     await _authService.logout();
+
+    // `pending_user_type` (set by AccountTypeScreen/auth_screen.dart when a
+    // registration is started) previously only cleared on completing that
+    // registration — never on sign-out. That let it outlive the account (or
+    // Supabase project) it was set for: the next sign-in, on a fresh backend
+    // with no `user_type` yet, would fall back to this stale local value and
+    // jump straight into a registration form nobody chose this session
+    // (routeAfterAuth, auth_post_login.dart:43-56). Now also scoped by
+    // `pending_user_type_uid` (belt-and-suspenders — routeAfterAuth/
+    // SplashScreen already refuse to trust it for a different account even
+    // if this clear were somehow skipped).
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove('pending_user_type');
+    await prefs.remove('pending_user_type_uid');
 
     _isLoggedIn = false;
     _userName = '';

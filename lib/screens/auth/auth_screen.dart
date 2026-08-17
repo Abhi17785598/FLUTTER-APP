@@ -1,3 +1,5 @@
+import 'dart:math';
+
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../core/theme/app_colors.dart';
@@ -28,12 +30,14 @@ class _AuthScreenState extends State<AuthScreen> with TickerProviderStateMixin {
   bool _loginPasswordVisible = false;
 
   // Sign Up controllers
+  //
+  // No password/confirm-password here — the account is created with a
+  // securely random placeholder password (never seen by anyone) and the
+  // person's actual chosen password is now collected later, alongside
+  // Username, on the registration form's Account Setup step (Builder/Broker/
+  // Influencer) via Supabase's own updateUser(password:).
   final _signUpNameCtrl = TextEditingController();
   final _signUpEmailCtrl = TextEditingController();
-  final _signUpPasswordCtrl = TextEditingController();
-  final _signUpConfirmCtrl = TextEditingController();
-  bool _signUpPasswordVisible = false;
-  bool _signUpConfirmVisible = false;
 
   // Phone controllers
   final _phoneNameCtrl = TextEditingController();
@@ -99,8 +103,6 @@ class _AuthScreenState extends State<AuthScreen> with TickerProviderStateMixin {
     _loginPasswordCtrl.dispose();
     _signUpNameCtrl.dispose();
     _signUpEmailCtrl.dispose();
-    _signUpPasswordCtrl.dispose();
-    _signUpConfirmCtrl.dispose();
     _phoneNameCtrl.dispose();
     _phoneCtrl.dispose();
     super.dispose();
@@ -159,18 +161,23 @@ class _AuthScreenState extends State<AuthScreen> with TickerProviderStateMixin {
         Validators.phone(_phoneCtrl.text);
   }
 
+  /// A password nobody ever needs to know, type or remember — it only exists
+  /// to satisfy Supabase's `signUp(email, password)` API, which cannot create
+  /// an email account without one. `Random.secure()` is a CSPRNG, matching
+  /// `PaymentService.newIdempotencyKey()`'s reasoning for the same primitive.
+  String _generatePlaceholderPassword() {
+    final random = Random.secure();
+    const chars =
+        'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!@#\$%^&*';
+    return List.generate(32, (_) => chars[random.nextInt(chars.length)]).join();
+  }
+
   String? _validateSignUp() {
     if (_signUpNameCtrl.text.trim().isEmpty) return 'Full name is required.';
     final signUpEmailErr =
         Validators.required(_signUpEmailCtrl.text) ??
         Validators.email(_signUpEmailCtrl.text);
     if (signUpEmailErr != null) return signUpEmailErr;
-    if (_signUpPasswordCtrl.text.isEmpty) return 'Password is required.';
-    if (_signUpPasswordCtrl.text.length < 6)
-      return 'Password must be at least 6 characters.';
-    if (_signUpConfirmCtrl.text.isEmpty) return 'Please confirm your password.';
-    if (_signUpPasswordCtrl.text != _signUpConfirmCtrl.text)
-      return 'Passwords do not match.';
     if (_selectedRole == null) {
       return 'Please select a role.';
     }
@@ -243,12 +250,19 @@ class _AuthScreenState extends State<AuthScreen> with TickerProviderStateMixin {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString('pending_user_type', _selectedType ?? 'individual');
 
+    // No password is collected here anymore — Supabase's email signUp still
+    // requires one to create the account, so a securely random placeholder
+    // is used. Nobody is ever shown it or expected to know it: the person's
+    // real, chosen password is set later via Supabase's updateUser(password:)
+    // on the registration form's Account Setup step, alongside Username.
+    final placeholderPassword = _generatePlaceholderPassword();
+
     setState(() => _isLoading = true);
     final error = await context.read<AuthProvider>().signUp(
       _signUpNameCtrl.text.trim(),
       _signUpEmailCtrl.text.trim(),
-      _signUpPasswordCtrl.text,
-      _signUpConfirmCtrl.text,
+      placeholderPassword,
+      placeholderPassword,
       role: _selectedRole!,
       type: _selectedType ?? 'individual',
     );
@@ -528,28 +542,6 @@ class _AuthScreenState extends State<AuthScreen> with TickerProviderStateMixin {
           hint: 'you@example.com',
           icon: Icons.email_outlined,
           keyboardType: TextInputType.emailAddress,
-        ),
-        const SizedBox(height: 14),
-        _buildTextField(
-          controller: _signUpPasswordCtrl,
-          label: 'Password',
-          hint: 'Min. 6 characters',
-          icon: Icons.lock_outline,
-          isPassword: true,
-          passwordVisible: _signUpPasswordVisible,
-          onTogglePassword: () =>
-              setState(() => _signUpPasswordVisible = !_signUpPasswordVisible),
-        ),
-        const SizedBox(height: 14),
-        _buildTextField(
-          controller: _signUpConfirmCtrl,
-          label: 'Confirm Password',
-          hint: 'Re-enter your password',
-          icon: Icons.lock_outline,
-          isPassword: true,
-          passwordVisible: _signUpConfirmVisible,
-          onTogglePassword: () =>
-              setState(() => _signUpConfirmVisible = !_signUpConfirmVisible),
         ),
         const SizedBox(height: 14),
         Row(

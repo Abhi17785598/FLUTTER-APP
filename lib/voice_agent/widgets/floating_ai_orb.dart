@@ -110,10 +110,26 @@ class _FloatingAiOrbState extends State<FloatingAiOrb>
   @override
   Widget build(BuildContext context) {
     final screenSize = MediaQuery.of(context).size;
-    _position ??= Offset(
-      screenSize.width - _size - 16,
-      screenSize.height - _size - 80,
-    );
+    if (_position == null) {
+      _position = Offset(
+        screenSize.width - _size - 16,
+        screenSize.height - _size - 80,
+      );
+    } else {
+      // Re-clamp into the *current* screen every build, not just once at
+      // first mount. This widget's State lives for the whole app session
+      // (it's the single last child of the top-level Stack in app.dart), so
+      // a position anchored against one screen size can end up outside the
+      // bounds of a later one — device rotation, a foldable/split-screen
+      // resize, anything that changes MediaQuery.size. Stack's default
+      // Clip.hardEdge then silently clips it: the orb is still "there" in
+      // state, just rendered off-canvas, which looks exactly like it
+      // vanished with no error or role-based cause to point to.
+      _position = Offset(
+        _position!.dx.clamp(_edgeMargin, screenSize.width - _size - _edgeMargin),
+        _position!.dy.clamp(40, screenSize.height - _size - 40),
+      );
+    }
 
     return Positioned(
       left: _position!.dx,

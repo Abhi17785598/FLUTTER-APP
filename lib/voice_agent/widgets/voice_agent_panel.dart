@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import '../../core/theme/app_colors.dart';
 import '../providers/voice_agent_provider.dart';
 import 'conversation_history.dart';
 import 'voice_waveform.dart';
@@ -225,6 +226,13 @@ class _InputRow extends StatelessWidget {
                 enabled: !isListening && !isProcessing && !isSpeaking,
                 textInputAction: TextInputAction.send,
                 onSubmitted: (_) => onSend(),
+                // Explicit high-contrast color from the app's own palette —
+                // same fix as the registration-screen chips, but using the
+                // hardcoded token rather than the theme-derived
+                // colorScheme.onSurface, since that one still wasn't
+                // rendering visibly here.
+                style: const TextStyle(color: AppColors.textPrimary),
+                cursorColor: AppColors.primary,
                 decoration: InputDecoration(
                   hintText: isListening
                       ? 'Listening…'

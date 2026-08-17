@@ -43,7 +43,15 @@ class _AccountTypeScreenState extends State<AccountTypeScreen> {
       } else {
         // Business types: store the pending type so the registration screen
         // and splash screen can route correctly, then push the registration form.
+        //
+        // Scoped to this exact account (pending_user_type_uid) so a later
+        // Google sign-in with a DIFFERENT Gmail address never inherits this
+        // choice — previously the plain, unscoped key was trusted for
+        // whichever account next reached a null user_type, which is exactly
+        // what routed a fresh account straight into a stale Builder/Broker/
+        // Influencer form nobody chose for it.
         await prefs.setString('pending_user_type', type);
+        await prefs.setString('pending_user_type_uid', widget.userId);
         if (mounted) {
           final Widget screen = switch (type) {
             'builder' => const BuilderRegistrationScreen(),

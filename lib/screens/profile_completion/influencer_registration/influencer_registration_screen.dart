@@ -13,9 +13,11 @@
 // `previousBrandCollaborations`/`areasCovered`, which are declared and
 // submitted (always empty) but never have a rendered field either.
 //
-// No password field on the Account step — same fix as the other two
-// registration screens, since the account's password is already set at
-// signup.
+// Password IS on the Account step, alongside Username — same fix as the other
+// two registration screens: auth_screen.dart's sign-up form now creates the
+// account with a random placeholder password, and this step's Password/
+// Confirm Password fields set the real one via Supabase's
+// updateUser(password:) on submit.
 //
 // Validation is an imperative `_errors` map computed on "Continue"/"Submit",
 // matching how the portal's `handleNext`/`handleSubmit` work.
@@ -197,6 +199,10 @@ class _InfluencerRegistrationScreenState
 
   // ─── Step 7 – Account Setup ───────────────────────────────────────────────
   final _usernameCtrl = TextEditingController();
+  final _passwordCtrl = TextEditingController();
+  final _confirmPasswordCtrl = TextEditingController();
+  bool _passwordVisible = false;
+  bool _confirmPasswordVisible = false;
   Timer? _usernameDebounce;
   bool? _usernameAvailable;
   bool _usernameTaken = false;
@@ -608,7 +614,23 @@ class _InfluencerRegistrationScreenState
     } else if (_usernameTaken) {
       e['username'] = 'This username is already taken.';
     }
+    final passwordErr = _validatePassword();
+    if (passwordErr != null) e['password'] = passwordErr;
     return e;
+  }
+
+  /// Same rule the sign-up form used to enforce directly (auth_screen.dart)
+  /// before password collection moved here.
+  String? _validatePassword() {
+    if (_passwordCtrl.text.isEmpty) return 'Password is required.';
+    if (_passwordCtrl.text.length < 6) {
+      return 'Password must be at least 6 characters.';
+    }
+    if (_confirmPasswordCtrl.text.isEmpty) return 'Please confirm your password.';
+    if (_passwordCtrl.text != _confirmPasswordCtrl.text) {
+      return 'Passwords do not match.';
+    }
+    return null;
   }
 
   // ─── Username availability ────────────────────────────────────────────────
@@ -817,8 +839,23 @@ class _InfluencerRegistrationScreenState
       return;
     }
 
+    final passwordErr = _validatePassword();
+    if (passwordErr != null) {
+      setState(() => _errors['password'] = passwordErr);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(passwordErr), backgroundColor: Colors.red),
+      );
+      return;
+    }
+
     setState(() => _isSubmitting = true);
     try {
+      // Sets the real, person-chosen password over the random placeholder
+      // auth_screen.dart's sign-up created the account with.
+      await Supabase.instance.client.auth.updateUser(
+        UserAttributes(password: _passwordCtrl.text),
+      );
+
       await ProfileService().saveInfluencerProfile({
         'fullName': _fullNameCtrl.text.trim(),
         'email': _emailCtrl.text.trim(),
@@ -861,7 +898,9 @@ class _InfluencerRegistrationScreenState
 
       if (!mounted) return;
 
-      (await SharedPreferences.getInstance()).remove('pending_user_type');
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.remove('pending_user_type');
+      await prefs.remove('pending_user_type_uid');
       await _draftStore.clear();
       await context.read<AuthProvider>().refreshProfile();
 
@@ -982,6 +1021,7 @@ class _InfluencerRegistrationScreenState
     TextInputType keyboardType = TextInputType.text,
     List<TextInputFormatter>? inputFormatters,
     int maxLines = 1,
+    bool obscureText = false,
     bool readOnly = false,
     VoidCallback? onTap,
     Widget? suffixIcon,
@@ -998,6 +1038,7 @@ class _InfluencerRegistrationScreenState
             keyboardType: keyboardType,
             inputFormatters: inputFormatters,
             maxLines: maxLines,
+            obscureText: obscureText,
             readOnly: readOnly,
             onTap: onTap,
             onChanged: onChanged,
@@ -1791,6 +1832,31 @@ class _InfluencerRegistrationScreenState
               style: TextStyle(fontSize: 12, color: Colors.grey),
             ),
           ),
+        _field(
+          fieldKey: 'password',
+          controller: _passwordCtrl,
+          label: 'Password',
+          required: true,
+          hint: 'Min. 6 characters',
+          obscureText: !_passwordVisible,
+          suffixIcon: IconButton(
+            icon: Icon(_passwordVisible ? Icons.visibility_off : Icons.visibility),
+            onPressed: () => setState(() => _passwordVisible = !_passwordVisible),
+          ),
+        ),
+        _field(
+          fieldKey: 'confirmPassword',
+          controller: _confirmPasswordCtrl,
+          label: 'Confirm Password',
+          required: true,
+          hint: 'Re-enter your password',
+          obscureText: !_confirmPasswordVisible,
+          suffixIcon: IconButton(
+            icon: Icon(_confirmPasswordVisible ? Icons.visibility_off : Icons.visibility),
+            onPressed: () =>
+                setState(() => _confirmPasswordVisible = !_confirmPasswordVisible),
+          ),
+        ),
       ],
     );
   }
@@ -2128,6 +2194,8 @@ class _InfluencerRegistrationScreenState
     _websiteCtrl.dispose();
     _whatsappCtrl.dispose();
     _usernameCtrl.dispose();
+    _passwordCtrl.dispose();
+    _confirmPasswordCtrl.dispose();
     super.dispose();
   }
 }

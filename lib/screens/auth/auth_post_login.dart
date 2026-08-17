@@ -24,7 +24,7 @@ Future<void> routeAfterAuth(BuildContext context, String userId) async {
   final dbUserType = profile?['user_type'] as String?;
 
   if (isComplete) {
-    (await SharedPreferences.getInstance()).remove('pending_user_type');
+    await _clearPendingUserType(await SharedPreferences.getInstance());
     if (context.mounted) {
       Navigator.pushReplacement(
         context,
@@ -40,12 +40,21 @@ Future<void> routeAfterAuth(BuildContext context, String userId) async {
     return;
   }
 
-  // user_type is null — consult the type selected on the signup form.
+  // user_type is null — consult the type selected on the signup form, but
+  // only if it was set for THIS account. 'pending_user_type' alone is not
+  // enough: it survived sign-out and outlived the account (or even Supabase
+  // project) it was written for, so a completely different Google account
+  // reaching this same null-user_type state would otherwise inherit
+  // whatever role somebody else picked in an earlier session — see
+  // AccountTypeScreen's / AuthProvider.signUp's 'pending_user_type_uid'.
   final prefs = await SharedPreferences.getInstance();
   final pendingType = prefs.getString('pending_user_type');
+  final pendingForUid = prefs.getString('pending_user_type_uid');
 
-  if (pendingType == null) {
-    // No pending type: first-time Google/phone sign-in with no chosen type yet.
+  if (pendingType == null || pendingForUid != userId) {
+    if (pendingType != null) await _clearPendingUserType(prefs);
+    // No pending type for this account: first-time Google/phone sign-in
+    // with no chosen type yet.
     if (context.mounted) {
       Navigator.pushReplacement(
         context,
@@ -60,7 +69,7 @@ Future<void> routeAfterAuth(BuildContext context, String userId) async {
         .from('profiles')
         .update({'user_type': 'individual', 'profile_complete': true})
         .eq('user_id', userId);
-    await prefs.remove('pending_user_type');
+    await _clearPendingUserType(prefs);
     if (context.mounted) {
       Navigator.pushReplacement(
         context,
@@ -70,6 +79,11 @@ Future<void> routeAfterAuth(BuildContext context, String userId) async {
   } else {
     _pushRegistrationRoute(context, pendingType);
   }
+}
+
+Future<void> _clearPendingUserType(SharedPreferences prefs) async {
+  await prefs.remove('pending_user_type');
+  await prefs.remove('pending_user_type_uid');
 }
 
 void _pushRegistrationRoute(BuildContext context, String userType) {
