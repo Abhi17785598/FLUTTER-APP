@@ -192,10 +192,15 @@ class PropertyCardVertical extends StatelessWidget {
                   const SizedBox(height: 8),
                   Row(
                     children: [
-                      _buildSpecIcon(Icons.bed, '${property.beds}'),
-                      const SizedBox(width: 12),
-                      _buildSpecIcon(Icons.bathtub, '${property.baths}'),
-                      const SizedBox(width: 12),
+                      // Land/Plot has no bedroom/bathroom concept (mirrors the
+                      // portal's `property.category === 'land'` branch in
+                      // PropertyCard.tsx) — show area alone for that category.
+                      if (property.category != 'land') ...[
+                        _buildSpecIcon(Icons.bed, '${property.beds}'),
+                        const SizedBox(width: 12),
+                        _buildSpecIcon(Icons.bathtub, '${property.baths}'),
+                        const SizedBox(width: 12),
+                      ],
                       _buildSpecIcon(Icons.square_foot, '${property.sqft}'),
                     ],
                   ),

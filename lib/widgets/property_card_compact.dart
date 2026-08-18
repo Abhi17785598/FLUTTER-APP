@@ -10,11 +10,23 @@ class PropertyCardCompact extends StatelessWidget {
   final VoidCallback? onTap;
   final VoidCallback? onFavoriteToggle;
 
+  /// Shown only when the caller supplies it — this card is reused for
+  /// browsing (Shortlist, public profiles), where the viewer never owns the
+  /// listing, so the edit affordance stays opt-in rather than conditioned on
+  /// an ownership flag threaded through every call site.
+  final VoidCallback? onEdit;
+
+  /// Same opt-in rule as [onEdit] — only the owner's own "My Content" call
+  /// site supplies this, so browsing surfaces never render it.
+  final VoidCallback? onDelete;
+
   const PropertyCardCompact({
     super.key,
     required this.property,
     this.onTap,
     this.onFavoriteToggle,
+    this.onEdit,
+    this.onDelete,
   });
 
   @override
@@ -146,13 +158,42 @@ class PropertyCardCompact extends StatelessWidget {
                   ),
                   const SizedBox(height: 6),
                   Text(
-                    '₹${(property.price * 10000000 / property.sqft).toStringAsFixed(0)} Sq.ft • ${property.beds} Beds • ${property.baths} Baths',
+                    // Land/Plot has no bedroom/bathroom concept (mirrors the
+                    // portal's `property.category === 'land'` branch in
+                    // PropertyCard.tsx) — show area alone for that category.
+                    property.category == 'land'
+                        ? '${property.sqft} Sq.ft'
+                        : '${property.sqft} Sq.ft • ${property.beds} Beds • ${property.baths} Baths',
                     style: AppTextStyles.caption,
                   ),
                 ],
               ),
             ),
             const SizedBox(width: 8),
+            if (onEdit != null)
+              GestureDetector(
+                onTap: onEdit,
+                child: const Padding(
+                  padding: EdgeInsets.only(bottom: 8),
+                  child: Icon(
+                    Icons.edit_outlined,
+                    color: AppColors.textSecondary,
+                    size: 22,
+                  ),
+                ),
+              ),
+            if (onDelete != null)
+              GestureDetector(
+                onTap: onDelete,
+                child: const Padding(
+                  padding: EdgeInsets.only(bottom: 8, left: 8),
+                  child: Icon(
+                    Icons.delete_outline,
+                    color: AppColors.textSecondary,
+                    size: 22,
+                  ),
+                ),
+              ),
             GestureDetector(
               onTap: onFavoriteToggle,
               child: Icon(

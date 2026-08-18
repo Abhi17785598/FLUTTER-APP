@@ -55,7 +55,17 @@ class AddProjectScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return ChangeNotifierProvider<AddProjectProvider>(
-      create: (_) => providerOverride ?? AddProjectProvider(),
+      // Seeded synchronously here — not in a post-frame callback — so the
+      // draft is already populated before the first step widget's initState
+      // reads it to seed its TextEditingControllers. See
+      // `AddProjectWizardView.initState` for the create-mode counterpart.
+      create: (_) {
+        final provider = providerOverride ?? AddProjectProvider();
+        if (editingProject != null) {
+          provider.initFromProject(editingProject!);
+        }
+        return provider;
+      },
       child: AddProjectWizardView(
         editingProject: editingProject,
         builderIdOverride: builderIdOverride,

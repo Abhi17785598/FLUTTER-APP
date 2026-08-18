@@ -11,11 +11,12 @@ import '../../models/user_profile.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/navigation_provider.dart';
 import '../../providers/profile_provider.dart';
+import '../../services/property_service.dart';
 import '../../widgets/bottom_nav_bar.dart';
 import '../../widgets/more_bottom_sheet.dart';
 import '../../widgets/workspace_drawer.dart';
 import '../dashboard/builder_dashboard_screen.dart';
-import 'actions/notifications_sheet.dart';
+import '../post_property/post_property_screen.dart';
 import 'actions/profile_qr_sheet.dart';
 import 'actions/visiting_card_sheet.dart';
 import 'widgets/create_content_grid.dart';
@@ -152,6 +153,90 @@ class _ProfileViewState extends State<_ProfileView> {
     );
   }
 
+  /// Opens the existing property-edit wizard from "My Content" — the same
+  /// fetch-then-push flow `MyListingsSection._openEditScreen` already uses on
+  /// the broker/influencer/individual dashboards, so editing behaves
+  /// identically regardless of which screen the owner reaches it from.
+  Future<void> _openEditProperty(PropertyModel property) async {
+    PropertyEditBundle bundle;
+    try {
+      bundle = await PropertyService().fetchForEdit(property.id);
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Could not load property for editing: $e'),
+          backgroundColor: Colors.red.shade700,
+        ),
+      );
+      return;
+    }
+
+    if (!mounted) return;
+    final refreshNeeded = await Navigator.push<bool>(
+      context,
+      MaterialPageRoute(
+        builder: (_) => PostPropertyScreen(
+          editPropertyId: property.id,
+          editBundle: bundle,
+        ),
+      ),
+    );
+
+    if (refreshNeeded == true && mounted) {
+      await context.read<ProfileProvider>().refresh();
+    }
+  }
+
+  /// Deletes a property from "My Content" — same confirmation dialog and
+  /// `PropertyService.deleteProperty` call as
+  /// `MyListingsSection._showDeleteDialog`, refreshing via the provider
+  /// instead of pruning a local list.
+  Future<void> _deleteProperty(PropertyModel property) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Delete Property'),
+        content: const Text(
+          'Are you sure you want to delete this property? '
+          'This action cannot be undone.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(false),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(true),
+            style: TextButton.styleFrom(foregroundColor: Colors.red),
+            child: const Text('Delete'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed != true || !mounted) return;
+
+    try {
+      await PropertyService().deleteProperty(property.id);
+      if (!mounted) return;
+      await context.read<ProfileProvider>().refresh();
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Property deleted.')),
+      );
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Delete failed: $e'),
+            backgroundColor: Colors.red.shade700,
+          ),
+        );
+      }
+    }
+  }
+
   // ── Build ─────────────────────────────────────────────────────────────────
 
   @override
@@ -189,7 +274,10 @@ class _ProfileViewState extends State<_ProfileView> {
                 // "Verified" is the existing condition, not a new definition.
                 isVerified: auth.userRole != null,
                 onMenuTap: () => _scaffoldKey.currentState?.openDrawer(),
-                onNotificationsTap: () => showNotificationsSheet(context),
+                onNotificationsTap: () => Navigator.pushNamed(
+                  context,
+                  AppConstants.notificationsScreen,
+                ),
               ),
               Padding(
                 padding: const EdgeInsets.fromLTRB(
@@ -302,6 +390,8 @@ class _ProfileViewState extends State<_ProfileView> {
                           context,
                           AppConstants.postPropertyScreen,
                         ),
+                        onEditProperty: _openEditProperty,
+                        onDeleteProperty: _deleteProperty,
                       ),
                     const SizedBox(height: 26),
 
