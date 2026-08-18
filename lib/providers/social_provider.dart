@@ -44,12 +44,14 @@ class SocialPreferencesSection extends SocialSection<SocialPreferences> {
       load(() => SocialSection.service.getPreferences(userId));
 }
 
-/// Publish records — the Activity screen.
-class SocialActivitySection extends SocialSection<List<ShareLog>> {
+/// The live publish queue — the Activity screen. Reads `social_share_queue`
+/// (via [SocialService.listQueue]), not `social_share_logs`: the queue is the
+/// only place a `queued` or `canceled` job is ever visible.
+class SocialActivitySection extends SocialSection<List<ShareQueueItem>> {
   SocialActivitySection() : super(const []);
 
   Future<void> loadFor(String userId) =>
-      load(() => SocialSection.service.listLogs(userId));
+      load(() => SocialSection.service.listQueue(userId));
 }
 
 /// Publishing aggregate — the Analytics screen.

@@ -3,7 +3,13 @@ import 'package:flutter/material.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_text_styles.dart';
 import '../../../models/chat_message.dart';
+import '../../../models/message_reaction.dart';
+import 'chat_media_view.dart';
 import 'relative_time.dart';
+
+/// Quick-react emoji set — matches the small, fixed palette most chat apps
+/// (and the portal's `ReactionBar.tsx`) offer rather than a full picker.
+const List<String> quickReactionEmojis = ['👍', '❤️', '😂', '😮', '😢', '🙏'];
 
 /// One message bubble (blueprint §16.7).
 ///
@@ -11,37 +17,163 @@ import 'relative_time.dart';
 /// with white text and no shadow, incoming white with
 /// `0 2px 8px rgba(26,26,46,0.05)`, timestamp beneath in 10 dp hint colour.
 ///
-/// Non-text types (`property_share`, `image`) render their stored body with a
-/// small type chip rather than a blank bubble — §16.7 requires they degrade
-/// gracefully until rich rendering exists.
+/// Long-press opens reply/react/edit/delete actions — reusing the same
+/// `toggle_reaction`/`edit_message`/`delete_message_for_me`/
+/// `delete_message_for_everyone` RPCs the portal calls (see
+/// ChatThreadProvider), parameterised by surface so DM and channel bubbles
+/// share this one widget.
 class ChatBubble extends StatelessWidget {
   final ChatMessage message;
   final bool isMine;
 
+  /// `'dm'` or `'channel'` — needed to resolve media signed URLs.
+  final String surface;
+
   /// Sender name, shown above incoming bubbles in channel threads only.
   final String? senderName;
+
+  final ChatMessage? repliedMessage;
+  final String? repliedSenderName;
+  final List<MessageReaction> reactions;
+  final String currentUserId;
+
+  final ValueChanged<String>? onReact;
+  final VoidCallback? onReply;
+  final VoidCallback? onEdit;
+  final VoidCallback? onDeleteForMe;
+  final VoidCallback? onDeleteForEveryone;
+  final VoidCallback? onReport;
 
   const ChatBubble({
     super.key,
     required this.message,
     required this.isMine,
+    required this.currentUserId,
+    this.surface = 'dm',
     this.senderName,
+    this.repliedMessage,
+    this.repliedSenderName,
+    this.reactions = const [],
+    this.onReact,
+    this.onReply,
+    this.onEdit,
+    this.onDeleteForMe,
+    this.onDeleteForEveryone,
+    this.onReport,
   });
+
+  void _openActions(BuildContext context) {
+    if (message.isDeleted) return;
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (sheetContext) => _ActionSheet(
+        isMine: isMine,
+        canEdit: isMine && message.messageType == 'text',
+        quickEmojis: quickReactionEmojis,
+        onReact: onReact == null
+            ? null
+            : (emoji) {
+                Navigator.of(sheetContext).pop();
+                onReact!(emoji);
+              },
+        onReply: onReply == null
+            ? null
+            : () {
+                Navigator.of(sheetContext).pop();
+                onReply!();
+              },
+        onEdit: onEdit == null
+            ? null
+            : () {
+                Navigator.of(sheetContext).pop();
+                onEdit!();
+              },
+        onDeleteForMe: onDeleteForMe == null
+            ? null
+            : () {
+                Navigator.of(sheetContext).pop();
+                onDeleteForMe!();
+              },
+        onDeleteForEveryone: onDeleteForEveryone == null
+            ? null
+            : () {
+                Navigator.of(sheetContext).pop();
+                onDeleteForEveryone!();
+              },
+        onReport: onReport == null
+            ? null
+            : () {
+                Navigator.of(sheetContext).pop();
+                onReport!();
+              },
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
     final width = MediaQuery.of(context).size.width;
-    final isRich = message.messageType != 'text';
+    final hasMedia = message.isImage || message.isVideo;
+    final isRich = !message.isDeleted && message.isPropertyShare;
+
+    // A small "tail" corner (WhatsApp/Telegram-style) instead of a uniform
+    // rounded rectangle — the corner nearest the sender's own side is
+    // squared off, which is what reads as a speech-bubble pointer at a
+    // glance without needing a custom-painted tail shape.
+    final bubbleRadius = BorderRadius.only(
+      topLeft: const Radius.circular(18),
+      topRight: const Radius.circular(18),
+      bottomLeft: Radius.circular(isMine ? 18 : 4),
+      bottomRight: Radius.circular(isMine ? 4 : 18),
+    );
+
+    if (message.isDeleted) {
+      return Padding(
+        padding: const EdgeInsets.only(bottom: 10),
+        child: Column(
+          crossAxisAlignment:
+              isMine ? CrossAxisAlignment.end : CrossAxisAlignment.start,
+          children: [
+            Container(
+              constraints: BoxConstraints(maxWidth: width * 0.76),
+              padding:
+                  const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
+              decoration: BoxDecoration(
+                color: AppColors.cardBackground,
+                borderRadius: bubbleRadius,
+                border: Border.all(color: const Color(0xFFEDEDF2)),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(Icons.block, size: 13, color: AppColors.textHint),
+                  const SizedBox(width: 6),
+                  Text(
+                    'This message was deleted',
+                    style: AppTextStyles.body.copyWith(
+                      fontSize: 12.5,
+                      fontStyle: FontStyle.italic,
+                      color: AppColors.textHint,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      );
+    }
 
     return Padding(
-      padding: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.only(bottom: 10),
       child: Column(
         crossAxisAlignment:
             isMine ? CrossAxisAlignment.end : CrossAxisAlignment.start,
         children: [
           if (senderName != null && !isMine) ...[
             Padding(
-              padding: const EdgeInsets.only(left: 4, bottom: 3),
+              padding: const EdgeInsets.only(left: 6, bottom: 3),
               child: Text(
                 senderName!,
                 style: AppTextStyles.caption.copyWith(
@@ -52,69 +184,270 @@ class ChatBubble extends StatelessWidget {
               ),
             ),
           ],
-          Container(
-            constraints: BoxConstraints(maxWidth: width * 0.78),
-            padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 10),
-            decoration: BoxDecoration(
-              color: isMine ? AppColors.primary : AppColors.cardBackground,
-              borderRadius: BorderRadius.circular(16),
-              boxShadow: isMine ? null : AppColors.surfaceCardShadow,
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                if (isRich) ...[
-                  Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(
-                        message.isPropertyShare
-                            ? Icons.home_work_outlined
-                            : Icons.attachment_outlined,
-                        size: 13,
-                        color: isMine
-                            ? Colors.white.withValues(alpha: 0.85)
-                            : AppColors.textSecondary,
-                      ),
-                      const SizedBox(width: 5),
-                      Text(
-                        message.isPropertyShare ? 'Property' : 'Attachment',
-                        style: AppTextStyles.caption.copyWith(
-                          fontSize: 10.5,
-                          fontWeight: FontWeight.w600,
+          GestureDetector(
+            onLongPress: () => _openActions(context),
+            child: Container(
+              constraints: BoxConstraints(maxWidth: width * 0.76),
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
+              decoration: BoxDecoration(
+                color: isMine ? AppColors.primary : AppColors.cardBackground,
+                borderRadius: bubbleRadius,
+                boxShadow: isMine ? null : AppColors.surfaceCardShadow,
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  if (repliedMessage != null) _buildReplyQuote(),
+                  if (isRich) ...[
+                    Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(
+                          Icons.home_work_outlined,
+                          size: 13,
                           color: isMine
                               ? Colors.white.withValues(alpha: 0.85)
                               : AppColors.textSecondary,
                         ),
+                        const SizedBox(width: 5),
+                        Text(
+                          'Property',
+                          style: AppTextStyles.caption.copyWith(
+                            fontSize: 10.5,
+                            fontWeight: FontWeight.w600,
+                            color: isMine
+                                ? Colors.white.withValues(alpha: 0.85)
+                                : AppColors.textSecondary,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 4),
+                  ],
+                  if (hasMedia || message.isAudio)
+                    ChatMediaView(message: message, surface: surface, isMine: isMine)
+                  else
+                    Text(
+                      message.displayContent,
+                      style: AppTextStyles.body.copyWith(
+                        fontSize: 13,
+                        height: 1.45,
+                        color: isMine ? Colors.white : AppColors.textPrimary,
                       ),
-                    ],
-                  ),
-                  const SizedBox(height: 4),
+                    ),
                 ],
-                Text(
-                  message.displayContent,
-                  style: AppTextStyles.body.copyWith(
-                    fontSize: 13,
-                    height: 1.45,
-                    color: isMine ? Colors.white : AppColors.textPrimary,
-                  ),
-                ),
-              ],
+              ),
             ),
           ),
+          if (reactions.isNotEmpty) _buildReactionRow(),
           Padding(
-            padding: const EdgeInsets.only(top: 4, left: 4, right: 4),
-            child: Text(
-              formatClockTime(message.createdAt),
-              style: AppTextStyles.caption.copyWith(
-                fontSize: 10,
-                color: AppColors.textHint,
-              ),
+            padding: const EdgeInsets.only(top: 3, left: 4, right: 4),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                if (message.isEdited) ...[
+                  Text(
+                    'edited · ',
+                    style: AppTextStyles.caption.copyWith(
+                      fontSize: 10,
+                      color: AppColors.textHint,
+                    ),
+                  ),
+                ],
+                Text(
+                  formatClockTime(message.createdAt),
+                  style: AppTextStyles.caption.copyWith(
+                    fontSize: 10,
+                    color: AppColors.textHint,
+                  ),
+                ),
+                // Read receipt — WhatsApp/Telegram-style ticks, driven by the
+                // `is_read` column the thread already fetches; single grey
+                // tick = sent, double primary-tinted tick = read.
+                if (isMine) ...[
+                  const SizedBox(width: 3),
+                  Icon(
+                    message.isRead ? Icons.done_all : Icons.done,
+                    size: 13,
+                    color: message.isRead
+                        ? AppColors.primary
+                        : AppColors.textHint,
+                  ),
+                ],
+              ],
             ),
           ),
         ],
       ),
+    );
+  }
+
+  Widget _buildReplyQuote() {
+    final reply = repliedMessage!;
+    return Container(
+      margin: const EdgeInsets.only(bottom: 6),
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+      decoration: BoxDecoration(
+        color: (isMine ? Colors.white : AppColors.primary).withValues(alpha: 0.1),
+        borderRadius: BorderRadius.circular(8),
+        border: Border(
+          left: BorderSide(
+            color: isMine ? Colors.white70 : AppColors.primary,
+            width: 2,
+          ),
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(
+            repliedSenderName ?? 'Message',
+            style: AppTextStyles.caption.copyWith(
+              fontSize: 10.5,
+              fontWeight: FontWeight.w600,
+              color: isMine ? Colors.white : AppColors.primary,
+            ),
+          ),
+          Text(
+            reply.displayContent,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: AppTextStyles.caption.copyWith(
+              fontSize: 11,
+              color: isMine
+                  ? Colors.white.withValues(alpha: 0.85)
+                  : AppColors.textSecondary,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildReactionRow() {
+    return Padding(
+      padding: const EdgeInsets.only(top: 4),
+      child: Wrap(
+        spacing: 4,
+        children: reactions.map((r) {
+          final mine = r.reactedBy(currentUserId);
+          return GestureDetector(
+            onTap: onReact == null ? null : () => onReact!(r.emoji),
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+              decoration: BoxDecoration(
+                color: mine
+                    ? AppColors.primary.withValues(alpha: 0.15)
+                    : AppColors.cardBackground,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(
+                  color: mine ? AppColors.primary : const Color(0xFFEDEDF2),
+                ),
+              ),
+              child: Text(
+                '${r.emoji} ${r.count}',
+                style: AppTextStyles.caption.copyWith(fontSize: 10.5),
+              ),
+            ),
+          );
+        }).toList(),
+      ),
+    );
+  }
+}
+
+class _ActionSheet extends StatelessWidget {
+  final bool isMine;
+  final bool canEdit;
+  final List<String> quickEmojis;
+  final ValueChanged<String>? onReact;
+  final VoidCallback? onReply;
+  final VoidCallback? onEdit;
+  final VoidCallback? onDeleteForMe;
+  final VoidCallback? onDeleteForEveryone;
+  final VoidCallback? onReport;
+
+  const _ActionSheet({
+    required this.isMine,
+    required this.canEdit,
+    required this.quickEmojis,
+    this.onReact,
+    this.onReply,
+    this.onEdit,
+    this.onDeleteForMe,
+    this.onDeleteForEveryone,
+    this.onReport,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return SafeArea(
+      child: Container(
+        margin: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: AppColors.cardBackground,
+          borderRadius: BorderRadius.circular(16),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (onReact != null)
+              Padding(
+                padding: const EdgeInsets.symmetric(vertical: 12),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                  children: quickEmojis
+                      .map(
+                        (e) => GestureDetector(
+                          onTap: () => onReact!(e),
+                          child: Text(e, style: const TextStyle(fontSize: 24)),
+                        ),
+                      )
+                      .toList(),
+                ),
+              ),
+            const Divider(height: 1),
+            if (onReply != null)
+              _tile(context, Icons.reply, 'Reply', onReply!),
+            if (canEdit && onEdit != null)
+              _tile(context, Icons.edit_outlined, 'Edit', onEdit!),
+            if (onDeleteForMe != null)
+              _tile(context, Icons.delete_outline, 'Delete for me', onDeleteForMe!),
+            if (isMine && onDeleteForEveryone != null)
+              _tile(
+                context,
+                Icons.delete_forever_outlined,
+                'Delete for everyone',
+                onDeleteForEveryone!,
+                destructive: true,
+              ),
+            if (!isMine && onReport != null)
+              _tile(context, Icons.flag_outlined, 'Report', onReport!,
+                  destructive: true),
+            const SizedBox(height: 8),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _tile(
+    BuildContext context,
+    IconData icon,
+    String label,
+    VoidCallback onTap, {
+    bool destructive = false,
+  }) {
+    final color = destructive ? Colors.red : AppColors.textPrimary;
+    return ListTile(
+      leading: Icon(icon, color: color, size: 20),
+      title: Text(
+        label,
+        style: AppTextStyles.body.copyWith(fontSize: 14, color: color),
+      ),
+      onTap: onTap,
     );
   }
 }

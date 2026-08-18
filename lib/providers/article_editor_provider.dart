@@ -71,6 +71,11 @@ class ArticleEditorProvider extends ChangeNotifier {
   bool get isLocked => _lockReason != null;
   bool get isEditing => articleId != null;
 
+  /// The id this draft was saved under, once a save has happened — the
+  /// existing [articleId] when editing, or the id [_persist] just created.
+  /// Null before the first successful save.
+  String? get persistedId => _persistedId;
+
   bool get isAdmin {
     final type = userType?.toLowerCase();
     return type == 'admin' || type == 'super_admin';

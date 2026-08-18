@@ -45,6 +45,23 @@ String formatMinorAmount(int? minor, {String? currency}) {
   return '${major < 0 ? '-' : ''}$symbol$text';
 }
 
+/// Joins a generated caption body, an optional CTA and hashtags into one
+/// string — a direct port of `captionGeneratorService.composeCaption`.
+/// Sections are separated by a blank line; the CTA is skipped if [body]
+/// already contains it verbatim.
+String composeCaption(String body, List<String> hashtags, [String? cta]) {
+  final parts = <String>[body.trim()];
+  if (cta != null && cta.isNotEmpty && !body.contains(cta)) {
+    parts.add(cta.trim());
+  }
+  if (hashtags.isNotEmpty) {
+    parts.add(
+      hashtags.map((h) => '#${h.replaceFirst(RegExp(r'^#'), '')}').join(' '),
+    );
+  }
+  return parts.where((p) => p.isNotEmpty).join('\n\n');
+}
+
 /// Indian digit grouping: last three, then pairs.
 String _groupIndian(String digits) {
   if (digits.length <= 3) return digits;
@@ -211,7 +228,54 @@ class SocialPreferences {
         'manual' => 'Only when I choose',
         final other => other,
       };
+
+  SocialPreferences copyWith({
+    bool? autoShareProperty,
+    bool? autoShareProjects,
+    bool? autoShareVideos,
+    bool? autoShareReels,
+    bool? autoShareBlogs,
+    bool? autoSharePromotions,
+    bool? autoShareOpenHouses,
+    bool? fbEnabled,
+    bool? igEnabled,
+    bool? igFeed,
+    bool? igReel,
+    bool? fbStory,
+    bool? igStory,
+    Object? defaultCaptionTemplate = _unset,
+    List<String>? defaultHashtags,
+    Object? defaultCta = _unset,
+    String? autoShareRule,
+  }) {
+    return SocialPreferences(
+      autoShareProperty: autoShareProperty ?? this.autoShareProperty,
+      autoShareProjects: autoShareProjects ?? this.autoShareProjects,
+      autoShareVideos: autoShareVideos ?? this.autoShareVideos,
+      autoShareReels: autoShareReels ?? this.autoShareReels,
+      autoShareBlogs: autoShareBlogs ?? this.autoShareBlogs,
+      autoSharePromotions: autoSharePromotions ?? this.autoSharePromotions,
+      autoShareOpenHouses: autoShareOpenHouses ?? this.autoShareOpenHouses,
+      fbEnabled: fbEnabled ?? this.fbEnabled,
+      igEnabled: igEnabled ?? this.igEnabled,
+      igFeed: igFeed ?? this.igFeed,
+      igReel: igReel ?? this.igReel,
+      fbStory: fbStory ?? this.fbStory,
+      igStory: igStory ?? this.igStory,
+      defaultCaptionTemplate: identical(defaultCaptionTemplate, _unset)
+          ? this.defaultCaptionTemplate
+          : defaultCaptionTemplate as String?,
+      defaultHashtags: defaultHashtags ?? this.defaultHashtags,
+      defaultCta:
+          identical(defaultCta, _unset) ? this.defaultCta : defaultCta as String?,
+      autoShareRule: autoShareRule ?? this.autoShareRule,
+    );
+  }
 }
+
+/// Sentinel so `copyWith` can tell "not passed" apart from "explicitly set to
+/// null" for the two nullable string fields.
+const Object _unset = Object();
 
 /// One row of `social_share_logs`.
 class ShareLog {
@@ -257,6 +321,83 @@ class ShareLog {
   bool get succeeded => status == 'success';
 }
 
+/// One row of `social_share_queue` — the live publish job, not the finished
+/// attempt log. Mirrors `ShareQueueItem` in `src/services/social/types.ts`.
+///
+/// This, not `ShareLog`, is what the portal's "Publishing activity" panel
+/// actually reads (`queueService.listQueue`): the queue is the only place a
+/// `queued` or `canceled` job is ever visible — `social_share_logs` only ever
+/// carries `success`/`failed`/`processing` rows written by the worker after an
+/// attempt.
+class ShareQueueItem {
+  final String id;
+  final String userId;
+  final String platform;
+  final String contentType;
+  final String? contentId;
+  final List<String> targets;
+
+  /// `queued | processing | success | failed | canceled`.
+  final String status;
+  final Map<String, dynamic> payload;
+  final String? error;
+  final DateTime? createdAt;
+
+  const ShareQueueItem({
+    required this.id,
+    required this.userId,
+    required this.platform,
+    required this.contentType,
+    required this.status,
+    this.contentId,
+    this.targets = const [],
+    this.payload = const {},
+    this.error,
+    this.createdAt,
+  });
+
+  factory ShareQueueItem.fromJson(Map<String, dynamic> json) {
+    final payload = json['payload'];
+    return ShareQueueItem(
+      id: '${json['id'] ?? ''}',
+      userId: '${json['user_id'] ?? ''}',
+      platform: '${json['platform'] ?? ''}',
+      contentType: '${json['content_type'] ?? ''}',
+      contentId: json['content_id'] as String?,
+      targets: _stringList(json['targets']),
+      status: '${json['status'] ?? 'queued'}',
+      payload: payload is Map ? Map<String, dynamic>.from(payload) : const {},
+      error: json['error'] as String?,
+      createdAt: _date(json['created_at']),
+    );
+  }
+
+  String? get caption => payload['caption'] as String?;
+
+  /// Same relative-time convention as `AppNotification.relativeTime`, so a
+  /// timestamp reads the same way across the whole app.
+  String get relativeTime {
+    final created = createdAt;
+    if (created == null) return '';
+
+    final delta = DateTime.now().difference(created);
+    if (delta.isNegative) return 'Just now';
+    if (delta.inMinutes < 1) return 'Just now';
+    if (delta.inMinutes < 60) return '${delta.inMinutes} min ago';
+    if (delta.inHours < 24) {
+      return '${delta.inHours} hr${delta.inHours == 1 ? '' : 's'} ago';
+    }
+    if (delta.inDays == 1) return 'Yesterday';
+    if (delta.inDays < 7) return '${delta.inDays} days ago';
+
+    const months = [
+      'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+      'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
+    ];
+    return '${months[created.month - 1]} ${created.day}';
+  }
+}
+
 /// One row of `social_ad_campaigns`.
 class AdCampaign {
   final String id;
@@ -272,6 +413,8 @@ class AdCampaign {
   final int leadsCount;
   final int? cplMinor;
   final DateTime? createdAt;
+  final String? adAccountId;
+  final String? lastError;
 
   const AdCampaign({
     required this.id,
@@ -287,6 +430,8 @@ class AdCampaign {
     this.leadsCount = 0,
     this.cplMinor,
     this.createdAt,
+    this.adAccountId,
+    this.lastError,
   });
 
   factory AdCampaign.fromJson(Map<String, dynamic> json) {
@@ -304,6 +449,8 @@ class AdCampaign {
       leadsCount: _int(json['leads_count']),
       cplMinor: _intOrNull(json['cpl_minor']),
       createdAt: _date(json['created_at']),
+      adAccountId: json['ad_account_id'] as String?,
+      lastError: json['last_error'] as String?,
     );
   }
 
@@ -440,6 +587,122 @@ class SocialAnalytics {
   }
 
   bool get hasPublished => totalShares > 0;
+}
+
+/// A Facebook Page the connecting user manages, with its linked Instagram
+/// Business account if any — one entry of `meta-oauth-exchange`'s `pages`
+/// array. Mirrors `AvailablePage` in `src/services/social/types.ts`.
+class AvailablePage {
+  final String id;
+  final String name;
+  final String? picture;
+  final String? instagramId;
+  final String? instagramUsername;
+  final String? instagramPicture;
+
+  const AvailablePage({
+    required this.id,
+    required this.name,
+    this.picture,
+    this.instagramId,
+    this.instagramUsername,
+    this.instagramPicture,
+  });
+
+  factory AvailablePage.fromJson(Map<String, dynamic> json) {
+    final ig = json['instagram'];
+    final igMap = ig is Map ? Map<String, dynamic>.from(ig) : null;
+    return AvailablePage(
+      id: '${json['id'] ?? ''}',
+      name: '${json['name'] ?? ''}',
+      picture: json['picture'] as String?,
+      instagramId: igMap?['id'] as String?,
+      instagramUsername: igMap?['username'] as String?,
+      instagramPicture: igMap?['picture'] as String?,
+    );
+  }
+
+  bool get hasInstagram => instagramUsername != null;
+}
+
+/// A Meta ad account the connected login can advertise with — one entry of
+/// `meta-list-ad-accounts`' response. Mirrors `AdAccount` in
+/// `src/services/social/types.ts`.
+class MetaAdAccount {
+  final String id;
+  final String name;
+  final String? currency;
+  final int? accountStatus;
+
+  const MetaAdAccount({
+    required this.id,
+    required this.name,
+    this.currency,
+    this.accountStatus,
+  });
+
+  factory MetaAdAccount.fromJson(Map<String, dynamic> json) {
+    return MetaAdAccount(
+      id: '${json['id'] ?? ''}',
+      name: '${json['name'] ?? ''}',
+      currency: json['currency'] as String?,
+      accountStatus: json['account_status'] is int
+          ? json['account_status'] as int
+          : int.tryParse('${json['account_status'] ?? ''}'),
+    );
+  }
+
+  /// Meta's numeric account_status enum — 1 is the only "billing is fine" value.
+  bool get isActive => accountStatus == 1;
+
+  String get statusLabel => switch (accountStatus) {
+        1 => 'Active',
+        2 => 'Disabled',
+        3 => 'Unsettled',
+        7 => 'Pending review',
+        9 => 'In grace period',
+        101 => 'Closed',
+        null => 'Unknown',
+        _ => 'Status $accountStatus',
+      };
+}
+
+/// A location match from `meta-targeting-search` — feeds the campaign
+/// targeting autocomplete. Mirrors `GeoSearchResult`.
+class GeoSearchResult {
+  final String key;
+  final String name;
+  final String type;
+  final String? countryCode;
+  final String? countryName;
+  final String? region;
+
+  const GeoSearchResult({
+    required this.key,
+    required this.name,
+    required this.type,
+    this.countryCode,
+    this.countryName,
+    this.region,
+  });
+
+  factory GeoSearchResult.fromJson(Map<String, dynamic> json) {
+    return GeoSearchResult(
+      key: '${json['key'] ?? ''}',
+      name: '${json['name'] ?? ''}',
+      type: '${json['type'] ?? ''}',
+      countryCode: json['country_code'] as String?,
+      countryName: json['country_name'] as String?,
+      region: json['region'] as String?,
+    );
+  }
+
+  /// "Mumbai, Maharashtra" style label for a chip.
+  String get displayLabel {
+    if (type == 'country') return name;
+    final parts = [name, if (region != null && region != name) region];
+    return parts.join(', ');
+  }
 }
 
 class TopSharedContent {

@@ -88,6 +88,15 @@ dependencies:
   # the profile-share "Download PNG" action — the mobile equivalent of the
   # portal's browser download. No existing dependency covers gallery writes.
   gal: ^2.3.1
+  # Pure-Dart re-encode of a picked chat photo strips EXIF/GPS before upload,
+  # matching the portal's client-side `stripImageMetadata` in
+  # features/messaging/lib/uploadChatMedia.ts — chat-media is a private
+  # bucket read only via signed URL, but the file itself shouldn't carry the
+  # sender's location data regardless.
+  image: ^4.3.0
+  # Explicit dependency for chat-media upload paths (${authUid}/${uuid}.ext) —
+  # was only reachable transitively via supabase_flutter before.
+  uuid: ^4.5.3
 
 dev_dependencies:
   flutter_test:

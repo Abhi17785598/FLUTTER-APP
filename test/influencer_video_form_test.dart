@@ -164,6 +164,26 @@ Future<void> _pumpForm(
           videoService: service,
           mediaService: media,
           picker: picker ?? _FakePicker(),
+          // No-op stubs: the real dialogs open against a live SocialService
+          // (or, for the boost prompt, a real confirm dialog with nothing to
+          // dismiss it) and would hang the test waiting for a tap that never
+          // comes.
+          publishDialogLauncher: (
+            context, {
+            required userId,
+            required contentType,
+            required contentId,
+            required mediaUrls,
+            title,
+          }) async {},
+          boostDialogLauncher: (
+            context, {
+            required userId,
+            required contentType,
+            required contentId,
+            required mediaUrls,
+            title,
+          }) async {},
         ),
       ),
     ),

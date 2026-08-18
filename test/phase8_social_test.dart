@@ -64,6 +64,29 @@ ShareLog _log({
   });
 }
 
+ShareQueueItem _queueItem({
+  String id = 'q-1',
+  String platform = 'facebook',
+  String status = 'success',
+  String contentType = 'property',
+  String? contentId = 'c-1',
+  List<String> targets = const ['feed'],
+  String? error,
+  String createdAt = '2026-08-03T10:00:00Z',
+}) {
+  return ShareQueueItem.fromJson({
+    'id': id,
+    'user_id': 'u-1',
+    'platform': platform,
+    'status': status,
+    'content_type': contentType,
+    'content_id': contentId,
+    'targets': targets,
+    'error': error,
+    'created_at': createdAt,
+  });
+}
+
 void main() {
   group('formatMinorAmount', () {
     test('converts minor units and picks the currency symbol', () {
@@ -308,6 +331,11 @@ void main() {
         loading: false,
         failed: false,
         onConnect: () {},
+        onReconnect: () {},
+        onDisconnect: () {},
+        onRefreshStats: () {},
+        onToggleAutoRefresh: (_) {},
+        onChooseAdAccount: () {},
       )));
 
       expect(find.text('Accounts'), findsOneWidget);
@@ -331,6 +359,11 @@ void main() {
         loading: false,
         failed: false,
         onConnect: () {},
+        onReconnect: () {},
+        onDisconnect: () {},
+        onRefreshStats: () {},
+        onToggleAutoRefresh: (_) {},
+        onChooseAdAccount: () {},
       )));
 
       expect(find.text('Connected'), findsOneWidget);
@@ -353,6 +386,11 @@ void main() {
         loading: false,
         failed: false,
         onConnect: () {},
+        onReconnect: () {},
+        onDisconnect: () {},
+        onRefreshStats: () {},
+        onToggleAutoRefresh: (_) {},
+        onChooseAdAccount: () {},
       )));
 
       expect(find.textContaining('expires in'), findsOneWidget);
@@ -364,6 +402,11 @@ void main() {
         loading: false,
         failed: true,
         onConnect: () {},
+        onReconnect: () {},
+        onDisconnect: () {},
+        onRefreshStats: () {},
+        onToggleAutoRefresh: (_) {},
+        onChooseAdAccount: () {},
       )));
 
       expect(find.text('Unavailable'), findsOneWidget);
@@ -381,6 +424,11 @@ void main() {
         loading: false,
         failed: false,
         onConnect: () {},
+        onReconnect: () {},
+        onDisconnect: () {},
+        onRefreshStats: () {},
+        onToggleAutoRefresh: (_) {},
+        onChooseAdAccount: () {},
       )));
 
       expect(overflowingBoxes(tester), isEmpty);
@@ -432,6 +480,153 @@ void main() {
       expect(find.text('Create Your First Campaign'), findsNothing);
     });
 
+    testWidgets('an ACTIVE campaign offers Pause and Archive, not Launch',
+        (tester) async {
+      String? firedAction;
+      final campaign = AdCampaign.fromJson(const {
+        'id': 'c1',
+        'name': 'Active Campaign',
+        'status': 'ACTIVE',
+        'objective': 'OUTCOME_TRAFFIC',
+      });
+
+      await tester.pumpWidget(_host(SocialCampaignsBody(
+        campaigns: [campaign],
+        loading: false,
+        failed: false,
+        onRefresh: () {},
+        onNewCampaign: () {},
+        onAction: (c, action) => firedAction = action,
+      )));
+
+      expect(find.text('Launch'), findsNothing);
+      expect(find.text('Pause'), findsOneWidget);
+      expect(find.text('Archive'), findsOneWidget);
+
+      await tester.tap(find.text('Pause'));
+      await tester.pump();
+      expect(firedAction, 'pause');
+    });
+
+    testWidgets('a PAUSED campaign offers Launch and Archive, not Pause',
+        (tester) async {
+      String? firedAction;
+      final campaign = AdCampaign.fromJson(const {
+        'id': 'c1',
+        'name': 'Paused Campaign',
+        'status': 'PAUSED',
+        'objective': 'OUTCOME_TRAFFIC',
+      });
+
+      await tester.pumpWidget(_host(SocialCampaignsBody(
+        campaigns: [campaign],
+        loading: false,
+        failed: false,
+        onRefresh: () {},
+        onNewCampaign: () {},
+        onAction: (c, action) => firedAction = action,
+      )));
+
+      expect(find.text('Launch'), findsOneWidget);
+      expect(find.text('Pause'), findsNothing);
+      expect(find.text('Archive'), findsOneWidget);
+
+      await tester.tap(find.text('Launch'));
+      await tester.pump();
+      expect(firedAction, 'resume');
+    });
+
+    testWidgets('an ARCHIVED campaign offers neither Launch, Pause nor Archive',
+        (tester) async {
+      final campaign = AdCampaign.fromJson(const {
+        'id': 'c1',
+        'name': 'Archived Campaign',
+        'status': 'ARCHIVED',
+        'objective': 'OUTCOME_TRAFFIC',
+      });
+
+      await tester.pumpWidget(_host(SocialCampaignsBody(
+        campaigns: [campaign],
+        loading: false,
+        failed: false,
+        onRefresh: () {},
+        onNewCampaign: () {},
+        onAction: (c, action) {},
+      )));
+
+      expect(find.text('Launch'), findsNothing);
+      expect(find.text('Pause'), findsNothing);
+      expect(find.text('Archive'), findsNothing);
+    });
+
+    testWidgets('a busy campaign disables its own lifecycle buttons',
+        (tester) async {
+      var tapped = 0;
+      final campaign = AdCampaign.fromJson(const {
+        'id': 'c1',
+        'name': 'Busy Campaign',
+        'status': 'PAUSED',
+        'objective': 'OUTCOME_TRAFFIC',
+      });
+
+      await tester.pumpWidget(_host(SocialCampaignsBody(
+        campaigns: [campaign],
+        loading: false,
+        failed: false,
+        busyCampaignId: 'c1',
+        onRefresh: () {},
+        onNewCampaign: () {},
+        onAction: (c, action) => tapped++,
+      )));
+
+      await tester.tap(find.text('Launch'));
+      await tester.pump();
+      expect(tapped, 0);
+    });
+
+    testWidgets('a campaign with last_error surfaces it', (tester) async {
+      final campaign = AdCampaign.fromJson(const {
+        'id': 'c1',
+        'name': 'Broken Campaign',
+        'status': 'ACTIVE',
+        'objective': 'OUTCOME_TRAFFIC',
+        'last_error': 'Your Facebook session expired — reconnect in Social ▸ Accounts.',
+      });
+
+      await tester.pumpWidget(_host(SocialCampaignsBody(
+        campaigns: [campaign],
+        loading: false,
+        failed: false,
+        onRefresh: () {},
+        onNewCampaign: () {},
+      )));
+
+      expect(
+        find.textContaining('Your Facebook session expired'),
+        findsOneWidget,
+      );
+    });
+
+    testWidgets('Refresh is relabelled and disabled while syncing',
+        (tester) async {
+      var tapped = 0;
+      await tester.pumpWidget(_host(SocialCampaignsBody(
+        campaigns: const [],
+        loading: false,
+        failed: false,
+        syncing: true,
+        onRefresh: () => tapped++,
+        onNewCampaign: () {},
+      )));
+
+      expect(find.text('Refreshing…'), findsOneWidget);
+      expect(find.text('Refresh'), findsNothing);
+
+      await tester.tap(find.text('Refreshing…'));
+      await tester.pump();
+      expect(tapped, 0);
+    });
+
     testWidgets('a failed load is distinguished from an empty one',
         (tester) async {
       await tester.pumpWidget(_host(SocialCampaignsBody(
@@ -444,6 +639,27 @@ void main() {
 
       expect(find.textContaining("Couldn't load"), findsOneWidget);
       expect(find.text('Create Your First Campaign'), findsNothing);
+    });
+
+    testWidgets('New Campaign is disabled and relabelled while busy',
+        (tester) async {
+      var tapped = 0;
+      await tester.pumpWidget(_host(SocialCampaignsBody(
+        campaigns: const [],
+        loading: false,
+        failed: false,
+        busy: true,
+        onRefresh: () {},
+        onNewCampaign: () => tapped++,
+      )));
+
+      expect(find.text('Loading…'), findsOneWidget);
+      expect(find.text('New Campaign'), findsNothing);
+
+      await tester.tap(find.text('Loading…'));
+      await tester.pump();
+
+      expect(tapped, 0);
     });
 
     testWidgets('lays out without overflow on a small screen', (tester) async {
@@ -479,7 +695,7 @@ void main() {
         loading: false,
         failed: false,
         onRefresh: () {},
-        onExport: () {},
+        onExport: (_) {},
       )));
 
       expect(find.text('Leads'), findsOneWidget);
@@ -496,7 +712,7 @@ void main() {
         loading: false,
         failed: false,
         onRefresh: () {},
-        onExport: () {},
+        onExport: (_) {},
       )));
 
       expect(find.text('Alpha Placeholder'), findsOneWidget);
@@ -514,6 +730,82 @@ void main() {
       expect(find.textContaining('No leads match'), findsOneWidget);
     });
 
+    testWidgets('the status filter narrows the list', (tester) async {
+      await tester.pumpWidget(_host(SocialLeadsBody(
+        leads: [
+          _lead(id: '1', name: 'New Lead', status: 'new'),
+          _lead(id: '2', name: 'Contacted Lead', status: 'contacted'),
+        ],
+        loading: false,
+        failed: false,
+        onRefresh: () {},
+        onExport: (_) {},
+      )));
+
+      expect(find.text('New Lead'), findsOneWidget);
+      expect(find.text('Contacted Lead'), findsOneWidget);
+
+      // Open the status-filter dropdown (the one showing "All statuses") and
+      // pick "Contacted".
+      await tester.tap(find.text('All statuses'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Contacted').last);
+      await tester.pumpAndSettle();
+
+      expect(find.text('New Lead'), findsNothing);
+      expect(find.text('Contacted Lead'), findsOneWidget);
+    });
+
+    testWidgets('changing a lead\'s status is wired', (tester) async {
+      AdLead? changedLead;
+      String? changedStatus;
+      final lead = _lead(id: '1', name: 'Alpha Placeholder', status: 'new');
+
+      await tester.pumpWidget(_host(SocialLeadsBody(
+        leads: [lead],
+        loading: false,
+        failed: false,
+        onRefresh: () {},
+        onExport: (_) {},
+        onStatusChange: (l, s) {
+          changedLead = l;
+          changedStatus = s;
+        },
+      )));
+
+      // The lead's own status dropdown, currently showing "New".
+      await tester.tap(find.text('New'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Qualified').last);
+      await tester.pumpAndSettle();
+
+      expect(changedLead?.id, '1');
+      expect(changedStatus, 'qualified');
+    });
+
+    testWidgets('Refresh is relabelled while syncing, Export disabled when empty',
+        (tester) async {
+      var refreshed = 0;
+      var exported = false;
+      await tester.pumpWidget(_host(SocialLeadsBody(
+        leads: const [],
+        loading: false,
+        failed: false,
+        syncing: true,
+        onRefresh: () => refreshed++,
+        onExport: (_) => exported = true,
+      )));
+
+      expect(find.text('Refreshing…'), findsOneWidget);
+      await tester.tap(find.text('Refreshing…'));
+      await tester.pump();
+      expect(refreshed, 0);
+
+      await tester.tap(find.text('Export CSV'));
+      await tester.pump();
+      expect(exported, isFalse);
+    });
+
     testWidgets('lays out without overflow on a small screen', (tester) async {
       _useSmallScreen(tester);
       await tester.pumpWidget(_host(SocialLeadsBody(
@@ -526,7 +818,7 @@ void main() {
         loading: false,
         failed: false,
         onRefresh: () {},
-        onExport: () {},
+        onExport: (_) {},
       )));
 
       expect(overflowingBoxes(tester), isEmpty);
@@ -549,7 +841,8 @@ void main() {
       expect(find.byType(AppToggle), findsNWidgets(13));
     });
 
-    testWidgets('switches reflect stored values and are inert', (tester) async {
+    testWidgets('switches reflect stored values and stay inert with no onChanged',
+        (tester) async {
       final prefs = SocialPreferences.fromJson(const {
         'auto_share_property': true,
         'fb_enabled': true,
@@ -566,14 +859,39 @@ void main() {
           .widgetList<AppToggle>(find.byType(AppToggle))
           .toList();
 
-      // Read-only in this phase: every switch is non-interactive.
+      // No onChanged/onSave supplied (e.g. still loading) -> every switch
+      // stays non-interactive rather than silently discarding a tap.
       expect(toggles.every((t) => t.onChanged == null), isTrue);
       // Properties is on, Projects is off — the stored values, not defaults.
       expect(toggles.first.value, isTrue);
       expect(toggles[1].value, isFalse);
+    });
 
-      expect(find.textContaining('shown as saved on the web portal'),
-          findsOneWidget);
+    testWidgets('editing a switch and saving round-trips through the callbacks',
+        (tester) async {
+      var edited = false;
+      var saved = false;
+
+      await tester.pumpWidget(_host(SocialPreferencesBody(
+        preferences: SocialPreferences.defaults,
+        loading: false,
+        failed: false,
+        onChanged: (_) => edited = true,
+        onSave: () => saved = true,
+      )));
+
+      final toggles = tester.widgetList<AppToggle>(find.byType(AppToggle)).toList();
+      expect(toggles.every((t) => t.onChanged != null), isTrue);
+
+      await tester.tap(find.byType(AppToggle).first);
+      await tester.pump();
+      expect(edited, isTrue);
+
+      await tester.ensureVisible(find.text('Save settings'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Save settings'));
+      await tester.pump();
+      expect(saved, isTrue);
     });
 
     testWidgets('shows caption defaults, or an honest placeholder',
@@ -588,9 +906,12 @@ void main() {
       )));
 
       expect(find.text('Every item'), findsOneWidget);
-      expect(find.text('RealEstate, PropCid'), findsOneWidget);
+      final hashtagsField =
+          tester.widget<TextField>(find.byType(TextField).first);
+      expect(hashtagsField.controller?.text, 'RealEstate, PropCid');
       // No CTA stored.
-      expect(find.text('None set'), findsOneWidget);
+      final ctaField = tester.widget<TextField>(find.byType(TextField).last);
+      expect(ctaField.controller?.text, isEmpty);
     });
 
     testWidgets('lays out without overflow on a small screen', (tester) async {
@@ -608,35 +929,61 @@ void main() {
   group('Activity screen', () {
     testWidgets('empty state points at Publish Everywhere', (tester) async {
       await tester.pumpWidget(_host(SocialActivityBody(
-        logs: const [],
+        items: const [],
         loading: false,
         failed: false,
         onRefresh: () {},
+        onRetry: (_) {},
       )));
 
       expect(find.text('Publishing Activity'), findsOneWidget);
       expect(find.textContaining('Nothing published yet.'), findsOneWidget);
     });
 
-    testWidgets('renders a failed publish with its error', (tester) async {
+    testWidgets('renders a failed publish with its error and status label',
+        (tester) async {
       await tester.pumpWidget(_host(SocialActivityBody(
-        logs: [_log(status: 'failed', error: 'Token expired')],
+        items: [_queueItem(status: 'failed', error: 'Token expired')],
         loading: false,
         failed: false,
         onRefresh: () {},
+        onRetry: (_) {},
       )));
 
-      expect(find.text('Token expired'), findsOneWidget);
-      expect(find.text('failed'), findsOneWidget);
+      expect(find.textContaining('Token expired'), findsOneWidget);
+      expect(find.text('Failed'), findsOneWidget);
+    });
+
+    testWidgets('every queue status gets its own label', (tester) async {
+      await tester.pumpWidget(_host(SocialActivityBody(
+        items: [
+          _queueItem(id: 'q1', status: 'queued'),
+          _queueItem(id: 'q2', status: 'processing'),
+          _queueItem(id: 'q3', status: 'success'),
+          _queueItem(id: 'q4', status: 'canceled'),
+        ],
+        loading: false,
+        failed: false,
+        onRefresh: () {},
+        onRetry: (_) {},
+      )));
+
+      expect(find.text('Queued'), findsOneWidget);
+      expect(find.text('Processing'), findsOneWidget);
+      expect(find.text('Published'), findsOneWidget);
+      expect(find.text('Canceled'), findsOneWidget);
+      // None of the four above are failed, so no Retry button should appear.
+      expect(find.widgetWithText(TextButton, 'Retry'), findsNothing);
     });
 
     testWidgets('refresh is wired', (tester) async {
       var refreshed = 0;
       await tester.pumpWidget(_host(SocialActivityBody(
-        logs: const [],
+        items: const [],
         loading: false,
         failed: false,
         onRefresh: () => refreshed++,
+        onRetry: (_) {},
       )));
 
       await tester.tap(find.text('Refresh'));
@@ -645,19 +992,41 @@ void main() {
       expect(refreshed, 1);
     });
 
+    testWidgets('retry is offered only on a failed row, and is wired',
+        (tester) async {
+      ShareQueueItem? retried;
+      final failedItem = _queueItem(status: 'failed', error: 'Token expired');
+      await tester.pumpWidget(_host(SocialActivityBody(
+        items: [failedItem, _queueItem(status: 'success')],
+        loading: false,
+        failed: false,
+        onRefresh: () {},
+        onRetry: (item) => retried = item,
+      )));
+
+      expect(find.widgetWithText(TextButton, 'Retry'), findsOneWidget);
+
+      await tester.tap(find.widgetWithText(TextButton, 'Retry'));
+      await tester.pump();
+
+      expect(retried, same(failedItem));
+    });
+
     testWidgets('lays out without overflow on a small screen', (tester) async {
       _useSmallScreen(tester);
       await tester.pumpWidget(_host(SocialActivityBody(
-        logs: [
-          _log(
+        items: [
+          _queueItem(
             status: 'failed',
             error: 'A very long placeholder error message that keeps going on',
             contentType: 'a_very_long_content_type_name',
+            targets: const ['feed', 'story'],
           ),
         ],
         loading: false,
         failed: false,
         onRefresh: () {},
+        onRetry: (_) {},
       )));
 
       expect(overflowingBoxes(tester), isEmpty);

@@ -1,3 +1,23 @@
+/// Valid values of `messages.media_status` / `channel_messages.media_status`.
+///
+/// `text` is the default for a message with no media at all. `pending` means
+/// an image is uploaded but not yet moderated; `approved`/`rejected` are the
+/// two terminal states `moderate-media` can leave it in.
+enum MediaStatus { text, pending, approved, rejected }
+
+MediaStatus _mediaStatusFromString(String? value) {
+  switch (value) {
+    case 'pending':
+      return MediaStatus.pending;
+    case 'approved':
+      return MediaStatus.approved;
+    case 'rejected':
+      return MediaStatus.rejected;
+    default:
+      return MediaStatus.text;
+  }
+}
+
 /// One message, from either `messages` (1:1) or `channel_messages` (group).
 ///
 /// The two tables share every column this model reads; `channel_messages`
@@ -9,17 +29,35 @@ class ChatMessage {
   final String senderId;
   final String content;
 
-  /// `text`, `property_share`, `image`, … — the schema is open-ended, so this
-  /// is kept as a raw string rather than an enum that could reject a value the
-  /// backend already stores.
+  /// `text`, `property_share`, `image`, `audio`, `video` — the schema is
+  /// open-ended, so this is kept as a raw string rather than an enum that
+  /// could reject a value the backend already stores.
   final String messageType;
 
   /// Set on `property_share` messages.
   final String? propertyId;
 
   final List<String> mediaUrls;
+  final MediaStatus mediaStatus;
   final bool isRead;
   final DateTime? createdAt;
+
+  /// The message this one is replying to, if any. Rendered by looking the id
+  /// up in the already-loaded thread — no separate fetch, matching the portal.
+  final String? replyToId;
+
+  /// Set once the sender edits the message's text (within the RPC's 15-minute
+  /// window). Null means never edited.
+  final DateTime? editedAt;
+
+  /// Set when the sender deletes the message for everyone — the row is kept
+  /// as a tombstone (`content`/`media_urls` cleared server-side) rather than
+  /// hard-deleted.
+  final DateTime? deletedAt;
+
+  /// User ids who deleted this message "for me" — the row must be hidden
+  /// from their view while everyone else still sees it.
+  final List<String> deletedFor;
 
   const ChatMessage({
     required this.id,
@@ -28,16 +66,24 @@ class ChatMessage {
     required this.messageType,
     this.propertyId,
     this.mediaUrls = const [],
+    this.mediaStatus = MediaStatus.text,
     this.isRead = false,
     this.createdAt,
+    this.replyToId,
+    this.editedAt,
+    this.deletedAt,
+    this.deletedFor = const [],
   });
 
   factory ChatMessage.fromSupabase(Map<String, dynamic> json) {
     final created = json['created_at'] as String?;
+    final edited = json['edited_at'] as String?;
+    final deleted = json['deleted_at'] as String?;
     final media = json['media_urls'];
+    final deletedForRaw = json['deleted_for'];
 
     return ChatMessage(
-      id: json['id'].toString(),
+      id: json['id']?.toString() ?? '',
       senderId: json['sender_id']?.toString() ?? '',
       content: (json['content'] as String?) ?? '',
       messageType: (json['message_type'] as String?) ?? 'text',
@@ -45,13 +91,26 @@ class ChatMessage {
       mediaUrls: media is List
           ? media.map((e) => e.toString()).toList()
           : const <String>[],
+      mediaStatus: _mediaStatusFromString(json['media_status'] as String?),
       isRead: (json['is_read'] as bool?) ?? false,
       createdAt: created == null ? null : DateTime.tryParse(created),
+      replyToId: json['reply_to_id']?.toString(),
+      editedAt: edited == null ? null : DateTime.tryParse(edited),
+      deletedAt: deleted == null ? null : DateTime.tryParse(deleted),
+      deletedFor: deletedForRaw is List
+          ? deletedForRaw.map((e) => e.toString()).toList()
+          : const <String>[],
     );
   }
 
   bool get isPropertyShare => messageType == 'property_share';
   bool get isImage => messageType == 'image';
+  bool get isAudio => messageType == 'audio';
+  bool get isVideo => messageType == 'video';
+  bool get isDeleted => deletedAt != null;
+  bool get isEdited => editedAt != null;
+
+  bool hiddenFor(String userId) => deletedFor.contains(userId);
 
   /// What to render in a bubble when the type is not plain text.
   ///
@@ -61,9 +120,12 @@ class ChatMessage {
   /// blueprint §16.7 requires those degrade gracefully rather than rendering
   /// a blank bubble.
   String get displayContent {
+    if (isDeleted) return 'This message was deleted';
     if (content.trim().isNotEmpty) return content;
     if (isPropertyShare) return 'Shared a property';
     if (isImage) return 'Sent an image';
+    if (isVideo) return 'Sent a video';
+    if (isAudio) return 'Voice message';
     return 'Unsupported message';
   }
 }

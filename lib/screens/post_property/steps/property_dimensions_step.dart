@@ -368,8 +368,7 @@ class _PropertyDimensionsStepState extends State<PropertyDimensionsStep> {
           ),
         ]),
 
-      // The portal's spelling.
-      const PortalBlockHeading('Land Specfication'),
+      const PortalBlockHeading('Land Specification'),
 
       ..._stack(top: 8, [
         for (final side in _kLandSides)
@@ -381,6 +380,7 @@ class _PropertyDimensionsStepState extends State<PropertyDimensionsStep> {
             child: _withUnit(
               controller: _sides[side]!,
               prefix: const PortalIconTint('move', color: _cWater),
+              inputFormatters: _kNumericish,
               onChanged: (v) => p.setText(side, v),
               unit: p.text('${side}Unit').isEmpty
                   ? kLandSideDimensionUnits.first

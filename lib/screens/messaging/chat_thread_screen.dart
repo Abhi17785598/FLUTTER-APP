@@ -1,12 +1,22 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
+import 'package:flutter_sound/flutter_sound.dart';
+import 'package:image_picker/image_picker.dart';
+import 'package:path_provider/path_provider.dart';
 import 'package:provider/provider.dart';
 
 import '../../core/constants/app_constants.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_text_styles.dart';
 import '../../core/widgets/empty_state_view.dart';
+import '../../models/chat_message.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/chat_thread_provider.dart';
+import '../../services/chat_media_service.dart';
+import '../../services/messaging_exceptions.dart';
+import '../../services/messaging_service.dart';
+import 'channel_settings_screen.dart';
 import 'widgets/chat_avatar.dart';
 import 'widgets/chat_bubble.dart';
 import 'widgets/message_composer.dart';
@@ -33,12 +43,20 @@ class ChatThreadScreen extends StatelessWidget {
 
   /// The other person in a 1:1 thread, when known — makes the header's avatar and
   /// title open their public profile.
-  ///
-  /// Optional and null by default, so every existing caller compiles and behaves
-  /// exactly as before. Null for channels (a group has no single participant) and
-  /// for any 1:1 thread whose participant could not be resolved, in which case the
-  /// header stays inert, as it was.
   final String? participantUserId;
+
+  /// The signed-in user's own `request_status` for this conversation —
+  /// `'pending'` swaps the composer for an Accept/Decline banner until it's
+  /// accepted. Always `'accepted'` for a thread the user just started
+  /// themselves and for channels.
+  final String requestStatus;
+
+  final bool isMuted;
+
+  /// Whether the current user is `admin` on this channel — irrelevant for
+  /// 1:1 threads. Gates the role-management controls in
+  /// [ChannelSettingsScreen], not visibility of the settings screen itself.
+  final bool isChannelAdmin;
 
   const ChatThreadScreen({
     super.key,
@@ -49,6 +67,9 @@ class ChatThreadScreen extends StatelessWidget {
     this.subtitle,
     this.avatarUrl,
     this.participantUserId,
+    this.requestStatus = 'accepted',
+    this.isMuted = false,
+    this.isChannelAdmin = false,
   });
 
   @override
@@ -78,18 +99,24 @@ class ChatThreadScreen extends StatelessWidget {
         // channel passes null already.
         participantUserId:
             participantUserId == userId ? null : participantUserId,
+        initialRequestStatus: requestStatus,
+        initialIsMuted: isMuted,
+        isChannelAdmin: isChannelAdmin,
       ),
     );
   }
 }
 
-class _ChatThreadView extends StatelessWidget {
+class _ChatThreadView extends StatefulWidget {
   final String title;
   final String? subtitle;
   final String? avatarUrl;
   final String initials;
   final String currentUserId;
   final String? participantUserId;
+  final String initialRequestStatus;
+  final bool initialIsMuted;
+  final bool isChannelAdmin;
 
   const _ChatThreadView({
     required this.title,
@@ -97,8 +124,355 @@ class _ChatThreadView extends StatelessWidget {
     required this.avatarUrl,
     required this.initials,
     required this.currentUserId,
+    required this.initialRequestStatus,
+    required this.initialIsMuted,
+    required this.isChannelAdmin,
     this.participantUserId,
   });
+
+  @override
+  State<_ChatThreadView> createState() => _ChatThreadViewState();
+}
+
+class _ChatThreadViewState extends State<_ChatThreadView> {
+  final ScrollController _scrollController = ScrollController();
+  final _service = MessagingService();
+  final _imagePicker = ImagePicker();
+  final _recorder = FlutterSoundRecorder();
+
+  late String _requestStatus = widget.initialRequestStatus;
+  late bool _isMuted = widget.initialIsMuted;
+  bool _requestActionInFlight = false;
+  bool _recorderOpen = false;
+  bool _isRecording = false;
+  DateTime? _recordingStartedAt;
+
+  bool get _isPendingRequest => _requestStatus == 'pending';
+
+  @override
+  void initState() {
+    super.initState();
+    _scrollController.addListener(_onScroll);
+  }
+
+  @override
+  void dispose() {
+    _scrollController.removeListener(_onScroll);
+    _scrollController.dispose();
+    if (_recorderOpen) _recorder.closeRecorder();
+    super.dispose();
+  }
+
+  /// The list is `reverse: true` (anchored to the newest message), so
+  /// "scrolled near the top of the conversation" is the *maximum* scroll
+  /// extent, not zero.
+  void _onScroll() {
+    if (!_scrollController.hasClients) return;
+    final position = _scrollController.position;
+    if (position.pixels >= position.maxScrollExtent - 200) {
+      context.read<ChatThreadProvider>().loadMore();
+    }
+  }
+
+  Future<void> _acceptRequest() async {
+    setState(() => _requestActionInFlight = true);
+    try {
+      await _service.acceptConversationRequest(
+        context.read<ChatThreadProvider>().threadId,
+      );
+      if (mounted) setState(() => _requestStatus = 'accepted');
+    } catch (_) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text("Couldn't accept the request.")),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _requestActionInFlight = false);
+    }
+  }
+
+  Future<void> _declineRequest() async {
+    setState(() => _requestActionInFlight = true);
+    try {
+      await _service.hideConversation(
+        context.read<ChatThreadProvider>().threadId,
+      );
+      if (mounted) Navigator.of(context).pop();
+    } catch (_) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text("Couldn't decline the request.")),
+        );
+      }
+      if (mounted) setState(() => _requestActionInFlight = false);
+    }
+  }
+
+  Future<void> _toggleMute() async {
+    final thread = context.read<ChatThreadProvider>();
+    final next = !_isMuted;
+    try {
+      if (thread.isChannel) {
+        await _service.setChannelMuted(thread.threadId, next);
+      } else {
+        await _service.setConversationMuted(thread.threadId, next);
+      }
+      if (mounted) setState(() => _isMuted = next);
+    } catch (_) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text("Couldn't update mute setting.")),
+        );
+      }
+    }
+  }
+
+  void _openChannelSettings(ChatThreadProvider thread) {
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => ChannelSettingsScreen(
+          channelId: thread.threadId,
+          channelName: widget.title,
+          currentUserId: widget.currentUserId,
+          isAdmin: widget.isChannelAdmin,
+        ),
+      ),
+    );
+  }
+
+  Future<void> _blockParticipant() async {
+    final userId = widget.participantUserId;
+    if (userId == null) return;
+    final confirmed = await _confirm(
+      title: 'Block this person?',
+      message: "You won't receive new messages from them.",
+      confirmLabel: 'Block',
+    );
+    if (confirmed != true || !mounted) return;
+    try {
+      await _service.blockUser(userId);
+      if (mounted) Navigator.of(context).pop();
+    } catch (e) {
+      debugPrint('ChatThreadScreen._blockParticipant failed: ${describeError(e)}');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text("Couldn't block this person (${describeError(e)}).")),
+        );
+      }
+    }
+  }
+
+  Future<bool?> _confirm({
+    required String title,
+    required String message,
+    required String confirmLabel,
+  }) {
+    return showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: Text(title),
+        content: Text(message),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(false),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(true),
+            child: Text(confirmLabel, style: const TextStyle(color: Colors.red)),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _showEditDialog(ChatThreadProvider thread, ChatMessage message) async {
+    final controller = TextEditingController(text: message.content);
+    final newText = await showDialog<String>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Edit message'),
+        content: TextField(controller: controller, autofocus: true, maxLines: 4),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(controller.text),
+            child: const Text('Save'),
+          ),
+        ],
+      ),
+    );
+    if (newText == null || newText.trim().isEmpty || !mounted) return;
+    final error = await thread.editMessage(message.id, newText);
+    if (error != null && mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(error)));
+    }
+  }
+
+  Future<void> _confirmDeleteForMe(ChatThreadProvider thread, String id) async {
+    final ok = await _confirm(
+      title: 'Delete for me?',
+      message: 'This only removes it from your view.',
+      confirmLabel: 'Delete',
+    );
+    if (ok != true) return;
+    final error = await thread.deleteForMe(id);
+    if (error != null && mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(error)));
+    }
+  }
+
+  Future<void> _confirmDeleteForEveryone(
+    ChatThreadProvider thread,
+    String id,
+  ) async {
+    final ok = await _confirm(
+      title: 'Delete for everyone?',
+      message: 'Everyone in this conversation will see it was deleted.',
+      confirmLabel: 'Delete',
+    );
+    if (ok != true) return;
+    final error = await thread.deleteForEveryone(id);
+    if (error != null && mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(error)));
+    }
+  }
+
+  Future<void> _pickAndSendImage() async {
+    final source = await showModalBottomSheet<ImageSource>(
+      context: context,
+      builder: (sheetContext) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ListTile(
+              leading: const Icon(Icons.photo_camera_outlined),
+              title: const Text('Take photo'),
+              onTap: () => Navigator.of(sheetContext).pop(ImageSource.camera),
+            ),
+            ListTile(
+              leading: const Icon(Icons.photo_library_outlined),
+              title: const Text('Choose from gallery'),
+              onTap: () => Navigator.of(sheetContext).pop(ImageSource.gallery),
+            ),
+          ],
+        ),
+      ),
+    );
+    if (source == null) return;
+
+    final picked = await _imagePicker.pickImage(
+      source: source,
+      maxWidth: 1600,
+      maxHeight: 1600,
+      imageQuality: 85,
+    );
+    if (picked == null || !mounted) return;
+
+    final bytes = await readFileBytes(picked.path);
+    final ext = picked.path.split('.').last;
+    final thread = context.read<ChatThreadProvider>();
+    final error = await thread.sendImage(bytes, ext);
+    if (error != null && mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(error)));
+    }
+  }
+
+  Future<void> _toggleVoiceRecording() async {
+    final thread = context.read<ChatThreadProvider>();
+
+    if (_isRecording) {
+      final path = await _recorder.stopRecorder();
+      final startedAt = _recordingStartedAt;
+      setState(() => _isRecording = false);
+      if (path == null || startedAt == null) return;
+
+      final duration = DateTime.now().difference(startedAt);
+      final bytes = await readFileBytes(path);
+      try {
+        await File(path).delete();
+      } catch (_) {
+        // Best-effort cleanup of the temp recording file.
+      }
+      final error = await thread.sendVoiceNote(bytes, 'wav', duration);
+      if (error != null && mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(error)));
+      }
+      return;
+    }
+
+    try {
+      if (!_recorderOpen) {
+        await _recorder.openRecorder();
+        _recorderOpen = true;
+      }
+      final dir = await getTemporaryDirectory();
+      final path =
+          '${dir.path}/voice_${DateTime.now().microsecondsSinceEpoch}.wav';
+      // pcm16WAV is the only codec proven to actually write bytes to disk on
+      // this flutter_sound build (see voice_agent/services/speech_service.dart)
+      // — aacMP4 silently produces an empty file here. 16kHz mono keeps a
+      // full 5-minute recording under the portal's 10MB voice-note limit.
+      await _recorder.startRecorder(
+        toFile: path,
+        codec: Codec.pcm16WAV,
+        sampleRate: 16000,
+        numChannels: 1,
+      );
+      _recordingStartedAt = DateTime.now();
+      setState(() => _isRecording = true);
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text("Couldn't start recording.")),
+        );
+      }
+    }
+  }
+
+  Future<void> _reportMessage(ChatMessage message, String surface) async {
+    const reasons = ['spam', 'harassment', 'nudity', 'scam', 'hate', 'violence', 'other'];
+    final reason = await showModalBottomSheet<String>(
+      context: context,
+      builder: (sheetContext) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: reasons
+              .map(
+                (r) => ListTile(
+                  title: Text(r[0].toUpperCase() + r.substring(1)),
+                  onTap: () => Navigator.of(sheetContext).pop(r),
+                ),
+              )
+              .toList(),
+        ),
+      ),
+    );
+    if (reason == null || widget.participantUserId == null) return;
+    try {
+      await _service.reportMessage(
+        messageId: message.id,
+        surface: surface,
+        reportedUserId: message.senderId,
+        reason: reason,
+      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Report submitted.')),
+        );
+      }
+    } catch (_) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text("Couldn't submit the report.")),
+        );
+      }
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -109,17 +483,62 @@ class _ChatThreadView extends StatelessWidget {
       body: Column(
         children: [
           _Header(
-            title: title,
-            subtitle: subtitle,
-            avatarUrl: avatarUrl,
-            initials: initials,
-            participantUserId: participantUserId,
+            title: widget.title,
+            subtitle: thread.otherTyping ? 'typing…' : widget.subtitle,
+            isTyping: thread.otherTyping,
+            avatarUrl: widget.avatarUrl,
+            initials: widget.initials,
+            participantUserId: widget.participantUserId,
+            isMuted: _isMuted,
+            onToggleMute: _toggleMute,
+            onBlock: widget.participantUserId == null ? null : _blockParticipant,
+            onOpenChannelSettings:
+                thread.isChannel ? () => _openChannelSettings(thread) : null,
           ),
-          Expanded(child: _buildBody(context, thread)),
-          MessageComposer(
-            sending: thread.sending,
-            onSend: thread.send,
+          Expanded(
+            child: DecoratedBox(
+              // Soft, modern chat-canvas tint (WhatsApp/Telegram-style) in
+              // place of a flat background — purely decorative, sits behind
+              // the message list only; header and composer keep their own
+              // opaque surface color above/below it.
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                  colors: [
+                    AppColors.primaryLight.withValues(alpha: 0.35),
+                    AppColors.background,
+                  ],
+                ),
+              ),
+              child: _buildBody(context, thread),
+            ),
           ),
+          if (_isPendingRequest)
+            _RequestBanner(
+              name: widget.title,
+              busy: _requestActionInFlight,
+              onAccept: _acceptRequest,
+              onDecline: _declineRequest,
+            )
+          else
+            MessageComposer(
+              sending: thread.sending || thread.uploadingMedia,
+              onSend: thread.send,
+              replyingTo: thread.replyingTo,
+              replyingToSenderName: thread.replyingTo == null
+                  ? null
+                  : (thread.replyingTo!.senderId == widget.currentUserId
+                      ? 'yourself'
+                      : (thread.isChannel
+                          ? thread.senderFor(thread.replyingTo!.senderId)?.displayName
+                          : widget.title)),
+              onCancelReply: () => thread.setReplyTo(null),
+              onTyping: thread.notifyTyping,
+              onAttach: thread.uploadingMedia ? null : _pickAndSendImage,
+              onRecordVoice: thread.uploadingMedia ? null : _toggleVoiceRecording,
+              isRecordingVoice: _isRecording,
+            ),
         ],
       ),
     );
@@ -153,25 +572,130 @@ class _ChatThreadView extends StatelessWidget {
     }
 
     // `reverse: true` anchors the list to the newest message and keeps it
-    // pinned when the keyboard opens, so no scroll controller is needed.
+    // pinned when the keyboard opens, so no scroll controller is needed for
+    // that; the same controller doubles as the pagination trigger above.
     final ordered = thread.messages.reversed.toList();
+    final surface = thread.isChannel ? 'channel' : 'dm';
 
     return ListView.builder(
+      controller: _scrollController,
       reverse: true,
       padding: const EdgeInsets.fromLTRB(20, 16, 20, 8),
-      itemCount: ordered.length,
+      itemCount: ordered.length + (thread.hasMoreOlder ? 1 : 0),
       itemBuilder: (context, index) {
+        if (index == ordered.length) {
+          return const Padding(
+            padding: EdgeInsets.symmetric(vertical: 12),
+            child: Center(
+              child: SizedBox(
+                width: 18,
+                height: 18,
+                child: CircularProgressIndicator(strokeWidth: 2),
+              ),
+            ),
+          );
+        }
+
         final message = ordered[index];
-        final isMine = message.senderId == currentUserId;
+        final isMine = message.senderId == widget.currentUserId;
+        final replied = thread.repliedMessage(message.replyToId);
 
         return ChatBubble(
           message: message,
           isMine: isMine,
+          currentUserId: widget.currentUserId,
+          surface: surface,
           senderName: thread.isChannel && !isMine
               ? thread.senderFor(message.senderId)?.displayName
               : null,
+          repliedMessage: replied,
+          repliedSenderName: replied == null
+              ? null
+              : (replied.senderId == widget.currentUserId
+                  ? 'You'
+                  : (thread.isChannel
+                      ? thread.senderFor(replied.senderId)?.displayName
+                      : widget.title)),
+          reactions: thread.reactionsFor(message.id),
+          onReact: (emoji) async {
+            final error = await thread.toggleReaction(message.id, emoji);
+            if (error != null && mounted) {
+              ScaffoldMessenger.of(context)
+                  .showSnackBar(SnackBar(content: Text(error)));
+            }
+          },
+          onReply: () => thread.setReplyTo(message),
+          onEdit: isMine ? () => _showEditDialog(thread, message) : null,
+          onDeleteForMe: () => _confirmDeleteForMe(thread, message.id),
+          onDeleteForEveryone:
+              isMine ? () => _confirmDeleteForEveryone(thread, message.id) : null,
+          onReport: isMine ? null : () => _reportMessage(message, surface),
         );
       },
+    );
+  }
+}
+
+/// Accept/Decline banner shown in place of the composer while the caller's
+/// own `request_status` is `'pending'` — matches the portal's exact flow:
+/// accept flips the status, decline hides the conversation for this user only
+/// (the sender is never notified).
+class _RequestBanner extends StatelessWidget {
+  final String name;
+  final bool busy;
+  final VoidCallback onAccept;
+  final VoidCallback onDecline;
+
+  const _RequestBanner({
+    required this.name,
+    required this.busy,
+    required this.onAccept,
+    required this.onDecline,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.fromLTRB(20, 14, 20, 20),
+      decoration: const BoxDecoration(
+        color: AppColors.cardBackground,
+        border: Border(top: BorderSide(color: Color(0xFFEDEDF2))),
+      ),
+      child: SafeArea(
+        top: false,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              '$name wants to send you a message',
+              textAlign: TextAlign.center,
+              style: AppTextStyles.body.copyWith(fontSize: 13),
+            ),
+            const SizedBox(height: 12),
+            Row(
+              children: [
+                Expanded(
+                  child: OutlinedButton(
+                    onPressed: busy ? null : onDecline,
+                    child: const Text('Decline'),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: ElevatedButton(
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AppColors.primary,
+                      foregroundColor: Colors.white,
+                    ),
+                    onPressed: busy ? null : onAccept,
+                    child: const Text('Accept'),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
     );
   }
 }
@@ -179,23 +703,26 @@ class _ChatThreadView extends StatelessWidget {
 class _Header extends StatelessWidget {
   final String title;
   final String? subtitle;
+  final bool isTyping;
   final String? avatarUrl;
   final String initials;
-
-  /// When non-null, the avatar and the title open that user's public profile.
-  ///
-  /// The avatar and title were previously inert — only the back button carried a
-  /// gesture — so this adds a tap where there was none rather than re-pointing an
-  /// existing one. Null restores the original inert header exactly: no
-  /// `GestureDetector` is built at all.
   final String? participantUserId;
+  final bool isMuted;
+  final VoidCallback onToggleMute;
+  final VoidCallback? onBlock;
+  final VoidCallback? onOpenChannelSettings;
 
   const _Header({
     required this.title,
     required this.subtitle,
     required this.avatarUrl,
     required this.initials,
+    required this.isMuted,
+    required this.onToggleMute,
+    this.isTyping = false,
     this.participantUserId,
+    this.onBlock,
+    this.onOpenChannelSettings,
   });
 
   void _openProfile(BuildContext context) {
@@ -209,12 +736,6 @@ class _Header extends StatelessWidget {
     );
   }
 
-  /// Wraps [child] in a profile tap, or returns it untouched when there is no
-  /// participant — so the null case is byte-identical to the original header.
-  ///
-  /// Uses a plain `GestureDetector` with `HitTestBehavior.opaque`, matching the
-  /// back button a few lines below rather than introducing `ScaleTap`, which this
-  /// header does not use anywhere.
   Widget _maybeTappable(
     BuildContext context, {
     required String semanticLabel,
@@ -236,14 +757,20 @@ class _Header extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      decoration: const BoxDecoration(
+      decoration: BoxDecoration(
         color: AppColors.cardBackground,
-        border: Border(bottom: BorderSide(color: Color(0xFFEDEDF2))),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.04),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
       ),
       child: SafeArea(
         bottom: false,
         child: Padding(
-          padding: const EdgeInsets.fromLTRB(16, 12, 20, 12),
+          padding: const EdgeInsets.fromLTRB(12, 10, 6, 10),
           child: Row(
             children: [
               Semantics(
@@ -252,36 +779,27 @@ class _Header extends StatelessWidget {
                 child: GestureDetector(
                   behavior: HitTestBehavior.opaque,
                   onTap: () => Navigator.of(context).pop(),
-                  child: Container(
-                    width: 34,
-                    height: 34,
-                    decoration: const BoxDecoration(
-                      color: AppColors.background,
-                      shape: BoxShape.circle,
-                    ),
-                    child: const Icon(
+                  child: const Padding(
+                    padding: EdgeInsets.all(6),
+                    child: Icon(
                       Icons.arrow_back,
-                      size: 17,
-                      color: AppColors.textPrimary,
+                      size: 22,
+                      color: AppColors.primary,
                     ),
                   ),
                 ),
               ),
-              const SizedBox(width: 12),
-              // Row structure, sizes and spacing are unchanged; only the tap is
-              // new, and only when a participant is known.
+              const SizedBox(width: 6),
               _maybeTappable(
                 context,
                 semanticLabel: "Open $title's profile",
                 child: ChatAvatar(
                   avatarUrl: avatarUrl,
                   initials: initials,
-                  size: 38,
+                  size: 40,
                 ),
               ),
               const SizedBox(width: 12),
-              // The Expanded stays exactly where it was — the tap wraps its
-              // child, not the Expanded itself, so the Row's flex is untouched.
               Expanded(
                 child: _maybeTappable(
                   context,
@@ -295,25 +813,72 @@ class _Header extends StatelessWidget {
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style: AppTextStyles.body.copyWith(
-                          fontSize: 14.5,
+                          fontSize: 15,
                           fontWeight: FontWeight.w600,
                         ),
                       ),
                       if (subtitle != null && subtitle!.isNotEmpty) ...[
-                        const SizedBox(height: 1),
+                        const SizedBox(height: 2),
                         Text(
                           subtitle!,
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                           style: AppTextStyles.caption.copyWith(
-                            fontSize: 11,
-                            color: AppColors.textHint,
+                            fontSize: 11.5,
+                            fontStyle: isTyping ? FontStyle.italic : FontStyle.normal,
+                            fontWeight:
+                                isTyping ? FontWeight.w600 : FontWeight.normal,
+                            color: isTyping
+                                ? AppColors.primary
+                                : AppColors.textHint,
                           ),
                         ),
                       ],
                     ],
                   ),
                 ),
+              ),
+              PopupMenuButton<String>(
+                icon: const Icon(Icons.more_vert, color: AppColors.textPrimary),
+                onSelected: (value) {
+                  if (value == 'mute') onToggleMute();
+                  if (value == 'block') onBlock?.call();
+                  if (value == 'channel_settings') onOpenChannelSettings?.call();
+                },
+                itemBuilder: (context) => [
+                  PopupMenuItem(
+                    value: 'mute',
+                    child: Row(
+                      children: [
+                        Icon(isMuted ? Icons.notifications_off : Icons.notifications_none, size: 18),
+                        const SizedBox(width: 8),
+                        Text(isMuted ? 'Unmute' : 'Mute'),
+                      ],
+                    ),
+                  ),
+                  if (onOpenChannelSettings != null)
+                    const PopupMenuItem(
+                      value: 'channel_settings',
+                      child: Row(
+                        children: [
+                          Icon(Icons.group_outlined, size: 18),
+                          SizedBox(width: 8),
+                          Text('Channel settings'),
+                        ],
+                      ),
+                    ),
+                  if (onBlock != null)
+                    const PopupMenuItem(
+                      value: 'block',
+                      child: Row(
+                        children: [
+                          Icon(Icons.block, size: 18, color: Colors.red),
+                          SizedBox(width: 8),
+                          Text('Block user', style: TextStyle(color: Colors.red)),
+                        ],
+                      ),
+                    ),
+                ],
               ),
             ],
           ),

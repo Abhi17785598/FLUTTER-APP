@@ -105,11 +105,14 @@ class AuthService {
     String type = 'individual',
   }) async {
     try {
-      return await _supabase.auth.signUp(
-        email: email.trim(),
-        password: password,
-        data: {'display_name': name.trim()},
-      );
+    return await _supabase.auth.signUp(
+  email: email.trim(),
+  password: password,
+  data: {'display_name': name.trim()},
+  emailRedirectTo: kIsWeb
+      ? Uri.base.origin
+      : 'io.supabase.flutter://login-callback',
+);
     } on AuthException catch (e) {
       throw _mapAuthException(e);
     } catch (e) {

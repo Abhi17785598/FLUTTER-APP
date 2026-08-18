@@ -71,6 +71,14 @@ class ChannelTile extends StatelessWidget {
                               ),
                             ),
                           ),
+                          if (channel.isMuted) ...[
+                            const SizedBox(width: 4),
+                            const Icon(
+                              Icons.notifications_off,
+                              size: 13,
+                              color: AppColors.textHint,
+                            ),
+                          ],
                           const SizedBox(width: 8),
                           Text(
                             formatRelativeTime(channel.lastMessageAt),

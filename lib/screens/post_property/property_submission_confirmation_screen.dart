@@ -1,14 +1,65 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
+import 'package:provider/provider.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_text_styles.dart';
 import '../../core/widgets/premium_button.dart';
+import '../../providers/auth_provider.dart';
+import '../../services/property_service.dart';
+import '../social/publish_everywhere_dialog.dart';
 
 /// Terminal screen shown after a listing is successfully published to Supabase.
-class PropertySubmissionConfirmationScreen extends StatelessWidget {
+///
+/// Also auto-opens "Publish everywhere" once the property's title/media are
+/// in hand — the same trigger point as the portal's `PostProperty.tsx`, which
+/// opens `PublishEverywhereDialog` immediately after a new property is
+/// created (`:205-213`). Best-effort: if the detail fetch fails, the
+/// confirmation screen still shows normally and the dialog is simply skipped,
+/// since a stray publish prompt is not worth blocking "Your listing is live!"
+/// over.
+class PropertySubmissionConfirmationScreen extends StatefulWidget {
   final String? propertyId;
 
   const PropertySubmissionConfirmationScreen({this.propertyId, super.key});
+
+  @override
+  State<PropertySubmissionConfirmationScreen> createState() =>
+      _PropertySubmissionConfirmationScreenState();
+}
+
+class _PropertySubmissionConfirmationScreenState
+    extends State<PropertySubmissionConfirmationScreen> {
+  bool _offeredPublish = false;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (_offeredPublish || widget.propertyId == null) return;
+    _offeredPublish = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) => _offerPublish());
+  }
+
+  Future<void> _offerPublish() async {
+    final userId = context.read<AuthProvider>().userId;
+    if (userId == null || !mounted) return;
+    try {
+      final detail =
+          await PropertyService().getPropertyDetail(widget.propertyId!);
+      if (!mounted) return;
+      await showPublishEverywhereDialog(
+        context,
+        userId: userId,
+        contentType: 'property',
+        contentId: widget.propertyId!,
+        title: detail.property.title,
+        mediaUrls: detail.property.imageUrls,
+      );
+    } catch (_) {
+      // Best-effort — see class doc.
+    }
+  }
+
+  String? get propertyId => widget.propertyId;
 
   @override
   Widget build(BuildContext context) {

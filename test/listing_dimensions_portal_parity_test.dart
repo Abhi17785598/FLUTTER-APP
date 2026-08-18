@@ -60,7 +60,7 @@ void main() {
       'Soil Type',
       'Available From *',
     ]);
-    expect(headingsOf(tester), ['Land Specfication']);
+    expect(headingsOf(tester), ['Land Specification']);
   });
 
   testWidgets('land sell — no Land Use / Master Plan', (tester) async {

@@ -4,6 +4,8 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../models/channel_summary.dart';
 import '../models/chat_message.dart';
 import '../models/conversation_summary.dart';
+import '../models/message_reaction.dart';
+import 'messaging_exceptions.dart';
 
 /// Direct (1:1) and channel messaging.
 ///
@@ -42,50 +44,93 @@ class MessagingService {
       final conversations = List<Map<String, dynamic>>.from(convRows as List);
       if (conversations.isEmpty) return const [];
 
-      final ids = conversations.map((c) => c['id'].toString()).toList();
+      final ids = conversations
+          .map((c) => c['id']?.toString())
+          .whereType<String>()
+          .toList();
 
       final participantRows = await _supabase
           .from('conversation_participants')
-          .select('conversation_id, user_id')
+          .select('conversation_id, user_id, request_status, muted_at')
           .inFilter('conversation_id', ids);
 
-      // conversation_id -> the *other* participant's user id
+      // conversation_id -> the *other* participant's user id, and the
+      // caller's own request_status/mute state for that conversation. A row
+      // with a null conversation_id/user_id is skipped rather than
+      // `.toString()`'d into the literal `"null"`, which would otherwise
+      // silently pollute the batched profile lookup below with a bogus id.
       final otherIdByConversation = <String, String>{};
+      final selfStatusByConversation = <String, ({String requestStatus, bool isMuted})>{};
       for (final row in List<Map<String, dynamic>>.from(
         participantRows as List,
       )) {
-        final convId = row['conversation_id'].toString();
-        final memberId = row['user_id'].toString();
-        if (memberId != userId) otherIdByConversation[convId] = memberId;
+        final convId = row['conversation_id']?.toString();
+        final memberId = row['user_id']?.toString();
+        if (convId == null || memberId == null) {
+          debugPrint(
+            'MessagingService.listConversations: skipping participant row '
+            'with null id(s): $row',
+          );
+          continue;
+        }
+        if (memberId == userId) {
+          selfStatusByConversation[convId] = (
+            requestStatus: (row['request_status'] as String?) ?? 'accepted',
+            isMuted: row['muted_at'] != null,
+          );
+        } else {
+          otherIdByConversation[convId] = memberId;
+        }
       }
 
       final profilesById = await _fetchPublicProfiles(
         otherIdByConversation.values.toSet(),
       );
 
-      // Newest-first across all conversations; the first row seen per
-      // conversation is therefore its latest message.
-      final messageRows = await _supabase
-          .from('messages')
-          .select('conversation_id, content, created_at')
-          .inFilter('conversation_id', ids)
-          .order('created_at', ascending: false);
-
+      // Batched "last non-deleted-for-me message per conversation" — reuses
+      // the portal's own perf RPC instead of scanning every message row for
+      // every conversation.
       final lastMessageByConversation = <String, String>{};
-      for (final row in List<Map<String, dynamic>>.from(messageRows as List)) {
-        final convId = row['conversation_id'].toString();
-        lastMessageByConversation.putIfAbsent(
-          convId,
-          () => (row['content'] as String?) ?? '',
+      try {
+        final previewRows = await _supabase.rpc(
+          'get_conversation_message_previews',
+          params: {'p_conversation_ids': ids, 'p_user_id': userId},
+        );
+        for (final row in List<Map<String, dynamic>>.from(
+          previewRows as List,
+        )) {
+          final convId = row['conversation_id']?.toString();
+          if (convId == null) continue;
+          final deletedAt = row['deleted_at'];
+          lastMessageByConversation[convId] = deletedAt != null
+              ? 'This message was deleted'
+              : (row['content'] as String?) ?? '';
+        }
+      } catch (e) {
+        debugPrint(
+          'MessagingService.listConversations: message previews '
+          'unavailable: $e',
         );
       }
 
-      final unread = await unreadCountsByConversation(userId);
+      Map<String, int> unread;
+      try {
+        unread = await unreadCountsByConversation(userId);
+      } catch (e) {
+        // A failed unread-count lookup must not be indistinguishable from
+        // "genuinely zero unread" — fall back to showing no badges rather
+        // than silently lying about them, but don't fail the whole list.
+        debugPrint(
+          'MessagingService.listConversations: unread counts unavailable: $e',
+        );
+        unread = const {};
+      }
 
-      return conversations.map((conv) {
+      return conversations.where((c) => c['id'] != null).map((conv) {
         final id = conv['id'].toString();
         final otherId = otherIdByConversation[id];
         final createdRaw = conv['last_message_at'] as String?;
+        final selfStatus = selfStatusByConversation[id];
 
         return ConversationSummary(
           id: id,
@@ -94,6 +139,8 @@ class MessagingService {
           otherParticipant: otherId == null ? null : profilesById[otherId],
           lastMessage: lastMessageByConversation[id] ?? '',
           unreadCount: unread[id] ?? 0,
+          requestStatus: selfStatus?.requestStatus ?? 'accepted',
+          isMuted: selfStatus?.isMuted ?? false,
         );
       }).toList();
     } catch (e) {
@@ -111,35 +158,61 @@ class MessagingService {
 
     final rows = await _supabase
         .from('profiles_public')
-        .select('user_id, display_name, avatar_url')
+        .select('user_id, display_name, avatar_url, is_online, last_seen_at')
         .inFilter('user_id', userIds.toList());
 
-    return {
-      for (final row in List<Map<String, dynamic>>.from(rows as List))
-        row['user_id'].toString(): ConversationParticipant(
-          userId: row['user_id'].toString(),
-          displayName: (row['display_name'] as String?) ?? 'Unknown',
-          avatarUrl: row['avatar_url'] as String?,
-        ),
-    };
+    final result = <String, ConversationParticipant>{};
+    for (final row in List<Map<String, dynamic>>.from(rows as List)) {
+      final id = row['user_id']?.toString();
+      if (id == null) continue;
+      final lastSeenRaw = row['last_seen_at'] as String?;
+      result[id] = ConversationParticipant(
+        userId: id,
+        displayName: (row['display_name'] as String?) ?? 'Unknown',
+        avatarUrl: row['avatar_url'] as String?,
+        isOnline: (row['is_online'] as bool?) ?? false,
+        lastSeenAt: lastSeenRaw == null ? null : DateTime.tryParse(lastSeenRaw),
+      );
+    }
+    return result;
   }
 
-  /// Full history for one conversation, oldest first.
+  /// Columns shared by every `messages`/`channel_messages` select — kept in
+  /// one place so a new column (e.g. a future `forwarded_from_id`) only needs
+  /// updating here.
+  static const String _messageColumns =
+      'id, content, sender_id, message_type, property_id, media_urls, '
+      'media_status, created_at, is_read, reply_to_id, edited_at, '
+      'deleted_at, deleted_for';
+
+  /// Most recent page of a conversation, newest-first on the wire (reversed
+  /// to oldest-first for display). Mirrors `fetchMessages` in ChatModal.tsx,
+  /// with pagination added on top — see [messagePageSize].
   ///
-  /// Mirrors `fetchMessages` in ChatModal.tsx.
-  Future<List<ChatMessage>> listMessages(String conversationId) async {
+  /// Pass [before] (an already-loaded message's `createdAt`) to load the page
+  /// immediately older than it, for "load more" on scroll-to-top.
+  Future<List<ChatMessage>> listMessages(
+    String conversationId, {
+    DateTime? before,
+  }) async {
     try {
-      final rows = await _supabase
+      var query = _supabase
           .from('messages')
-          .select(
-            'id, content, sender_id, message_type, property_id, created_at, '
-            'is_read',
-          )
-          .eq('conversation_id', conversationId)
-          .order('created_at', ascending: true);
+          .select(_messageColumns)
+          .eq('conversation_id', conversationId);
+
+      if (before != null) {
+        query = query.lt('created_at', before.toUtc().toIso8601String());
+      }
+
+      final rows = await query
+          .order('created_at', ascending: false)
+          .limit(messagePageSize);
 
       return List<Map<String, dynamic>>.from(rows as List)
           .map(ChatMessage.fromSupabase)
+          .toList()
+          .reversed
           .toList();
     } catch (e) {
       debugPrint('MessagingService.listMessages failed: $e');
@@ -147,24 +220,60 @@ class MessagingService {
     }
   }
 
+  /// Messages per page — the portal itself loads a thread's entire history
+  /// unbounded (see docs/messaging audit), which doesn't scale on mobile
+  /// data/battery. Paginating is a deliberate, flagged divergence.
+  static const int messagePageSize = 50;
+
   /// Sends a plain-text message.
   ///
-  /// Mirrors `sendMessage` in ChatModal.tsx — same four columns, nothing else.
+  /// Mirrors `sendTextMessage` in useDmMessaging.ts: moderates the text
+  /// first (fails open — a moderation-service outage must never block a
+  /// legitimate send), then inserts. Errors from the insert itself (rate
+  /// limit, RLS block) are mapped to the portal's exact user-facing copy.
   Future<void> sendMessage({
     required String conversationId,
     required String senderId,
+    required String content,
+    String? replyToId,
+  }) async {
+    final trimmed = content.trim();
+    await moderateText(trimmed);
+
+    try {
+      await _supabase.from('messages').insert({
+        'conversation_id': conversationId,
+        'sender_id': senderId,
+        'content': trimmed,
+        'message_type': 'text',
+        if (replyToId != null) 'reply_to_id': replyToId,
+      });
+    } catch (e) {
+      debugPrint('MessagingService.sendMessage failed: $e');
+      throw mapSendError(e);
+    }
+  }
+
+  /// Shares a property into a conversation. There is no dedicated RPC for
+  /// this on the portal either — `sendPropertyShare` in useDmMessaging.ts is
+  /// also a raw insert.
+  Future<void> sendPropertyShare({
+    required String conversationId,
+    required String senderId,
+    required String propertyId,
     required String content,
   }) async {
     try {
       await _supabase.from('messages').insert({
         'conversation_id': conversationId,
         'sender_id': senderId,
-        'content': content.trim(),
-        'message_type': 'text',
+        'content': content,
+        'message_type': 'property_share',
+        'property_id': propertyId,
       });
     } catch (e) {
-      debugPrint('MessagingService.sendMessage failed: $e');
-      rethrow;
+      debugPrint('MessagingService.sendPropertyShare failed: $e');
+      throw mapSendError(e);
     }
   }
 
@@ -183,19 +292,23 @@ class MessagingService {
 
       final counts = <String, int>{};
       for (final row in List<Map<String, dynamic>>.from(rows as List)) {
-        final id = row['conversation_id'].toString();
+        final id = row['conversation_id']?.toString();
+        if (id == null) continue;
         counts[id] = (counts[id] ?? 0) + 1;
       }
       return counts;
     } catch (e) {
       debugPrint('MessagingService.unreadCountsByConversation failed: $e');
-      return const {};
+      rethrow;
     }
   }
 
   /// Marks everything the other party sent as read.
   ///
   /// Mirrors `markConversationAsRead` in useConversationUnreadCounts.ts.
+  /// Rethrows on failure so callers (the badge-clear reconciliation in
+  /// [MessagingProvider]) can tell "marked read" apart from "silently
+  /// failed" instead of the update vanishing without a trace.
   Future<void> markConversationAsRead({
     required String conversationId,
     required String userId,
@@ -212,6 +325,7 @@ class MessagingService {
           .eq('is_read', false);
     } catch (e) {
       debugPrint('MessagingService.markConversationAsRead failed: $e');
+      rethrow;
     }
   }
 
@@ -244,6 +358,7 @@ class MessagingService {
           .limit(10);
 
       return List<Map<String, dynamic>>.from(rows as List)
+          .where((row) => row['user_id'] != null)
           .map(
             (row) => ConversationParticipant(
               userId: row['user_id'].toString(),
@@ -258,6 +373,62 @@ class MessagingService {
     }
   }
 
+  /// Starts (or reuses) a conversation and immediately hides it for the
+  /// caller — used to "decline" a message request, mirroring the portal's
+  /// `hideConversation` being reused for the decline action.
+  Future<void> hideConversation(String conversationId) async {
+    try {
+      await _supabase.rpc(
+        'hide_conversation',
+        params: {'p_conversation_id': conversationId},
+      );
+    } catch (e) {
+      debugPrint('MessagingService.hideConversation failed: $e');
+      rethrow;
+    }
+  }
+
+  /// Accepts a pending message request — flips the caller's own
+  /// `request_status` to `'accepted'` so they can now reply.
+  Future<void> acceptConversationRequest(String conversationId) async {
+    try {
+      await _supabase.rpc(
+        'accept_conversation_request',
+        params: {'p_conversation_id': conversationId},
+      );
+    } catch (e) {
+      debugPrint('MessagingService.acceptConversationRequest failed: $e');
+      rethrow;
+    }
+  }
+
+  Future<void> setConversationMuted(
+    String conversationId,
+    bool muted,
+  ) async {
+    try {
+      await _supabase.rpc(
+        'set_conversation_muted',
+        params: {'p_conversation_id': conversationId, 'p_muted': muted},
+      );
+    } catch (e) {
+      debugPrint('MessagingService.setConversationMuted failed: $e');
+      rethrow;
+    }
+  }
+
+  Future<void> setChannelMuted(String channelId, bool muted) async {
+    try {
+      await _supabase.rpc(
+        'set_channel_muted',
+        params: {'p_channel_id': channelId, 'p_muted': muted},
+      );
+    } catch (e) {
+      debugPrint('MessagingService.setChannelMuted failed: $e');
+      rethrow;
+    }
+  }
+
   /// Returns the conversation id shared with [withUserId], creating it if there
   /// isn't one yet.
   ///
@@ -268,11 +439,22 @@ class MessagingService {
   /// both participant rows itself. Doing this client-side instead would mean
   /// writing `conversations` and `conversation_participants` directly, which
   /// the RLS policies deliberately do not allow.
-  Future<String> startConversation(String withUserId) async {
+  ///
+  /// [skipRequestGate] mirrors the portal's `p_skip_request_gate`: `true`
+  /// (the RPC's own default) for a conversation started from a property/lead
+  /// context, `false` for a cold "new chat" pick so the recipient's row
+  /// starts `pending` and must be accepted before the sender's replies land.
+  Future<String> startConversation(
+    String withUserId, {
+    bool skipRequestGate = true,
+  }) async {
     try {
       final result = await _supabase.rpc(
         'start_conversation',
-        params: {'with_user_id': withUserId},
+        params: {
+          'with_user_id': withUserId,
+          'p_skip_request_gate': skipRequestGate,
+        },
       );
 
       final conversationId = result?.toString();
@@ -283,6 +465,21 @@ class MessagingService {
     } catch (e) {
       debugPrint('MessagingService.startConversation failed: $e');
       rethrow;
+    }
+  }
+
+  /// Whether the caller and [otherUserId] have blocked each other, in either
+  /// direction. Never raises — returns `false` if unauthenticated.
+  Future<bool> isBlockedWith(String otherUserId) async {
+    try {
+      final result = await _supabase.rpc(
+        'is_blocked_with',
+        params: {'p_other_user_id': otherUserId},
+      );
+      return result == true;
+    } catch (e) {
+      debugPrint('MessagingService.isBlockedWith failed: $e');
+      return false;
     }
   }
 
@@ -298,18 +495,22 @@ class MessagingService {
     try {
       final membershipRows = await _supabase
           .from('channel_participants')
-          .select('channel_id, role')
+          .select('channel_id, role, muted_at')
           .eq('user_id', userId);
 
-      final memberships =
-          List<Map<String, dynamic>>.from(membershipRows as List);
+      final memberships = List<Map<String, dynamic>>.from(membershipRows as List)
+          .where((m) => m['channel_id'] != null)
+          .toList();
       if (memberships.isEmpty) return const [];
 
       final channelIds =
           memberships.map((m) => m['channel_id'].toString()).toList();
       final roleByChannel = {
+        for (final m in memberships) m['channel_id'].toString(): m['role'] as String?,
+      };
+      final mutedByChannel = {
         for (final m in memberships)
-          m['channel_id'].toString(): m['role'] as String?,
+          m['channel_id'].toString(): m['muted_at'] != null,
       };
 
       final channelRows = await _supabase
@@ -327,7 +528,8 @@ class MessagingService {
       for (final row in List<Map<String, dynamic>>.from(
         allParticipants as List,
       )) {
-        final id = row['channel_id'].toString();
+        final id = row['channel_id']?.toString();
+        if (id == null) continue;
         participantCounts[id] = (participantCounts[id] ?? 0) + 1;
       }
 
@@ -340,7 +542,8 @@ class MessagingService {
       final lastMessageAt = <String, DateTime>{};
       final unread = <String, int>{};
       for (final row in List<Map<String, dynamic>>.from(messageRows as List)) {
-        final id = row['channel_id'].toString();
+        final id = row['channel_id']?.toString();
+        if (id == null) continue;
         final created = row['created_at'] as String?;
         final parsed = created == null ? null : DateTime.tryParse(created);
         if (parsed != null && !lastMessageAt.containsKey(id)) {
@@ -353,6 +556,7 @@ class MessagingService {
       }
 
       final channels = List<Map<String, dynamic>>.from(channelRows as List)
+          .where((row) => row['id'] != null)
           .map((row) {
             final id = row['id'].toString();
             return ChannelSummary.fromSupabase(
@@ -361,6 +565,7 @@ class MessagingService {
               participantCount: participantCounts[id] ?? 0,
               lastMessageAt: lastMessageAt[id],
               unreadCount: unread[id] ?? 0,
+              isMuted: mutedByChannel[id] ?? false,
             );
           })
           .toList()
@@ -380,22 +585,31 @@ class MessagingService {
     }
   }
 
-  /// Full history for one channel, oldest first.
-  ///
-  /// Mirrors `fetchMessages` in features/messaging/ChannelChat.tsx.
-  Future<List<ChatMessage>> listChannelMessages(String channelId) async {
+  /// Most recent page of a channel, oldest-first for display. Mirrors
+  /// `fetchMessages` in features/messaging/ChannelChat.tsx, paginated the
+  /// same way as [listMessages].
+  Future<List<ChatMessage>> listChannelMessages(
+    String channelId, {
+    DateTime? before,
+  }) async {
     try {
-      final rows = await _supabase
+      var query = _supabase
           .from('channel_messages')
-          .select(
-            'id, content, sender_id, message_type, property_id, media_urls, '
-            'created_at, is_read',
-          )
-          .eq('channel_id', channelId)
-          .order('created_at', ascending: true);
+          .select(_messageColumns)
+          .eq('channel_id', channelId);
+
+      if (before != null) {
+        query = query.lt('created_at', before.toUtc().toIso8601String());
+      }
+
+      final rows = await query
+          .order('created_at', ascending: false)
+          .limit(messagePageSize);
 
       return List<Map<String, dynamic>>.from(rows as List)
           .map(ChatMessage.fromSupabase)
+          .toList()
+          .reversed
           .toList();
     } catch (e) {
       debugPrint('MessagingService.listChannelMessages failed: $e');
@@ -412,26 +626,33 @@ class MessagingService {
   ) =>
       _fetchPublicProfiles(senderIds);
 
-  /// Mirrors `sendMessage` in ChannelChat.tsx.
+  /// Mirrors `sendMessage` in ChannelChat.tsx: moderate first (fail-open),
+  /// then insert, mapping rate-limit/RLS errors to the portal's exact copy.
   Future<void> sendChannelMessage({
     required String channelId,
     required String senderId,
     required String content,
+    String? replyToId,
   }) async {
+    final trimmed = content.trim();
+    await moderateText(trimmed);
+
     try {
       await _supabase.from('channel_messages').insert({
         'channel_id': channelId,
         'sender_id': senderId,
-        'content': content.trim(),
+        'content': trimmed,
         'message_type': 'text',
+        if (replyToId != null) 'reply_to_id': replyToId,
       });
     } catch (e) {
       debugPrint('MessagingService.sendChannelMessage failed: $e');
-      rethrow;
+      throw mapSendError(e);
     }
   }
 
-  /// Mirrors `markMessagesAsRead` in ChannelChat.tsx.
+  /// Mirrors `markMessagesAsRead` in ChannelChat.tsx. Rethrows on failure —
+  /// see [markConversationAsRead].
   Future<void> markChannelAsRead({
     required String channelId,
     required String userId,
@@ -448,6 +669,343 @@ class MessagingService {
           .eq('is_read', false);
     } catch (e) {
       debugPrint('MessagingService.markChannelAsRead failed: $e');
+      rethrow;
+    }
+  }
+
+  // ── Message actions (reply/react/edit/delete) — shared by DM & channel ────
+  //
+  // `surface` is always the literal string 'dm' or 'channel', matching the
+  // portal's features/messaging/lib/messageActions.ts.
+
+  Future<String> toggleReaction({
+    required String messageId,
+    required String surface,
+    required String emoji,
+  }) async {
+    try {
+      final result = await _supabase.rpc(
+        'toggle_reaction',
+        params: {
+          'p_message_id': messageId,
+          'p_surface': surface,
+          'p_emoji': emoji,
+        },
+      );
+      return result as String? ?? 'added';
+    } catch (e) {
+      debugPrint('MessagingService.toggleReaction failed: $e');
+      rethrow;
+    }
+  }
+
+  /// Reactions for a batch of messages on one surface, grouped by message id
+  /// then by emoji.
+  Future<Map<String, List<MessageReaction>>> fetchReactions({
+    required List<String> messageIds,
+    required String surface,
+  }) async {
+    if (messageIds.isEmpty) return const {};
+    try {
+      final rows = await _supabase
+          .from('message_reactions')
+          .select('message_id, emoji, user_id')
+          .eq('surface', surface)
+          .inFilter('message_id', messageIds);
+
+      final byMessage = <String, List<Map<String, dynamic>>>{};
+      for (final row in List<Map<String, dynamic>>.from(rows as List)) {
+        final id = row['message_id']?.toString();
+        if (id == null) continue;
+        (byMessage[id] ??= []).add(row);
+      }
+      return {
+        for (final entry in byMessage.entries)
+          entry.key: MessageReaction.groupByEmoji(entry.value),
+      };
+    } catch (e) {
+      debugPrint('MessagingService.fetchReactions failed: $e');
+      rethrow;
+    }
+  }
+
+  Future<void> editMessage({
+    required String messageId,
+    required String surface,
+    required String newContent,
+  }) async {
+    try {
+      await _supabase.rpc(
+        'edit_message',
+        params: {
+          'p_message_id': messageId,
+          'p_surface': surface,
+          'p_new_content': newContent.trim(),
+        },
+      );
+    } catch (e) {
+      debugPrint('MessagingService.editMessage failed: $e');
+      rethrow;
+    }
+  }
+
+  Future<void> deleteMessageForMe({
+    required String messageId,
+    required String surface,
+  }) async {
+    try {
+      await _supabase.rpc(
+        'delete_message_for_me',
+        params: {'p_message_id': messageId, 'p_surface': surface},
+      );
+    } catch (e) {
+      debugPrint('MessagingService.deleteMessageForMe failed: $e');
+      rethrow;
+    }
+  }
+
+  Future<void> deleteMessageForEveryone({
+    required String messageId,
+    required String surface,
+  }) async {
+    try {
+      await _supabase.rpc(
+        'delete_message_for_everyone',
+        params: {'p_message_id': messageId, 'p_surface': surface},
+      );
+    } catch (e) {
+      debugPrint('MessagingService.deleteMessageForEveryone failed: $e');
+      rethrow;
+    }
+  }
+
+  // ── Moderation & presence ──────────────────────────────────────────────
+
+  /// Calls the `moderate-comment` edge function before a text send. Fails
+  /// open on any transport/parsing error (matching the portal exactly) —
+  /// only an explicit `isAllowed: false` blocks the send.
+  Future<void> moderateText(String text) async {
+    if (text.isEmpty) return;
+    try {
+      final response = await _supabase.functions.invoke(
+        'moderate-comment',
+        body: {'comment': text},
+      );
+      final data = response.data;
+      if (data is Map && data['isAllowed'] == false) {
+        throw MessageModerationError(
+          (data['reason'] as String?) ?? "This message isn't allowed.",
+        );
+      }
+    } on MessageModerationError {
+      rethrow;
+    } catch (e) {
+      debugPrint('MessagingService.moderateText failed open: $e');
+    }
+  }
+
+  /// Heartbeat — the only legal way to write `profiles.is_online`/
+  /// `last_seen_at`; a raw `.update()` on `profiles` is silently stripped of
+  /// those two columns by a DB trigger for any non-service-role caller.
+  Future<void> updateOwnPresence(bool isOnline) async {
+    try {
+      await _supabase.rpc(
+        'update_own_presence',
+        params: {'p_is_online': isOnline},
+      );
+    } catch (e) {
+      debugPrint('MessagingService.updateOwnPresence failed: $e');
+    }
+  }
+
+  // ── Blocking & reporting ───────────────────────────────────────────────
+
+  /// Idempotent: blocking someone who is already blocked is treated as
+  /// success (the desired end state — "this person is blocked" — already
+  /// holds), rather than surfacing the `user_blocks_pkey` unique-constraint
+  /// violation a plain insert would throw on a repeat call.
+  Future<void> blockUser(String userId) async {
+    try {
+      final me = _supabase.auth.currentUser?.id;
+      if (me == null) throw StateError('Not authenticated');
+      await _supabase.from('user_blocks').insert({
+        'blocker_id': me,
+        'blocked_id': userId,
+      });
+    } catch (e) {
+      if (postgrestErrorCode(e) == '23505') {
+        debugPrint('MessagingService.blockUser: already blocked, treating as success');
+        return;
+      }
+      debugPrint('MessagingService.blockUser failed: $e');
+      rethrow;
+    }
+  }
+
+  Future<void> unblockUser(String userId) async {
+    try {
+      final me = _supabase.auth.currentUser?.id;
+      if (me == null) throw StateError('Not authenticated');
+      await _supabase
+          .from('user_blocks')
+          .delete()
+          .eq('blocker_id', me)
+          .eq('blocked_id', userId);
+    } catch (e) {
+      debugPrint('MessagingService.unblockUser failed: $e');
+      rethrow;
+    }
+  }
+
+  // ── Channel administration ─────────────────────────────────────────────
+  //
+  // `channels` INSERT is self-service for any authenticated user
+  // (`created_by = auth.uid()`); adding participants requires being the
+  // creator or an existing admin/moderator — see
+  // 20250823170108_..._fix_channel_rls.sql. Creating a channel does not
+  // auto-add the creator as a participant, so that's a second insert here,
+  // which the same RLS policy explicitly allows for the creator.
+
+  Future<String> createChannel({
+    required String name,
+    String? description,
+  }) async {
+    try {
+      final me = _supabase.auth.currentUser?.id;
+      if (me == null) throw StateError('Not authenticated');
+
+      final inserted = await _supabase
+          .from('channels')
+          .insert({
+            'name': name.trim(),
+            if (description != null && description.trim().isNotEmpty)
+              'description': description.trim(),
+            'created_by': me,
+          })
+          .select('id')
+          .single();
+
+      final channelId = inserted['id']?.toString();
+      if (channelId == null) {
+        throw StateError('Channel insert returned no id');
+      }
+
+      await _supabase.from('channel_participants').insert({
+        'channel_id': channelId,
+        'user_id': me,
+        'role': 'admin',
+      });
+
+      return channelId;
+    } catch (e) {
+      debugPrint('MessagingService.createChannel failed: $e');
+      rethrow;
+    }
+  }
+
+  /// Participants of a channel, with their public profile resolved — for the
+  /// channel settings screen.
+  Future<List<({ConversationParticipant profile, String role})>>
+      fetchChannelParticipants(String channelId) async {
+    try {
+      final rows = await _supabase
+          .from('channel_participants')
+          .select('user_id, role')
+          .eq('channel_id', channelId);
+
+      final list = List<Map<String, dynamic>>.from(rows as List)
+          .where((r) => r['user_id'] != null)
+          .toList();
+      final ids = list.map((r) => r['user_id'].toString()).toSet();
+      final profiles = await _fetchPublicProfiles(ids);
+
+      return list
+          .map((r) {
+            final id = r['user_id'].toString();
+            final profile = profiles[id] ??
+                ConversationParticipant(userId: id, displayName: 'Unknown');
+            return (profile: profile, role: (r['role'] as String?) ?? 'member');
+          })
+          .toList();
+    } catch (e) {
+      debugPrint('MessagingService.fetchChannelParticipants failed: $e');
+      rethrow;
+    }
+  }
+
+  /// Admin/moderator only (server-enforced by RLS) — promotes or demotes a
+  /// participant.
+  Future<void> setChannelParticipantRole({
+    required String channelId,
+    required String userId,
+    required String role,
+  }) async {
+    try {
+      await _supabase
+          .from('channel_participants')
+          .update({'role': role})
+          .eq('channel_id', channelId)
+          .eq('user_id', userId);
+    } catch (e) {
+      debugPrint('MessagingService.setChannelParticipantRole failed: $e');
+      rethrow;
+    }
+  }
+
+  /// Adds an existing user to a channel — admin/moderator/creator only,
+  /// server-enforced.
+  Future<void> addChannelParticipant({
+    required String channelId,
+    required String userId,
+  }) async {
+    try {
+      await _supabase.from('channel_participants').insert({
+        'channel_id': channelId,
+        'user_id': userId,
+        'role': 'member',
+      });
+    } catch (e) {
+      debugPrint('MessagingService.addChannelParticipant failed: $e');
+      rethrow;
+    }
+  }
+
+  /// Leaves (or removes) a participant — the RLS delete policy only allows
+  /// `user_id = auth.uid()`, so this is "leave", not "remove someone else".
+  Future<void> leaveChannel(String channelId, String userId) async {
+    try {
+      await _supabase
+          .from('channel_participants')
+          .delete()
+          .eq('channel_id', channelId)
+          .eq('user_id', userId);
+    } catch (e) {
+      debugPrint('MessagingService.leaveChannel failed: $e');
+      rethrow;
+    }
+  }
+
+  Future<void> reportMessage({
+    required String messageId,
+    required String surface,
+    required String reportedUserId,
+    required String reason,
+    String? details,
+  }) async {
+    try {
+      final me = _supabase.auth.currentUser?.id;
+      if (me == null) throw StateError('Not authenticated');
+      await _supabase.from('message_reports').insert({
+        'reporter_id': me,
+        'reported_user_id': reportedUserId,
+        'message_id': messageId,
+        'surface': surface,
+        'reason': reason,
+        if (details != null) 'details': details,
+      });
+    } catch (e) {
+      debugPrint('MessagingService.reportMessage failed: $e');
+      rethrow;
     }
   }
 }

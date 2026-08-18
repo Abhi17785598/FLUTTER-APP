@@ -11,12 +11,10 @@ import 'unread_badge.dart';
 /// One row in the Chats tab: avatar, name, last message, time and unread
 /// badge (blueprint §16.6).
 ///
-/// The prototype also shows a green presence dot. It is intentionally absent:
-/// ChatModal.tsx does not read a presence field for this list, and while
-/// `profiles_public.is_online` exists, 19 of 22 profiles currently report
-/// online — it reads as a login flag that is never cleared, not live presence.
-/// §16.6 forbids inventing an online-status heuristic, so the dot is omitted
-/// and flagged rather than shown from an unreliable source.
+/// The presence dot uses [ConversationParticipant.isEffectivelyOnline] — a
+/// 90-second staleness check on `last_seen_at`, not the raw `is_online` flag
+/// — mirroring the portal's `isEffectivelyOnline` in src/utils/presence.ts,
+/// so a stale flag from a killed app/closed tab doesn't read as "online".
 class ConversationTile extends StatelessWidget {
   final ConversationSummary conversation;
   final VoidCallback onTap;
@@ -51,9 +49,31 @@ class ConversationTile extends StatelessWidget {
             ),
             child: Row(
               children: [
-                ChatAvatar(
-                  avatarUrl: participant?.avatarUrl,
-                  initials: participant?.initial ?? '?',
+                Stack(
+                  clipBehavior: Clip.none,
+                  children: [
+                    ChatAvatar(
+                      avatarUrl: participant?.avatarUrl,
+                      initials: participant?.initial ?? '?',
+                    ),
+                    if (participant?.isEffectivelyOnline ?? false)
+                      Positioned(
+                        right: 0,
+                        bottom: 0,
+                        child: Container(
+                          width: 12,
+                          height: 12,
+                          decoration: BoxDecoration(
+                            color: const Color(0xFF1D9E75),
+                            shape: BoxShape.circle,
+                            border: Border.all(
+                              color: AppColors.background,
+                              width: 2,
+                            ),
+                          ),
+                        ),
+                      ),
+                  ],
                 ),
                 const SizedBox(width: 12),
                 Expanded(
@@ -76,6 +96,14 @@ class ConversationTile extends StatelessWidget {
                               ),
                             ),
                           ),
+                          if (conversation.isMuted) ...[
+                            const SizedBox(width: 4),
+                            const Icon(
+                              Icons.notifications_off,
+                              size: 13,
+                              color: AppColors.textHint,
+                            ),
+                          ],
                           const SizedBox(width: 8),
                           Text(
                             formatRelativeTime(conversation.lastMessageAt),
@@ -89,11 +117,34 @@ class ConversationTile extends StatelessWidget {
                       const SizedBox(height: 3),
                       Row(
                         children: [
+                          if (conversation.isPendingRequest) ...[
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 6,
+                                vertical: 2,
+                              ),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFFFFF4DE),
+                                borderRadius: BorderRadius.circular(6),
+                              ),
+                              child: Text(
+                                'Request',
+                                style: AppTextStyles.caption.copyWith(
+                                  fontSize: 10,
+                                  fontWeight: FontWeight.w700,
+                                  color: const Color(0xFFB8860B),
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 6),
+                          ],
                           Expanded(
                             child: Text(
-                              conversation.lastMessage.isEmpty
-                                  ? 'No messages yet'
-                                  : conversation.lastMessage,
+                              conversation.isPendingRequest
+                                  ? 'Wants to send you a message'
+                                  : (conversation.lastMessage.isEmpty
+                                      ? 'No messages yet'
+                                      : conversation.lastMessage),
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
                               style: AppTextStyles.caption.copyWith(

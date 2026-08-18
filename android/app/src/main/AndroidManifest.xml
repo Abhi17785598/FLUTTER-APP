@@ -64,6 +64,27 @@
         android:host="reset-password" />
 </intent-filter>
             <!--
+                Meta (Facebook/Instagram) OAuth callback: see
+                MetaOAuthService.connect(). Mirrors the reset-password scheme
+                above — same app, same external-browser-redirect pattern
+                already proven by Google Sign-In and password reset.
+                "propcid://meta-callback" must be added to the Meta App's own
+                "Valid OAuth Redirect URIs" list in the Facebook Developer
+                dashboard before this can complete a real handshake — that is
+                a one-time dashboard config step, not something this app can
+                verify or perform itself.
+            -->
+            <intent-filter>
+    <action android:name="android.intent.action.VIEW" />
+
+    <category android:name="android.intent.category.DEFAULT" />
+    <category android:name="android.intent.category.BROWSABLE" />
+
+    <data
+        android:scheme="propcid"
+        android:host="meta-callback" />
+</intent-filter>
+            <!--
                 Team-invite App Link: see InviteDeepLinkHandler and
                 invite-team-member/index.ts:149 (the link it actually sends).
                 autoVerify requires https://propcid.com/.well-known/assetlinks.json

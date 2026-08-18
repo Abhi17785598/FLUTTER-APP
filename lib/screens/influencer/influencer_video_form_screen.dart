@@ -11,15 +11,20 @@
 // when title or type is missing (:112-118). Same write: `approval_status:
 // 'pending'` on create *and* edit, `status` untouched.
 //
-// Three deliberate divergences, each with its reason at the point it happens:
+// Two deliberate divergences, each with its reason at the point it happens:
 //
 //   1. The size gate is 50 MB, the bucket's real limit, not the modal's 200 MB
 //      constant — see InfluencerMediaService.
 //   2. Uploads go to `{uid}/videos/…`, because the live storage policy requires the
 //      uid to be the first folder — also InfluencerMediaService.
-//   3. There is no "publish to social" success step. `PublishToSocialButton` and
-//      `RunAdButton` belong to the Meta integration, which this app does not have;
-//      the form pops with a result instead, and the caller refreshes.
+//
+// A third divergence, "no publish to social step", no longer holds: on a
+// brand-new video's successful create, `PublishToSocialButton`'s trigger point
+// (`InfluencerVideoModal.tsx:232-239`, `contentType: "reel"`, the thumbnail as
+// the sole media URL) is now reproduced via `showPublishEverywhereDialog`
+// before the form pops — followed by `RunAdButton`'s trigger point
+// (`InfluencerVideoModal.tsx:240-246`, same content/media), reproduced via
+// `offerBoostDialog`.
 //
 // Built from `portal_kit.dart` like the two existing wizards, so it reads as part
 // of the same family rather than as a new dialect.
@@ -37,10 +42,25 @@ import '../../services/influencer_video_service.dart';
 import '../post_property/portal_icon.dart';
 import '../post_property/portal_kit.dart';
 import '../post_property/portal_theme.dart';
+import '../social/create_campaign_dialog.dart';
+import '../social/publish_everywhere_dialog.dart';
 
 /// Result handed back to whoever pushed the form, so a list can refresh without
 /// re-querying on every pop.
 enum InfluencerVideoFormResult { created, updated }
+
+/// Matches [showPublishEverywhereDialog]'s signature, so a test can swap in a
+/// no-op stub instead of the real dialog — which would otherwise open against
+/// a live `SocialService` and hang the test waiting for a tap that never
+/// comes, exactly like [videoService]/[mediaService]/[picker] below.
+typedef PublishDialogLauncher = Future<void> Function(
+  BuildContext context, {
+  required String userId,
+  required String contentType,
+  required String contentId,
+  required List<String> mediaUrls,
+  String? title,
+});
 
 class InfluencerVideoFormScreen extends StatefulWidget {
   const InfluencerVideoFormScreen({
@@ -49,6 +69,8 @@ class InfluencerVideoFormScreen extends StatefulWidget {
     this.videoService,
     this.mediaService,
     this.picker,
+    this.publishDialogLauncher,
+    this.boostDialogLauncher,
   });
 
   /// The video being edited, or null when creating.
@@ -67,6 +89,12 @@ class InfluencerVideoFormScreen extends StatefulWidget {
   @visibleForTesting
   final ImagePicker? picker;
 
+  @visibleForTesting
+  final PublishDialogLauncher? publishDialogLauncher;
+
+  @visibleForTesting
+  final PublishDialogLauncher? boostDialogLauncher;
+
   @override
   State<InfluencerVideoFormScreen> createState() =>
       _InfluencerVideoFormScreenState();
@@ -82,6 +110,10 @@ class _InfluencerVideoFormScreenState extends State<InfluencerVideoFormScreen> {
   late final InfluencerMediaService _media =
       widget.mediaService ?? InfluencerMediaService();
   late final ImagePicker _picker = widget.picker ?? ImagePicker();
+  late final PublishDialogLauncher _publishDialogLauncher =
+      widget.publishDialogLauncher ?? showPublishEverywhereDialog;
+  late final PublishDialogLauncher _boostDialogLauncher =
+      widget.boostDialogLauncher ?? offerBoostDialog;
 
   String? _videoType;
 
@@ -239,13 +271,36 @@ class _InfluencerVideoFormScreenState extends State<InfluencerVideoFormScreen> {
         hashtags: parseInfluencerHashtags(_hashtags.text),
       );
 
+      String? createdId;
       if (_isEditing) {
         await _service.update(widget.editing!.id, draft);
       } else {
-        await _service.create(draft, userId);
+        createdId = await _service.create(draft, userId);
       }
 
       if (!mounted) return;
+      if (createdId != null) {
+        final mediaUrls =
+            (thumbnailUrl?.isNotEmpty ?? false) ? [thumbnailUrl!] : const <String>[];
+        await _publishDialogLauncher(
+          context,
+          userId: userId,
+          contentType: 'reel',
+          contentId: createdId,
+          title: draft.title,
+          mediaUrls: mediaUrls,
+        );
+        if (!mounted) return;
+        await _boostDialogLauncher(
+          context,
+          userId: userId,
+          contentType: 'reel',
+          contentId: createdId,
+          title: draft.title,
+          mediaUrls: mediaUrls,
+        );
+        if (!mounted) return;
+      }
       Navigator.pop(
         context,
         _isEditing

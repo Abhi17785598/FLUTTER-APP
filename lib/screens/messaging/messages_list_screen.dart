@@ -17,6 +17,7 @@ import '../../services/messaging_service.dart';
 import 'chat_thread_screen.dart';
 import 'widgets/channel_tile.dart';
 import 'widgets/conversation_tile.dart';
+import 'widgets/create_channel_sheet.dart';
 import 'widgets/new_chat_sheet.dart';
 
 /// Messages — Chats and Channels (blueprint §16.6).
@@ -146,6 +147,12 @@ class _MessagesListViewState extends State<_MessagesListView> {
     if (mounted) await messaging.refresh();
   }
 
+  Future<void> _createChannel() async {
+    final channelId = await showCreateChannelSheet(context);
+    if (channelId == null || !mounted) return;
+    await context.read<MessagingProvider>().refresh();
+  }
+
   @override
   void initState() {
     super.initState();
@@ -201,6 +208,8 @@ class _MessagesListViewState extends State<_MessagesListView> {
           // Null when the participant could not be resolved, which leaves the
           // header inert exactly as it was.
           participantUserId: conversation.otherParticipant?.userId,
+          requestStatus: conversation.requestStatus,
+          isMuted: conversation.isMuted,
         ),
       ),
     );
@@ -222,6 +231,8 @@ class _MessagesListViewState extends State<_MessagesListView> {
               ? '1 member'
               : '${channel.participantCount} members',
           initials: channel.initials,
+          isMuted: channel.isMuted,
+          isChannelAdmin: channel.isAdmin,
         ),
       ),
     );
@@ -332,9 +343,9 @@ class _MessagesListViewState extends State<_MessagesListView> {
         const SizedBox(width: 10),
         _HeaderAction(
           icon: Icons.add,
-          semanticLabel: 'New message',
+          semanticLabel: _tab == 0 ? 'New message' : 'Create channel',
           filled: true,
-          onTap: _startNewChat,
+          onTap: _tab == 0 ? _startNewChat : _createChannel,
         ),
       ],
     );

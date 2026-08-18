@@ -18,6 +18,9 @@ class ChannelSummary {
   final DateTime? lastMessageAt;
   final int unreadCount;
 
+  /// The signed-in user's own `channel_participants.muted_at`.
+  final bool isMuted;
+
   const ChannelSummary({
     required this.id,
     required this.name,
@@ -28,6 +31,7 @@ class ChannelSummary {
     this.participantCount = 0,
     this.lastMessageAt,
     this.unreadCount = 0,
+    this.isMuted = false,
   });
 
   factory ChannelSummary.fromSupabase(
@@ -36,9 +40,14 @@ class ChannelSummary {
     int participantCount = 0,
     DateTime? lastMessageAt,
     int unreadCount = 0,
+    bool isMuted = false,
   }) {
+    final id = json['id']?.toString();
+    if (id == null) {
+      throw ArgumentError('ChannelSummary.fromSupabase: row has no id');
+    }
     return ChannelSummary(
-      id: json['id'].toString(),
+      id: id,
       name: (json['name'] as String?)?.trim().isNotEmpty == true
           ? json['name'] as String
           : 'Untitled channel',
@@ -49,10 +58,13 @@ class ChannelSummary {
       participantCount: participantCount,
       lastMessageAt: lastMessageAt,
       unreadCount: unreadCount,
+      isMuted: isMuted,
     );
   }
 
   bool get isAdmin => myRole?.toLowerCase() == 'admin';
+  bool get isModerator => myRole?.toLowerCase() == 'moderator';
+  bool get canModerate => isAdmin || isModerator;
 
   /// Two-letter avatar fallback from the channel name.
   String get initials {

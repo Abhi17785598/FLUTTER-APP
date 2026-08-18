@@ -10,6 +10,8 @@ import '../../core/widgets/scale_tap.dart';
 import '../../providers/article_editor_provider.dart';
 import '../../providers/auth_provider.dart';
 import '../../services/article_service.dart';
+import '../social/create_campaign_dialog.dart';
+import '../social/publish_everywhere_dialog.dart';
 import 'widgets/article_form_field.dart';
 
 /// Compose or edit an article (blueprint §16.9).
@@ -94,6 +96,7 @@ class _ArticleEditorViewState extends State<_ArticleEditorView> {
   }
 
   Future<void> _submit(ArticleEditorProvider editor) async {
+    final wasNew = !editor.isEditing;
     final error = await editor.submit();
     if (!mounted) return;
 
@@ -104,11 +107,57 @@ class _ArticleEditorViewState extends State<_ArticleEditorView> {
             ? 'Article published.'
             : 'Submitted for review. It will appear once approved.',
       );
+      // Same trigger points as the portal's `ArticleWriteForm` success card
+      // (`PublishToSocialButton` then `RunAdButton`) — offered only for a
+      // brand-new article, not every subsequent edit save.
+      if (wasNew) {
+        await _offerPublish(editor);
+        if (!mounted) return;
+        await _offerBoost(editor);
+      }
+      if (!mounted) return;
       // Signal the caller (Profile → My Content) to refresh.
       Navigator.of(context).pop(true);
       return;
     }
     _showResult(error);
+  }
+
+  /// `contentType` is always `'article'`, matching the portal exactly: even
+  /// `ArticleWriteForm`'s admin/Blog-manager mode hardcodes the literal string
+  /// `"article"` in its own `PublishToSocialButton`/`RunAdButton` calls (the
+  /// `'article' | 'blog'` distinction only selects which content *record*
+  /// type is created, not the `SocialContentType` used for publish/boost).
+  String get _socialContentType => 'article';
+
+  Future<void> _offerPublish(ArticleEditorProvider editor) async {
+    final userId = context.read<AuthProvider>().userId;
+    final articleId = editor.persistedId;
+    if (userId == null || articleId == null) return;
+    await showPublishEverywhereDialog(
+      context,
+      userId: userId,
+      contentType: _socialContentType,
+      contentId: articleId,
+      title: _titleController.text,
+      mediaUrls:
+          _imageController.text.trim().isEmpty ? const [] : [_imageController.text.trim()],
+    );
+  }
+
+  Future<void> _offerBoost(ArticleEditorProvider editor) async {
+    final userId = context.read<AuthProvider>().userId;
+    final articleId = editor.persistedId;
+    if (userId == null || articleId == null) return;
+    await offerBoostDialog(
+      context,
+      userId: userId,
+      contentType: _socialContentType,
+      contentId: articleId,
+      title: _titleController.text,
+      mediaUrls:
+          _imageController.text.trim().isEmpty ? const [] : [_imageController.text.trim()],
+    );
   }
 
   void _showResult(String? error, {String? successMessage}) {
