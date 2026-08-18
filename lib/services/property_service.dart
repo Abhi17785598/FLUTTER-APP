@@ -76,12 +76,15 @@ class PropertyService {
   /// Mirrors the React SellerWall query (SellerWall.tsx:221–226):
   ///   SELECT * FROM properties WHERE user_id = uid ORDER BY created_at DESC
   /// No status filter — all of the user's listings are returned regardless of
-  /// status so the dashboard can show active/inactive/sold badges. No
-  /// sub-table joins — the dashboard card does not need beds/baths/parking.
+  /// status so the dashboard can show active/inactive/sold badges. Joins the
+  /// sub-tables (matching `getProperties()`) because this method also feeds
+  /// `ProfileProvider` → `MyContentSection`'s `PropertyCardCompact`, which
+  /// does render beds/baths/parking — omitting them silently defaulted those
+  /// to 0 there even though the dashboard-only card callers don't need them.
   Future<List<PropertyModel>> getPropertiesByUser(String userId) async {
     final rows = await _supabase
         .from('properties')
-        .select('*')
+        .select('*,properties_residential(*),properties_commercial(*),properties_land(*)')
         .eq('user_id', userId)
         .order('created_at', ascending: false);
 
@@ -116,8 +119,8 @@ class PropertyService {
           ? 'user_profile:user_id!inner(display_name,user_type,company_name,avatar_url)'
           : 'user_profile:user_id(display_name,user_type,company_name,avatar_url)',
       bhkActive
-          ? 'residentialDetails:properties_residential!properties_residential_property_id_fkey!inner(bedrooms,bathrooms,furnished,floor_number,total_floors)'
-          : 'residentialDetails:properties_residential!properties_residential_property_id_fkey(bedrooms,bathrooms,furnished,floor_number,total_floors)',
+          ? 'residentialDetails:properties_residential!properties_residential_property_id_fkey!inner(bedrooms,bathrooms,parking_spaces,furnished,floor_number,total_floors)'
+          : 'residentialDetails:properties_residential!properties_residential_property_id_fkey(bedrooms,bathrooms,parking_spaces,furnished,floor_number,total_floors)',
     ];
 
     PostgrestFilterBuilder<PostgrestList> query = _supabase

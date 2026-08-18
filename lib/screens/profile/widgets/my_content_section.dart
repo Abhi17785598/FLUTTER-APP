@@ -26,6 +26,8 @@ class MyContentSection extends StatefulWidget {
   final void Function(PropertyModel property) onPropertyTap;
   final void Function(ArticleSummary article) onArticleTap;
   final VoidCallback onAddProperty;
+  final void Function(PropertyModel property) onEditProperty;
+  final void Function(PropertyModel property) onDeleteProperty;
 
   const MyContentSection({
     super.key,
@@ -37,6 +39,8 @@ class MyContentSection extends StatefulWidget {
     required this.onPropertyTap,
     required this.onArticleTap,
     required this.onAddProperty,
+    required this.onEditProperty,
+    required this.onDeleteProperty,
   });
 
   @override
@@ -93,6 +97,8 @@ class _MyContentSectionState extends State<MyContentSection> {
           PropertyCardCompact(
             property: property,
             onTap: () => widget.onPropertyTap(property),
+            onEdit: () => widget.onEditProperty(property),
+            onDelete: () => widget.onDeleteProperty(property),
           ),
           const SizedBox(height: AppConstants.spacingM),
         ],

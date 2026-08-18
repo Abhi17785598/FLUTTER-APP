@@ -52,6 +52,8 @@ class PropertyDetailScreen extends StatefulWidget {
 class _PropertyDetailScreenState extends State<PropertyDetailScreen>
     with SingleTickerProviderStateMixin {
   bool _isDescriptionExpanded = false;
+  bool _showAllAmenities = false;
+  bool _showAllNearby = false;
 
   late final AnimationController _entranceController;
   late final Animation<double> _fadeAnim;
@@ -815,9 +817,17 @@ class _PropertyDetailScreenState extends State<PropertyDetailScreen>
             ? 3
             : 2;
 
+    // Land/Plot has no bedroom/bathroom concept (mirrors the portal's
+    // `property.category === 'land'` branch in PropertyDetails.tsx, which
+    // never pushes Bed/Bath overview items for that category) — same gate
+    // already applied to the outer listing card.
+    final bool isLand = property.category == 'land';
+
     final List<_InfoItem> items = [
-      _InfoItem(Icons.bed, 'Bedrooms', '${property.beds}'),
-      _InfoItem(Icons.bathtub, 'Bathrooms', '${property.baths}'),
+      if (!isLand) ...[
+        _InfoItem(Icons.bed, 'Bedrooms', '${property.beds}'),
+        _InfoItem(Icons.bathtub, 'Bathrooms', '${property.baths}'),
+      ],
       _InfoItem(Icons.square_foot, 'Area', '${property.sqft} sqft'),
       _InfoItem(Icons.directions_car, 'Parking', '${property.parking}'),
     ];
@@ -1233,6 +1243,13 @@ class _PropertyDetailScreenState extends State<PropertyDetailScreen>
 
   Widget _buildAmenitiesSection(dynamic property) {
     final List amenities = property.amenities as List;
+    // Mirrors the reference's showAllAmenities/PREVIEW_COUNT toggle
+    // (PropertyDetails.tsx:2276-2279) — a preview slice by count, since this
+    // widget's flat icon row has no per-category grouping to slice by.
+    const int previewCount = 6;
+    final bool canExpand = amenities.length > previewCount;
+    final List visibleAmenities =
+        _showAllAmenities || !canExpand ? amenities : amenities.sublist(0, previewCount);
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -1241,10 +1258,15 @@ class _PropertyDetailScreenState extends State<PropertyDetailScreen>
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
             Text('Amenities', style: AppTextStyles.heading3),
-            TextButton(
-              onPressed: () {},
-              child: const Text('View all'),
-            ),
+            if (canExpand)
+              TextButton(
+                onPressed: () {
+                  setState(() {
+                    _showAllAmenities = !_showAllAmenities;
+                  });
+                },
+                child: Text(_showAllAmenities ? 'Show less' : 'View all'),
+              ),
           ],
         ),
         const SizedBox(height: 12),
@@ -1253,9 +1275,9 @@ class _PropertyDetailScreenState extends State<PropertyDetailScreen>
           child: ListView.builder(
             scrollDirection: Axis.horizontal,
             padding: const EdgeInsets.symmetric(horizontal: 0),
-            itemCount: amenities.length,
+            itemCount: visibleAmenities.length,
             itemBuilder: (BuildContext context, int index) {
-              final amenity = amenities[index];
+              final amenity = visibleAmenities[index];
               final Color color = Color(
                 int.parse(
                   (amenity.color as String).replaceAll('#', '0xFF'),
@@ -1292,6 +1314,10 @@ class _PropertyDetailScreenState extends State<PropertyDetailScreen>
   // ===========================================================================
 
   Widget _buildNearbyPlacesSection(dynamic property) {
+    // Mirrors the reference's showAllNearby/PREVIEW_COUNT(4) toggle
+    // (PropertyDetails.tsx:2194-2195, 2256).
+    final bool canExpand = _nearbyPlaces.length > 4;
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -1299,10 +1325,15 @@ class _PropertyDetailScreenState extends State<PropertyDetailScreen>
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
             Text('Nearby Places', style: AppTextStyles.heading3),
-            TextButton(
-              onPressed: () {},
-              child: const Text('View all'),
-            ),
+            if (canExpand)
+              TextButton(
+                onPressed: () {
+                  setState(() {
+                    _showAllNearby = !_showAllNearby;
+                  });
+                },
+                child: Text(_showAllNearby ? 'Show less' : 'View all'),
+              ),
           ],
         ),
         const SizedBox(height: 8),
@@ -1338,13 +1369,17 @@ class _PropertyDetailScreenState extends State<PropertyDetailScreen>
       );
     }
 
+    final List<NearbyPlace> visiblePlaces = _showAllNearby || _nearbyPlaces.length <= 4
+        ? _nearbyPlaces
+        : _nearbyPlaces.sublist(0, 4);
+
     return ListView.builder(
       shrinkWrap: true,
       physics: const NeverScrollableScrollPhysics(),
       padding: EdgeInsets.zero,
-      itemCount: _nearbyPlaces.length,
+      itemCount: visiblePlaces.length,
       itemBuilder: (BuildContext context, int index) {
-        final NearbyPlace place = _nearbyPlaces[index];
+        final NearbyPlace place = visiblePlaces[index];
         return Container(
           margin: const EdgeInsets.only(bottom: 10),
           padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 2),
