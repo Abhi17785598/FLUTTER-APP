@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import '../core/constants/app_constants.dart';
 import '../core/utils/geo_utils.dart';
 import '../models/property_model.dart';
 import '../models/search_query_params.dart';
 import '../services/property_service.dart';
+import '../services/saved_properties_service.dart';
 
 class PropertyProvider extends ChangeNotifier {
   List<PropertyModel> _properties = [];
@@ -27,6 +29,16 @@ class PropertyProvider extends ChangeNotifier {
   int _budgetBufferCursor = 0;
 
   bool _hasError = false;
+
+  final SavedPropertiesService _savedPropertiesService =
+      SavedPropertiesService();
+
+  // Authoritative, persisted "saved" ids — independent of whether the
+  // property itself is cached in _properties/_searchResults/_mapResults, so
+  // a deep-linked property's saved state is always correct. PropertyModel's
+  // own `isShortlisted` field is kept in sync (see _syncShortlistFlags) so
+  // existing card widgets that read that field directly stay correct too.
+  Set<String> _shortlistedIds = {};
 
   List<PropertyModel> get properties => _properties;
   List<PropertyModel> get searchResults => _searchResults;
@@ -56,6 +68,7 @@ class PropertyProvider extends ChangeNotifier {
 
  PropertyProvider() {
   loadProperties();
+  _loadShortlistedIds();
 }
 
 final PropertyService _propertyService = PropertyService();
@@ -66,10 +79,45 @@ Future<void> loadProperties() async {
     _properties = data
         .map((item) => PropertyModel.fromSupabase(item))
         .toList();
+    _syncShortlistFlags();
     notifyListeners();
   } catch (e) {
     debugPrint('[PropertyProvider] loadProperties failed: $e');
   }
+}
+
+/// Loads the current user's saved-property ids from the persisted
+/// `saved_properties` table. Silently does nothing when signed out —
+/// mirrors the reference portal redirecting anonymous saves to sign-in
+/// rather than surfacing an error here.
+Future<void> _loadShortlistedIds() async {
+  final userId = Supabase.instance.client.auth.currentUser?.id;
+  if (userId == null) return;
+
+  try {
+    _shortlistedIds = await _savedPropertiesService.fetchSavedPropertyIds(
+      userId,
+    );
+    _syncShortlistFlags();
+    notifyListeners();
+  } catch (e) {
+    debugPrint('[PropertyProvider] _loadShortlistedIds failed: $e');
+  }
+}
+
+/// Stamps `isShortlisted` on every cached PropertyModel from the
+/// authoritative [_shortlistedIds] set, so widgets reading the model field
+/// directly (card grids across Home/Search) reflect persisted state.
+void _syncShortlistFlags() {
+  List<PropertyModel> sync(List<PropertyModel> list) => list
+      .map((p) => p.isShortlisted == _shortlistedIds.contains(p.id)
+          ? p
+          : p.copyWith(isShortlisted: _shortlistedIds.contains(p.id)))
+      .toList();
+
+  _properties = sync(_properties);
+  _searchResults = sync(_searchResults);
+  _mapResults = sync(_mapResults);
 }
 
   /// Runs (or continues, when `reset: false`) a search against the live
@@ -157,6 +205,7 @@ Future<void> loadProperties() async {
       if (reset) {
         _isSearching = false;
       }
+      _syncShortlistFlags();
       notifyListeners();
     }
   }
@@ -197,6 +246,7 @@ Future<void> loadProperties() async {
         includeRange: false,
       );
       _mapResults = _applyBudgetAndNearMeFilter(page.rows, params);
+      _syncShortlistFlags();
       notifyListeners();
     } catch (e) {
       debugPrint('[PropertyProvider] loadMapResults failed: $e');
@@ -266,21 +316,44 @@ Future<void> loadProperties() async {
     return null;
   }
 
-  void toggleShortlist(String propertyId) {
-    bool found = false;
-    void updateList(List<PropertyModel> list) {
-      final index = list.indexWhere((p) => p.id == propertyId);
-      if (index != -1) {
-        list[index] =
-            list[index].copyWith(isShortlisted: !list[index].isShortlisted);
-        found = true;
-      }
-    }
+  /// Id-based check, independent of whether [propertyId] happens to be
+  /// cached in _properties/_searchResults/_mapResults — safe to call for a
+  /// deep-linked property that isn't in any of those lists yet.
+  bool isShortlisted(String propertyId) =>
+      _shortlistedIds.contains(propertyId);
 
-    updateList(_properties);
-    updateList(_searchResults);
-    updateList(_mapResults);
-    if (found) notifyListeners();
+  /// Optimistically toggles, then persists to `saved_properties`; rolls
+  /// back on failure. No-ops when signed out, mirroring the reference
+  /// portal's sign-in-required gate.
+  Future<void> toggleShortlist(String propertyId) async {
+    final userId = Supabase.instance.client.auth.currentUser?.id;
+    if (userId == null) return;
+
+    final wasShortlisted = _shortlistedIds.contains(propertyId);
+    if (wasShortlisted) {
+      _shortlistedIds.remove(propertyId);
+    } else {
+      _shortlistedIds.add(propertyId);
+    }
+    _syncShortlistFlags();
+    notifyListeners();
+
+    try {
+      if (wasShortlisted) {
+        await _savedPropertiesService.unsave(userId, propertyId);
+      } else {
+        await _savedPropertiesService.save(userId, propertyId);
+      }
+    } catch (e) {
+      debugPrint('[PropertyProvider] toggleShortlist persistence failed: $e');
+      if (wasShortlisted) {
+        _shortlistedIds.add(propertyId);
+      } else {
+        _shortlistedIds.remove(propertyId);
+      }
+      _syncShortlistFlags();
+      notifyListeners();
+    }
   }
 
   List<PropertyModel> getShortlistedProperties() {

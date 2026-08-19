@@ -790,8 +790,21 @@ class _PublicProfileViewState extends State<_PublicProfileView> {
   ///
   /// Delays step by 50 ms and cap at 400, the convention `profile_screen.dart`
   /// established (fadeIn 400 ms, delays 100–300).
+  ///
+  /// Skipped once the user has already scrolled away from the top. These
+  /// sections do not exist while `provider.isInitialLoad` is true — only the
+  /// skeleton does — so on a slow connection they are first built whenever
+  /// the profile finishes loading, which can land well after the user has
+  /// started scrolling. Animating them in at that point restarts a fade from
+  /// fully invisible right under the user's finger: everything between the
+  /// header and the bottom bar goes blank for several hundred milliseconds
+  /// before fading back, which reads as the screen suddenly turning white
+  /// mid-scroll. Skipping the fade once `_scroll.offset > 0` keeps the
+  /// intended effect for the common case (data arrives before any scrolling)
+  /// while preventing it from replaying under the user's own gesture.
   Widget _animate({required int delayMs, required Widget child}) {
     if (MediaQuery.disableAnimationsOf(context)) return child;
+    if (_scroll.hasClients && _scroll.offset > 0) return child;
     return child
         .animate()
         .fadeIn(duration: 400.ms, delay: Duration(milliseconds: delayMs))
