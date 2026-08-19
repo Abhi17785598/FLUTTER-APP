@@ -10,13 +10,9 @@ import '../../core/theme/app_text_styles.dart';
 import '../../core/constants/app_constants.dart';
 import '../../providers/chat_thread_provider.dart';
 import '../../providers/property_provider.dart';
-<<<<<<< HEAD
-import '../../providers/shortlist_provider.dart';
 import '../../services/messaging_service.dart';
 import '../messaging/chat_thread_screen.dart';
-=======
 import 'widgets/share_property_sheet.dart';
->>>>>>> d69e47d53212903c2491f7b172be0877355bd6a8
 import '../../widgets/verified_badge.dart';
 import '../../widgets/amenity_icon_tile.dart';
 import '../../widgets/nearby_place_row.dart';
@@ -1427,7 +1423,6 @@ class _PropertyDetailScreenState extends State<PropertyDetailScreen>
     );
   }
 
-<<<<<<< HEAD
   /// Real messaging with property context — `start_conversation(...,
   /// p_skip_request_gate: true)` (a shared-property context legitimately
   /// skips the message-request gate, matching the portal's
@@ -1482,7 +1477,9 @@ class _PropertyDetailScreenState extends State<PropertyDetailScreen>
       messenger.showSnackBar(
         const SnackBar(content: Text("Couldn't start the conversation.")),
       );
-=======
+    }
+  }
+
   /// Mirrors PropertyDetails.tsx's owner-card social icon row (Facebook/
   /// Instagram/LinkedIn/YouTube/WhatsApp/Telegram), each shown only when its
   /// own field is present on the already-fetched `social_media` JSON.
@@ -1552,7 +1549,6 @@ class _PropertyDetailScreenState extends State<PropertyDetailScreen>
       await launchUrl(uri, mode: LaunchMode.externalApplication);
     } catch (e) {
       debugPrint('[PropertyDetail] Failed to open social link: $e');
->>>>>>> d69e47d53212903c2491f7b172be0877355bd6a8
     }
   }
 
