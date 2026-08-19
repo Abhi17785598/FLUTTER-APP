@@ -9,7 +9,7 @@ import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_text_styles.dart';
 import '../../core/constants/app_constants.dart';
 import '../../providers/property_provider.dart';
-import '../../providers/shortlist_provider.dart';
+import 'widgets/share_property_sheet.dart';
 import '../../widgets/verified_badge.dart';
 import '../../widgets/amenity_icon_tile.dart';
 import '../../widgets/nearby_place_row.dart';
@@ -280,8 +280,6 @@ class _PropertyDetailScreenState extends State<PropertyDetailScreen>
     final property = _property!;
     final PropertyProvider propertyProvider =
         Provider.of<PropertyProvider>(context);
-    final ShortlistProvider shortlistProvider =
-        Provider.of<ShortlistProvider>(context);
 
     return Scaffold(
       backgroundColor: AppColors.background,
@@ -303,7 +301,7 @@ class _PropertyDetailScreenState extends State<PropertyDetailScreen>
                 children: [
                   _buildHeroImageCarousel(context, property),
                   _buildGradientOverlay(),
-                  _buildTopActions(context, property, shortlistProvider),
+                  _buildTopActions(context, property, propertyProvider),
                   Positioned(
                     bottom: 16,
                     left: 16,
@@ -418,6 +416,14 @@ class _PropertyDetailScreenState extends State<PropertyDetailScreen>
                             _buildExpandableDescription(property),
 
                             const SizedBox(height: 20),
+
+                            // Additional details — the long-tail wizard
+                            // fields (RERA, facing, legal approvals,
+                            // utilities, pricing overflow, contact prefs)
+                            // stored in `properties.metadata`. Mirrors the
+                            // portal's renderAdditionalDetails/
+                            // renderExtendedDetails grouping.
+                            _buildAdditionalDetailsSection(property),
 
                             // Posted by (owner/broker) — mirrors the
                             // portal's "Contact Seller" block. Hidden
@@ -549,17 +555,18 @@ class _PropertyDetailScreenState extends State<PropertyDetailScreen>
 
   // ===========================================================================
   // TOP ACTIONS (back · share · favourite)
-  // Favourite icon is keyed off ShortlistProvider (id-based) rather than
-  // PropertyProvider.toggleShortlist's in-memory-list-dependent mechanism,
-  // since a deep-linked property may not be in that list.
+  // Favourite icon is keyed off PropertyProvider.isShortlisted (id-based,
+  // backed by the persisted `saved_properties` table) rather than requiring
+  // the property to already be in one of PropertyProvider's cached lists —
+  // so a deep-linked property still shows/toggles the correct saved state.
   // ===========================================================================
 
   Widget _buildTopActions(
     BuildContext context,
     dynamic property,
-    ShortlistProvider shortlistProvider,
+    PropertyProvider propertyProvider,
   ) {
-    final bool isShortlisted = shortlistProvider.isShortlisted(property.id as String);
+    final bool isShortlisted = propertyProvider.isShortlisted(property.id as String);
 
     return Positioned(
       top: MediaQuery.of(context).padding.top + 12,
@@ -588,17 +595,20 @@ class _PropertyDetailScreenState extends State<PropertyDetailScreen>
           ),
           Row(
             children: [
-              _buildCircleButton(
-                backgroundColor: Colors.black.withOpacity(0.5),
-                child: const Icon(
-                  Icons.share,
-                  color: Colors.white,
-                  size: 20,
+              GestureDetector(
+                onTap: () => _shareProperty(property),
+                child: _buildCircleButton(
+                  backgroundColor: Colors.black.withOpacity(0.5),
+                  child: const Icon(
+                    Icons.share,
+                    color: Colors.white,
+                    size: 20,
+                  ),
                 ),
               ),
               const SizedBox(width: 8),
               GestureDetector(
-                onTap: () => shortlistProvider.toggleShortlist(property.id as String),
+                onTap: () => propertyProvider.toggleShortlist(property.id as String),
                 child: _buildCircleButton(
                   backgroundColor: Colors.white,
                   child: Icon(
@@ -612,6 +622,19 @@ class _PropertyDetailScreenState extends State<PropertyDetailScreen>
           ),
         ],
       ),
+    );
+  }
+
+  /// Opens the same visible-link / Copy Link / Share pattern already used
+  /// for profile sharing, mirroring the portal's PropertyShareModal (a
+  /// readable, copyable link plus the system share sheet).
+  void _shareProperty(dynamic property) {
+    showSharePropertySheet(
+      context,
+      propertyId: property.id as String,
+      title: (property.title as String?) ?? '',
+      location: property.location as String?,
+      priceDisplay: property.priceDisplay as String?,
     );
   }
 
@@ -829,7 +852,6 @@ class _PropertyDetailScreenState extends State<PropertyDetailScreen>
         _InfoItem(Icons.bathtub, 'Bathrooms', '${property.baths}'),
       ],
       _InfoItem(Icons.square_foot, 'Area', '${property.sqft} sqft'),
-      _InfoItem(Icons.directions_car, 'Parking', '${property.parking}'),
     ];
 
     final String? propertyType = property.propertyType as String?;
@@ -843,6 +865,19 @@ class _PropertyDetailScreenState extends State<PropertyDetailScreen>
     final String pricePerSqft = property.pricePerSqft as String;
     if (pricePerSqft.isNotEmpty) {
       items.add(_InfoItem(Icons.currency_rupee, 'Price/SqFt', pricePerSqft));
+    }
+    // Mirrors the portal's overview grid, which only pushes this item when
+    // `property.available_from` is set (PropertyDetails.tsx renderPropertyOverview).
+    final DateTime? availableFrom = property.availableFrom as DateTime?;
+    if (availableFrom != null) {
+      items.add(
+        _InfoItem(Icons.event, 'Available From', _formatShortDate(availableFrom)),
+      );
+    }
+    // Mirrors the portal's "Price Negotiable" chip (renderExtendedDetails'
+    // Financial & Pricing group), which only appears when the flag is true.
+    if (property.isNegotiable == true) {
+      items.add(_InfoItem(Icons.handshake_outlined, 'Price', 'Negotiable'));
     }
 
     return Column(
@@ -869,6 +904,14 @@ class _PropertyDetailScreenState extends State<PropertyDetailScreen>
       ],
     );
   }
+
+  static const List<String> _monthAbbreviations = [
+    'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+    'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
+  ];
+
+  String _formatShortDate(DateTime date) =>
+      '${date.day} ${_monthAbbreviations[date.month - 1]} ${date.year}';
 
   Widget _buildInfoTile(_InfoItem item) {
     return Container(
@@ -981,6 +1024,168 @@ class _PropertyDetailScreenState extends State<PropertyDetailScreen>
           ),
         ],
       ),
+    );
+  }
+
+  // ===========================================================================
+  // ADDITIONAL DETAILS (properties.metadata)
+  // ===========================================================================
+
+  /// Surfaces the long-tail wizard fields already written into
+  /// `properties.metadata` (RERA, facing, legal approvals, utilities, pricing
+  /// overflow, contact preferences) that have no dedicated PropertyModel
+  /// column/field. Each group is omitted entirely when none of its fields are
+  /// present — same "hide empty group" rule the portal's
+  /// renderAdditionalDetails/renderExtendedDetails use.
+  Widget _buildAdditionalDetailsSection(dynamic property) {
+    final Map<String, dynamic> meta =
+        (property.metadata as Map<String, dynamic>?) ?? const {};
+    if (meta.isEmpty) return const SizedBox.shrink();
+
+    String? str(String key) {
+      final v = meta[key];
+      if (v == null) return null;
+      final s = v.toString().trim();
+      return s.isEmpty ? null : s;
+    }
+
+    bool isTrue(String key) => meta[key] == true;
+
+    List<String> strList(String key) {
+      final v = meta[key];
+      if (v is List) {
+        return v
+            .map((e) => e.toString())
+            .where((s) => s.trim().isNotEmpty)
+            .toList();
+      }
+      return const [];
+    }
+
+    final List<_DetailGroup> groups = [
+      _DetailGroup('Condition & Availability', [
+        if (str('propertyCondition') != null)
+          _DetailRow('Condition', str('propertyCondition')!),
+        if (str('constructionAge') != null)
+          _DetailRow('Construction Age', str('constructionAge')!),
+        if (str('availabilityStatus') != null)
+          _DetailRow('Availability', str('availabilityStatus')!),
+        if (str('facing') != null) _DetailRow('Facing', str('facing')!),
+        if (strList('availableItems').isNotEmpty)
+          _DetailRow('Available Items', strList('availableItems').join(', ')),
+      ]),
+      _DetailGroup('Utilities & Infrastructure', [
+        if (str('electricityBackup') != null)
+          _DetailRow('Electricity Backup', str('electricityBackup')!),
+        if (str('waterAvailability') != null)
+          _DetailRow('Water Availability', str('waterAvailability')!),
+        if (str('numberOfLifts') != null)
+          _DetailRow('Lifts', str('numberOfLifts')!),
+        if (str('openParking') != null)
+          _DetailRow('Open Parking', str('openParking')!),
+        if (isTrue('gasPipeline')) _DetailRow('Gas Pipeline', 'Yes'),
+        if (isTrue('internetAvailability'))
+          _DetailRow('Internet', 'Available'),
+        if (isTrue('solarBackup')) _DetailRow('Solar Backup', 'Yes'),
+        if (isTrue('guardRoom')) _DetailRow('Guard Room', 'Yes'),
+      ]),
+      _DetailGroup('Legal & Approvals', [
+        if (isTrue('reraRegistered'))
+          _DetailRow('RERA Registered', str('reraNumber') ?? 'Yes'),
+        if (isTrue('saleDeed')) _DetailRow('Sale Deed', 'Available'),
+        if (isTrue('registryCopy')) _DetailRow('Registry Copy', 'Available'),
+        if (isTrue('nocAvailable')) _DetailRow('NOC', 'Available'),
+        if (isTrue('encumbranceFree'))
+          _DetailRow('Encumbrance Free', 'Yes'),
+        if (isTrue('loanApproved')) _DetailRow('Loan Approved', 'Yes'),
+        if (isTrue('propertyApproved'))
+          _DetailRow('Property Approved', 'Yes'),
+        if (strList('approvedByBanks').isNotEmpty)
+          _DetailRow(
+              'Approved By Banks', strList('approvedByBanks').join(', ')),
+      ]),
+      _DetailGroup('Pricing Details', [
+        if (str('securityDeposit') != null)
+          _DetailRow('Security Deposit', str('securityDeposit')!),
+        if (str('maintenanceCharges') != null)
+          _DetailRow('Maintenance Charges', str('maintenanceCharges')!),
+        if (str('tokenAmount') != null)
+          _DetailRow('Token Amount', str('tokenAmount')!),
+        if (str('lockInPeriod') != null)
+          _DetailRow('Lock-in Period', str('lockInPeriod')!),
+        if (isTrue('priceNegotiable'))
+          _DetailRow('Price Negotiable', 'Yes'),
+        if (isTrue('allInclusivePriceToggle'))
+          _DetailRow('All Inclusive Price', 'Yes'),
+        if (isTrue('taxGovtChargesIncluded'))
+          _DetailRow('Tax/Govt Charges Included', 'Yes'),
+        if (str('loanAvailability') != null)
+          _DetailRow('Loan Availability', str('loanAvailability')!),
+        if (str('brokerage') != null)
+          _DetailRow('Brokerage', str('brokerage')!),
+      ]),
+      _DetailGroup('Contact Preferences', [
+        if (str('contactName') != null)
+          _DetailRow('Contact Name', str('contactName')!),
+        if (str('whatsappNumber') != null)
+          _DetailRow('WhatsApp Number', str('whatsappNumber')!),
+        if (str('bestTimeToCall') != null)
+          _DetailRow('Best Time To Call', str('bestTimeToCall')!),
+      ]),
+    ].where((g) => g.rows.isNotEmpty).toList();
+
+    if (groups.isEmpty) return const SizedBox.shrink();
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text('Additional Details', style: AppTextStyles.heading3),
+        const SizedBox(height: 12),
+        for (final group in groups) ...[
+          Text(
+            group.title,
+            style: AppTextStyles.body.copyWith(
+              fontWeight: FontWeight.w600,
+              fontSize: 13,
+              color: AppColors.textSecondary,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Container(
+            padding: const EdgeInsets.all(14),
+            decoration: BoxDecoration(
+              color: AppColors.cardBackground,
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(color: AppColors.textHint.withOpacity(0.2)),
+            ),
+            child: Column(
+              children: [
+                for (int i = 0; i < group.rows.length; i++) ...[
+                  if (i > 0) const Divider(height: 16),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text(group.rows[i].label, style: AppTextStyles.caption),
+                      const SizedBox(width: 12),
+                      Flexible(
+                        child: Text(
+                          group.rows[i].value,
+                          textAlign: TextAlign.right,
+                          style: AppTextStyles.body.copyWith(
+                            fontWeight: FontWeight.w600,
+                            fontSize: 13,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ],
+            ),
+          ),
+          const SizedBox(height: 14),
+        ],
+      ],
     );
   }
 
@@ -1201,8 +1406,81 @@ class _PropertyDetailScreenState extends State<PropertyDetailScreen>
             ],
           ),
         ),
+        ..._buildOwnerSocialLinks(owner.socialMedia),
       ],
     );
+  }
+
+  /// Mirrors PropertyDetails.tsx's owner-card social icon row (Facebook/
+  /// Instagram/LinkedIn/YouTube/WhatsApp/Telegram), each shown only when its
+  /// own field is present on the already-fetched `social_media` JSON.
+  List<Widget> _buildOwnerSocialLinks(Map<String, dynamic>? socialMedia) {
+    if (socialMedia == null || socialMedia.isEmpty) return const [];
+
+    String? str(String key) {
+      final v = socialMedia[key];
+      if (v == null) return null;
+      final s = v.toString().trim();
+      return s.isEmpty ? null : s;
+    }
+
+    final links = <_SocialLink>[
+      if (str('facebook') != null || str('facebook_page_link') != null)
+        _SocialLink(Icons.facebook,
+            str('facebook_page_link') ?? str('facebook')!),
+      if (str('instagram') != null)
+        _SocialLink(Icons.camera_alt, str('instagram')!),
+      if (str('linkedin') != null)
+        _SocialLink(Icons.business_center, str('linkedin')!),
+      if (str('youtube') != null)
+        _SocialLink(Icons.play_circle_fill, str('youtube')!),
+      if (str('whatsapp') != null)
+        _SocialLink(
+          Icons.chat,
+          'https://wa.me/${str('whatsapp')!.replaceAll(RegExp(r'[^0-9]'), '')}',
+        ),
+      if (str('telegram') != null)
+        _SocialLink(
+          Icons.send,
+          str('telegram')!.startsWith('http')
+              ? str('telegram')!
+              : 'https://t.me/${str('telegram')}',
+        ),
+    ];
+
+    if (links.isEmpty) return const [];
+
+    return [
+      const SizedBox(height: 10),
+      Row(
+        children: [
+          for (final link in links) ...[
+            GestureDetector(
+              onTap: () => _openExternalLink(link.url),
+              child: Container(
+                width: 34,
+                height: 34,
+                margin: const EdgeInsets.only(right: 8),
+                decoration: BoxDecoration(
+                  color: AppColors.primaryLight,
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(link.icon, size: 16, color: AppColors.primary),
+              ),
+            ),
+          ],
+        ],
+      ),
+    ];
+  }
+
+  Future<void> _openExternalLink(String url) async {
+    try {
+      final uri = Uri.parse(url);
+      await launchUrl(uri, mode: LaunchMode.externalApplication);
+    } catch (e) {
+      debugPrint('[PropertyDetail] Failed to open social link: $e');
+    }
   }
 
   /// Opens the property's actual owner/broker profile — `_property!.userId`,
@@ -1446,7 +1724,7 @@ class _PropertyDetailScreenState extends State<PropertyDetailScreen>
                   );
                 },
                 onFavoriteToggle: () {
-                  Provider.of<ShortlistProvider>(context, listen: false)
+                  Provider.of<PropertyProvider>(context, listen: false)
                       .toggleShortlist(related.id);
                 },
               );
@@ -1941,6 +2219,27 @@ class _InfoItem {
   final String value;
 
   const _InfoItem(this.icon, this.label, this.value);
+}
+
+class _SocialLink {
+  final IconData icon;
+  final String url;
+
+  const _SocialLink(this.icon, this.url);
+}
+
+class _DetailRow {
+  final String label;
+  final String value;
+
+  const _DetailRow(this.label, this.value);
+}
+
+class _DetailGroup {
+  final String title;
+  final List<_DetailRow> rows;
+
+  const _DetailGroup(this.title, this.rows);
 }
 
 class _Highlight {

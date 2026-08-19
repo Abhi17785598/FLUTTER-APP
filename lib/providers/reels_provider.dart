@@ -1,8 +1,10 @@
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../models/reel_model.dart';
 import '../services/reels_service.dart';
+import '../services/reel_likes_service.dart';
 
 class ReelsProvider with ChangeNotifier {
   bool _hasCompletedOnboarding = false;
@@ -12,6 +14,7 @@ class ReelsProvider with ChangeNotifier {
   String? _selectedPropertyType;
 
   final ReelsService _reelsService = ReelsService();
+  final ReelLikesService _reelLikesService = ReelLikesService();
 
   List<ReelModel> _reels = [];
   bool _isLoading = false;
@@ -44,6 +47,26 @@ class ReelsProvider with ChangeNotifier {
   ReelsProvider() {
     _loadPreferences();
     loadReels();
+    _loadLikedIds();
+  }
+
+  /// Loads the current user's liked-reel ids from the persisted `user_likes`
+  /// table. Silently does nothing when signed out or on failure — a reel's
+  /// like state just falls back to session-only in that case rather than
+  /// crashing the feed.
+  Future<void> _loadLikedIds() async {
+    final userId = Supabase.instance.client.auth.currentUser?.id;
+    if (userId == null) return;
+
+    try {
+      final ids = await _reelLikesService.fetchLikedReelIds(userId);
+      _likedIds
+        ..clear()
+        ..addAll(ids);
+      notifyListeners();
+    } catch (e) {
+      debugPrint('[ReelsProvider] _loadLikedIds failed: $e');
+    }
   }
 
   Future<void> loadReels() async {
@@ -84,9 +107,28 @@ class ReelsProvider with ChangeNotifier {
     }
   }
 
-  void toggleLike(String id) {
-    _likedIds.contains(id) ? _likedIds.remove(id) : _likedIds.add(id);
+  /// Optimistically toggles, then persists to `user_likes` when signed in;
+  /// rolls back on failure. Guests still get the local optimistic toggle
+  /// (no persistence) so browsing without an account isn't blocked.
+  Future<void> toggleLike(String id) async {
+    final wasLiked = _likedIds.contains(id);
+    wasLiked ? _likedIds.remove(id) : _likedIds.add(id);
     notifyListeners();
+
+    final userId = Supabase.instance.client.auth.currentUser?.id;
+    if (userId == null) return;
+
+    try {
+      if (wasLiked) {
+        await _reelLikesService.unlike(userId, id);
+      } else {
+        await _reelLikesService.like(userId, id);
+      }
+    } catch (e) {
+      debugPrint('[ReelsProvider] toggleLike persistence failed: $e');
+      wasLiked ? _likedIds.add(id) : _likedIds.remove(id);
+      notifyListeners();
+    }
   }
 
   void toggleSave(String id) {
