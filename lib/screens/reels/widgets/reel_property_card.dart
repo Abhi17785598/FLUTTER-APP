@@ -145,12 +145,6 @@ class ReelPropertyCard extends StatelessWidget {
           value: '${reel.bathrooms}',
           label: reel.bathrooms == 1 ? 'Bathroom' : 'Bathrooms',
         ),
-      if (reel.parkingSpots != null)
-        _SpecItem(
-          icon: Icons.directions_car_outlined,
-          value: '${reel.parkingSpots}',
-          label: 'Parking',
-        ),
     ];
 
     return Row(

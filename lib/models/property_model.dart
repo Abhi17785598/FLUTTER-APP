@@ -56,6 +56,13 @@ class PropertyModel {
   final int? views;
   final DateTime? createdAt;
 
+  // NEW: the raw `properties.metadata` JSON blob, already fetched over the
+  // wire via select('*') today — this only adds client-side exposure of it.
+  // Carries the long-tail fields the wizard writes (RERA, facing, legal
+  // approvals, utilities, pricing overflow, contact preferences, etc.) that
+  // have no dedicated typed column/field above.
+  final Map<String, dynamic> metadata;
+
   PropertyModel({
     required this.id,
     required this.title,
@@ -107,6 +114,7 @@ class PropertyModel {
     this.status,
     this.views,
     this.createdAt,
+    this.metadata = const {},
   });
 
   /// Parses a `properties.media_urls` (text[]) value into usable URLs.
@@ -290,6 +298,7 @@ class PropertyModel {
       createdAt: json['created_at'] != null
           ? DateTime.tryParse(json['created_at'].toString())
           : null,
+      metadata: metadata,
     );
   }
 
@@ -440,6 +449,7 @@ class PropertyModel {
     String? status,
     int? views,
     DateTime? createdAt,
+    Map<String, dynamic>? metadata,
   }) {
     return PropertyModel(
       id: id ?? this.id,
@@ -489,6 +499,7 @@ class PropertyModel {
       status: status ?? this.status,
       views: views ?? this.views,
       createdAt: createdAt ?? this.createdAt,
+      metadata: metadata ?? this.metadata,
     );
   }
 

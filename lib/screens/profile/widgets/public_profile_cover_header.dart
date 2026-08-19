@@ -108,7 +108,16 @@ class PublicProfileCoverHeader extends StatelessWidget {
       // Cover + the avatar's overhang — see [kPublicHeaderHeight].
       expandedHeight: kPublicHeaderHeight,
       pinned: true,
-      stretch: true,
+      // NOT stretch: true. On overscroll (this screen's BouncingScrollPhysics
+      // makes that routine — a fast fling-and-bounce, or the RefreshIndicator
+      // pull, not just a deliberate pull-to-refresh), a stretching SliverAppBar
+      // grows its box taller than `expandedHeight`, but the `_CoverBackground`
+      // above is a fixed-height `Positioned` box that does not grow with it —
+      // the extra stretched region stays unpainted, showing the Scaffold's
+      // AppColors.background (an off-white) through as a blank upper section
+      // until the overscroll releases. Nothing here reads the stretch factor,
+      // so there is nothing to grow the cover to fill; leaving stretch off is
+      // the correct fix, not a workaround.
       elevation: 0,
       scrolledUnderElevation: 0,
       automaticallyImplyLeading: false,
