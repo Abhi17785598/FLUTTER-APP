@@ -1,14 +1,9 @@
-import 'dart:math';
-
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/validation/validators.dart';
 import '../../core/widgets/premium_button.dart';
 import '../../providers/auth_provider.dart';
-import 'auth_post_login.dart';
-import 'package:shared_preferences/shared_preferences.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
 
 class AuthScreen extends StatefulWidget {
   const AuthScreen({super.key});
@@ -29,29 +24,20 @@ class _AuthScreenState extends State<AuthScreen> with TickerProviderStateMixin {
   final _loginPasswordCtrl = TextEditingController();
   bool _loginPasswordVisible = false;
 
-  // Sign Up controllers
-  //
-  // No password/confirm-password here — the account is created with a
-  // securely random placeholder password (never seen by anyone) and the
-  // person's actual chosen password is now collected later, alongside
-  // Username, on the registration form's Account Setup step (Builder/Broker/
-  // Influencer) via Supabase's own updateUser(password:).
-  final _signUpNameCtrl = TextEditingController();
+  // Sign Up — email only, portal parity. No name/password/role/type here:
+  // Supabase's own `signInWithOtp(shouldCreateUser: true)` both creates the
+  // account (if new) and signs in (if existing) with a magic link, and Full
+  // Name + User Type are collected afterwards, once the link is confirmed
+  // and a real session exists — see AccountTypeScreen.
   final _signUpEmailCtrl = TextEditingController();
+  bool _signUpEmailSent = false;
+  String? _signUpSentTo;
 
   // Phone controllers
   final _phoneNameCtrl = TextEditingController();
   final _phoneCtrl = TextEditingController();
 
-  // Role & Type selection
-  String? _selectedRole;
-  String? _selectedType;
-
-  static const List<String> _roles = ['buyer', 'seller'];
-  static const List<String> _sellerTypes = ['builder', 'broker', 'influencer'];
-
   bool _isLoading = false;
-  bool _googleAuthPending = false;
 
   @override
   void initState() {
@@ -85,38 +71,27 @@ class _AuthScreenState extends State<AuthScreen> with TickerProviderStateMixin {
 
     _headerController.forward();
 
-    // Register a listener that routes after Google OAuth completes.
-    // Fires for every AuthProvider change but only acts when _googleAuthPending.
+    // A blocked-account sign-out (AuthProvider.handleBlockedAccount) lands
+    // here — surface its message through the same snackbar every other
+    // auth failure already uses, rather than a new screen.
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted) {
-        context.read<AuthProvider>().addListener(_onGoogleAuthChanged);
+      final blockedMessage = AuthProvider.consumeBlockedMessage();
+      if (blockedMessage != null && mounted) {
+        _showSnackBar(blockedMessage, isError: true);
       }
     });
   }
 
   @override
   void dispose() {
-    context.read<AuthProvider>().removeListener(_onGoogleAuthChanged);
     _tabController.dispose();
     _headerController.dispose();
     _loginEmailCtrl.dispose();
     _loginPasswordCtrl.dispose();
-    _signUpNameCtrl.dispose();
     _signUpEmailCtrl.dispose();
     _phoneNameCtrl.dispose();
     _phoneCtrl.dispose();
     super.dispose();
-  }
-
-  // Fires when AuthProvider notifies. Only acts if Google OAuth is in progress.
-  // Email login is unaffected because _googleAuthPending stays false for it.
-  void _onGoogleAuthChanged() {
-    if (!_googleAuthPending || !mounted) return;
-    final auth = context.read<AuthProvider>();
-    if (!auth.isLoggedIn) return;
-    setState(() => _googleAuthPending = false);
-    final userId = Supabase.instance.client.auth.currentUser?.id;
-    if (userId != null) routeAfterAuth(context, userId);
   }
 
   // ─── Validation ───────────────────────────────────────────
@@ -145,8 +120,8 @@ class _AuthScreenState extends State<AuthScreen> with TickerProviderStateMixin {
   }
 
   String? _validateLogin() {
-    // The field accepts an email, phone number or username, so only presence
-    // is required here — AuthService resolves whichever was typed.
+    // Email or username only — phone sign-in lives on the Phone tab and is
+    // never password-based (see AuthService.loginWithIdentifier).
     final idErr = Validators.required(_loginEmailCtrl.text);
     if (idErr != null) return idErr;
     if (_loginPasswordCtrl.text.isEmpty) return 'Password is required.';
@@ -161,32 +136,9 @@ class _AuthScreenState extends State<AuthScreen> with TickerProviderStateMixin {
         Validators.phone(_phoneCtrl.text);
   }
 
-  /// A password nobody ever needs to know, type or remember — it only exists
-  /// to satisfy Supabase's `signUp(email, password)` API, which cannot create
-  /// an email account without one. `Random.secure()` is a CSPRNG, matching
-  /// `PaymentService.newIdempotencyKey()`'s reasoning for the same primitive.
-  String _generatePlaceholderPassword() {
-    final random = Random.secure();
-    const chars =
-        'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!@#\$%^&*';
-    return List.generate(32, (_) => chars[random.nextInt(chars.length)]).join();
-  }
-
-  String? _validateSignUp() {
-    if (_signUpNameCtrl.text.trim().isEmpty) return 'Full name is required.';
-    final signUpEmailErr =
-        Validators.required(_signUpEmailCtrl.text) ??
+  String? _validateSignUpEmail() {
+    return Validators.required(_signUpEmailCtrl.text) ??
         Validators.email(_signUpEmailCtrl.text);
-    if (signUpEmailErr != null) return signUpEmailErr;
-    if (_selectedRole == null) {
-      return 'Please select a role.';
-    }
-
-    if (_selectedRole == 'seller' && _selectedType == null) {
-      return 'Please select a user type.';
-    }
-
-    return null;
   }
 
   // ─── Handlers ─────────────────────────────────────────────
@@ -202,14 +154,13 @@ class _AuthScreenState extends State<AuthScreen> with TickerProviderStateMixin {
       _loginEmailCtrl.text.trim(),
       _loginPasswordCtrl.text,
     );
+    if (!mounted) return;
     setState(() => _isLoading = false);
     if (error != null) {
       _showSnackBar(error, isError: true);
-    } else {
-      if (!mounted) return;
-      final userId = Supabase.instance.client.auth.currentUser?.id;
-      if (userId != null) await routeAfterAuth(context, userId);
     }
+    // On success, AuthProvider's own auth-stream listener resolves the
+    // destination and navigates — this screen does not decide where to go.
   }
 
   Future<void> _handleSendOtp() async {
@@ -240,50 +191,37 @@ class _AuthScreenState extends State<AuthScreen> with TickerProviderStateMixin {
   }
 
   Future<void> _handleSignUp() async {
-    final validationError = _validateSignUp();
+    final validationError = _validateSignUpEmail();
     if (validationError != null) {
       _showSnackBar(validationError, isError: true);
       return;
     }
-
-    // Persist the selected type now so it survives email confirmation + re-open + sign-in.
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setString('pending_user_type', _selectedType ?? 'individual');
-
-    // No password is collected here anymore — Supabase's email signUp still
-    // requires one to create the account, so a securely random placeholder
-    // is used. Nobody is ever shown it or expected to know it: the person's
-    // real, chosen password is set later via Supabase's updateUser(password:)
-    // on the registration form's Account Setup step, alongside Username.
-    final placeholderPassword = _generatePlaceholderPassword();
-
+    final email = _signUpEmailCtrl.text.trim();
     setState(() => _isLoading = true);
-    final error = await context.read<AuthProvider>().signUp(
-      _signUpNameCtrl.text.trim(),
-      _signUpEmailCtrl.text.trim(),
-      placeholderPassword,
-      placeholderPassword,
-      role: _selectedRole!,
-      type: _selectedType ?? 'individual',
-    );
+    final error = await context.read<AuthProvider>().signUpWithEmail(email);
     setState(() => _isLoading = false);
-
-    if (error == '__email_confirmation_required__') {
-      _showSnackBar(
-        'Account created! Please check your email to confirm your address, then sign in.',
-        isError: false,
-      );
-      return;
-    }
     if (error != null) {
       _showSnackBar(error, isError: true);
       return;
     }
+    setState(() {
+      _signUpEmailSent = true;
+      _signUpSentTo = email;
+    });
+  }
 
-    // Signup returned a session immediately (email confirmation disabled in Supabase).
+  Future<void> _handleResendSignUpEmail() async {
+    final email = _signUpSentTo;
+    if (email == null) return;
+    setState(() => _isLoading = true);
+    final error = await context.read<AuthProvider>().signUpWithEmail(email);
+    setState(() => _isLoading = false);
     if (!mounted) return;
-    final userId = Supabase.instance.client.auth.currentUser?.id;
-    if (userId != null) await routeAfterAuth(context, userId);
+    if (error != null) {
+      _showSnackBar(error, isError: true);
+    } else {
+      _showSnackBar('Confirmation email resent.', isError: false);
+    }
   }
 
   void _showSnackBar(String msg, {bool isError = false}) {
@@ -483,7 +421,7 @@ class _AuthScreenState extends State<AuthScreen> with TickerProviderStateMixin {
       children: [
         _buildTextField(
           controller: _loginEmailCtrl,
-          label: 'Email, phone or username',
+          label: 'Email or Username',
           hint: 'you@example.com',
           icon: Icons.email_outlined,
           keyboardType: TextInputType.text,
@@ -524,68 +462,23 @@ class _AuthScreenState extends State<AuthScreen> with TickerProviderStateMixin {
   }
 
   // ─── Sign Up Form ─────────────────────────────────────────
+  // Portal parity: email only. Full Name + User Type are collected after
+  // the magic link is confirmed and a session exists (AccountTypeScreen) —
+  // there is no role/type choice here, and never a Buyer/Seller one.
 
   Widget _buildSignUpForm() {
+    if (_signUpEmailSent) {
+      return _buildSignUpConfirmationState();
+    }
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        _buildTextField(
-          controller: _signUpNameCtrl,
-          label: 'Full Name',
-          hint: 'Enter your full name',
-          icon: Icons.person_outline,
-        ),
-        const SizedBox(height: 14),
         _buildTextField(
           controller: _signUpEmailCtrl,
           label: 'Email',
           hint: 'you@example.com',
           icon: Icons.email_outlined,
           keyboardType: TextInputType.emailAddress,
-        ),
-        const SizedBox(height: 14),
-        Row(
-          children: [
-            Expanded(
-              child: _buildDropdown(
-                label: 'Role',
-                value: _selectedRole,
-                items: _roles,
-                hint: 'Select role',
-                icon: Icons.badge_outlined,
-                onChanged: (val) {
-                  setState(() {
-                    _selectedRole = val;
-
-                    if (val == 'buyer') {
-                      _selectedType = 'individual';
-                    } else {
-                      _selectedType = null;
-                    }
-                  });
-                },
-              ),
-            ),
-
-            if (_selectedRole == 'seller') ...[
-              const SizedBox(width: 12),
-
-              Expanded(
-                child: _buildDropdown(
-                  label: 'User Type',
-                  value: _selectedType,
-                  items: _sellerTypes,
-                  hint: 'Select type',
-                  icon: Icons.category_outlined,
-                  onChanged: (val) {
-                    setState(() {
-                      _selectedType = val;
-                    });
-                  },
-                ),
-              ),
-            ],
-          ],
         ),
         const SizedBox(height: 22),
         _buildPrimaryButton(
@@ -596,6 +489,44 @@ class _AuthScreenState extends State<AuthScreen> with TickerProviderStateMixin {
         _buildDivider(),
         const SizedBox(height: 16),
         _buildGoogleButton(),
+      ],
+    );
+  }
+
+  Widget _buildSignUpConfirmationState() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Icon(
+          Icons.mark_email_read_outlined,
+          size: 48,
+          color: AppColors.primary,
+        ),
+        const SizedBox(height: 16),
+        const Text(
+          'Check your email',
+          style: TextStyle(
+            fontSize: 20,
+            fontWeight: FontWeight.w700,
+            color: AppColors.textPrimary,
+          ),
+        ),
+        const SizedBox(height: 8),
+        Text(
+          'We sent a confirmation link to ${_signUpSentTo ?? ''}. Tap it on this device to continue.',
+          style: const TextStyle(fontSize: 14, color: AppColors.textSecondary),
+        ),
+        const SizedBox(height: 20),
+        Align(
+          alignment: Alignment.centerLeft,
+          child: TextButton(
+            onPressed: _isLoading ? null : _handleResendSignUpEmail,
+            child: Text(
+              _isLoading ? 'Sending…' : 'Resend email',
+              style: const TextStyle(color: AppColors.primary, fontSize: 13),
+            ),
+          ),
+        ),
       ],
     );
   }
@@ -725,97 +656,6 @@ class _AuthScreenState extends State<AuthScreen> with TickerProviderStateMixin {
     );
   }
 
-  Widget _buildDropdown({
-    required String label,
-    required String? value,
-    required List<String> items,
-    required String hint,
-    required IconData icon,
-    required ValueChanged<String?> onChanged,
-  }) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          label,
-          style: const TextStyle(
-            fontSize: 13,
-            fontWeight: FontWeight.w600,
-            color: AppColors.textPrimary,
-          ),
-        ),
-        const SizedBox(height: 6),
-        Container(
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: Colors.grey.shade200, width: 1),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withOpacity(0.04),
-                blurRadius: 8,
-                offset: const Offset(0, 2),
-              ),
-            ],
-          ),
-          padding: const EdgeInsets.symmetric(horizontal: 12),
-          child: DropdownButtonHideUnderline(
-            child: DropdownButton<String>(
-              value: value,
-              isExpanded: true,
-              hint: Row(
-                children: [
-                  Icon(icon, color: AppColors.textSecondary, size: 18),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: Text(
-                      hint,
-                      style: const TextStyle(
-                        color: AppColors.textHint,
-                        fontSize: 13,
-                      ),
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ),
-                ],
-              ),
-              icon: const Icon(
-                Icons.keyboard_arrow_down_rounded,
-                color: AppColors.textSecondary,
-                size: 20,
-              ),
-              dropdownColor: Colors.white,
-              borderRadius: BorderRadius.circular(12),
-              style: const TextStyle(
-                fontSize: 13,
-                color: AppColors.textPrimary,
-              ),
-              items: items
-                  .map(
-                    (item) => DropdownMenuItem(
-                      value: item,
-                      child: Text(
-                        _formatDropdownLabel(item),
-                        style: const TextStyle(fontSize: 13),
-                      ),
-                    ),
-                  )
-                  .toList(),
-              onChanged: onChanged,
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-
-  String _formatDropdownLabel(String value) {
-    return value
-        .split('_')
-        .map((w) => w[0].toUpperCase() + w.substring(1))
-        .join(' ');
-  }
-
   Widget _buildPrimaryButton({
     required String label,
     required VoidCallback? onPressed,
@@ -850,13 +690,13 @@ class _AuthScreenState extends State<AuthScreen> with TickerProviderStateMixin {
       child: OutlinedButton.icon(
         onPressed: () async {
           final error = await context.read<AuthProvider>().signInWithGoogle();
-          if (error != null) {
-            if (mounted) _showSnackBar(error, isError: true);
-          } else {
-            // Browser opened. Session arrives via auth state stream.
-            // _onGoogleAuthChanged will fire and call routeAfterAuth when ready.
-            setState(() => _googleAuthPending = true);
+          if (error != null && mounted) {
+            _showSnackBar(error, isError: true);
           }
+          // Browser opened on success. The session arrives later via the
+          // auth state stream — AuthProvider is the sole owner of what
+          // happens next; this screen does not track a "pending" flag or
+          // navigate itself.
         },
         icon: const Text(
           'G',

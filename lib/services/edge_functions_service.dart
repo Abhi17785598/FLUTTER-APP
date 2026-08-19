@@ -1,9 +1,26 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
 
-/// Thin wrapper around the deployed `send-otp` Supabase Edge Function.
+/// Thrown by [EdgeFunctionsService.usernameAuthSignIn] with enough detail
+/// (`status`, `code`) for [AuthService] to reproduce the portal's exact
+/// message mapping — see `propcid/supabase/functions/username-auth/index.ts`
+/// — instead of collapsing every failure into one generic string the way
+/// [EdgeFunctionsService]'s other calls do.
+class EdgeFunctionFailure implements Exception {
+  final int? status;
+  final String? code;
+  final String message;
+
+  const EdgeFunctionFailure({required this.message, this.status, this.code});
+
+  @override
+  String toString() => message;
+}
+
+/// Thin wrapper around the deployed `send-otp` and `username-auth` Supabase
+/// Edge Functions.
 ///
-/// Never creates, edits or redeploys a function — this only calls the one
-/// already deployed for the shared backend (same function the website uses).
+/// Never creates, edits or redeploys a function — this only calls the ones
+/// already deployed for the shared backend (same functions the website uses).
 class EdgeFunctionsService {
   final SupabaseClient _supabase = Supabase.instance.client;
 
@@ -59,4 +76,57 @@ class EdgeFunctionsService {
       if (name != null && name.isNotEmpty) 'name': name,
     },
   );
+
+  /// Calls the `username-auth` Edge Function's `signin` action — the same
+  /// endpoint the portal's `SignIn.tsx` uses instead of resolving an email or
+  /// username client-side. That RPC (`get_email_by_username`) is revoked from
+  /// `anon`/`authenticated` (`20270318020000_harden_definer_functions.sql`),
+  /// so this is the only supported way to sign in with a username, and the
+  /// only way to sign in with an email that also avoids a second round-trip.
+  ///
+  /// Returns `{'access_token': ..., 'refresh_token': ...}` on success. On
+  /// failure, throws an [EdgeFunctionFailure] carrying the HTTP status and,
+  /// for the one case the UI must word differently, `code:
+  /// 'email_not_confirmed'` — see `username-auth/index.ts` for the exact
+  /// status/body contract this mirrors.
+  Future<Map<String, dynamic>> usernameAuthSignIn(
+    String identifier,
+    String password,
+  ) async {
+    try {
+      final response = await _supabase.functions.invoke(
+        'username-auth',
+        body: {
+          'action': 'signin',
+          'identifier': identifier,
+          'password': password,
+        },
+      );
+      final data = response.data;
+      if (data is Map &&
+          data['access_token'] is String &&
+          data['refresh_token'] is String) {
+        return Map<String, dynamic>.from(data);
+      }
+      // 2xx but not the shape we expect — treat like the server's own
+      // generic invalid-credentials response rather than a network error.
+      throw const EdgeFunctionFailure(message: 'Invalid username or password.');
+    } on FunctionException catch (e) {
+      final details = e.details;
+      final serverError = details is Map ? details['error']?.toString() : null;
+      throw EdgeFunctionFailure(
+        status: e.status,
+        code: serverError == 'email_not_confirmed'
+            ? 'email_not_confirmed'
+            : null,
+        message: serverError ?? 'Could not reach the server. Please try again.',
+      );
+    } on EdgeFunctionFailure {
+      rethrow;
+    } catch (e) {
+      throw const EdgeFunctionFailure(
+        message: 'A network error occurred. Please try again.',
+      );
+    }
+  }
 }

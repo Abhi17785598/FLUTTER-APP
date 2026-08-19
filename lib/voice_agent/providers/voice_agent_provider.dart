@@ -15,13 +15,7 @@ import '../services/speech_service.dart';
 import '../services/voice_agent_service.dart';
 import '../tools/registry.dart';
 
-enum VoiceAgentStateEnum {
-  idle,
-  listening,
-  processing,
-  speaking,
-  error,
-}
+enum VoiceAgentStateEnum { idle, listening, processing, speaking, error }
 
 class _VoiceAgentState {
   final VoiceAgentStateEnum agentState;
@@ -43,14 +37,14 @@ class _VoiceAgentState {
   });
 
   factory _VoiceAgentState.initial() => const _VoiceAgentState(
-        agentState: VoiceAgentStateEnum.idle,
-        isOpen: false,
-        conversation: [],
-        liveTranscript: '',
-        lastResponse: null,
-        workflowState: initialWorkflowState,
-        isTtsEnabled: false,
-      );
+    agentState: VoiceAgentStateEnum.idle,
+    isOpen: false,
+    conversation: [],
+    liveTranscript: '',
+    lastResponse: null,
+    workflowState: initialWorkflowState,
+    isTtsEnabled: false,
+  );
 
   _VoiceAgentState copyWith({
     VoiceAgentStateEnum? agentState,
@@ -67,8 +61,9 @@ class _VoiceAgentState {
       isOpen: isOpen ?? this.isOpen,
       conversation: conversation ?? this.conversation,
       liveTranscript: liveTranscript ?? this.liveTranscript,
-      lastResponse:
-          clearLastResponse ? null : (lastResponse ?? this.lastResponse),
+      lastResponse: clearLastResponse
+          ? null
+          : (lastResponse ?? this.lastResponse),
       workflowState: workflowState ?? this.workflowState,
       isTtsEnabled: isTtsEnabled ?? this.isTtsEnabled,
     );
@@ -156,13 +151,15 @@ class VoiceAgentProvider extends ChangeNotifier {
     AgentResponse response;
     try {
       // 2. Build tiered system prompt.
-      final prompt = buildSystemPrompt(PromptContext(
-        isAuthenticated: _auth.isLoggedIn,
-        role: _auth.userRole,
-        userType: _auth.userType,
-        displayName: _auth.userName.isNotEmpty ? _auth.userName : null,
-        profileCity: _auth.profileCity, // added in Step 17
-      ));
+      final prompt = buildSystemPrompt(
+        PromptContext(
+          isAuthenticated: _auth.isLoggedIn,
+          role: _auth.userRole,
+          userType: _auth.userType,
+          displayName: _auth.userName.isNotEmpty ? _auth.userName : null,
+          profileCity: _auth.profileCity, // added in Step 17
+        ),
+      );
 
       // 3. Phase 3: knowledgeContext = await retrieveContext(userText) — no-op now.
       const knowledgeContext = '';
@@ -201,8 +198,9 @@ class VoiceAgentProvider extends ChangeNotifier {
         response.intent != Intent.confirm &&
         response.intent != Intent.create_listing) {
       response = response.copyWith(
-        needsConfirmation:
-            AiConfig.alwaysConfirmIntents.contains(response.intent),
+        needsConfirmation: AiConfig.alwaysConfirmIntents.contains(
+          response.intent,
+        ),
         missingFields: [],
         complete: true,
       );
@@ -224,9 +222,7 @@ class VoiceAgentProvider extends ChangeNotifier {
         resolvedIntent = ws.confirmationPayload!.intent;
         resolvedParams = ws.confirmationPayload!.parameters;
       } else if (confirmResponse == 'no') {
-        _state = _state.copyWith(
-          workflowState: initialWorkflowState,
-        );
+        _state = _state.copyWith(workflowState: initialWorkflowState);
       }
     }
 
@@ -248,9 +244,17 @@ class VoiceAgentProvider extends ChangeNotifier {
         profileCity: _auth.profileCity,
         isAdmin: false, // Phase 2: wire to RBAC.
         isSuperAdmin: false, // Phase 2: wire to RBAC.
+        // The canonical sign-out — `_auth` is the live AuthProvider (kept in
+        // sync by `updateAuth` on every rebuild), so `logout`/`delete_account`
+        // in profile_tools.dart clear cached identity the same way the logout
+        // dialog does, instead of signing out through Supabase directly.
+        signOut: _auth.logout,
       );
-      final result =
-          await toolRegistry.execute(resolvedIntent.name, resolvedParams, ctx);
+      final result = await toolRegistry.execute(
+        resolvedIntent.name,
+        resolvedParams,
+        ctx,
+      );
       if (!result.success && result.userMessage != null) {
         spokenText = result.userMessage!;
         toolFailed = true;
@@ -298,27 +302,29 @@ class VoiceAgentProvider extends ChangeNotifier {
     );
     notifyListeners();
 
-    unawaited(speechService.startRecording(
-      onResult: (text) {
-        // Transcription arrived from Whisper — show it briefly then process.
-        _state = _state.copyWith(liveTranscript: text);
-        notifyListeners();
-        processText(text, context);
-      },
-      onError: (error) {
-        _state = _state.copyWith(
-          agentState: VoiceAgentStateEnum.error,
-          liveTranscript: '',
-        );
-        notifyListeners();
-        Future.delayed(const Duration(seconds: 3), () {
-          if (_state.agentState == VoiceAgentStateEnum.error) {
-            _state = _state.copyWith(agentState: VoiceAgentStateEnum.idle);
-            notifyListeners();
-          }
-        });
-      },
-    ));
+    unawaited(
+      speechService.startRecording(
+        onResult: (text) {
+          // Transcription arrived from Whisper — show it briefly then process.
+          _state = _state.copyWith(liveTranscript: text);
+          notifyListeners();
+          processText(text, context);
+        },
+        onError: (error) {
+          _state = _state.copyWith(
+            agentState: VoiceAgentStateEnum.error,
+            liveTranscript: '',
+          );
+          notifyListeners();
+          Future.delayed(const Duration(seconds: 3), () {
+            if (_state.agentState == VoiceAgentStateEnum.error) {
+              _state = _state.copyWith(agentState: VoiceAgentStateEnum.idle);
+              notifyListeners();
+            }
+          });
+        },
+      ),
+    );
   }
 
   void stopListening() {

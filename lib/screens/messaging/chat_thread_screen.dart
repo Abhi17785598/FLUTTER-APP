@@ -1,9 +1,11 @@
+import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_sound/flutter_sound.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:path_provider/path_provider.dart';
+import 'package:permission_handler/permission_handler.dart';
 import 'package:provider/provider.dart';
 
 import '../../core/constants/app_constants.dart';
@@ -14,12 +16,14 @@ import '../../models/chat_message.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/chat_thread_provider.dart';
 import '../../services/chat_media_service.dart';
-import '../../services/messaging_exceptions.dart';
 import '../../services/messaging_service.dart';
 import 'channel_settings_screen.dart';
 import 'widgets/chat_avatar.dart';
 import 'widgets/chat_bubble.dart';
+import 'widgets/forward_message_sheet.dart';
 import 'widgets/message_composer.dart';
+import 'widgets/relative_time.dart';
+import 'widgets/share_property_sheet.dart';
 
 /// A single conversation, 1:1 or channel (blueprint §16.7 and §16.8).
 ///
@@ -83,11 +87,17 @@ class ChatThreadScreen extends StatelessWidget {
       );
     }
 
+    // Never treat "yourself" as a blockable/tappable participant; a channel
+    // passes null already.
+    final resolvedParticipantId =
+        participantUserId == userId ? null : participantUserId;
+
     return ChangeNotifierProvider(
       create: (_) => ChatThreadProvider(
         kind: kind,
         threadId: threadId,
         userId: userId,
+        participantUserId: resolvedParticipantId,
       )..load(),
       child: _ChatThreadView(
         title: title,
@@ -95,10 +105,7 @@ class ChatThreadScreen extends StatelessWidget {
         avatarUrl: avatarUrl,
         initials: initials,
         currentUserId: userId,
-        // Never offer a profile tap on your own thread with yourself; and a
-        // channel passes null already.
-        participantUserId:
-            participantUserId == userId ? null : participantUserId,
+        participantUserId: resolvedParticipantId,
         initialRequestStatus: requestStatus,
         initialIsMuted: isMuted,
         isChannelAdmin: isChannelAdmin,
@@ -147,6 +154,12 @@ class _ChatThreadViewState extends State<_ChatThreadView> {
   bool _isRecording = false;
   DateTime? _recordingStartedAt;
 
+  final _searchController = TextEditingController();
+  Timer? _searchDebounce;
+  bool _searching = false;
+  bool _searchLoading = false;
+  List<ChatMessage> _searchResults = const [];
+
   bool get _isPendingRequest => _requestStatus == 'pending';
 
   @override
@@ -159,8 +172,51 @@ class _ChatThreadViewState extends State<_ChatThreadView> {
   void dispose() {
     _scrollController.removeListener(_onScroll);
     _scrollController.dispose();
+    _searchDebounce?.cancel();
+    _searchController.dispose();
     if (_recorderOpen) _recorder.closeRecorder();
     super.dispose();
+  }
+
+  void _toggleSearch(ChatThreadProvider thread) {
+    setState(() {
+      _searching = !_searching;
+      if (!_searching) {
+        _searchController.clear();
+        _searchResults = const [];
+      }
+    });
+  }
+
+  void _onSearchChanged(String value, ChatThreadProvider thread) {
+    _searchDebounce?.cancel();
+    _searchDebounce = Timer(
+      const Duration(milliseconds: 350),
+      () => _runSearch(value, thread),
+    );
+  }
+
+  Future<void> _runSearch(String term, ChatThreadProvider thread) async {
+    final trimmed = term.trim();
+    if (trimmed.isEmpty) {
+      setState(() => _searchResults = const []);
+      return;
+    }
+    setState(() => _searchLoading = true);
+    try {
+      final results = await _service.searchMessagesInThread(
+        threadId: thread.threadId,
+        isChannel: thread.isChannel,
+        term: trimmed,
+      );
+      if (!mounted) return;
+      setState(() {
+        _searchResults = results;
+        _searchLoading = false;
+      });
+    } catch (_) {
+      if (mounted) setState(() => _searchLoading = false);
+    }
   }
 
   /// The list is `reverse: true` (anchored to the newest message), so
@@ -241,25 +297,28 @@ class _ChatThreadViewState extends State<_ChatThreadView> {
     );
   }
 
-  Future<void> _blockParticipant() async {
-    final userId = widget.participantUserId;
-    if (userId == null) return;
+  /// Blocking/unblocking now lives on the provider (`isBlockedByMe`,
+  /// `blockParticipant`/`unblockParticipant`) so the composer-disable and
+  /// banner below can react to the same state a thread reload also
+  /// refreshes — the screen stays open afterward (it used to pop on block,
+  /// which meant you could never see the resulting disabled/banner state).
+  Future<void> _blockParticipant(ChatThreadProvider thread) async {
     final confirmed = await _confirm(
       title: 'Block this person?',
-      message: "You won't receive new messages from them.",
+      message: "You won't be able to message each other anymore.",
       confirmLabel: 'Block',
     );
     if (confirmed != true || !mounted) return;
-    try {
-      await _service.blockUser(userId);
-      if (mounted) Navigator.of(context).pop();
-    } catch (e) {
-      debugPrint('ChatThreadScreen._blockParticipant failed: ${describeError(e)}');
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text("Couldn't block this person (${describeError(e)}).")),
-        );
-      }
+    final error = await thread.blockParticipant();
+    if (error != null && mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(error)));
+    }
+  }
+
+  Future<void> _unblockParticipant(ChatThreadProvider thread) async {
+    final error = await thread.unblockParticipant();
+    if (error != null && mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(error)));
     }
   }
 
@@ -342,8 +401,11 @@ class _ChatThreadViewState extends State<_ChatThreadView> {
     }
   }
 
-  Future<void> _pickAndSendImage() async {
-    final source = await showModalBottomSheet<ImageSource>(
+  /// The single attach button's menu — camera/gallery for images, plus
+  /// "Share property" (the composer has no separate room for a dedicated
+  /// property button, so it lives here rather than crowding the input row).
+  Future<void> _openAttachMenu() async {
+    final choice = await showModalBottomSheet<String>(
       context: context,
       builder: (sheetContext) => SafeArea(
         child: Column(
@@ -352,19 +414,33 @@ class _ChatThreadViewState extends State<_ChatThreadView> {
             ListTile(
               leading: const Icon(Icons.photo_camera_outlined),
               title: const Text('Take photo'),
-              onTap: () => Navigator.of(sheetContext).pop(ImageSource.camera),
+              onTap: () => Navigator.of(sheetContext).pop('camera'),
             ),
             ListTile(
               leading: const Icon(Icons.photo_library_outlined),
               title: const Text('Choose from gallery'),
-              onTap: () => Navigator.of(sheetContext).pop(ImageSource.gallery),
+              onTap: () => Navigator.of(sheetContext).pop('gallery'),
+            ),
+            ListTile(
+              leading: const Icon(Icons.home_work_outlined),
+              title: const Text('Share property'),
+              onTap: () => Navigator.of(sheetContext).pop('property'),
             ),
           ],
         ),
       ),
     );
-    if (source == null) return;
 
+    if (choice == 'camera' || choice == 'gallery') {
+      await _pickAndSendImage(
+        choice == 'camera' ? ImageSource.camera : ImageSource.gallery,
+      );
+    } else if (choice == 'property') {
+      await _shareProperty();
+    }
+  }
+
+  Future<void> _pickAndSendImage(ImageSource source) async {
     final picked = await _imagePicker.pickImage(
       source: source,
       maxWidth: 1600,
@@ -382,33 +458,100 @@ class _ChatThreadViewState extends State<_ChatThreadView> {
     }
   }
 
-  Future<void> _toggleVoiceRecording() async {
+  Future<void> _shareProperty() async {
+    final property = await showSharePropertySheet(context);
+    if (property == null || !mounted) return;
+
     final thread = context.read<ChatThreadProvider>();
-
-    if (_isRecording) {
-      final path = await _recorder.stopRecorder();
-      final startedAt = _recordingStartedAt;
-      setState(() => _isRecording = false);
-      if (path == null || startedAt == null) return;
-
-      final duration = DateTime.now().difference(startedAt);
-      final bytes = await readFileBytes(path);
-      try {
-        await File(path).delete();
-      } catch (_) {
-        // Best-effort cleanup of the temp recording file.
-      }
-      final error = await thread.sendVoiceNote(bytes, 'wav', duration);
-      if (error != null && mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(error)));
-      }
-      return;
+    final error = await thread.sharePropertyFromPicker(property);
+    if (error != null && mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(error)));
     }
+  }
+
+  Future<void> _forwardMessage(ChatMessage message) async {
+    final targetId = await showForwardMessageSheet(context, widget.currentUserId);
+    if (targetId == null || !mounted) return;
+
+    try {
+      await _service.forwardMessage(
+        targetConversationId: targetId,
+        senderId: widget.currentUserId,
+        message: message,
+      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Message forwarded.')),
+        );
+      }
+    } catch (_) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text("Couldn't forward the message.")),
+        );
+      }
+    }
+  }
+
+  Future<void> _toggleVoiceRecording() async {
+    if (_isRecording) {
+      await _stopAndSendRecording();
+    } else {
+      await _startRecording();
+    }
+  }
+
+  /// Runtime mic-permission request, distinguishing granted/denied/
+  /// permanently-denied — the static `AndroidManifest.xml` `RECORD_AUDIO`
+  /// declaration (left untouched) only makes the permission requestable; it
+  /// doesn't drive the actual in-app prompt or tell us which of these three
+  /// states we're in.
+  Future<bool> _ensureMicPermission() async {
+    var status = await Permission.microphone.status;
+    debugPrint('[Voice] permission status (initial): $status');
+
+    if (status.isGranted) return true;
+
+    if (status.isDenied) {
+      status = await Permission.microphone.request();
+      debugPrint('[Voice] permission status (after request): $status');
+    }
+
+    if (status.isGranted) return true;
+
+    if (!mounted) return false;
+
+    if (status.isPermanentlyDenied || status.isRestricted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: const Text(
+            'Microphone access is turned off for this app.',
+          ),
+          action: SnackBarAction(
+            label: 'Open Settings',
+            onPressed: openAppSettings,
+          ),
+        ),
+      );
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Microphone permission is required to record a voice message.'),
+        ),
+      );
+    }
+    return false;
+  }
+
+  Future<void> _startRecording() async {
+    final granted = await _ensureMicPermission();
+    if (!granted || !mounted) return;
 
     try {
       if (!_recorderOpen) {
         await _recorder.openRecorder();
         _recorderOpen = true;
+        debugPrint('[Voice] recorder opened');
       }
       final dir = await getTemporaryDirectory();
       final path =
@@ -424,12 +567,77 @@ class _ChatThreadViewState extends State<_ChatThreadView> {
         numChannels: 1,
       );
       _recordingStartedAt = DateTime.now();
+      debugPrint('[Voice] recording started');
       setState(() => _isRecording = true);
     } catch (e) {
+      debugPrint('[Voice] start failed: $e');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text("Couldn't start recording.")),
         );
+      }
+    }
+  }
+
+  Future<void> _stopAndSendRecording() async {
+    final thread = context.read<ChatThreadProvider>();
+    final startedAt = _recordingStartedAt;
+
+    String? path;
+    try {
+      path = await _recorder.stopRecorder();
+      debugPrint('[Voice] recording stopped');
+    } catch (e) {
+      debugPrint('[Voice] stop failed: $e');
+    } finally {
+      if (mounted) setState(() => _isRecording = false);
+    }
+
+    if (path == null || startedAt == null) {
+      debugPrint('[Voice] no file produced, nothing to send');
+      return;
+    }
+
+    final duration = DateTime.now().difference(startedAt);
+
+    try {
+      final bytes = await readFileBytes(path);
+      debugPrint('[Voice] file size: ${bytes.lengthInBytes} bytes');
+
+      if (bytes.isEmpty) {
+        debugPrint('[Voice] zero-byte recording, rejecting');
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text("That recording didn't capture any audio. Please try again."),
+            ),
+          );
+        }
+        return;
+      }
+
+      debugPrint('[Voice] upload starting');
+      final error = await thread.sendVoiceNote(bytes, 'wav', duration);
+      if (error != null) {
+        debugPrint('[Voice] upload/send failed: $error');
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(error)));
+        }
+      } else {
+        debugPrint('[Voice] upload/send succeeded');
+      }
+    } catch (e) {
+      debugPrint('[Voice] reading/sending recording failed: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text("Couldn't send the voice message.")),
+        );
+      }
+    } finally {
+      try {
+        await File(path).delete();
+      } catch (_) {
+        // Best-effort cleanup of the temp recording file.
       }
     }
   }
@@ -491,10 +699,19 @@ class _ChatThreadViewState extends State<_ChatThreadView> {
             participantUserId: widget.participantUserId,
             isMuted: _isMuted,
             onToggleMute: _toggleMute,
-            onBlock: widget.participantUserId == null ? null : _blockParticipant,
+            isBlockedByMe: thread.isBlockedByMe,
+            onBlock: widget.participantUserId == null
+                ? null
+                : () => _blockParticipant(thread),
+            onUnblock: widget.participantUserId == null
+                ? null
+                : () => _unblockParticipant(thread),
             onOpenChannelSettings:
                 thread.isChannel ? () => _openChannelSettings(thread) : null,
+            onToggleSearch: () => _toggleSearch(thread),
+            searching: _searching,
           ),
+          if (_searching) _buildSearchBar(thread),
           Expanded(
             child: DecoratedBox(
               // Soft, modern chat-canvas tint (WhatsApp/Telegram-style) in
@@ -511,7 +728,7 @@ class _ChatThreadViewState extends State<_ChatThreadView> {
                   ],
                 ),
               ),
-              child: _buildBody(context, thread),
+              child: _searching ? _buildSearchResults() : _buildBody(context, thread),
             ),
           ),
           if (_isPendingRequest)
@@ -520,6 +737,12 @@ class _ChatThreadViewState extends State<_ChatThreadView> {
               busy: _requestActionInFlight,
               onAccept: _acceptRequest,
               onDecline: _declineRequest,
+            )
+          else if (thread.isBlockedByMe)
+            _BlockedBanner(
+              name: widget.title,
+              busy: thread.blockActionInFlight,
+              onUnblock: () => _unblockParticipant(thread),
             )
           else
             MessageComposer(
@@ -535,12 +758,98 @@ class _ChatThreadViewState extends State<_ChatThreadView> {
                           : widget.title)),
               onCancelReply: () => thread.setReplyTo(null),
               onTyping: thread.notifyTyping,
-              onAttach: thread.uploadingMedia ? null : _pickAndSendImage,
+              onAttach: thread.uploadingMedia ? null : _openAttachMenu,
               onRecordVoice: thread.uploadingMedia ? null : _toggleVoiceRecording,
               isRecordingVoice: _isRecording,
             ),
         ],
       ),
+    );
+  }
+
+  Widget _buildSearchBar(ChatThreadProvider thread) {
+    return Container(
+      padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
+      color: AppColors.cardBackground,
+      child: Row(
+        children: [
+          Expanded(
+            child: Container(
+              height: 40,
+              padding: const EdgeInsets.symmetric(horizontal: 14),
+              decoration: BoxDecoration(
+                color: AppColors.background,
+                borderRadius: BorderRadius.circular(AppConstants.pillRadius),
+              ),
+              alignment: Alignment.centerLeft,
+              child: TextField(
+                controller: _searchController,
+                autofocus: true,
+                onChanged: (value) => _onSearchChanged(value, thread),
+                style: AppTextStyles.body.copyWith(fontSize: 13),
+                decoration: InputDecoration(
+                  isCollapsed: true,
+                  border: InputBorder.none,
+                  hintText: 'Search in this conversation…',
+                  hintStyle: AppTextStyles.body.copyWith(fontSize: 13, color: AppColors.textHint),
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSearchResults() {
+    if (_searchLoading) {
+      return const Center(child: CircularProgressIndicator());
+    }
+    if (_searchController.text.trim().isEmpty) {
+      return const Center(
+        child: EmptyStateView(
+          icon: Icons.search,
+          title: 'Search this conversation',
+          message: 'Matches from the entire thread, not just what\'s loaded.',
+        ),
+      );
+    }
+    if (_searchResults.isEmpty) {
+      return const Center(
+        child: EmptyStateView(
+          icon: Icons.search_off_rounded,
+          title: 'No matches',
+          message: 'No messages match your search.',
+        ),
+      );
+    }
+
+    return ListView.separated(
+      padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 16),
+      itemCount: _searchResults.length,
+      separatorBuilder: (_, _) => const Divider(height: 1),
+      itemBuilder: (context, index) {
+        final message = _searchResults[index];
+        return Padding(
+          padding: const EdgeInsets.symmetric(vertical: 10),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                message.displayContent,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                style: AppTextStyles.body.copyWith(fontSize: 13.5),
+              ),
+              const SizedBox(height: 3),
+              Text(
+                formatClockTime(message.createdAt),
+                style: AppTextStyles.caption.copyWith(fontSize: 11, color: AppColors.textHint),
+              ),
+            ],
+          ),
+        );
+      },
     );
   }
 
@@ -617,6 +926,11 @@ class _ChatThreadViewState extends State<_ChatThreadView> {
                       ? thread.senderFor(replied.senderId)?.displayName
                       : widget.title)),
           reactions: thread.reactionsFor(message.id),
+          sharedProperty: thread.sharedPropertyFor(message.propertyId),
+          onForward: !message.isDeleted &&
+                  (message.messageType == 'text' || message.isPropertyShare)
+              ? () => _forwardMessage(message)
+              : null,
           onReact: (emoji) async {
             final error = await thread.toggleReaction(message.id, emoji);
             if (error != null && mounted) {
@@ -700,6 +1014,65 @@ class _RequestBanner extends StatelessWidget {
   }
 }
 
+/// Shown in place of the composer while [ChatThreadProvider.isBlockedByMe] —
+/// covers the send/attach/mic/property-share disabling in one place, since
+/// none of those controls render at all when this banner does.
+class _BlockedBanner extends StatelessWidget {
+  final String name;
+  final bool busy;
+  final VoidCallback onUnblock;
+
+  const _BlockedBanner({
+    required this.name,
+    required this.busy,
+    required this.onUnblock,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.fromLTRB(20, 14, 20, 20),
+      decoration: const BoxDecoration(
+        color: AppColors.cardBackground,
+        border: Border(top: BorderSide(color: Color(0xFFEDEDF2))),
+      ),
+      child: SafeArea(
+        top: false,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                const Icon(Icons.block, size: 16, color: AppColors.textHint),
+                const SizedBox(width: 6),
+                Flexible(
+                  child: Text(
+                    "You've blocked $name",
+                    textAlign: TextAlign.center,
+                    style: AppTextStyles.body.copyWith(
+                      fontSize: 13,
+                      color: AppColors.textSecondary,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 10),
+            SizedBox(
+              width: double.infinity,
+              child: OutlinedButton(
+                onPressed: busy ? null : onUnblock,
+                child: Text(busy ? 'Unblocking…' : 'Unblock'),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
 class _Header extends StatelessWidget {
   final String title;
   final String? subtitle;
@@ -709,8 +1082,12 @@ class _Header extends StatelessWidget {
   final String? participantUserId;
   final bool isMuted;
   final VoidCallback onToggleMute;
+  final bool isBlockedByMe;
   final VoidCallback? onBlock;
+  final VoidCallback? onUnblock;
   final VoidCallback? onOpenChannelSettings;
+  final VoidCallback? onToggleSearch;
+  final bool searching;
 
   const _Header({
     required this.title,
@@ -720,9 +1097,13 @@ class _Header extends StatelessWidget {
     required this.isMuted,
     required this.onToggleMute,
     this.isTyping = false,
+    this.isBlockedByMe = false,
     this.participantUserId,
     this.onBlock,
+    this.onUnblock,
     this.onOpenChannelSettings,
+    this.onToggleSearch,
+    this.searching = false,
   });
 
   void _openProfile(BuildContext context) {
@@ -838,11 +1219,24 @@ class _Header extends StatelessWidget {
                   ),
                 ),
               ),
+              if (onToggleSearch != null)
+                Semantics(
+                  label: searching ? 'Close search' : 'Search this conversation',
+                  button: true,
+                  child: IconButton(
+                    onPressed: onToggleSearch,
+                    icon: Icon(
+                      searching ? Icons.close : Icons.search,
+                      color: AppColors.textPrimary,
+                    ),
+                  ),
+                ),
               PopupMenuButton<String>(
                 icon: const Icon(Icons.more_vert, color: AppColors.textPrimary),
                 onSelected: (value) {
                   if (value == 'mute') onToggleMute();
                   if (value == 'block') onBlock?.call();
+                  if (value == 'unblock') onUnblock?.call();
                   if (value == 'channel_settings') onOpenChannelSettings?.call();
                 },
                 itemBuilder: (context) => [
@@ -867,7 +1261,18 @@ class _Header extends StatelessWidget {
                         ],
                       ),
                     ),
-                  if (onBlock != null)
+                  if (isBlockedByMe && onUnblock != null)
+                    const PopupMenuItem(
+                      value: 'unblock',
+                      child: Row(
+                        children: [
+                          Icon(Icons.block_flipped, size: 18),
+                          SizedBox(width: 8),
+                          Text('Unblock user'),
+                        ],
+                      ),
+                    )
+                  else if (!isBlockedByMe && onBlock != null)
                     const PopupMenuItem(
                       value: 'block',
                       child: Row(

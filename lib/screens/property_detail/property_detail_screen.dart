@@ -8,8 +8,11 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_text_styles.dart';
 import '../../core/constants/app_constants.dart';
+import '../../providers/chat_thread_provider.dart';
 import '../../providers/property_provider.dart';
 import '../../providers/shortlist_provider.dart';
+import '../../services/messaging_service.dart';
+import '../messaging/chat_thread_screen.dart';
 import '../../widgets/verified_badge.dart';
 import '../../widgets/amenity_icon_tile.dart';
 import '../../widgets/nearby_place_row.dart';
@@ -1189,6 +1192,15 @@ class _PropertyDetailScreenState extends State<PropertyDetailScreen>
                   ),
                 ),
               ),
+              if (_property?.userId != Supabase.instance.client.auth.currentUser?.id)
+                IconButton(
+                  onPressed: () => _messageOwner(context),
+                  icon: const Icon(Icons.chat_bubble_outline, color: AppColors.primary),
+                  style: IconButton.styleFrom(
+                    backgroundColor: AppColors.primaryLight,
+                    shape: const CircleBorder(),
+                  ),
+                ),
               if (phone != null && phone.isNotEmpty)
                 IconButton(
                   onPressed: () => _callOwner(context, phone),
@@ -1203,6 +1215,63 @@ class _PropertyDetailScreenState extends State<PropertyDetailScreen>
         ),
       ],
     );
+  }
+
+  /// Real messaging with property context — `start_conversation(...,
+  /// p_skip_request_gate: true)` (a shared-property context legitimately
+  /// skips the message-request gate, matching the portal's
+  /// `!!sharedPropertyId` rule), then shares this property into the thread
+  /// before opening it, so it's already there on the first fetch. Deliberately
+  /// separate from the "Enquire Now" button below, which is a pre-existing,
+  /// unrelated lead-capture feature this messaging repair pass doesn't touch.
+  Future<void> _messageOwner(BuildContext context) async {
+    final property = _property;
+    final ownerId = property?.userId;
+    if (property == null || ownerId == null || ownerId.isEmpty) return;
+
+    final owner = _ownerProfile;
+    final messenger = ScaffoldMessenger.of(context);
+    final navigator = Navigator.of(context);
+    final service = MessagingService();
+
+    try {
+      final conversationId = await service.startConversation(
+        ownerId,
+        skipRequestGate: true,
+      );
+      await service.sendPropertyShare(
+        threadId: conversationId,
+        senderId: Supabase.instance.client.auth.currentUser!.id,
+        propertyId: property.id,
+        content: 'Shared property: ${property.title}',
+      );
+
+      if (!context.mounted) return;
+      await navigator.push(
+        MaterialPageRoute(
+          builder: (_) => ChatThreadScreen(
+            kind: ChatThreadKind.conversation,
+            threadId: conversationId,
+            title: (owner?.companyName?.isNotEmpty ?? false)
+                ? owner!.companyName!
+                : (owner?.displayName?.isNotEmpty ?? false)
+                    ? owner!.displayName!
+                    : 'Property Owner',
+            avatarUrl: owner?.avatarUrl,
+            initials: ((owner?.displayName?.isNotEmpty ?? false)
+                    ? owner!.displayName![0]
+                    : 'P')
+                .toUpperCase(),
+            participantUserId: ownerId,
+          ),
+        ),
+      );
+    } catch (e) {
+      debugPrint('[PropertyDetail] _messageOwner failed: $e');
+      messenger.showSnackBar(
+        const SnackBar(content: Text("Couldn't start the conversation.")),
+      );
+    }
   }
 
   /// Opens the property's actual owner/broker profile — `_property!.userId`,

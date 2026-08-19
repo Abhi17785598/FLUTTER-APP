@@ -8,7 +8,6 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/widgets/premium_button.dart';
 import '../../providers/auth_provider.dart';
-import 'auth_post_login.dart';
 
 /// Phone-OTP verification step, reached from the Phone tab on [AuthScreen].
 /// Named route `/auth-otp`, args `{'phone': e164, 'name': String?}`.
@@ -94,17 +93,23 @@ class _OtpScreenState extends State<OtpScreen> {
         final name = widget.name;
         if (name != null && name.isNotEmpty) {
           try {
-            await Supabase.instance.client
-                .from('profiles')
-                .update({'display_name': name})
-                .eq('user_id', userId);
+            // upsert, not update: this runs immediately after the edge
+            // function creates a brand-new auth user for a first-time phone
+            // sign-up, so there's a real window where the `handle_new_user`
+            // trigger's profiles row hasn't landed yet — a plain `.update()`
+            // would then silently affect zero rows and this name would be
+            // lost. Still only ever touches this one column.
+            await Supabase.instance.client.from('profiles').upsert({
+              'user_id': userId,
+              'display_name': name,
+            }, onConflict: 'user_id');
           } catch (e) {
             debugPrint('OtpScreen: failed to persist display_name: $e');
           }
         }
-        if (!mounted) return;
-        await routeAfterAuth(context, userId);
       }
+      // AuthProvider's own auth-stream listener resolves the destination and
+      // navigates — this screen does not decide where to go.
       return;
     }
 

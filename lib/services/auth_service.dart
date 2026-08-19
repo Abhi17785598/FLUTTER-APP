@@ -3,20 +3,65 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../core/validation/validators.dart';
 import 'edge_functions_service.dart';
 
-/// What the user typed into the single "email, phone or username" field.
-enum IdentifierKind { email, phone, username }
+/// The subset of [AuthService] that [AuthProvider] depends on, extracted so
+/// tests can drive `AuthProvider` with a fake implementation — a manually
+/// controlled auth-state stream and canned profile rows — without touching a
+/// live (or even a locally-initialized) Supabase client. Production code
+/// always uses [AuthService] itself; this changes no runtime behaviour.
+abstract class AuthServiceBase {
+  Stream<AuthState> get onAuthStateChange;
+  User? get currentUser;
 
-class AuthService {
+  Future<void> loginWithIdentifier(String identifier, String password);
+  Future<void> sendOtp(String phone);
+  Future<void> resendOtp(String phone);
+  Future<void> verifyOtp({
+    required String phone,
+    required String otp,
+    String? name,
+  });
+  Future<bool> signInWithGoogle();
+  Future<void> signUpWithEmail(String email);
+  Future<void> logout();
+  Future<void> sendPasswordResetEmail(String email);
+  Future<void> verifyRecoveryToken(String tokenHash);
+  Future<UserResponse> updatePassword(String newPassword);
+  Future<Map<String, dynamic>?> getUserProfile(String userId);
+
+  /// Like [getUserProfile], but never swallows a fetch failure into `null`
+  /// — used exclusively by [AuthProvider] to tell "no profile row"
+  /// (`AuthDestination.profileMissing`) apart from "the read itself failed"
+  /// (`AuthDestination.profileFetchFailed`), which `getUserProfile`'s
+  /// existing swallow-and-log contract (relied on by other, unrelated
+  /// callers — team screens, `profile_completion_coordinator.dart`) cannot
+  /// distinguish.
+  Future<Map<String, dynamic>?> fetchProfile(String userId);
+
+  /// Writes the Full-Name-+-User-Type setup step's result — see
+  /// `AccountTypeScreen`. Deliberately narrow: only ever these three
+  /// columns, `profile_complete` always `false` (the relevant registration
+  /// form is what sets it `true`), and never `user_role` — that stays
+  /// whatever it already was, this never writes or promotes it.
+  Future<void> upsertAccountTypeAndName({
+    required String userId,
+    required String displayName,
+    required String userType,
+  });
+}
+
+class AuthService implements AuthServiceBase {
   final SupabaseClient _supabase = Supabase.instance.client;
   final EdgeFunctionsService _functions = EdgeFunctionsService();
 
   /// Stream of Auth State changes
+  @override
   Stream<AuthState> get onAuthStateChange => _supabase.auth.onAuthStateChange;
 
   /// Current active session
   Session? get currentSession => _supabase.auth.currentSession;
 
   /// Current active user
+  @override
   User? get currentUser => _supabase.auth.currentUser;
 
   /// Login with email and password
@@ -33,86 +78,104 @@ class AuthService {
     }
   }
 
-  /// Resolves whatever the user typed (email, phone, or username) to an
-  /// email, then signs in — Supabase can only authenticate with email/password.
-  Future<AuthResponse> loginWithIdentifier(
-    String identifier,
-    String password,
-  ) async {
+  /// Signs in with an email or username through the `username-auth` Edge
+  /// Function and establishes the resulting session locally — mirrors the
+  /// portal's `SignIn.tsx` exactly, and never resolves the identifier via
+  /// `get_email_by_username`/`get_email_by_phone`: those RPCs are revoked
+  /// from `anon`/`authenticated` on the shared backend (they were a free
+  /// account-enumeration endpoint — see `username-auth/index.ts`'s header
+  /// comment), so calling them here would just fail.
+  ///
+  /// Phone sign-in is not part of this path — it stays on the OTP flow (see
+  /// [verifyOtp]). A phone number typed here is treated like an unknown
+  /// username by the edge function and fails with the same generic message,
+  /// which matches the portal (its `username-auth` call has no phone branch
+  /// either) and this app's own pre-existing behaviour: a phone-originated
+  /// account is created with a random password nobody ever knows, so
+  /// password sign-in for it could never have succeeded regardless of how
+  /// the identifier was resolved.
+  @override
+  Future<void> loginWithIdentifier(String identifier, String password) async {
     final value = identifier.trim();
-    final String? email;
-    switch (kindOf(value)) {
-      case IdentifierKind.email:
-        email = value;
-        break;
-      case IdentifierKind.phone:
-        email = await getEmailByPhone(value);
-        break;
-      case IdentifierKind.username:
-        email = await getEmailByUsername(value);
-        break;
+    if (value.isEmpty || password.isEmpty) {
+      throw 'Please enter your email/username and password.';
     }
 
-    if (email == null || email.isEmpty) {
-      throw 'No account found for those details.';
-    }
-    return login(email, password);
-  }
-
-  /// `@` → email, all digits (allowing spaces/dashes/`+`) → phone,
-  /// otherwise username.
-  static IdentifierKind kindOf(String raw) {
-    final value = raw.trim();
-    if (value.contains('@')) return IdentifierKind.email;
-    final digits = value.replaceAll(RegExp(r'\D'), '');
-    if (digits.length >= 10 &&
-        digits.length == value.replaceAll(RegExp(r'[\s+\-()]'), '').length) {
-      return IdentifierKind.phone;
-    }
-    return IdentifierKind.username;
-  }
-
-  Future<String?> getEmailByPhone(String phone) async {
+    Map<String, dynamic> data;
     try {
-      final result = await _supabase.rpc(
-        'get_email_by_phone',
-        params: {'p_phone': Validators.toE164(phone)},
-      );
-      return result as String?;
+      data = await _functions.usernameAuthSignIn(value, password);
+    } on EdgeFunctionFailure catch (e) {
+      throw AuthService.mapEdgeFunctionFailure(e);
+    } catch (e) {
+      throw 'A network error occurred. Please try again.';
+    }
+
+    final accessToken = data['access_token'] as String?;
+    final refreshToken = data['refresh_token'] as String?;
+    if (accessToken == null || refreshToken == null) {
+      throw 'Invalid username or password.';
+    }
+
+    try {
+      // Establishes the session locally from the tokens the edge function
+      // already obtained server-side (the email itself never reaches this
+      // client) — the normal auth-state listener (AuthProvider) then takes
+      // over exactly as it does after any other sign-in.
+      await _supabase.auth.setSession(refreshToken, accessToken: accessToken);
+    } on AuthException catch (e) {
+      throw _mapAuthException(e);
     } catch (e) {
       throw 'A network error occurred. Please try again.';
     }
   }
 
-  Future<String?> getEmailByUsername(String username) async {
-    try {
-      final result = await _supabase.rpc(
-        'get_email_by_username',
-        params: {'p_username': username.trim().toLowerCase()},
-      );
-      return result as String?;
-    } catch (e) {
-      throw 'A network error occurred. Please try again.';
+  /// Maps a [EdgeFunctionFailure] from [EdgeFunctionsService.usernameAuthSignIn]
+  /// to portal-equivalent copy. The server already sends a good `message` in
+  /// almost every case (see `username-auth/index.ts`); this only special-cases
+  /// the one code the UI must word differently and fills in a status-based
+  /// fallback if the body was ever empty.
+  ///
+  /// `static` and public (unlike [_mapAuthException]) specifically so tests
+  /// can exercise this mapping without constructing an [AuthService] — its
+  /// field initializers reach for `Supabase.instance.client`, which is not
+  /// available in a plain unit test.
+  static String mapEdgeFunctionFailure(EdgeFunctionFailure e) {
+    if (e.code == 'email_not_confirmed') {
+      return 'Please verify your email before signing in.';
+    }
+    switch (e.status) {
+      case 429:
+        return e.message.isNotEmpty
+            ? e.message
+            : 'Too many attempts. Please try again later.';
+      case 503:
+        return 'Service temporarily unavailable. Please try again shortly.';
+      default:
+        return e.message.isNotEmpty
+            ? e.message
+            : 'A network error occurred. Please try again.';
     }
   }
 
-  /// Sign up with role and type
-  Future<AuthResponse> signUp(
-    String email,
-    String password,
-    String name, {
-    String role = 'buyer',
-    String type = 'individual',
-  }) async {
+  /// Email sign-up/sign-in, portal-parity: a magic link, not a password.
+  /// Mirrors `SignIn.tsx`'s `handleEmailAuth` exactly —
+  /// `signInWithOtp({ email, shouldCreateUser: true, emailRedirectTo })` —
+  /// which both creates the account (if new) and signs in (if existing)
+  /// with the same call; no name, password, role or type is collected or
+  /// stored at this stage. `emailRedirectTo` reuses the same
+  /// `io.supabase.flutter://login-callback` deep link already registered
+  /// for Google OAuth and already handled by the existing auth-state
+  /// listener, so no new native wiring is needed.
+  @override
+  Future<void> signUpWithEmail(String email) async {
     try {
-    return await _supabase.auth.signUp(
-  email: email.trim(),
-  password: password,
-  data: {'display_name': name.trim()},
-  emailRedirectTo: kIsWeb
-      ? Uri.base.origin
-      : 'io.supabase.flutter://login-callback',
-);
+      await _supabase.auth.signInWithOtp(
+        email: email.trim(),
+        shouldCreateUser: true,
+        emailRedirectTo: kIsWeb
+            ? Uri.base.origin
+            : 'io.supabase.flutter://login-callback',
+      );
     } on AuthException catch (e) {
       throw _mapAuthException(e);
     } catch (e) {
@@ -126,6 +189,7 @@ class AuthService {
   // through MSG91 inside the edge function, and `otp_verifications` is the
   // store of record on the backend.
 
+  @override
   Future<void> sendOtp(String phone) async {
     try {
       await _functions.sendOtp(Validators.toE164(phone));
@@ -134,6 +198,7 @@ class AuthService {
     }
   }
 
+  @override
   Future<void> resendOtp(String phone) async {
     try {
       await _functions.resendOtp(Validators.toE164(phone));
@@ -150,6 +215,7 @@ class AuthService {
   ///    phone is new, returns a magic-link `hashed_token`.
   /// 2. `verifyOTP(type: magiclink, tokenHash: …)` → exchanges that token for
   ///    a session, with no browser round-trip.
+  @override
   Future<void> verifyOtp({
     required String phone,
     required String otp,
@@ -184,6 +250,7 @@ class AuthService {
   }
 
   /// Google Sign In
+  @override
   Future<bool> signInWithGoogle() async {
     try {
       await _supabase.auth.signInWithOAuth(
@@ -200,26 +267,24 @@ class AuthService {
     }
   }
 
-  Future<void> updateProfileData({
-    required String name,
-    required String role,
-    required String type,
+  @override
+  Future<void> upsertAccountTypeAndName({
+    required String userId,
+    required String displayName,
+    required String userType,
   }) async {
-    final user = _supabase.auth.currentUser;
-
-    if (user == null) {
-      throw Exception('User not logged in');
-    }
-
-    await _supabase
-        .from('profiles')
-        .update({
-          'display_name': name,
-          'email': user.email,
-          'user_role': role,
-          'user_type': type,
-        })
-        .eq('user_id', user.id);
+    // `upsert` rather than `update`: this can be the very first profile
+    // write for a legacy user with no row yet (AuthDestination.profileMissing
+    // routes here too). A plain `.update()` would silently affect zero rows
+    // in that case. `onConflict: 'user_id'` still only ever touches these
+    // three columns when the row already exists — `user_role` and every
+    // other column (avatar_url, work_city, ...) are untouched either way.
+    await _supabase.from('profiles').upsert({
+      'user_id': userId,
+      'display_name': displayName,
+      'user_type': userType,
+      'profile_complete': false,
+    }, onConflict: 'user_id');
   }
 
   /// Update profile with additional fields (for profile completion)
@@ -239,6 +304,7 @@ class AuthService {
   }
 
   /// Logout
+  @override
   Future<void> logout() async {
     try {
       await _supabase.auth.signOut();
@@ -248,6 +314,7 @@ class AuthService {
   }
 
   /// Forgot password
+  @override
   Future<void> sendPasswordResetEmail(String email) async {
     try {
       await _supabase.auth.resetPasswordForEmail(
@@ -265,6 +332,7 @@ class AuthService {
   /// a session, which is what makes the subsequent [updatePassword] call
   /// legal. Not needed when `supabase_flutter` has already established the
   /// session itself from the incoming link (the common case).
+  @override
   Future<void> verifyRecoveryToken(String tokenHash) async {
     try {
       await _supabase.auth.verifyOTP(
@@ -279,6 +347,7 @@ class AuthService {
   }
 
   /// Update password
+  @override
   Future<UserResponse> updatePassword(String newPassword) async {
     try {
       return await _supabase.auth.updateUser(
@@ -292,6 +361,7 @@ class AuthService {
   }
 
   /// Load profile
+  @override
   Future<Map<String, dynamic>?> getUserProfile(String userId) async {
     try {
       return await _supabase
@@ -303,6 +373,19 @@ class AuthService {
       debugPrint('Error fetching profile: $e');
       return null;
     }
+  }
+
+  /// Same query as [getUserProfile], but lets a fetch failure propagate
+  /// instead of swallowing it to `null` — see the interface doc comment for
+  /// why [AuthProvider] needs this distinction and `getUserProfile` cannot
+  /// be changed to provide it without breaking its other callers.
+  @override
+  Future<Map<String, dynamic>?> fetchProfile(String userId) {
+    return _supabase
+        .from('profiles')
+        .select()
+        .eq('user_id', userId)
+        .maybeSingle();
   }
 
   String _mapAuthException(AuthException e) {

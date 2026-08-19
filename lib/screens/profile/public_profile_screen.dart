@@ -273,8 +273,10 @@ class _PublicProfileViewState extends State<_PublicProfileView> {
     final messenger = ScaffoldMessenger.of(context);
 
     try {
-      final conversationId =
-          await MessagingService().startConversation(profile.userId);
+      // Messaging someone from their public profile carries no property/lead
+      // context either — gated the same as a cold "New Chat" pick.
+      final conversationId = await MessagingService()
+          .startConversation(profile.userId, skipRequestGate: false);
 
       if (!mounted) return;
 

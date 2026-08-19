@@ -2,22 +2,21 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_animate/flutter_animate.dart';
+import 'package:provider/provider.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_text_styles.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
-import '../auth/account_type_screen.dart';
-import '../home/home_screen.dart';
+import '../../providers/auth_provider.dart';
 
 // ─────────────────────────────────────────────
 //  Data model for each floating orbital icon
 // ─────────────────────────────────────────────
 class _OrbitalIcon {
   final IconData icon;
-  final double orbitRadius;   // distance from centre
-  final double startAngle;    // radians – where on the orbit it begins
-  final double orbitSpeed;    // radians per second (positive = CCW)
-  final double size;          // icon box side length
+  final double orbitRadius; // distance from centre
+  final double startAngle; // radians – where on the orbit it begins
+  final double orbitSpeed; // radians per second (positive = CCW)
+  final double size; // icon box side length
   final Color glowColor;
   final Duration entryDelay;
 
@@ -36,8 +35,8 @@ class _OrbitalIcon {
 //  Particle data – tiny ambient glowing dots
 // ─────────────────────────────────────────────
 class _Particle {
-  final double x;       // 0-1 fraction of screen width
-  final double y;       // 0-1 fraction of screen height
+  final double x; // 0-1 fraction of screen width
+  final double y; // 0-1 fraction of screen height
   final double radius;
   final double opacity;
   final Duration delay;
@@ -65,18 +64,17 @@ class SplashScreen extends StatefulWidget {
 
 class _SplashScreenState extends State<SplashScreen>
     with TickerProviderStateMixin {
-
   // Controllers
-  late AnimationController _orbitController;   // drives continuous orbit loop
-  late AnimationController _pulseController;   // drives logo glow pulse
-  late AnimationController _exitController;    // drives fade-out before navigate
+  late AnimationController _orbitController; // drives continuous orbit loop
+  late AnimationController _pulseController; // drives logo glow pulse
+  late AnimationController _exitController; // drives fade-out before navigate
 
   // Fixed orbital icon definitions
   static const List<_OrbitalIcon> _icons = [
     _OrbitalIcon(
       icon: Icons.house_rounded,
       orbitRadius: 118,
-      startAngle: -math.pi / 2,          // top
+      startAngle: -math.pi / 2, // top
       orbitSpeed: 0.28,
       size: 46,
       glowColor: Color(0xFF818CF8),
@@ -85,7 +83,7 @@ class _SplashScreenState extends State<SplashScreen>
     _OrbitalIcon(
       icon: Icons.apartment_rounded,
       orbitRadius: 118,
-      startAngle: math.pi / 2,           // bottom
+      startAngle: math.pi / 2, // bottom
       orbitSpeed: 0.28,
       size: 44,
       glowColor: Color(0xFFA78BFA),
@@ -94,7 +92,7 @@ class _SplashScreenState extends State<SplashScreen>
     _OrbitalIcon(
       icon: Icons.location_on_rounded,
       orbitRadius: 118,
-      startAngle: 0,                      // right
+      startAngle: 0, // right
       orbitSpeed: 0.28,
       size: 42,
       glowColor: Color(0xFFC084FC),
@@ -103,7 +101,7 @@ class _SplashScreenState extends State<SplashScreen>
     _OrbitalIcon(
       icon: Icons.vpn_key_rounded,
       orbitRadius: 118,
-      startAngle: math.pi,               // left
+      startAngle: math.pi, // left
       orbitSpeed: 0.28,
       size: 42,
       glowColor: Color(0xFF60A5FA),
@@ -114,18 +112,102 @@ class _SplashScreenState extends State<SplashScreen>
   // Ambient particles – deterministic positions (no Random to keep
   // the build pure and reproducible on hot restart)
   static const List<_Particle> _particles = [
-    _Particle(x: 0.08, y: 0.12, radius: 2.5, opacity: 0.6, delay: Duration.zero,            duration: Duration(milliseconds: 2200)),
-    _Particle(x: 0.85, y: 0.18, radius: 2.0, opacity: 0.5, delay: Duration(milliseconds: 300),  duration: Duration(milliseconds: 2800)),
-    _Particle(x: 0.22, y: 0.78, radius: 3.0, opacity: 0.4, delay: Duration(milliseconds: 600),  duration: Duration(milliseconds: 2400)),
-    _Particle(x: 0.91, y: 0.82, radius: 2.2, opacity: 0.55,delay: Duration(milliseconds: 900),  duration: Duration(milliseconds: 2600)),
-    _Particle(x: 0.15, y: 0.45, radius: 1.8, opacity: 0.4, delay: Duration(milliseconds: 200),  duration: Duration(milliseconds: 3000)),
-    _Particle(x: 0.78, y: 0.55, radius: 2.8, opacity: 0.5, delay: Duration(milliseconds: 750),  duration: Duration(milliseconds: 2500)),
-    _Particle(x: 0.50, y: 0.08, radius: 2.0, opacity: 0.45,delay: Duration(milliseconds: 400),  duration: Duration(milliseconds: 2700)),
-    _Particle(x: 0.55, y: 0.92, radius: 2.4, opacity: 0.5, delay: Duration(milliseconds: 1100), duration: Duration(milliseconds: 2300)),
-    _Particle(x: 0.35, y: 0.22, radius: 1.6, opacity: 0.35,delay: Duration(milliseconds: 500),  duration: Duration(milliseconds: 2900)),
-    _Particle(x: 0.70, y: 0.30, radius: 2.2, opacity: 0.45,delay: Duration(milliseconds: 800),  duration: Duration(milliseconds: 2100)),
-    _Particle(x: 0.12, y: 0.65, radius: 1.9, opacity: 0.4, delay: Duration(milliseconds: 1000), duration: Duration(milliseconds: 2600)),
-    _Particle(x: 0.88, y: 0.45, radius: 2.6, opacity: 0.5, delay: Duration(milliseconds: 150),  duration: Duration(milliseconds: 2400)),
+    _Particle(
+      x: 0.08,
+      y: 0.12,
+      radius: 2.5,
+      opacity: 0.6,
+      delay: Duration.zero,
+      duration: Duration(milliseconds: 2200),
+    ),
+    _Particle(
+      x: 0.85,
+      y: 0.18,
+      radius: 2.0,
+      opacity: 0.5,
+      delay: Duration(milliseconds: 300),
+      duration: Duration(milliseconds: 2800),
+    ),
+    _Particle(
+      x: 0.22,
+      y: 0.78,
+      radius: 3.0,
+      opacity: 0.4,
+      delay: Duration(milliseconds: 600),
+      duration: Duration(milliseconds: 2400),
+    ),
+    _Particle(
+      x: 0.91,
+      y: 0.82,
+      radius: 2.2,
+      opacity: 0.55,
+      delay: Duration(milliseconds: 900),
+      duration: Duration(milliseconds: 2600),
+    ),
+    _Particle(
+      x: 0.15,
+      y: 0.45,
+      radius: 1.8,
+      opacity: 0.4,
+      delay: Duration(milliseconds: 200),
+      duration: Duration(milliseconds: 3000),
+    ),
+    _Particle(
+      x: 0.78,
+      y: 0.55,
+      radius: 2.8,
+      opacity: 0.5,
+      delay: Duration(milliseconds: 750),
+      duration: Duration(milliseconds: 2500),
+    ),
+    _Particle(
+      x: 0.50,
+      y: 0.08,
+      radius: 2.0,
+      opacity: 0.45,
+      delay: Duration(milliseconds: 400),
+      duration: Duration(milliseconds: 2700),
+    ),
+    _Particle(
+      x: 0.55,
+      y: 0.92,
+      radius: 2.4,
+      opacity: 0.5,
+      delay: Duration(milliseconds: 1100),
+      duration: Duration(milliseconds: 2300),
+    ),
+    _Particle(
+      x: 0.35,
+      y: 0.22,
+      radius: 1.6,
+      opacity: 0.35,
+      delay: Duration(milliseconds: 500),
+      duration: Duration(milliseconds: 2900),
+    ),
+    _Particle(
+      x: 0.70,
+      y: 0.30,
+      radius: 2.2,
+      opacity: 0.45,
+      delay: Duration(milliseconds: 800),
+      duration: Duration(milliseconds: 2100),
+    ),
+    _Particle(
+      x: 0.12,
+      y: 0.65,
+      radius: 1.9,
+      opacity: 0.4,
+      delay: Duration(milliseconds: 1000),
+      duration: Duration(milliseconds: 2600),
+    ),
+    _Particle(
+      x: 0.88,
+      y: 0.45,
+      radius: 2.6,
+      opacity: 0.5,
+      delay: Duration(milliseconds: 150),
+      duration: Duration(milliseconds: 2400),
+    ),
   ];
 
   bool _iconsVisible = false;
@@ -140,7 +222,9 @@ class _SplashScreenState extends State<SplashScreen>
     // Orbit: continuous, loops forever until exit
     _orbitController = AnimationController(
       vsync: this,
-      duration: const Duration(seconds: 12), // one full revolution = 12 s (slow, elegant)
+      duration: const Duration(
+        seconds: 12,
+      ), // one full revolution = 12 s (slow, elegant)
     )..repeat();
 
     // Logo glow pulse
@@ -173,135 +257,33 @@ class _SplashScreenState extends State<SplashScreen>
     if (mounted) _navigateToNextScreen();
   }
 
- Future<void> _navigateToNextScreen() async {
-  final prefs = await SharedPreferences.getInstance();
+  Future<void> _navigateToNextScreen() async {
+    final prefs = await SharedPreferences.getInstance();
 
-  final seenOnboarding =
-      prefs.getBool('onboarding_done') ?? false;
+    final seenOnboarding = prefs.getBool('onboarding_done') ?? false;
 
-  if (!mounted) return;
+    if (!mounted) return;
 
-  final user = Supabase.instance.client.auth.currentUser;
-
-if (!seenOnboarding) {
-  Navigator.pushReplacementNamed(
-    context,
-    '/onboarding',
-  );
-  return;
-}
-
-if (user == null) {
-  Navigator.pushReplacementNamed(
-    context,
-    '/auth',
-  );
-  return;
-}
-
-final profile = await Supabase.instance.client
-    .from('profiles')
-    .select()
-    .eq('user_id', user.id)
-    .maybeSingle();
-
-if (profile == null) {
-  Navigator.pushReplacementNamed(
-    context,
-    '/auth',
-  );
-  return;
-}
-
-if (profile['user_type'] == null) {
-  // Authenticated but type not yet written — happens when the user confirmed
-  // their email and was redirected back while the app was in background.
-  // Use the type they selected on the signup form (stored in SharedPreferences)
-  // — but only if it was stored for THIS account. Unscoped, this survived
-  // sign-out and a different Google account reaching this same null-user_type
-  // state would otherwise inherit whatever role somebody else picked in an
-  // earlier session (see AccountTypeScreen's 'pending_user_type_uid').
-  final pendingType = prefs.getString('pending_user_type');
-  final pendingForUid = prefs.getString('pending_user_type_uid');
-  final pendingIsForThisUser = pendingType != null && pendingForUid == user.id;
-
-  if (!pendingIsForThisUser) {
-    if (pendingType != null) {
-      await prefs.remove('pending_user_type');
-      await prefs.remove('pending_user_type_uid');
+    if (!seenOnboarding) {
+      Navigator.pushReplacementNamed(context, '/onboarding');
+      return;
     }
-    // No pending type for this account — first-time Google user who has not
-    // selected an account type yet. Show the lightweight selection screen.
-    if (mounted) {
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(
-          builder: (_) => AccountTypeScreen(userId: user.id),
-        ),
-      );
-    }
-  } else if (pendingType == 'builder') {
-    Navigator.pushReplacementNamed(context, '/builder-profile');
-  } else if (pendingType == 'broker') {
-    Navigator.pushReplacementNamed(context, '/broker-profile');
-  } else if (pendingType == 'influencer') {
-    Navigator.pushReplacementNamed(context, '/influencer-profile');
-  } else if (pendingType == 'individual') {
-    await Supabase.instance.client
-        .from('profiles')
-        .update({'user_type': 'individual', 'profile_complete': true})
-        .eq('user_id', user.id);
-    await prefs.remove('pending_user_type');
-    await prefs.remove('pending_user_type_uid');
-    if (mounted) {
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(builder: (_) => const HomeScreen()),
-      );
-    }
+
+    // From here on, AuthProvider is the single owner of where the user
+    // goes: it has been resolving (or has already resolved) the session
+    // and profile in the background since it was constructed in `main()`,
+    // via the same `BehaviorSubject`-backed auth stream that fires
+    // `initialSession` on cold start — typically well before this 3-second
+    // animation even finishes. If a destination is already known,
+    // `enableNavigation()` acts on it immediately; otherwise this
+    // screen's own looping animation is the "still resolving" loader until
+    // the profile fetch lands and AuthProvider navigates on its own.
+    //
+    // Deliberately not called until onboarding is confirmed seen — a
+    // genuinely first launch must show onboarding regardless of whatever
+    // auth destination might otherwise resolve to.
+    context.read<AuthProvider>().enableNavigation();
   }
-  return;
-}
-
-if (profile['profile_complete'] != true) {
-  final userType = profile['user_type'];
-
-  if (userType == 'builder') {
-    Navigator.pushReplacementNamed(
-      context,
-      '/builder-profile',
-    );
-  } else if (userType == 'broker') {
-    Navigator.pushReplacementNamed(
-      context,
-      '/broker-profile',
-    );
-  } else if (userType == 'influencer') {
-    Navigator.pushReplacementNamed(
-      context,
-      '/influencer-profile',
-    );
-  } else {
-    // Individual/buyer users — navigate directly to home.
-    // profile_complete is only required for business roles.
-    Navigator.pushReplacement(
-      context,
-      MaterialPageRoute(builder: (_) => const HomeScreen()),
-    );
-  }
-
-  return;
-}
-
-Navigator.pushReplacement(
-  context,
-  MaterialPageRoute(
-    builder: (_) => const HomeScreen(),
-  ),
-);
-
- }
-  
 
   @override
   void dispose() {
@@ -322,10 +304,7 @@ Navigator.pushReplacement(
       body: AnimatedBuilder(
         animation: _exitController,
         builder: (context, child) {
-          return Opacity(
-            opacity: 1.0 - _exitController.value,
-            child: child,
-          );
+          return Opacity(opacity: 1.0 - _exitController.value, child: child);
         },
         child: Stack(
           fit: StackFit.expand,
@@ -382,31 +361,30 @@ Navigator.pushReplacement(
       return Positioned(
         left: p.x * size.width,
         top: p.y * size.height,
-        child: Container(
-          width: p.radius * 2,
-          height: p.radius * 2,
-          decoration: BoxDecoration(
-            shape: BoxShape.circle,
-            color: AppColors.primary.withOpacity(p.opacity),
-            boxShadow: [
-              BoxShadow(
-                color: AppColors.primary.withOpacity(p.opacity * 0.8),
-                blurRadius: p.radius * 4,
-              ),
-            ],
-          ),
-        )
-          .animate(delay: p.delay)
-          .fadeIn(duration: 800.ms)
-          .then()
-          .animate(
-            onPlay: (c) => c.repeat(reverse: true),
-          )
-          .fadeIn(
-            begin: p.opacity * 0.3,
-            duration: p.duration,
-            curve: Curves.easeInOut,
-          ),
+        child:
+            Container(
+                  width: p.radius * 2,
+                  height: p.radius * 2,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: AppColors.primary.withOpacity(p.opacity),
+                    boxShadow: [
+                      BoxShadow(
+                        color: AppColors.primary.withOpacity(p.opacity * 0.8),
+                        blurRadius: p.radius * 4,
+                      ),
+                    ],
+                  ),
+                )
+                .animate(delay: p.delay)
+                .fadeIn(duration: 800.ms)
+                .then()
+                .animate(onPlay: (c) => c.repeat(reverse: true))
+                .fadeIn(
+                  begin: p.opacity * 0.3,
+                  duration: p.duration,
+                  curve: Curves.easeInOut,
+                ),
       );
     }).toList();
   }
@@ -504,25 +482,27 @@ Navigator.pushReplacement(
         return Stack(
           children: _icons.asMap().entries.map((entry) {
             final icon = entry.value;
-            final angle = icon.startAngle + (elapsedAngle * icon.orbitSpeed / 0.28);
+            final angle =
+                icon.startAngle + (elapsedAngle * icon.orbitSpeed / 0.28);
             final dx = cx + icon.orbitRadius * math.cos(angle) - icon.size / 2;
             final dy = cy + icon.orbitRadius * math.sin(angle) - icon.size / 2;
 
             return Positioned(
               left: dx,
               top: dy,
-              child: _OrbitalIconWidget(
-                icon: icon,
-                pulseController: _pulseController,
-              )
-                  .animate(delay: icon.entryDelay)
-                  .fadeIn(duration: 700.ms, curve: Curves.easeOut)
-                  .scale(
-                    begin: const Offset(0, 0),
-                    end: const Offset(1, 1),
-                    duration: 700.ms,
-                    curve: Curves.easeOutBack,
-                  ),
+              child:
+                  _OrbitalIconWidget(
+                        icon: icon,
+                        pulseController: _pulseController,
+                      )
+                      .animate(delay: icon.entryDelay)
+                      .fadeIn(duration: 700.ms, curve: Curves.easeOut)
+                      .scale(
+                        begin: const Offset(0, 0),
+                        end: const Offset(1, 1),
+                        duration: 700.ms,
+                        curve: Curves.easeOutBack,
+                      ),
             );
           }).toList(),
         );
@@ -568,14 +548,14 @@ Navigator.pushReplacement(
 
           // ── Tagline ─────────────────────────
           Text(
-            'Find Your Perfect Property',
-            style: AppTextStyles.body.copyWith(
-              color: Colors.white.withOpacity(0.55),
-              fontSize: 13,
-              letterSpacing: 2.5,
-              fontWeight: FontWeight.w300,
-            ),
-          )
+                'Find Your Perfect Property',
+                style: AppTextStyles.body.copyWith(
+                  color: Colors.white.withOpacity(0.55),
+                  fontSize: 13,
+                  letterSpacing: 2.5,
+                  fontWeight: FontWeight.w300,
+                ),
+              )
               .animate()
               .fadeIn(duration: 600.ms, delay: 900.ms, curve: Curves.easeOut)
               .slideY(
@@ -603,9 +583,9 @@ Navigator.pushReplacement(
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
               colors: [
-                Color(0xFF7C6FF7),  // lighter indigo
-                Color(0xFF5B50E8),  // brand primary
-                Color(0xFF4338CA),  // deep indigo
+                Color(0xFF7C6FF7), // lighter indigo
+                Color(0xFF5B50E8), // brand primary
+                Color(0xFF4338CA), // deep indigo
               ],
             ),
             shape: BoxShape.circle,
@@ -633,11 +613,7 @@ Navigator.pushReplacement(
           child: child,
         );
       },
-      child: const Icon(
-        Icons.home_work_rounded,
-        size: 44,
-        color: Colors.white,
-      ),
+      child: const Icon(Icons.home_work_rounded, size: 44, color: Colors.white),
     );
   }
 
@@ -649,18 +625,11 @@ Navigator.pushReplacement(
         decoration: BoxDecoration(
           color: Colors.white.withOpacity(0.07),
           borderRadius: BorderRadius.circular(22),
-          border: Border.all(
-            color: Colors.white.withOpacity(0.15),
-            width: 1,
-          ),
+          border: Border.all(color: Colors.white.withOpacity(0.15), width: 1),
         ),
         child: ShaderMask(
           shaderCallback: (bounds) => const LinearGradient(
-            colors: [
-              Color(0xFFE0DEFF),
-              Color(0xFFFFFFFF),
-              Color(0xFFC4BFFF),
-            ],
+            colors: [Color(0xFFE0DEFF), Color(0xFFFFFFFF), Color(0xFFC4BFFF)],
             stops: [0.0, 0.5, 1.0],
           ).createShader(bounds),
           blendMode: BlendMode.srcIn,
@@ -686,39 +655,42 @@ Navigator.pushReplacement(
       bottom: 40,
       left: 0,
       right: 0,
-      child: Column(
-        children: [
-          // Thin divider line
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 100),
-            child: Container(
-              height: 0.5,
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  colors: [
-                    Colors.transparent,
-                    Colors.white.withOpacity(0.2),
-                    Colors.transparent,
-                  ],
+      child:
+          Column(
+            children: [
+              // Thin divider line
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 100),
+                child: Container(
+                  height: 0.5,
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      colors: [
+                        Colors.transparent,
+                        Colors.white.withOpacity(0.2),
+                        Colors.transparent,
+                      ],
+                    ),
+                  ),
                 ),
               ),
-            ),
+              const SizedBox(height: 12),
+              Text(
+                'Premium Real Estate Experience',
+                textAlign: TextAlign.center,
+                style: AppTextStyles.caption.copyWith(
+                  color: Colors.white.withOpacity(0.3),
+                  fontSize: 11,
+                  letterSpacing: 1.5,
+                  fontWeight: FontWeight.w300,
+                ),
+              ),
+            ],
+          ).animate().fadeIn(
+            duration: 700.ms,
+            delay: 1200.ms,
+            curve: Curves.easeOut,
           ),
-          const SizedBox(height: 12),
-          Text(
-            'Premium Real Estate Experience',
-            textAlign: TextAlign.center,
-            style: AppTextStyles.caption.copyWith(
-              color: Colors.white.withOpacity(0.3),
-              fontSize: 11,
-              letterSpacing: 1.5,
-              fontWeight: FontWeight.w300,
-            ),
-          ),
-        ],
-      )
-          .animate()
-          .fadeIn(duration: 700.ms, delay: 1200.ms, curve: Curves.easeOut),
     );
   }
 }
@@ -731,10 +703,7 @@ class _OrbitalIconWidget extends StatelessWidget {
   final _OrbitalIcon icon;
   final AnimationController pulseController;
 
-  const _OrbitalIconWidget({
-    required this.icon,
-    required this.pulseController,
-  });
+  const _OrbitalIconWidget({required this.icon, required this.pulseController});
 
   @override
   Widget build(BuildContext context) {

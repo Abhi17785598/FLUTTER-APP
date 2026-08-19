@@ -5,17 +5,15 @@ import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_text_styles.dart';
 import '../../../core/widgets/scale_tap.dart';
 
-/// Edit Profile / Share / QR action row (blueprint §4.1).
+/// Edit Profile / Share action row (blueprint §4.1).
 class ProfileActionRow extends StatelessWidget {
   final VoidCallback onEdit;
   final VoidCallback onShare;
-  final VoidCallback onQr;
 
   const ProfileActionRow({
     super.key,
     required this.onEdit,
     required this.onShare,
-    required this.onQr,
   });
 
   static const double _kHeight = 44;
@@ -38,12 +36,6 @@ class ProfileActionRow extends StatelessWidget {
             label: 'Share',
             onTap: onShare,
           ),
-        ),
-        const SizedBox(width: 10),
-        _SquareAction(
-          icon: Icons.qr_code_2_rounded,
-          semanticLabel: 'Profile QR code',
-          onTap: onQr,
         ),
       ],
     );
@@ -142,37 +134,3 @@ class _OutlinedAction extends StatelessWidget {
   }
 }
 
-class _SquareAction extends StatelessWidget {
-  final IconData icon;
-  final String semanticLabel;
-  final VoidCallback onTap;
-
-  const _SquareAction({
-    required this.icon,
-    required this.semanticLabel,
-    required this.onTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Semantics(
-      label: semanticLabel,
-      button: true,
-      child: ScaleTap(
-        onTap: onTap,
-        child: ColoredBox(
-          color: AppColors.background,
-          child: Container(
-            width: ProfileActionRow._kHeight,
-            height: ProfileActionRow._kHeight,
-            decoration: BoxDecoration(
-              color: AppColors.primaryLight,
-              borderRadius: BorderRadius.circular(AppConstants.buttonRadius),
-            ),
-            child: Icon(icon, size: 20, color: AppColors.primary),
-          ),
-        ),
-      ),
-    );
-  }
-}

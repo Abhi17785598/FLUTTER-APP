@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+
+import '../../providers/auth_provider.dart';
 
 class OnboardingScreen extends StatefulWidget {
   const OnboardingScreen({super.key});
@@ -38,16 +41,14 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
     },
   ];
 
-  Future<void> finishOnboarding() async {
+Future<void> finishOnboarding() async {
+  final prefs = await SharedPreferences.getInstance();
+  await prefs.setBool('onboarding_done', true);
 
-    final prefs = await SharedPreferences.getInstance();
+  if (!mounted) return;
 
-    await prefs.setBool('onboarding_done', true);
-
-    if (!mounted) return;
-
-    Navigator.pushReplacementNamed(context, '/auth');
-  }
+  context.read<AuthProvider>().enableNavigation();
+}
 
   @override
   Widget build(BuildContext context) {

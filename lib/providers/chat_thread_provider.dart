@@ -6,6 +6,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../models/chat_message.dart';
 import '../models/conversation_summary.dart';
 import '../models/message_reaction.dart';
+import '../models/shared_property_preview.dart';
 import '../services/chat_media_service.dart';
 import '../services/messaging_exceptions.dart';
 import '../services/messaging_service.dart';
@@ -36,6 +37,7 @@ class ChatThreadProvider extends ChangeNotifier {
     required this.kind,
     required this.threadId,
     required this.userId,
+    this.participantUserId,
     MessagingService? service,
     ChatMediaService? mediaService,
   })  : _service = service ?? MessagingService(),
@@ -47,6 +49,12 @@ class ChatThreadProvider extends ChangeNotifier {
   final String threadId;
 
   final String userId;
+
+  /// The other person in a 1:1 thread — null for channels (and for a DM
+  /// whose participant couldn't be resolved, in which case block state
+  /// simply isn't checked). Needed here (not just at the screen) because
+  /// block state now lives on the provider alongside the messages it gates.
+  final String? participantUserId;
 
   final MessagingService _service;
   final ChatMediaService _mediaService;
@@ -68,6 +76,7 @@ class ChatThreadProvider extends ChangeNotifier {
   List<ChatMessage> _messages = const [];
   Map<String, ConversationParticipant> _senders = const {};
   Map<String, List<MessageReaction>> _reactions = const {};
+  Map<String, SharedPropertyPreview> _sharedProperties = const {};
   bool _loading = true;
   bool _failed = false;
   bool _sending = false;
@@ -75,6 +84,23 @@ class ChatThreadProvider extends ChangeNotifier {
   bool _loadingMore = false;
   bool _otherTyping = false;
   ChatMessage? _replyingTo;
+
+  /// Channel-only: senders the caller has personally blocked. Their
+  /// messages — past and future, including realtime inserts — are filtered
+  /// out of this thread entirely, matching the portal's `ChannelChat.tsx`.
+  /// Not used for DM threads, where blocking instead disables the composer
+  /// and shows a banner rather than hiding existing history — see
+  /// [isBlockedByMe].
+  Set<String> _blockedSenderIds = const {};
+
+  /// DM-only: whether the *caller* has personally blocked the other
+  /// participant — derived solely from the caller's own `user_blocks` row
+  /// (never "have they blocked me"; the portal doesn't expose that to the
+  /// blocked party either, so a message that fails to send because the
+  /// *other* party blocked the caller still just surfaces the generic
+  /// "This message could not be delivered." error, unchanged).
+  bool _isBlockedByMe = false;
+  bool _blockActionInFlight = false;
 
   List<ChatMessage> get messages => List.unmodifiable(_messages);
   bool get loading => _loading;
@@ -85,6 +111,8 @@ class ChatThreadProvider extends ChangeNotifier {
   bool get otherTyping => _otherTyping;
   ChatMessage? get replyingTo => _replyingTo;
   bool get isChannel => kind == ChatThreadKind.channel;
+  bool get isBlockedByMe => _isBlockedByMe;
+  bool get blockActionInFlight => _blockActionInFlight;
 
   /// `'dm'` or `'channel'` — the literal string every reaction/edit/delete
   /// RPC expects.
@@ -96,6 +124,31 @@ class ChatThreadProvider extends ChangeNotifier {
 
   List<MessageReaction> reactionsFor(String messageId) =>
       _reactions[messageId] ?? const [];
+
+  SharedPropertyPreview? sharedPropertyFor(String? propertyId) =>
+      propertyId == null ? null : _sharedProperties[propertyId];
+
+  /// Batch-resolves every `property_id` in [messages] not already cached —
+  /// one query per call site regardless of how many `property_share`
+  /// bubbles are on the page, never one query per bubble. Cached for the
+  /// life of this provider instance (a thread's properties don't change
+  /// underneath it), so scrolling back over already-seen messages doesn't
+  /// re-query.
+  Future<void> _resolveSharedProperties(List<ChatMessage> messages) async {
+    final missing = messages
+        .where((m) => m.isPropertyShare && m.propertyId != null)
+        .map((m) => m.propertyId!)
+        .where((id) => !_sharedProperties.containsKey(id))
+        .toSet();
+    if (missing.isEmpty) return;
+    try {
+      final fetched = await _service.fetchSharedProperties(missing);
+      _sharedProperties = {..._sharedProperties, ...fetched};
+      _safeNotify();
+    } catch (e) {
+      debugPrint('ChatThreadProvider._resolveSharedProperties failed: $e');
+    }
+  }
 
   /// The message a reply/quote strip is pointing at, resolved from the
   /// already-loaded thread — no separate fetch, matching the portal.
@@ -111,6 +164,11 @@ class ChatThreadProvider extends ChangeNotifier {
     _presence.attach();
     _subscribe();
     _subscribeTyping();
+    // Block state is reloaded every time a thread is opened, not cached
+    // across sessions — so blocking/unblocking from another screen (or the
+    // Blocked Users list) is always reflected the next time this thread
+    // opens, not just after a block/unblock performed from right here.
+    await _loadBlockState();
     await _fetch();
     // Opening a thread clears its unread rows, matching both ChatModal.tsx
     // and ChannelChat.tsx. A failure here must not become an unhandled
@@ -123,11 +181,73 @@ class ChatThreadProvider extends ChangeNotifier {
     }
   }
 
+  Future<void> _loadBlockState() async {
+    try {
+      if (isChannel) {
+        _blockedSenderIds = await _service.myBlockedUserIds(userId);
+      } else if (participantUserId != null) {
+        _isBlockedByMe =
+            await _service.haveIBlocked(userId, participantUserId!);
+      }
+    } catch (e) {
+      debugPrint('ChatThreadProvider._loadBlockState failed: $e');
+    }
+  }
+
+  /// Blocks the DM participant — disables the composer/attach/mic (the
+  /// screen reads [isBlockedByMe] to do that) and shows a banner, matching
+  /// the portal. No-op for channels (there is no "block this channel").
+  Future<String?> blockParticipant() async {
+    final other = participantUserId;
+    if (other == null || isChannel || _blockActionInFlight) return null;
+    _blockActionInFlight = true;
+    _safeNotify();
+    try {
+      await _service.blockUser(other);
+      _isBlockedByMe = true;
+      return null;
+    } catch (e) {
+      debugPrint('ChatThreadProvider.blockParticipant failed: $e');
+      return "Couldn't block this person.";
+    } finally {
+      _blockActionInFlight = false;
+      _safeNotify();
+    }
+  }
+
+  Future<String?> unblockParticipant() async {
+    final other = participantUserId;
+    if (other == null || isChannel || _blockActionInFlight) return null;
+    _blockActionInFlight = true;
+    _safeNotify();
+    try {
+      await _service.unblockUser(other);
+      _isBlockedByMe = false;
+      return null;
+    } catch (e) {
+      debugPrint('ChatThreadProvider.unblockParticipant failed: $e');
+      return "Couldn't unblock this person.";
+    } finally {
+      _blockActionInFlight = false;
+      _safeNotify();
+    }
+  }
+
   Future<void> refresh() => _fetch();
 
+  /// Fetches the latest window and **merges** it into whatever's already
+  /// loaded — never a wholesale replace. On the very first load (`_messages`
+  /// still empty) there's nothing to merge into, so the fetched page just
+  /// becomes the list directly. On every later call (pull-to-refresh, the
+  /// belt-and-suspenders sync after a send/edit, or a realtime fallback),
+  /// merging means a thread with 150 messages loaded (50 latest + 100 older
+  /// via [loadMore]) never collapses back down to 50 just because something
+  /// changed — the fix for the exact "pagination destroyed by any refetch"
+  /// bug this repair pass targets.
   Future<void> _fetch() async {
     final requestId = ++_fetchRequestId;
-    _loading = _messages.isEmpty;
+    final isFirstLoad = _messages.isEmpty;
+    _loading = isFirstLoad;
     _failed = false;
     _safeNotify();
 
@@ -138,8 +258,10 @@ class ChatThreadProvider extends ChangeNotifier {
 
       if (requestId != _fetchRequestId) return; // superseded by a newer call
 
-      _messages = loaded;
-      _hasMoreOlder = loaded.length >= MessagingService.messagePageSize;
+      _messages = isFirstLoad ? _filterHidden(loaded) : _mergeIntoMessages(loaded);
+      if (isFirstLoad) {
+        _hasMoreOlder = loaded.length >= MessagingService.messagePageSize;
+      }
 
       // Channel bubbles are attributed to a sender; resolve any we don't have.
       if (isChannel) {
@@ -155,6 +277,8 @@ class ChatThreadProvider extends ChangeNotifier {
       }
 
       await _refreshReactions(loaded.map((m) => m.id).toList());
+      if (requestId != _fetchRequestId) return;
+      await _resolveSharedProperties(loaded);
       if (requestId != _fetchRequestId) return;
     } catch (e) {
       if (requestId != _fetchRequestId) return;
@@ -185,9 +309,13 @@ class ChatThreadProvider extends ChangeNotifier {
               : await _service.listMessages(threadId, before: oldest);
 
       _hasMoreOlder = older.length >= MessagingService.messagePageSize;
+      final visible = _filterHidden(older);
+      if (visible.isNotEmpty) {
+        _messages = [...visible, ..._messages];
+      }
       if (older.isNotEmpty) {
-        _messages = [...older, ..._messages];
         await _refreshReactions(older.map((m) => m.id).toList());
+        await _resolveSharedProperties(older);
       }
     } catch (e) {
       debugPrint('ChatThreadProvider.loadMore failed: $e');
@@ -208,6 +336,123 @@ class ChatThreadProvider extends ChangeNotifier {
     } catch (e) {
       debugPrint('ChatThreadProvider._refreshReactions failed: $e');
     }
+  }
+
+  /// Drops any message the current user deleted "for me", and — for channel
+  /// threads only — any message from a sender the caller has personally
+  /// blocked (past history and, via [_mergeIntoMessages], future realtime
+  /// inserts too; matches the portal's `ChannelChat.tsx`, which filters
+  /// blocked senders on both the initial fetch and the live feed). DM
+  /// blocking does *not* hide existing history this way — it only disables
+  /// sending new messages, via [isBlockedByMe].
+  ///
+  /// The single choke point every path that populates `_messages` goes
+  /// through, so realtime merges, `loadMore()`, and a fresh `_fetch()` all
+  /// agree on what's visible instead of each remembering to filter it
+  /// separately.
+  bool _isVisible(ChatMessage m) =>
+      !m.hiddenFor(userId) &&
+      (!isChannel || !_blockedSenderIds.contains(m.senderId));
+
+  List<ChatMessage> _filterHidden(List<ChatMessage> messages) =>
+      messages.where(_isVisible).toList();
+
+  /// Upserts [rows] into `_messages` by id and re-sorts — an id already
+  /// present is replaced in place (an edit, a media-status change, a
+  /// read-state flip); an id not yet present is inserted; a row that's now
+  /// hidden-for-me (its own "delete for me" echoing back) is removed rather
+  /// than upserted. Never drops an existing id that isn't mentioned in
+  /// [rows] — that's what makes every caller of this (the merge-fetch in
+  /// [_fetch], the realtime patch below, the cursor-based fallback) safe to
+  /// call without destroying already-loaded older pages.
+  List<ChatMessage> _mergeIntoMessages(Iterable<ChatMessage> rows) {
+    final byId = {for (final m in _messages) m.id: m};
+    for (final row in rows) {
+      if (_isVisible(row)) {
+        byId[row.id] = row;
+      } else {
+        byId.remove(row.id);
+      }
+    }
+    final merged = byId.values.toList()
+      ..sort((a, b) {
+        final at = a.createdAt ?? DateTime.fromMillisecondsSinceEpoch(0);
+        final bt = b.createdAt ?? DateTime.fromMillisecondsSinceEpoch(0);
+        return at.compareTo(bt);
+      });
+    return merged;
+  }
+
+  /// Fallback for when a realtime payload can't be merged directly (parsing
+  /// failure, or an event type we don't special-case) — fetches only what's
+  /// newer than the latest message already loaded and merges it in, so even
+  /// the fallback path never re-fetches "latest N" and collapses older pages
+  /// the way the old `_fetch()`-on-every-event design did.
+  Future<void> _mergeFromCursor() async {
+    try {
+      final cursor = _messages.isEmpty ? null : _messages.last.createdAt;
+      final newer = isChannel
+          ? await _service.listChannelMessages(threadId, after: cursor)
+          : await _service.listMessages(threadId, after: cursor);
+      if (newer.isEmpty) return;
+      _messages = _mergeIntoMessages(newer);
+      _safeNotify();
+      await _resolveSharedProperties(newer);
+    } catch (e) {
+      debugPrint('ChatThreadProvider._mergeFromCursor failed: $e');
+    }
+  }
+
+  /// Applies one realtime `messages`/`channel_messages` change without ever
+  /// re-fetching "latest N" (which would silently drop any older page
+  /// already loaded via [loadMore]). INSERT/UPDATE both upsert the row by id
+  /// via [_mergeIntoMessages] (an UPDATE is how an edit, a delete-for-
+  /// everyone tombstone, and a media-moderation status flip all arrive —
+  /// there's no separate channel for any of those, just an UPDATE on this
+  /// same row); DELETE removes the id directly. Anything that can't be
+  /// parsed from the payload falls back to [_mergeFromCursor], never to the
+  /// old wholesale re-fetch.
+  void _applyRealtimeChange(PostgresChangePayload payload) {
+    try {
+      switch (payload.eventType) {
+        case PostgresChangeEvent.insert:
+        case PostgresChangeEvent.update:
+          final row = ChatMessage.fromSupabase(payload.newRecord);
+          _messages = _mergeIntoMessages([row]);
+          _safeNotify();
+          if (isChannel && payload.eventType == PostgresChangeEvent.insert) {
+            _resolveSenderIfMissing(row.senderId);
+          }
+          if (row.isPropertyShare) {
+            _resolveSharedProperties([row]);
+          }
+          break;
+        case PostgresChangeEvent.delete:
+          final oldId = payload.oldRecord['id']?.toString();
+          if (oldId != null) {
+            _messages = _messages.where((m) => m.id != oldId).toList();
+            _safeNotify();
+          }
+          break;
+        default:
+          _mergeFromCursor();
+      }
+    } catch (e) {
+      debugPrint(
+        'ChatThreadProvider._applyRealtimeChange: payload merge failed, '
+        'falling back to cursor merge: $e',
+      );
+      _mergeFromCursor();
+    }
+  }
+
+  void _resolveSenderIfMissing(String senderId) {
+    if (senderId.isEmpty || _senders.containsKey(senderId)) return;
+    _service.fetchSenderProfiles({senderId}).then((fetched) {
+      if (_disposed) return;
+      _senders = {..._senders, ...fetched};
+      _safeNotify();
+    });
   }
 
   Future<void> _markRead() async {
@@ -273,6 +518,34 @@ class ChatThreadProvider extends ChangeNotifier {
 
   bool _uploadingMedia = false;
   bool get uploadingMedia => _uploadingMedia;
+
+  /// Shares a property picked from [showSharePropertySheet] into this
+  /// thread. Reuses [MessagingService.sendPropertyShare] (which had zero
+  /// callers before this repair pass) for either surface.
+  Future<String?> sharePropertyFromPicker(SharedPropertyPreview property) async {
+    if (_uploadingMedia) return null;
+    _uploadingMedia = true;
+    _safeNotify();
+    try {
+      await _service.sendPropertyShare(
+        threadId: threadId,
+        senderId: userId,
+        propertyId: property.id,
+        content: 'Shared property: ${property.title}',
+        surface: _surface,
+      );
+      await _fetch();
+      return null;
+    } on MessageSendDeniedError catch (e) {
+      return e.message;
+    } catch (e) {
+      debugPrint('ChatThreadProvider.sharePropertyFromPicker failed: $e');
+      return "Couldn't share the property. Check your connection and try again.";
+    } finally {
+      _uploadingMedia = false;
+      _safeNotify();
+    }
+  }
 
   /// Uploads and sends an image message via the same private `chat-media`
   /// bucket + `moderate-media` pipeline the portal uses — see
@@ -449,7 +722,7 @@ class ChatThreadProvider extends ChangeNotifier {
           column: column,
           value: threadId,
         ),
-        callback: (_) => _fetch(),
+        callback: _applyRealtimeChange,
       )
       ..onPostgresChanges(
         event: PostgresChangeEvent.all,

@@ -14,6 +14,7 @@ import '../../providers/auth_provider.dart';
 import '../../providers/chat_thread_provider.dart';
 import '../../providers/messaging_provider.dart';
 import '../../services/messaging_service.dart';
+import 'blocked_users_screen.dart';
 import 'chat_thread_screen.dart';
 import 'widgets/channel_tile.dart';
 import 'widgets/conversation_tile.dart';
@@ -112,8 +113,11 @@ class _MessagesListViewState extends State<_MessagesListView> {
 
     String conversationId;
     try {
-      conversationId =
-          await MessagingService().startConversation(recipient.userId);
+      // A cold pick from the recipient search carries no property/lead
+      // context, so it must be gated like the portal's own cold DMs —
+      // the recipient's row starts `pending` until they accept.
+      conversationId = await MessagingService()
+          .startConversation(recipient.userId, skipRequestGate: false);
     } catch (_) {
       messenger
         ..hideCurrentSnackBar()
@@ -347,7 +351,58 @@ class _MessagesListViewState extends State<_MessagesListView> {
           filled: true,
           onTap: _tab == 0 ? _startNewChat : _createChannel,
         ),
+        const SizedBox(width: 6),
+        _buildOverflowMenu(),
       ],
+    );
+  }
+
+  /// The only global entry point to Blocked Users management — there's no
+  /// app-wide Settings screen this repo hangs privacy controls off of yet,
+  /// so it lives here rather than being invented elsewhere.
+  Widget _buildOverflowMenu() {
+    return PopupMenuButton<String>(
+      icon: Container(
+        width: 36,
+        height: 36,
+        decoration: const BoxDecoration(
+          color: AppColors.cardBackground,
+          shape: BoxShape.circle,
+          boxShadow: [
+            BoxShadow(
+              color: Color(0x141A1A2E),
+              blurRadius: 8,
+              offset: Offset(0, 2),
+            ),
+          ],
+        ),
+        child: const Icon(Icons.more_vert, size: 18, color: AppColors.textPrimary),
+      ),
+      onSelected: (value) {
+        if (value == 'blocked_users') _openBlockedUsers();
+      },
+      itemBuilder: (context) => const [
+        PopupMenuItem(
+          value: 'blocked_users',
+          child: Row(
+            children: [
+              Icon(Icons.block, size: 18),
+              SizedBox(width: 8),
+              Text('Blocked Users'),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  void _openBlockedUsers() {
+    final userId = context.read<AuthProvider>().userId;
+    if (userId == null) return;
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => BlockedUsersScreen(currentUserId: userId),
+      ),
     );
   }
 

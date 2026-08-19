@@ -408,9 +408,13 @@ class _VisitingCardSheetState extends State<_VisitingCardSheet> {
                           children: [
                             Icon(Icons.ios_share_rounded, size: 19),
                             SizedBox(width: 8),
-                            Text(
-                              'Share Visiting Card + Link',
-                              style: TextStyle(fontSize: 15, fontWeight: FontWeight.w800),
+                            Flexible(
+                              child: Text(
+                                'Share Visiting Card + Link',
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: TextStyle(fontSize: 15, fontWeight: FontWeight.w800),
+                              ),
                             ),
                           ],
                         ),
@@ -485,7 +489,14 @@ class _OutlinedCardAction extends StatelessWidget {
                 children: [
                   Icon(icon, size: 17),
                   const SizedBox(width: 7),
-                  Text(label, style: const TextStyle(fontSize: 13.5, fontWeight: FontWeight.w700)),
+                  Flexible(
+                    child: Text(
+                      label,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(fontSize: 13.5, fontWeight: FontWeight.w700),
+                    ),
+                  ),
                 ],
               ),
       ),

@@ -1,15 +1,21 @@
 import 'package:flutter/material.dart';
-import 'package:shared_preferences/shared_preferences.dart';
-import '../home/home_screen.dart';
-import '../profile_completion/builder_registration/builder_registration_screen.dart';
-import '../profile_completion/broker_registration/broker_registration_screen.dart';
-import '../profile_completion/influencer_registration/influencer_registration_screen.dart';
-import 'individual_profile_details_screen.dart';
+import 'package:provider/provider.dart';
 
-/// Shown when an authenticated user has no user_type — typically a first-time
-/// Google Sign-In user. The user picks their account type here, which stores
-/// pending_user_type in SharedPreferences exactly like the email signup flow,
-/// then routes into the same registration / home destinations.
+import '../../core/widgets/premium_button.dart';
+import '../../providers/auth_provider.dart';
+
+/// The Full-Name-+-User-Type setup step — the portal counterpart is
+/// `ProfileCompletion.tsx`'s base form (full name + role select, before any
+/// role-specific sub-form). Reached whenever `AuthProvider.destination` is
+/// `needsAccountType` or `profileMissing`: a brand-new confirmed-email,
+/// Google, or phone-OTP sign-in with no `user_type` yet, or a legacy
+/// authenticated user with no `profiles` row at all.
+///
+/// On submit, `AuthProvider.completeAccountSetup` narrowly upserts
+/// `user_id`/`display_name`/`user_type`/`profile_complete: false` (never
+/// `user_role`) and refreshes — this provider's own destination then
+/// recomputes and its single navigation owner takes the user to the
+/// matching registration screen. This screen never navigates itself.
 class AccountTypeScreen extends StatefulWidget {
   final String userId;
   const AccountTypeScreen({required this.userId, super.key});
@@ -19,63 +25,90 @@ class AccountTypeScreen extends StatefulWidget {
 }
 
 class _AccountTypeScreenState extends State<AccountTypeScreen> {
-  bool _isLoading = false;
+  static const List<_TypeOption> _options = [
+    _TypeOption(
+      type: 'individual',
+      icon: Icons.person_rounded,
+      label: 'Individual',
+      subtitle: 'Browse and save properties',
+      color: Color(0xFF616161),
+    ),
+    _TypeOption(
+      type: 'builder',
+      icon: Icons.business_rounded,
+      label: 'Builder',
+      subtitle: 'List and manage your projects',
+      color: Color(0xFF3F51B5),
+    ),
+    _TypeOption(
+      type: 'broker',
+      icon: Icons.home_work_rounded,
+      label: 'Broker',
+      subtitle: 'List properties and find clients',
+      color: Color(0xFF009688),
+    ),
+    _TypeOption(
+      type: 'influencer',
+      icon: Icons.play_circle_fill_rounded,
+      label: 'Influencer',
+      subtitle: 'Promote projects and earn',
+      color: Color(0xFF9C27B0),
+    ),
+  ];
 
-  Future<void> _selectType(String type) async {
-    setState(() => _isLoading = true);
-    try {
-      final prefs = await SharedPreferences.getInstance();
+  late final TextEditingController _nameCtrl;
+  String? _selectedType;
+  bool _isSaving = false;
+  String? _nameError;
+  String? _typeError;
 
-      if (type == 'individual') {
-        // Individual users have no multi-step registration form, but the
-        // portal's ProfileCompletion.tsx still collects name + phone for
-        // them before the profile write — see
-        // IndividualProfileDetailsScreen, which performs that same write
-        // (plus the two fields) and continues to Home itself.
-        if (mounted) {
-          Navigator.of(context).push(
-            MaterialPageRoute(
-              builder: (_) =>
-                  IndividualProfileDetailsScreen(userId: widget.userId),
-            ),
-          );
-        }
-      } else {
-        // Business types: store the pending type so the registration screen
-        // and splash screen can route correctly, then push the registration form.
-        //
-        // Scoped to this exact account (pending_user_type_uid) so a later
-        // Google sign-in with a DIFFERENT Gmail address never inherits this
-        // choice — previously the plain, unscoped key was trusted for
-        // whichever account next reached a null user_type, which is exactly
-        // what routed a fresh account straight into a stale Builder/Broker/
-        // Influencer form nobody chose for it.
-        await prefs.setString('pending_user_type', type);
-        await prefs.setString('pending_user_type_uid', widget.userId);
-        if (mounted) {
-          final Widget screen = switch (type) {
-            'builder' => const BuilderRegistrationScreen(),
-            'broker' => const BrokerRegistrationScreen(),
-            'influencer' => const InfluencerRegistrationScreen(),
-            _ => const HomeScreen(),
-          };
-          Navigator.of(
-            context,
-          ).pushReplacement(MaterialPageRoute(builder: (_) => screen));
-        }
-      }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Something went wrong: $e'),
-            backgroundColor: Colors.red.shade700,
-          ),
-        );
-      }
-    } finally {
-      if (mounted) setState(() => _isLoading = false);
+  @override
+  void initState() {
+    super.initState();
+    final displayName = context.read<AuthProvider>().userName;
+    // A name that "looks like an email" is a placeholder, not a real name
+    // (e.g. a phone signup's auto-generated `u<phone>@propcid.app`) — same
+    // guard `IndividualProfileDetailsScreen` uses for the same reason.
+    final prefill = displayName.contains('@') ? '' : displayName;
+    _nameCtrl = TextEditingController(text: prefill);
+  }
+
+  @override
+  void dispose() {
+    _nameCtrl.dispose();
+    super.dispose();
+  }
+
+  Future<void> _submit() async {
+    final name = _nameCtrl.text.trim();
+    setState(() {
+      _nameError = name.isEmpty ? 'Please enter your name.' : null;
+      _typeError = _selectedType == null
+          ? 'Please select an account type.'
+          : null;
+    });
+    if (_nameError != null || _typeError != null) return;
+
+    setState(() => _isSaving = true);
+    final error = await context.read<AuthProvider>().completeAccountSetup(
+      fullName: name,
+      userType: _selectedType!,
+    );
+    if (!mounted) return;
+    if (error != null) {
+      setState(() => _isSaving = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Something went wrong: $error'),
+          backgroundColor: Colors.red.shade700,
+        ),
+      );
+      return;
     }
+    // Success: AuthProvider's own destination has already recomputed and its
+    // single navigation owner is taking the user to the matching
+    // registration screen — nothing further to do here. _isSaving is left
+    // true deliberately; this widget is about to be removed from the tree.
   }
 
   @override
@@ -85,68 +118,84 @@ class _AccountTypeScreenState extends State<AccountTypeScreen> {
       body: SafeArea(
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 24),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const SizedBox(height: 56),
-              Text(
-                'What best describes you?',
-                style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                  fontWeight: FontWeight.bold,
-                  color: const Color(0xFF1A1A2E),
-                ),
-              ),
-              const SizedBox(height: 8),
-              Text(
-                'This helps us personalise your experience.',
-                style: Theme.of(
-                  context,
-                ).textTheme.bodyMedium?.copyWith(color: Colors.grey[600]),
-              ),
-              const SizedBox(height: 40),
-              if (_isLoading)
-                const Expanded(
-                  child: Center(child: CircularProgressIndicator()),
-                )
-              else
-                Expanded(
-                  child: Column(
-                    children: [
-                      _TypeTile(
-                        icon: Icons.person_rounded,
-                        label: 'Individual',
-                        subtitle: 'Browse and save properties',
-                        color: Colors.grey.shade700,
-                        onTap: () => _selectType('individual'),
-                      ),
-                      const SizedBox(height: 12),
-                      _TypeTile(
-                        icon: Icons.business_rounded,
-                        label: 'Builder',
-                        subtitle: 'List and manage your projects',
-                        color: const Color(0xFF3F51B5),
-                        onTap: () => _selectType('builder'),
-                      ),
-                      const SizedBox(height: 12),
-                      _TypeTile(
-                        icon: Icons.home_work_rounded,
-                        label: 'Broker',
-                        subtitle: 'List properties and find clients',
-                        color: const Color(0xFF009688),
-                        onTap: () => _selectType('broker'),
-                      ),
-                      const SizedBox(height: 12),
-                      _TypeTile(
-                        icon: Icons.play_circle_fill_rounded,
-                        label: 'Influencer',
-                        subtitle: 'Promote projects and earn',
-                        color: const Color(0xFF9C27B0),
-                        onTap: () => _selectType('influencer'),
-                      ),
-                    ],
+          child: SingleChildScrollView(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const SizedBox(height: 56),
+                Text(
+                  'Tell us about yourself',
+                  style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                    fontWeight: FontWeight.bold,
+                    color: const Color(0xFF1A1A2E),
                   ),
                 ),
-            ],
+                const SizedBox(height: 8),
+                Text(
+                  'This helps us personalise your experience.',
+                  style: Theme.of(
+                    context,
+                  ).textTheme.bodyMedium?.copyWith(color: Colors.grey[600]),
+                ),
+                const SizedBox(height: 28),
+                Text(
+                  'Full Name',
+                  style: const TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                    color: Color(0xFF1A1A2E),
+                  ),
+                ),
+                const SizedBox(height: 8),
+                TextField(
+                  controller: _nameCtrl,
+                  enabled: !_isSaving,
+                  textCapitalization: TextCapitalization.words,
+                  decoration: InputDecoration(
+                    hintText: 'Your full name',
+                    errorText: _nameError,
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 24),
+                Text(
+                  'What best describes you?',
+                  style: const TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                    color: Color(0xFF1A1A2E),
+                  ),
+                ),
+                if (_typeError != null) ...[
+                  const SizedBox(height: 4),
+                  Text(
+                    _typeError!,
+                    style: TextStyle(fontSize: 12, color: Colors.red.shade700),
+                  ),
+                ],
+                const SizedBox(height: 8),
+                ..._options.map(
+                  (option) => Padding(
+                    padding: const EdgeInsets.only(bottom: 12),
+                    child: _TypeTile(
+                      option: option,
+                      selected: _selectedType == option.type,
+                      enabled: !_isSaving,
+                      onTap: () => setState(() => _selectedType = option.type),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 12),
+                PremiumButton(
+                  label: 'Continue',
+                  isLoading: _isSaving,
+                  onPressed: _isSaving ? null : _submit,
+                ),
+                const SizedBox(height: 24),
+              ],
+            ),
           ),
         ),
       ),
@@ -154,30 +203,47 @@ class _AccountTypeScreenState extends State<AccountTypeScreen> {
   }
 }
 
-class _TypeTile extends StatelessWidget {
+class _TypeOption {
+  final String type;
   final IconData icon;
   final String label;
   final String subtitle;
   final Color color;
-  final VoidCallback onTap;
 
-  const _TypeTile({
+  const _TypeOption({
+    required this.type,
     required this.icon,
     required this.label,
     required this.subtitle,
     required this.color,
+  });
+}
+
+class _TypeTile extends StatelessWidget {
+  final _TypeOption option;
+  final bool selected;
+  final bool enabled;
+  final VoidCallback onTap;
+
+  const _TypeTile({
+    required this.option,
+    required this.selected,
+    required this.enabled,
     required this.onTap,
   });
 
   @override
   Widget build(BuildContext context) {
     return InkWell(
-      onTap: onTap,
+      onTap: enabled ? onTap : null,
       borderRadius: BorderRadius.circular(16),
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 18),
         decoration: BoxDecoration(
-          border: Border.all(color: Colors.grey.shade200),
+          border: Border.all(
+            color: selected ? option.color : Colors.grey.shade200,
+            width: selected ? 2 : 1,
+          ),
           borderRadius: BorderRadius.circular(16),
         ),
         child: Row(
@@ -186,10 +252,10 @@ class _TypeTile extends StatelessWidget {
               width: 48,
               height: 48,
               decoration: BoxDecoration(
-                color: color.withValues(alpha: 0.1),
+                color: option.color.withValues(alpha: 0.1),
                 borderRadius: BorderRadius.circular(12),
               ),
-              child: Icon(icon, color: color, size: 24),
+              child: Icon(option.icon, color: option.color, size: 24),
             ),
             const SizedBox(width: 16),
             Expanded(
@@ -197,7 +263,7 @@ class _TypeTile extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    label,
+                    option.label,
                     style: const TextStyle(
                       fontSize: 16,
                       fontWeight: FontWeight.w600,
@@ -206,13 +272,18 @@ class _TypeTile extends StatelessWidget {
                   ),
                   const SizedBox(height: 2),
                   Text(
-                    subtitle,
+                    option.subtitle,
                     style: TextStyle(fontSize: 13, color: Colors.grey[600]),
                   ),
                 ],
               ),
             ),
-            Icon(Icons.chevron_right_rounded, color: Colors.grey[400]),
+            Icon(
+              selected
+                  ? Icons.check_circle_rounded
+                  : Icons.chevron_right_rounded,
+              color: selected ? option.color : Colors.grey[400],
+            ),
           ],
         ),
       ),

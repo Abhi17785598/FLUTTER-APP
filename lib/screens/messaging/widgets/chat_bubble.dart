@@ -4,7 +4,9 @@ import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_text_styles.dart';
 import '../../../models/chat_message.dart';
 import '../../../models/message_reaction.dart';
+import '../../../models/shared_property_preview.dart';
 import 'chat_media_view.dart';
+import 'property_share_preview_card.dart';
 import 'relative_time.dart';
 
 /// Quick-react emoji set — matches the small, fixed palette most chat apps
@@ -37,12 +39,17 @@ class ChatBubble extends StatelessWidget {
   final List<MessageReaction> reactions;
   final String currentUserId;
 
+  /// Resolved property for a `property_share` message — null while the
+  /// batched lookup is in flight or the message isn't a property share.
+  final SharedPropertyPreview? sharedProperty;
+
   final ValueChanged<String>? onReact;
   final VoidCallback? onReply;
   final VoidCallback? onEdit;
   final VoidCallback? onDeleteForMe;
   final VoidCallback? onDeleteForEveryone;
   final VoidCallback? onReport;
+  final VoidCallback? onForward;
 
   const ChatBubble({
     super.key,
@@ -54,12 +61,14 @@ class ChatBubble extends StatelessWidget {
     this.repliedMessage,
     this.repliedSenderName,
     this.reactions = const [],
+    this.sharedProperty,
     this.onReact,
     this.onReply,
     this.onEdit,
     this.onDeleteForMe,
     this.onDeleteForEveryone,
     this.onReport,
+    this.onForward,
   });
 
   void _openActions(BuildContext context) {
@@ -107,6 +116,12 @@ class ChatBubble extends StatelessWidget {
                 Navigator.of(sheetContext).pop();
                 onReport!();
               },
+        onForward: onForward == null
+            ? null
+            : () {
+                Navigator.of(sheetContext).pop();
+                onForward!();
+              },
       ),
     );
   }
@@ -115,7 +130,6 @@ class ChatBubble extends StatelessWidget {
   Widget build(BuildContext context) {
     final width = MediaQuery.of(context).size.width;
     final hasMedia = message.isImage || message.isVideo;
-    final isRich = !message.isDeleted && message.isPropertyShare;
 
     // A small "tail" corner (WhatsApp/Telegram-style) instead of a uniform
     // rounded rectangle — the corner nearest the sender's own side is
@@ -199,33 +213,9 @@ class ChatBubble extends StatelessWidget {
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   if (repliedMessage != null) _buildReplyQuote(),
-                  if (isRich) ...[
-                    Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Icon(
-                          Icons.home_work_outlined,
-                          size: 13,
-                          color: isMine
-                              ? Colors.white.withValues(alpha: 0.85)
-                              : AppColors.textSecondary,
-                        ),
-                        const SizedBox(width: 5),
-                        Text(
-                          'Property',
-                          style: AppTextStyles.caption.copyWith(
-                            fontSize: 10.5,
-                            fontWeight: FontWeight.w600,
-                            color: isMine
-                                ? Colors.white.withValues(alpha: 0.85)
-                                : AppColors.textSecondary,
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 4),
-                  ],
-                  if (hasMedia || message.isAudio)
+                  if (message.isPropertyShare)
+                    PropertySharePreviewCard(property: sharedProperty, isMine: isMine)
+                  else if (hasMedia || message.isAudio)
                     ChatMediaView(message: message, surface: surface, isMine: isMine)
                   else
                     Text(
@@ -368,6 +358,7 @@ class _ActionSheet extends StatelessWidget {
   final VoidCallback? onDeleteForMe;
   final VoidCallback? onDeleteForEveryone;
   final VoidCallback? onReport;
+  final VoidCallback? onForward;
 
   const _ActionSheet({
     required this.isMine,
@@ -379,6 +370,7 @@ class _ActionSheet extends StatelessWidget {
     this.onDeleteForMe,
     this.onDeleteForEveryone,
     this.onReport,
+    this.onForward,
   });
 
   @override
@@ -411,6 +403,8 @@ class _ActionSheet extends StatelessWidget {
             const Divider(height: 1),
             if (onReply != null)
               _tile(context, Icons.reply, 'Reply', onReply!),
+            if (onForward != null)
+              _tile(context, Icons.forward_outlined, 'Forward', onForward!),
             if (canEdit && onEdit != null)
               _tile(context, Icons.edit_outlined, 'Edit', onEdit!),
             if (onDeleteForMe != null)

@@ -17,7 +17,6 @@ import '../../widgets/more_bottom_sheet.dart';
 import '../../widgets/workspace_drawer.dart';
 import '../dashboard/builder_dashboard_screen.dart';
 import '../post_property/post_property_screen.dart';
-import 'actions/profile_qr_sheet.dart';
 import 'actions/visiting_card_sheet.dart';
 import 'widgets/create_content_grid.dart';
 import 'widgets/manage_list_section.dart';
@@ -330,12 +329,6 @@ class _ProfileViewState extends State<_ProfileView> {
                           reraNumber: userProfile?.effectiveRera,
                         );
                       },
-                      onQr: () => showProfileQrSheet(
-                        context,
-                        userId: auth.userId,
-                        name: auth.userName,
-                        userType: auth.userType,
-                      ),
                     ).animate().fadeIn(duration: 400.ms, delay: 200.ms),
                     const SizedBox(height: 26),
 

@@ -8,15 +8,16 @@ import '../../../providers/auth_provider.dart';
 /// Extracted verbatim from `_ProfileScreenState._showLogoutDialog` so the
 /// Profile screen, the Workspace Drawer, the More bottom sheet and the
 /// Settings sheet can all invoke one implementation instead of duplicating it
-/// — see blueprint §1.2.4 and §6. The body is unchanged: same copy, same
-/// styling, same `AuthProvider.logout()` call and same
-/// `pushNamedAndRemoveUntil('/')` reset.
+/// — see blueprint §1.2.4 and §6. The dialog body (copy/styling) is
+/// unchanged; the post-logout navigation now comes from
+/// `AuthProvider.logout()` itself (the single owner of all auth-driven
+/// navigation — see `auth_provider.dart`), not from a second
+/// `pushNamedAndRemoveUntil` here.
 void showLogoutDialog(BuildContext context) {
   showDialog(
     context: context,
     builder: (context) => AlertDialog(
-      shape:
-          RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
       title: Row(
         children: [
           Container(
@@ -39,12 +40,12 @@ void showLogoutDialog(BuildContext context) {
         ),
         ElevatedButton(
           onPressed: () {
-            final authProvider =
-                Provider.of<AuthProvider>(context, listen: false);
+            final authProvider = Provider.of<AuthProvider>(
+              context,
+              listen: false,
+            );
             authProvider.logout();
             Navigator.of(context).pop();
-            Navigator.of(context)
-                .pushNamedAndRemoveUntil('/', (route) => false);
           },
           style: ElevatedButton.styleFrom(
             backgroundColor: Colors.red,

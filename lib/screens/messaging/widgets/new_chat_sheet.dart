@@ -106,6 +106,13 @@ class _NewChatSheetState extends State<_NewChatSheet> {
   Widget build(BuildContext context) {
     // Leaves room for the keyboard so the field stays visible while typing.
     final bottomInset = MediaQuery.of(context).viewInsets.bottom;
+    final screenHeight = MediaQuery.of(context).size.height;
+    // Same fix as share_property_sheet.dart: this used to be a flat 40% of
+    // the *full* screen height, which ignored how much the keyboard had
+    // already eaten into the available space — sizing off the keyboard-
+    // adjusted height instead keeps the sheet from overflowing once it's up.
+    final resultsMaxHeight =
+        (screenHeight - bottomInset - 220).clamp(80.0, screenHeight * 0.4);
 
     return Padding(
       padding: EdgeInsets.only(bottom: bottomInset),
@@ -152,9 +159,7 @@ class _NewChatSheetState extends State<_NewChatSheet> {
               ),
               const SizedBox(height: 8),
               ConstrainedBox(
-                constraints: BoxConstraints(
-                  maxHeight: MediaQuery.of(context).size.height * 0.4,
-                ),
+                constraints: BoxConstraints(maxHeight: resultsMaxHeight),
                 child: _buildResults(),
               ),
             ],

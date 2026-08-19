@@ -5,6 +5,7 @@ import '../models/channel_summary.dart';
 import '../models/chat_message.dart';
 import '../models/conversation_summary.dart';
 import '../models/message_reaction.dart';
+import '../models/shared_property_preview.dart';
 import 'messaging_exceptions.dart';
 
 /// Direct (1:1) and channel messaging.
@@ -185,15 +186,56 @@ class MessagingService {
       'media_status, created_at, is_read, reply_to_id, edited_at, '
       'deleted_at, deleted_for';
 
+  /// Searches an entire thread's history server-side — not just what's
+  /// currently paged into memory. Mobile paginates (50/page) while the
+  /// portal loads a thread's full history and filters it client-side; a
+  /// client-side-only search here would silently miss anything not yet
+  /// scrolled into view, so this queries the same table/RLS directly instead
+  /// (just a different `WHERE`, no new backend contract).
+  Future<List<ChatMessage>> searchMessagesInThread({
+    required String threadId,
+    required bool isChannel,
+    required String term,
+  }) async {
+    final query = term.trim();
+    if (query.isEmpty) return const [];
+
+    try {
+      final table = isChannel ? 'channel_messages' : 'messages';
+      final column = isChannel ? 'channel_id' : 'conversation_id';
+
+      final rows = await _supabase
+          .from(table)
+          .select(_messageColumns)
+          .eq(column, threadId)
+          .ilike('content', '%$query%')
+          .isFilter('deleted_at', null)
+          .order('created_at', ascending: false)
+          .limit(50);
+
+      return List<Map<String, dynamic>>.from(rows as List)
+          .map(ChatMessage.fromSupabase)
+          .toList();
+    } catch (e) {
+      debugPrint('MessagingService.searchMessagesInThread failed: $e');
+      rethrow;
+    }
+  }
+
   /// Most recent page of a conversation, newest-first on the wire (reversed
   /// to oldest-first for display). Mirrors `fetchMessages` in ChatModal.tsx,
   /// with pagination added on top — see [messagePageSize].
   ///
   /// Pass [before] (an already-loaded message's `createdAt`) to load the page
-  /// immediately older than it, for "load more" on scroll-to-top.
+  /// immediately older than it, for "load more" on scroll-to-top. Pass
+  /// [after] instead to load everything newer than an already-loaded
+  /// message, ascending — the merge-fetch fallback a realtime handler uses
+  /// when it can't merge a single payload row directly; this never touches
+  /// older history the way a bare re-fetch of "latest N" would.
   Future<List<ChatMessage>> listMessages(
     String conversationId, {
     DateTime? before,
+    DateTime? after,
   }) async {
     try {
       var query = _supabase
@@ -203,6 +245,18 @@ class MessagingService {
 
       if (before != null) {
         query = query.lt('created_at', before.toUtc().toIso8601String());
+      }
+      if (after != null) {
+        query = query.gt('created_at', after.toUtc().toIso8601String());
+      }
+
+      if (after != null) {
+        final rows = await query
+            .order('created_at', ascending: true)
+            .limit(mergeFetchCap);
+        return List<Map<String, dynamic>>.from(rows as List)
+            .map(ChatMessage.fromSupabase)
+            .toList();
       }
 
       final rows = await query
@@ -219,6 +273,11 @@ class MessagingService {
       rethrow;
     }
   }
+
+  /// Safety cap on an [after]-cursor merge-fetch — this path only runs when a
+  /// realtime payload couldn't be merged directly, which should be rare, but
+  /// an unbounded query after a long realtime outage would be a real cost.
+  static const int mergeFetchCap = 200;
 
   /// Messages per page — the portal itself loads a thread's entire history
   /// unbounded (see docs/messaging audit), which doesn't scale on mobile
@@ -257,15 +316,23 @@ class MessagingService {
   /// Shares a property into a conversation. There is no dedicated RPC for
   /// this on the portal either — `sendPropertyShare` in useDmMessaging.ts is
   /// also a raw insert.
+  /// [surface] is `'dm'` or `'channel'` — same convention as the reaction/
+  /// edit/delete RPCs, so this one method covers both instead of a second
+  /// `sendChannelPropertyShare` twin (there had been zero callers of this
+  /// method at all before this repair pass, so nothing depends on the old
+  /// DM-only signature).
   Future<void> sendPropertyShare({
-    required String conversationId,
+    required String threadId,
     required String senderId,
     required String propertyId,
     required String content,
+    String surface = 'dm',
   }) async {
+    final table = surface == 'channel' ? 'channel_messages' : 'messages';
+    final idColumn = surface == 'channel' ? 'channel_id' : 'conversation_id';
     try {
-      await _supabase.from('messages').insert({
-        'conversation_id': conversationId,
+      await _supabase.from(table).insert({
+        idColumn: threadId,
         'sender_id': senderId,
         'content': content,
         'message_type': 'property_share',
@@ -275,6 +342,88 @@ class MessagingService {
       debugPrint('MessagingService.sendPropertyShare failed: $e');
       throw mapSendError(e);
     }
+  }
+
+  /// Properties matching [term], sourced from `properties_public` — the
+  /// exact same view+shape the portal's `SharePropertyModal.tsx` queries
+  /// (`select id, title, price, location, media_urls`, `ilike title`,
+  /// newest first, capped at 15).
+  Future<List<SharedPropertyPreview>> searchProperties(String term) async {
+    final query = term.trim();
+    if (query.length < 2) return const [];
+
+    try {
+      final rows = await _supabase
+          .from('properties_public')
+          .select('id, title, price, location, media_urls')
+          .ilike('title', '%$query%')
+          .order('created_at', ascending: false)
+          .limit(15);
+
+      return List<Map<String, dynamic>>.from(rows as List)
+          .where((row) => row['id'] != null)
+          .map(SharedPropertyPreview.fromSupabase)
+          .toList();
+    } catch (e) {
+      debugPrint('MessagingService.searchProperties failed: $e');
+      rethrow;
+    }
+  }
+
+  /// Batch-resolves every distinct `property_id` visible in a page of
+  /// messages in one query — avoids an N+1 property lookup per
+  /// `property_share` bubble, same `inFilter('id', ids)` pattern already
+  /// used throughout this file (e.g. [listChannels]).
+  Future<Map<String, SharedPropertyPreview>> fetchSharedProperties(
+    Set<String> propertyIds,
+  ) async {
+    if (propertyIds.isEmpty) return const {};
+    try {
+      final rows = await _supabase
+          .from('properties_public')
+          .select('id, title, price, location, media_urls')
+          .inFilter('id', propertyIds.toList());
+
+      final result = <String, SharedPropertyPreview>{};
+      for (final row in List<Map<String, dynamic>>.from(rows as List)) {
+        final id = row['id']?.toString();
+        if (id == null) continue;
+        result[id] = SharedPropertyPreview.fromSupabase(row);
+      }
+      return result;
+    } catch (e) {
+      debugPrint('MessagingService.fetchSharedProperties failed: $e');
+      return const {};
+    }
+  }
+
+  /// Forwards a message into a *different* DM conversation — a brand-new
+  /// message row copying the content, exactly like the portal's
+  /// `ForwardMessageModal.tsx` (no `forwarded_from` reference/pointer column
+  /// exists, so this can't and shouldn't invent one). Matches the portal's
+  /// own scope exactly: DM target only, and only `text`/`property_share`
+  /// source messages — image/voice forwarding is out of scope there too,
+  /// since `get-chat-media-url`'s lookup assumes one message row per storage
+  /// path, which a copied row would violate.
+  Future<void> forwardMessage({
+    required String targetConversationId,
+    required String senderId,
+    required ChatMessage message,
+  }) async {
+    if (message.isPropertyShare && message.propertyId != null) {
+      await sendPropertyShare(
+        threadId: targetConversationId,
+        senderId: senderId,
+        propertyId: message.propertyId!,
+        content: message.content,
+      );
+      return;
+    }
+    await sendMessage(
+      conversationId: targetConversationId,
+      senderId: senderId,
+      content: message.content,
+    );
   }
 
   /// Unread count per conversation.
@@ -338,8 +487,13 @@ class MessagingService {
   /// Candidate recipients matching [term].
   ///
   /// Mirrors `handleSearch` in features/messaging/NewChatModal.tsx — same
-  /// table, same columns, same filters (case-insensitive name match, excluding
-  /// self, approved and not blocked) and the same 10-row limit.
+  /// table, same columns, same moderation filters (case-insensitive name
+  /// match, excluding self, approved and not admin-blocked) and the same
+  /// 10-row limit. On top of that — `profiles.is_blocked` is an admin
+  /// moderation flag, not the caller's personal block list — this also
+  /// excludes anyone the *caller* has personally blocked via `user_blocks`,
+  /// which the original implementation confused with the moderation flag and
+  /// never actually excluded.
   Future<List<ConversationParticipant>> searchRecipients({
     required String term,
     required String currentUserId,
@@ -348,6 +502,8 @@ class MessagingService {
     if (query.length < recipientSearchMinLength) return const [];
 
     try {
+      final blockedIds = await myBlockedUserIds(currentUserId);
+
       final rows = await _supabase
           .from('profiles')
           .select('user_id, display_name, avatar_url, user_type')
@@ -359,6 +515,7 @@ class MessagingService {
 
       return List<Map<String, dynamic>>.from(rows as List)
           .where((row) => row['user_id'] != null)
+          .where((row) => !blockedIds.contains(row['user_id'].toString()))
           .map(
             (row) => ConversationParticipant(
               userId: row['user_id'].toString(),
@@ -369,6 +526,59 @@ class MessagingService {
           .toList();
     } catch (e) {
       debugPrint('MessagingService.searchRecipients failed: $e');
+      rethrow;
+    }
+  }
+
+  /// The caller's own personal block list — ids in `user_blocks` where
+  /// `blocker_id = currentUserId`. Deliberately one-directional (never "who
+  /// has blocked me"): the portal doesn't expose that to the blocked party
+  /// either, so mobile doesn't infer or surface it.
+  Future<Set<String>> myBlockedUserIds(String currentUserId) async {
+    try {
+      final rows = await _supabase
+          .from('user_blocks')
+          .select('blocked_id')
+          .eq('blocker_id', currentUserId);
+      return List<Map<String, dynamic>>.from(rows as List)
+          .map((r) => r['blocked_id']?.toString())
+          .whereType<String>()
+          .toSet();
+    } catch (e) {
+      debugPrint('MessagingService.myBlockedUserIds failed: $e');
+      return const {};
+    }
+  }
+
+  /// Whether the caller has personally blocked [otherUserId] — the one
+  /// direction that's ever surfaced in the UI (see [myBlockedUserIds]).
+  Future<bool> haveIBlocked(String currentUserId, String otherUserId) async {
+    try {
+      final rows = await _supabase
+          .from('user_blocks')
+          .select('blocked_id')
+          .eq('blocker_id', currentUserId)
+          .eq('blocked_id', otherUserId)
+          .limit(1);
+      return List.from(rows as List).isNotEmpty;
+    } catch (e) {
+      debugPrint('MessagingService.haveIBlocked failed: $e');
+      return false;
+    }
+  }
+
+  /// Profiles the caller has personally blocked, for the "Blocked Users"
+  /// management screen.
+  Future<List<ConversationParticipant>> fetchBlockedUsers(
+    String currentUserId,
+  ) async {
+    try {
+      final ids = await myBlockedUserIds(currentUserId);
+      if (ids.isEmpty) return const [];
+      final profiles = await _fetchPublicProfiles(ids);
+      return profiles.values.toList();
+    } catch (e) {
+      debugPrint('MessagingService.fetchBlockedUsers failed: $e');
       rethrow;
     }
   }
@@ -440,13 +650,20 @@ class MessagingService {
   /// writing `conversations` and `conversation_participants` directly, which
   /// the RLS policies deliberately do not allow.
   ///
-  /// [skipRequestGate] mirrors the portal's `p_skip_request_gate`: `true`
-  /// (the RPC's own default) for a conversation started from a property/lead
-  /// context, `false` for a cold "new chat" pick so the recipient's row
-  /// starts `pending` and must be accepted before the sender's replies land.
+  /// [skipRequestGate] mirrors the portal's `p_skip_request_gate`: pass
+  /// `true` only for a conversation started from a genuine property/lead
+  /// context (the sender explicitly shares a listing) — every other caller
+  /// must pass `false` so the recipient's row starts `pending` and has to be
+  /// accepted before the sender's replies land. The default here is `false`
+  /// (the *safer*, more-gated choice, deliberately the opposite of the RPC's
+  /// own `p_skip_request_gate default true`) so a future call site that
+  /// forgets to specify it fails safe into "gated" rather than silently
+  /// bypassing the request flow — this default was the exact bug fixed in
+  /// this repair pass (every existing caller now passes the flag explicitly
+  /// regardless).
   Future<String> startConversation(
     String withUserId, {
-    bool skipRequestGate = true,
+    bool skipRequestGate = false,
   }) async {
     try {
       final result = await _supabase.rpc(
@@ -591,6 +808,7 @@ class MessagingService {
   Future<List<ChatMessage>> listChannelMessages(
     String channelId, {
     DateTime? before,
+    DateTime? after,
   }) async {
     try {
       var query = _supabase
@@ -600,6 +818,18 @@ class MessagingService {
 
       if (before != null) {
         query = query.lt('created_at', before.toUtc().toIso8601String());
+      }
+      if (after != null) {
+        query = query.gt('created_at', after.toUtc().toIso8601String());
+      }
+
+      if (after != null) {
+        final rows = await query
+            .order('created_at', ascending: true)
+            .limit(mergeFetchCap);
+        return List<Map<String, dynamic>>.from(rows as List)
+            .map(ChatMessage.fromSupabase)
+            .toList();
       }
 
       final rows = await query

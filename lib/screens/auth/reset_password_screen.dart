@@ -5,7 +5,6 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/widgets/premium_button.dart';
 import '../../providers/auth_provider.dart';
-import '../home/home_screen.dart';
 
 /// Reached from the `propcid://reset-password` deep link. Named route
 /// `/reset-password`, optional arg `{'tokenHash': String}`.
@@ -160,9 +159,18 @@ class _ResetPasswordScreenState extends State<ResetPasswordScreen> {
         title: 'Password updated',
         message: 'You are signed in with your new password.',
         actionLabel: 'Continue',
-        onAction: () => Navigator.of(context).pushReplacement(
-          MaterialPageRoute(builder: (_) => const HomeScreen()),
-        ),
+        // Matches the portal (AuthContext.tsx's password-reset flow): sign
+        // out and return to Auth rather than staying on the session that was
+        // just used to set the new password. The message above is true at
+        // the moment it's shown — the sign-out only happens once the person
+        // taps through, by which point they're leaving this screen anyway.
+        onAction: () async {
+          await context.read<AuthProvider>().logout();
+          if (!mounted) return;
+          Navigator.of(
+            context,
+          ).pushNamedAndRemoveUntil('/auth', (route) => false);
+        },
       );
     }
 
