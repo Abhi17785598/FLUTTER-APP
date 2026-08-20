@@ -75,11 +75,17 @@ class ReelModel {
   final bool isFeatured;
   final List<AmenityModel> amenities;
 
-  /// No comment feature exists for reels anywhere in the product today
-  /// (no `influencer_video_comments` table, no comment UI wired on the
-  /// website's reel view beyond a decorative icon) — kept at 0 rather than
-  /// removed so the action row doesn't need touching if that ever ships.
+  /// Real comment count would require a denormalized counter/trigger on
+  /// `influencer_videos` (none exists), so this stays 0 for display
+  /// purposes — comments themselves are real, backed by `post_comments`
+  /// with `post_type = 'video'`, mirroring the website's ReelView.tsx
+  /// (`postType={reel.type === 'influencer_video' ? 'video' : 'property'}`).
   final int commentCount;
+
+  /// `profiles.comments_enabled` for the uploader — gates the comment input
+  /// the same way the website's `reel.profiles?.comments_enabled ?? true`
+  /// does. Defaults to true when the profile row/column is absent.
+  final bool commentsEnabled;
 
   const ReelModel({
     required this.id,
@@ -108,6 +114,7 @@ class ReelModel {
     this.isFeatured = false,
     this.amenities = const [],
     this.commentCount = 0,
+    this.commentsEnabled = true,
   });
 
   factory ReelModel.fromSupabase(Map<String, dynamic> json) {
@@ -168,6 +175,7 @@ class ReelModel {
       isFeatured: propertyViews >= 1,
       amenities: PropertyModel.parseAmenities(property?['amenities']),
       commentCount: 0,
+      commentsEnabled: profile?['comments_enabled'] as bool? ?? true,
     );
   }
 

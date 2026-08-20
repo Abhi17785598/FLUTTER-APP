@@ -32,6 +32,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../../core/utils/text_input_formatters.dart';
 import '../../../providers/auth_provider.dart';
+import '../../profile/actions/logout_dialog.dart';
 import '../../../services/geocoding_service.dart';
 import '../../../services/profile_media_service.dart';
 import '../../../services/profile_service.dart';
@@ -1934,6 +1935,27 @@ class _BrokerRegistrationScreenState extends State<BrokerRegistrationScreen> {
         ),
         centerTitle: true,
         actions: [
+          // The reference (BrokerRegistration.tsx) has no working
+          // step-based "Previous" control on Step 1 either — its Previous
+          // button is likewise only shown once `currentStep > 1`. The one
+          // thing it DOES offer at every step, including Step 1, is this
+          // Logout button, which is the reference's actual way to leave the
+          // form. The AppBar's own back arrow can't do that here: this
+          // screen is reached via `pushNamedAndRemoveUntil`, which clears
+          // the whole nav stack, so there is genuinely nothing to pop to.
+          TextButton.icon(
+            onPressed: () => showLogoutDialog(context),
+            icon: const Icon(Icons.logout, size: 16, color: Colors.white),
+            label: const Text('Logout', style: TextStyle(color: Colors.white)),
+            style: TextButton.styleFrom(
+              backgroundColor: Colors.orange,
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(8),
+              ),
+            ),
+          ),
+          const SizedBox(width: 12),
           Padding(
             padding: const EdgeInsets.only(right: 16),
             child: Icon(

@@ -20,6 +20,7 @@ import '../post_property/post_property_screen.dart';
 import 'actions/visiting_card_sheet.dart';
 import 'widgets/create_content_grid.dart';
 import 'widgets/manage_list_section.dart';
+import 'widgets/my_activity_section.dart';
 import '../dashboard/widgets/my_projects_section.dart';
 import 'widgets/my_content_section.dart';
 import 'widgets/profile_action_row.dart';
@@ -386,6 +387,15 @@ class _ProfileViewState extends State<_ProfileView> {
                         onEditProperty: _openEditProperty,
                         onDeleteProperty: _deleteProperty,
                       ),
+                    const SizedBox(height: 26),
+
+                    // Mirrors the portal's IndividualUserActivity — Liked/
+                    // Saved tabs reading the same existing user_likes/
+                    // saved_properties-backed state PropertyProvider already
+                    // persists, so Like/Save actions now surface here too.
+                    const _SectionLabel('My Activity'),
+                    const SizedBox(height: 10),
+                    const MyActivitySection(),
                     const SizedBox(height: 26),
 
                     const _SectionLabel('Manage'),

@@ -224,8 +224,8 @@ class PropertyService {
     if (ownerUserId != null) {
       final bool isSignedIn = _supabase.auth.currentUser != null;
       final String profileColumns = isSignedIn
-          ? 'display_name, avatar_url, user_type, phone, social_media'
-          : 'display_name, avatar_url, user_type, social_media';
+          ? 'display_name, avatar_url, user_type, phone, social_media, comments_enabled'
+          : 'display_name, avatar_url, user_type, social_media, comments_enabled';
       profileRow = await _supabase
           .from('profiles')
           .select(profileColumns)

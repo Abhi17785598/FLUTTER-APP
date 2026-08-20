@@ -5,6 +5,7 @@ import '../core/utils/geo_utils.dart';
 import '../models/property_model.dart';
 import '../models/search_query_params.dart';
 import '../services/property_service.dart';
+import '../services/property_likes_service.dart';
 import '../services/saved_properties_service.dart';
 
 class PropertyProvider extends ChangeNotifier {
@@ -40,6 +41,14 @@ class PropertyProvider extends ChangeNotifier {
   // existing card widgets that read that field directly stay correct too.
   Set<String> _shortlistedIds = {};
 
+  final PropertyLikesService _propertyLikesService = PropertyLikesService();
+
+  // "Like" is a separate, independently-toggleable action from Save/
+  // Shortlist above — the reference backs them with two different tables
+  // (`user_likes` vs `saved_properties`); this mirrors that split rather
+  // than reusing the shortlist state for a second purpose.
+  Set<String> _likedPropertyIds = {};
+
   List<PropertyModel> get properties => _properties;
   List<PropertyModel> get searchResults => _searchResults;
   List<PropertyModel> get mapResults => _mapResults;
@@ -69,6 +78,7 @@ class PropertyProvider extends ChangeNotifier {
  PropertyProvider() {
   loadProperties();
   _loadShortlistedIds();
+  _loadLikedPropertyIds();
 }
 
 final PropertyService _propertyService = PropertyService();
@@ -102,6 +112,55 @@ Future<void> _loadShortlistedIds() async {
     notifyListeners();
   } catch (e) {
     debugPrint('[PropertyProvider] _loadShortlistedIds failed: $e');
+  }
+}
+
+/// Loads the current user's liked-property ids from the persisted
+/// `user_likes` table. Silently does nothing when signed out, same as
+/// [_loadShortlistedIds].
+Future<void> _loadLikedPropertyIds() async {
+  final userId = Supabase.instance.client.auth.currentUser?.id;
+  if (userId == null) return;
+
+  try {
+    _likedPropertyIds =
+        await _propertyLikesService.fetchLikedPropertyIds(userId);
+    notifyListeners();
+  } catch (e) {
+    debugPrint('[PropertyProvider] _loadLikedPropertyIds failed: $e');
+  }
+}
+
+bool isLiked(String propertyId) => _likedPropertyIds.contains(propertyId);
+
+/// Optimistically toggles, then persists to `user_likes`; rolls back on
+/// failure. No-ops when signed out.
+Future<void> toggleLike(String propertyId) async {
+  final userId = Supabase.instance.client.auth.currentUser?.id;
+  if (userId == null) return;
+
+  final wasLiked = _likedPropertyIds.contains(propertyId);
+  if (wasLiked) {
+    _likedPropertyIds.remove(propertyId);
+  } else {
+    _likedPropertyIds.add(propertyId);
+  }
+  notifyListeners();
+
+  try {
+    if (wasLiked) {
+      await _propertyLikesService.unlike(userId, propertyId);
+    } else {
+      await _propertyLikesService.like(userId, propertyId);
+    }
+  } catch (e) {
+    debugPrint('[PropertyProvider] toggleLike persistence failed: $e');
+    if (wasLiked) {
+      _likedPropertyIds.add(propertyId);
+    } else {
+      _likedPropertyIds.remove(propertyId);
+    }
+    notifyListeners();
   }
 }
 
@@ -358,6 +417,13 @@ void _syncShortlistFlags() {
 
   List<PropertyModel> getShortlistedProperties() {
     return _properties.where((p) => p.isShortlisted).toList();
+  }
+
+  /// Cached properties the user has liked — same "filter what's already
+  /// cached" approach as [getShortlistedProperties], backing the "Liked"
+  /// tab of My Activity.
+  List<PropertyModel> getLikedProperties() {
+    return _properties.where((p) => _likedPropertyIds.contains(p.id)).toList();
   }
 
   List<PropertyModel> getFeaturedProperties() {

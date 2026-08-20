@@ -44,7 +44,7 @@ class ReelVideoView extends StatelessWidget {
       child: Stack(
         fit: StackFit.expand,
         children: [
-          _buildSurface(),
+          _buildSurface(context),
           _buildGradientOverlays(),
           if (isPaused && _ready)
             const Center(
@@ -56,11 +56,18 @@ class ReelVideoView extends StatelessWidget {
     );
   }
 
-  Widget _buildSurface() {
+  Widget _buildSurface(BuildContext context) {
     if (_errored) return _errorFallback();
 
     if (!_ready) {
       // Show the thumbnail (if any) beneath a light spinner while buffering.
+      // memCacheWidth bounds the decoded bitmap to the screen's actual pixel
+      // width — without it, a full-resolution phone-camera photo (e.g.
+      // 4000px wide) gets decoded at full size for every reel the sliding
+      // window builds, which is real, avoidable jank during fast scrolling.
+      final int cacheWidth =
+          (MediaQuery.sizeOf(context).width * MediaQuery.devicePixelRatioOf(context))
+              .round();
       return Stack(
         fit: StackFit.expand,
         children: [
@@ -68,6 +75,7 @@ class ReelVideoView extends StatelessWidget {
             CachedNetworkImage(
               imageUrl: reel.thumbnailUrl,
               fit: BoxFit.cover,
+              memCacheWidth: cacheWidth,
               errorWidget: (context, url, _) => Container(color: Colors.black),
             )
           else

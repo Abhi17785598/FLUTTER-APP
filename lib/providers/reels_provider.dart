@@ -5,6 +5,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../models/reel_model.dart';
 import '../services/reels_service.dart';
 import '../services/reel_likes_service.dart';
+import '../services/saved_reels_service.dart';
 
 class ReelsProvider with ChangeNotifier {
   bool _hasCompletedOnboarding = false;
@@ -15,6 +16,7 @@ class ReelsProvider with ChangeNotifier {
 
   final ReelsService _reelsService = ReelsService();
   final ReelLikesService _reelLikesService = ReelLikesService();
+  final SavedReelsService _savedReelsService = SavedReelsService();
 
   List<ReelModel> _reels = [];
   bool _isLoading = false;
@@ -48,6 +50,7 @@ class ReelsProvider with ChangeNotifier {
     _loadPreferences();
     loadReels();
     _loadLikedIds();
+    _loadSavedIds();
   }
 
   /// Loads the current user's liked-reel ids from the persisted `user_likes`
@@ -66,6 +69,24 @@ class ReelsProvider with ChangeNotifier {
       notifyListeners();
     } catch (e) {
       debugPrint('[ReelsProvider] _loadLikedIds failed: $e');
+    }
+  }
+
+  /// Loads the current user's saved-reel ids from the persisted
+  /// `saved_reels` table, mirroring [_loadLikedIds]. Silently does nothing
+  /// when signed out or on failure.
+  Future<void> _loadSavedIds() async {
+    final userId = Supabase.instance.client.auth.currentUser?.id;
+    if (userId == null) return;
+
+    try {
+      final ids = await _savedReelsService.fetchSavedReelIds(userId);
+      _savedIds
+        ..clear()
+        ..addAll(ids);
+      notifyListeners();
+    } catch (e) {
+      debugPrint('[ReelsProvider] _loadSavedIds failed: $e');
     }
   }
 
@@ -131,9 +152,36 @@ class ReelsProvider with ChangeNotifier {
     }
   }
 
-  void toggleSave(String id) {
-    _savedIds.contains(id) ? _savedIds.remove(id) : _savedIds.add(id);
+  /// Optimistically toggles, then persists to `saved_reels` when signed in;
+  /// rolls back on failure — same pattern as [toggleLike]. Guests still get
+  /// the local optimistic toggle (no persistence) so browsing without an
+  /// account isn't blocked.
+  Future<void> toggleSave(String id) async {
+    final wasSaved = _savedIds.contains(id);
+    wasSaved ? _savedIds.remove(id) : _savedIds.add(id);
     notifyListeners();
+
+    final userId = Supabase.instance.client.auth.currentUser?.id;
+    if (userId == null) return;
+
+    try {
+      if (wasSaved) {
+        await _savedReelsService.unsave(userId, id);
+      } else {
+        await _savedReelsService.save(userId, id);
+      }
+    } catch (e) {
+      debugPrint('[ReelsProvider] toggleSave persistence failed: $e');
+      wasSaved ? _savedIds.add(id) : _savedIds.remove(id);
+      notifyListeners();
+    }
+  }
+
+  /// Cached reels the user has saved — same "filter what's already cached"
+  /// approach as `PropertyProvider.getShortlistedProperties`, backing the
+  /// "Saved" tab's Reels filter in My Activity.
+  List<ReelModel> getSavedReels() {
+    return _reels.where((r) => _savedIds.contains(r.id)).toList();
   }
 
   void toggleFollow(String id) {

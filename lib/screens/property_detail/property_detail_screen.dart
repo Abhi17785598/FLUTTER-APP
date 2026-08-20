@@ -10,6 +10,8 @@ import '../../core/theme/app_text_styles.dart';
 import '../../core/constants/app_constants.dart';
 import '../../providers/chat_thread_provider.dart';
 import '../../providers/property_provider.dart';
+import '../../models/reel_comment.dart';
+import '../../services/comment_service.dart';
 import '../../services/messaging_service.dart';
 import '../messaging/chat_thread_screen.dart';
 import 'widgets/share_property_sheet.dart';
@@ -569,7 +571,9 @@ class _PropertyDetailScreenState extends State<PropertyDetailScreen>
     dynamic property,
     PropertyProvider propertyProvider,
   ) {
-    final bool isShortlisted = propertyProvider.isShortlisted(property.id as String);
+    final String propertyId = property.id as String;
+    final bool isShortlisted = propertyProvider.isShortlisted(propertyId);
+    final bool isLiked = propertyProvider.isLiked(propertyId);
 
     return Positioned(
       top: MediaQuery.of(context).padding.top + 12,
@@ -598,6 +602,35 @@ class _PropertyDetailScreenState extends State<PropertyDetailScreen>
           ),
           Row(
             children: [
+              // Like — a real, separate action from Save/Shortlist below;
+              // the reference backs it with `user_likes`, not
+              // `saved_properties`. Heart icon, matching the reference's own
+              // Like icon exactly (PropertyDetails.tsx / CombinedFeed.tsx use
+              // `Heart` for Like and `Bookmark` for Save — never two hearts).
+              GestureDetector(
+                onTap: () => propertyProvider.toggleLike(propertyId),
+                child: _buildCircleButton(
+                  backgroundColor: Colors.black.withOpacity(0.5),
+                  child: Icon(
+                    isLiked ? Icons.favorite : Icons.favorite_border,
+                    color: isLiked ? Colors.red : Colors.white,
+                    size: 20,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 8),
+              GestureDetector(
+                onTap: () => _showPropertyComments(property),
+                child: _buildCircleButton(
+                  backgroundColor: Colors.black.withOpacity(0.5),
+                  child: const Icon(
+                    Icons.mode_comment_outlined,
+                    color: Colors.white,
+                    size: 20,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 8),
               GestureDetector(
                 onTap: () => _shareProperty(property),
                 child: _buildCircleButton(
@@ -610,13 +643,18 @@ class _PropertyDetailScreenState extends State<PropertyDetailScreen>
                 ),
               ),
               const SizedBox(width: 8),
+              // Save/Shortlist — switched from a second heart to a bookmark
+              // icon. Direct consequence of the Like fix above: the
+              // reference never shows two heart icons side by side — Like is
+              // Heart, Save is Bookmark (PropertyDetails.tsx/CombinedFeed.tsx).
+              // Behavior/state/persistence here are unchanged.
               GestureDetector(
-                onTap: () => propertyProvider.toggleShortlist(property.id as String),
+                onTap: () => propertyProvider.toggleShortlist(propertyId),
                 child: _buildCircleButton(
                   backgroundColor: Colors.white,
                   child: Icon(
-                    isShortlisted ? Icons.favorite : Icons.favorite_border,
-                    color: isShortlisted ? Colors.red : AppColors.textSecondary,
+                    isShortlisted ? Icons.bookmark : Icons.bookmark_border,
+                    color: isShortlisted ? AppColors.primary : AppColors.textSecondary,
                     size: 20,
                   ),
                 ),
@@ -638,6 +676,22 @@ class _PropertyDetailScreenState extends State<PropertyDetailScreen>
       title: (property.title as String?) ?? '',
       location: property.location as String?,
       priceDisplay: property.priceDisplay as String?,
+    );
+  }
+
+  /// Reuses the same `post_comments` infrastructure already built for reels
+  /// (`CommentService`/`ReelComment` — generic despite the name, keyed by
+  /// postId+postType, not reel-specific), just with `post_type: 'property'`
+  /// instead of `'video'`. No new comment system, no schema change.
+  void _showPropertyComments(dynamic property) {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      isScrollControlled: true,
+      builder: (_) => _PropertyCommentsSheet(
+        propertyId: property.id as String,
+        commentsEnabled: _ownerProfile?.commentsEnabled ?? true,
+      ),
     );
   }
 
@@ -1092,40 +1146,147 @@ class _PropertyDetailScreenState extends State<PropertyDetailScreen>
         if (isTrue('solarBackup')) _DetailRow('Solar Backup', 'Yes'),
         if (isTrue('guardRoom')) _DetailRow('Guard Room', 'Yes'),
       ]),
-      _DetailGroup('Legal & Approvals', [
+      // Mirrors the portal's renderExtendedDetails "Legal & Society" group
+      // (PropertyDetails.tsx) — every field is read straight off the same
+      // `properties.metadata` blob the website reads, so listings created on
+      // the website (which collects all of these) display correctly here
+      // too, not just app-created ones.
+      _DetailGroup('Legal & Society', [
         if (isTrue('reraRegistered'))
           _DetailRow('RERA Registered', str('reraNumber') ?? 'Yes'),
         if (isTrue('saleDeed')) _DetailRow('Sale Deed', 'Available'),
         if (isTrue('registryCopy')) _DetailRow('Registry Copy', 'Available'),
+        if (isTrue('registeredAgreement'))
+          _DetailRow('Registered Agreement', 'Yes'),
+        if (isTrue('unregisteredAgreement'))
+          _DetailRow('Unregistered Agreement', 'Yes'),
         if (isTrue('nocAvailable')) _DetailRow('NOC', 'Available'),
         if (isTrue('encumbranceFree'))
           _DetailRow('Encumbrance Free', 'Yes'),
-        if (isTrue('loanApproved')) _DetailRow('Loan Approved', 'Yes'),
         if (isTrue('propertyApproved'))
           _DetailRow('Property Approved', 'Yes'),
+        if (isTrue('approvedByAuthority'))
+          _DetailRow('Approved By Authority', 'Yes'),
+        if (isTrue('khataAvailable')) _DetailRow('Khata Available', 'Yes'),
+        if (isTrue('pattaAvailable')) _DetailRow('Patta Available', 'Yes'),
+        if (isTrue('jamabandiAvailable'))
+          _DetailRow('Jamabandi Available', 'Yes'),
+        if (isTrue('mutationAvailable'))
+          _DetailRow('Mutation Available', 'Yes'),
+        if (isTrue('ocCertificate'))
+          _DetailRow('Occupancy Certificate', 'Yes'),
+        if (isTrue('completionCertificate'))
+          _DetailRow('Completion Certificate', 'Yes'),
+        if (isTrue('buildingApproval'))
+          _DetailRow('Building Approval', 'Yes'),
+        if (isTrue('taxReceipt')) _DetailRow('Tax Receipt', 'Available'),
+        if (isTrue('propertyTaxPaid'))
+          _DetailRow('Property Tax Paid', 'Yes'),
+        if (isTrue('courtCasePending'))
+          _DetailRow('Court Case Pending', 'Yes'),
+        if (isTrue('loanApproved') || isTrue('bankLoanApproved'))
+          _DetailRow('Bank Loan Approved', 'Yes'),
         if (strList('approvedByBanks').isNotEmpty)
           _DetailRow(
               'Approved By Banks', strList('approvedByBanks').join(', ')),
+        if (isTrue('fireLicense')) _DetailRow('Fire License', 'Yes'),
+        if (isTrue('tradeLicense')) _DetailRow('Trade License', 'Yes'),
+        if (isTrue('foodLicense')) _DetailRow('Food License', 'Yes'),
+        if (isTrue('pollutionClearance'))
+          _DetailRow('Pollution Clearance', 'Yes'),
+        if (isTrue('industrialApproval'))
+          _DetailRow('Industrial Approval', 'Yes'),
+        if (isTrue('hostelLicense')) _DetailRow('Hostel License', 'Yes'),
+        if (isTrue('dispute')) _DetailRow('Under Dispute', 'Yes'),
+        if (str('registrationTitle') != null)
+          _DetailRow('Registration Title', str('registrationTitle')!),
+        if (str('mutation') != null)
+          _DetailRow('Mutation', str('mutation')!),
+        if (str('ownershipType') != null)
+          _DetailRow('Ownership Type', str('ownershipType')!),
+        if (str('ownerName') != null)
+          _DetailRow('Owner Name', str('ownerName')!),
+        if (isTrue('ownerLiveInSociety'))
+          _DetailRow('Owner Lives In Society', 'Yes'),
+        if (isTrue('registrationRequired'))
+          _DetailRow('Registration Required', 'Yes'),
       ]),
-      _DetailGroup('Pricing Details', [
-        if (str('securityDeposit') != null)
-          _DetailRow('Security Deposit', str('securityDeposit')!),
+      // Mirrors the portal's "Financial & Pricing" group.
+      _DetailGroup('Financial & Pricing', [
+        if (str('financeStatus') != null)
+          _DetailRow('Finance Status', str('financeStatus')!),
+        if (str('priceType') != null)
+          _DetailRow('Price Type', str('priceType')!),
+        if (isTrue('priceNegotiable'))
+          _DetailRow('Price Negotiable', 'Yes'),
+        if (str('propertyTax') != null)
+          _DetailRow('Property Tax', str('propertyTax')!),
+        if (str('waterTax') != null)
+          _DetailRow('Water Tax', str('waterTax')!),
+        if (str('otherTax') != null)
+          _DetailRow('Other Tax', str('otherTax')!),
+        if (str('societyMaintenance') != null)
+          _DetailRow('Society Maintenance', str('societyMaintenance')!),
         if (str('maintenanceCharges') != null)
           _DetailRow('Maintenance Charges', str('maintenanceCharges')!),
+        if (str('securityDeposit') != null)
+          _DetailRow('Security Deposit', str('securityDeposit')!),
+        if (str('bookingAmount') != null)
+          _DetailRow('Booking Amount', str('bookingAmount')!),
         if (str('tokenAmount') != null)
           _DetailRow('Token Amount', str('tokenAmount')!),
         if (str('lockInPeriod') != null)
           _DetailRow('Lock-in Period', str('lockInPeriod')!),
-        if (isTrue('priceNegotiable'))
-          _DetailRow('Price Negotiable', 'Yes'),
-        if (isTrue('allInclusivePriceToggle'))
-          _DetailRow('All Inclusive Price', 'Yes'),
-        if (isTrue('taxGovtChargesIncluded'))
-          _DetailRow('Tax/Govt Charges Included', 'Yes'),
-        if (str('loanAvailability') != null)
-          _DetailRow('Loan Availability', str('loanAvailability')!),
         if (str('brokerage') != null)
           _DetailRow('Brokerage', str('brokerage')!),
+        if (str('brokerageType') != null)
+          _DetailRow('Brokerage Type', str('brokerageType')!),
+        if (isTrue('taxGovtChargesIncluded'))
+          _DetailRow('Tax/Govt Charges Included', 'Yes'),
+        if (isTrue('allInclusivePriceToggle'))
+          _DetailRow('All Inclusive Price', 'Yes'),
+        if (str('loanAvailability') != null)
+          _DetailRow('Loan Availability', str('loanAvailability')!),
+        if (str('expectedAppreciation') != null)
+          _DetailRow('Expected Appreciation', str('expectedAppreciation')!),
+        if (str('rentalYield') != null)
+          _DetailRow('Rental Yield', str('rentalYield')!),
+        if (str('expectedPrice') != null)
+          _DetailRow('Expected Price', str('expectedPrice')!),
+        if (isTrue('gstApplicable')) _DetailRow('GST Applicable', 'Yes'),
+      ]),
+      // Mirrors the portal's "Construction & Land" group.
+      _DetailGroup('Construction & Land', [
+        if (str('projectStatus') != null)
+          _DetailRow('Project Status', str('projectStatus')!),
+        if (str('projectName') != null)
+          _DetailRow('Project Name', str('projectName')!),
+        if (str('builderName') != null)
+          _DetailRow('Builder Name', str('builderName')!),
+        if (str('totalFlats') != null)
+          _DetailRow('Total Flats', str('totalFlats')!),
+        if (str('plotArea') != null)
+          _DetailRow(
+            'Plot Area',
+            [str('plotArea'), str('plotAreaUnit')]
+                .whereType<String>()
+                .join(' '),
+          ),
+        if (str('spaceDetails') != null)
+          _DetailRow('Space Details', str('spaceDetails')!),
+        if (str('areaPerFloor') != null)
+          _DetailRow('Area Per Floor', str('areaPerFloor')!),
+        if (str('landSize') != null)
+          _DetailRow(
+            'Land Size',
+            [str('landSize'), str('landSizeUnit')]
+                .whereType<String>()
+                .join(' '),
+          ),
+        if (str('landType') != null)
+          _DetailRow('Land Type', str('landType')!),
+        if (str('boundary') != null)
+          _DetailRow('Boundary', str('boundary')!),
       ]),
       _DetailGroup('Contact Preferences', [
         if (str('contactName') != null)
@@ -2309,6 +2470,271 @@ class _DetailGroup {
   final List<_DetailRow> rows;
 
   const _DetailGroup(this.title, this.rows);
+}
+
+/// Property comments — reuses `CommentService`/`ReelComment` (already
+/// generic: postId + postType, not reel-specific) with `post_type:
+/// 'property'`, the same `post_comments` table the reference's
+/// CommentsPanel reads for properties. No new comment system.
+class _PropertyCommentsSheet extends StatefulWidget {
+  const _PropertyCommentsSheet({
+    required this.propertyId,
+    required this.commentsEnabled,
+  });
+
+  final String propertyId;
+  final bool commentsEnabled;
+
+  @override
+  State<_PropertyCommentsSheet> createState() => _PropertyCommentsSheetState();
+}
+
+class _PropertyCommentsSheetState extends State<_PropertyCommentsSheet> {
+  static const String _kPostType = 'property';
+
+  final CommentService _service = CommentService();
+  final TextEditingController _input = TextEditingController();
+
+  List<ReelComment>? _comments;
+  bool _loadFailed = false;
+  bool _submitting = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  @override
+  void dispose() {
+    _input.dispose();
+    super.dispose();
+  }
+
+  Future<void> _load() async {
+    try {
+      final comments =
+          await _service.fetchComments(widget.propertyId, _kPostType);
+      if (!mounted) return;
+      setState(() {
+        _comments = comments;
+        _loadFailed = false;
+      });
+    } catch (e) {
+      debugPrint('[PropertyDetail] fetchComments failed: $e');
+      if (!mounted) return;
+      setState(() => _loadFailed = true);
+    }
+  }
+
+  Future<void> _submit() async {
+    final content = _input.text.trim();
+    if (content.isEmpty || _submitting) return;
+
+    final userId = Supabase.instance.client.auth.currentUser?.id;
+    if (userId == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Sign in to comment')),
+      );
+      return;
+    }
+
+    setState(() => _submitting = true);
+    try {
+      final comment = await _service.submitComment(
+        postId: widget.propertyId,
+        postType: _kPostType,
+        userId: userId,
+        content: content,
+      );
+      if (!mounted) return;
+      setState(() {
+        _comments = [comment, ...?_comments];
+        _input.clear();
+      });
+    } catch (e) {
+      debugPrint('[PropertyDetail] submitComment failed: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text("Couldn't post comment")),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _submitting = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: EdgeInsets.only(bottom: MediaQuery.viewInsetsOf(context).bottom),
+      child: Container(
+        height: MediaQuery.sizeOf(context).height * 0.6,
+        decoration: const BoxDecoration(
+          color: AppColors.surface,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+        ),
+        child: Column(
+          children: [
+            const SizedBox(height: 12),
+            Container(
+              width: 40,
+              height: 4,
+              decoration: BoxDecoration(
+                color: AppColors.textHint,
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              child: Row(
+                children: [
+                  Text('Comments', style: AppTextStyles.heading3),
+                  const Spacer(),
+                  IconButton(
+                    icon: const Icon(Icons.close, color: AppColors.textSecondary),
+                    onPressed: () => Navigator.pop(context),
+                  ),
+                ],
+              ),
+            ),
+            const Divider(height: 1),
+            Expanded(child: _buildBody()),
+            if (widget.commentsEnabled)
+              _buildInputBar()
+            else
+              Padding(
+                padding: const EdgeInsets.all(16),
+                child: Text(
+                  'Comments are turned off for this listing',
+                  textAlign: TextAlign.center,
+                  style: AppTextStyles.caption,
+                ),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildBody() {
+    if (_loadFailed) {
+      return Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Icon(Icons.wifi_off_rounded, size: 48, color: AppColors.textHint),
+            const SizedBox(height: 12),
+            Text('Could not load comments', style: AppTextStyles.body),
+            const SizedBox(height: 8),
+            TextButton(onPressed: _load, child: const Text('Retry')),
+          ],
+        ),
+      );
+    }
+
+    final comments = _comments;
+    if (comments == null) {
+      return const Center(child: CircularProgressIndicator(strokeWidth: 2));
+    }
+
+    if (comments.isEmpty) {
+      return Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.mode_comment_outlined,
+                size: 56, color: AppColors.textHint.withOpacity(0.5)),
+            const SizedBox(height: 12),
+            Text('No comments yet', style: AppTextStyles.body),
+          ],
+        ),
+      );
+    }
+
+    return ListView.separated(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      itemCount: comments.length,
+      separatorBuilder: (_, _) => const SizedBox(height: 16),
+      itemBuilder: (context, index) => _buildCommentRow(comments[index]),
+    );
+  }
+
+  Widget _buildCommentRow(ReelComment comment) {
+    final name =
+        (comment.authorName?.isNotEmpty ?? false) ? comment.authorName! : 'User';
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        CircleAvatar(
+          radius: 16,
+          backgroundColor: AppColors.primaryLight,
+          backgroundImage: (comment.authorAvatarUrl?.isNotEmpty ?? false)
+              ? NetworkImage(comment.authorAvatarUrl!)
+              : null,
+          child: (comment.authorAvatarUrl?.isNotEmpty ?? false)
+              ? null
+              : Text(name[0].toUpperCase(),
+                  style: const TextStyle(color: AppColors.primary, fontSize: 12)),
+        ),
+        const SizedBox(width: 10),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(name,
+                  style: AppTextStyles.body
+                      .copyWith(fontWeight: FontWeight.w600, fontSize: 13)),
+              const SizedBox(height: 2),
+              Text(comment.content,
+                  style: AppTextStyles.body.copyWith(fontSize: 13)),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildInputBar() {
+    return SafeArea(
+      top: false,
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(16, 8, 8, 8),
+        child: Row(
+          children: [
+            Expanded(
+              child: TextField(
+                controller: _input,
+                decoration: InputDecoration(
+                  hintText: 'Add a comment...',
+                  filled: true,
+                  fillColor: AppColors.cardBackground,
+                  contentPadding:
+                      const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(24),
+                    borderSide: BorderSide.none,
+                  ),
+                ),
+                textInputAction: TextInputAction.send,
+                onSubmitted: (_) => _submit(),
+              ),
+            ),
+            IconButton(
+              onPressed: _submitting ? null : _submit,
+              icon: _submitting
+                  ? const SizedBox(
+                      width: 18,
+                      height: 18,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : const Icon(Icons.send_rounded, color: AppColors.primary),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
 }
 
 class _Highlight {

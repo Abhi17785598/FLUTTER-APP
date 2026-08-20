@@ -20,6 +20,11 @@ class PropertyOwnerProfile {
   final String? phone;
   final Map<String, dynamic>? socialMedia;
 
+  /// `profiles.comments_enabled` — gates the property Comment input the same
+  /// way the website's `property.user_profile?.comments_enabled ?? true`
+  /// does. Defaults to true when the column/row is absent.
+  final bool commentsEnabled;
+
   const PropertyOwnerProfile({
     this.displayName,
     this.avatarUrl,
@@ -27,6 +32,7 @@ class PropertyOwnerProfile {
     this.companyName,
     this.phone,
     this.socialMedia,
+    this.commentsEnabled = true,
   });
 
   factory PropertyOwnerProfile.fromSupabase(Map<String, dynamic> json) {
@@ -37,6 +43,7 @@ class PropertyOwnerProfile {
       companyName: json['company_name']?.toString(),
       phone: json['phone']?.toString(),
       socialMedia: json['social_media'] as Map<String, dynamic>?,
+      commentsEnabled: json['comments_enabled'] as bool? ?? true,
     );
   }
 }

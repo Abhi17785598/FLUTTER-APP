@@ -2,13 +2,16 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:share_plus/share_plus.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../core/constants/app_constants.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_text_styles.dart';
+import '../../models/reel_comment.dart';
 import '../../models/reel_model.dart';
 import '../../providers/reels_provider.dart';
+import '../../services/comment_service.dart';
 import '../../widgets/bottom_nav_bar.dart';
 import 'widgets/reel_action_button.dart';
 import 'widgets/reel_controller_manager.dart';
@@ -17,6 +20,13 @@ import 'widgets/reel_property_card.dart';
 import 'package:video_player/video_player.dart' show VideoViewType;
 
 import 'widgets/reel_video_view.dart';
+
+/// `post_comments.post_type` for every reel — mirrors the website's
+/// ReelView.tsx (`postType={reel.type === 'influencer_video' ? 'video' :
+/// 'property'}`); every Flutter reel comes from `influencer_videos`, so this
+/// is always `'video'`, never the `'property'` branch that only applies to
+/// the website's separate property-video feed items.
+const String _kReelCommentPostType = 'video';
 
 /// Premium vertical reels feed — matches the compact reference layout:
 /// video occupies ~80% of the screen, with a slim floating white card
@@ -32,7 +42,14 @@ import 'widgets/reel_video_view.dart';
 ///   • Pagination, autoplay, and swipe gestures are unchanged — only the
 ///     presentation around the video changed.
 class ReelsScreen extends StatefulWidget {
-  const ReelsScreen({super.key});
+  const ReelsScreen({super.key, this.initialReelId});
+
+  /// When set, the feed opens scrolled to this reel instead of the top —
+  /// used when opening a reel from My Activity's saved-reels list, mirroring
+  /// the portal's `handleReelClick` (which navigates into the same reel
+  /// player pre-selecting that reel; there is no standalone reel-detail
+  /// route on the portal either).
+  final String? initialReelId;
 
   @override
   State<ReelsScreen> createState() => _ReelsScreenState();
@@ -91,12 +108,29 @@ class _ReelsScreenState extends State<ReelsScreen> {
     super.dispose();
   }
 
-  /// Called once reels are available: primes the controller window.
+  /// Called once reels are available: primes the controller window, and —
+  /// when [ReelsScreen.initialReelId] is set — starts on that reel instead
+  /// of the top of the feed.
   void _maybeInitFeed(List<ReelModel> reels) {
     if (_initializedFeed || reels.isEmpty) return;
     _initializedFeed = true;
+
+    final requestedId = widget.initialReelId;
+    final matchedIndex =
+        requestedId == null ? -1 : reels.indexWhere((r) => r.id == requestedId);
+    final startIndex = matchedIndex == -1 ? 0 : matchedIndex;
+
+    _currentIndex = startIndex;
     _manager.setReels(reels);
-    _manager.onActiveIndexChanged(0);
+    _manager.onActiveIndexChanged(startIndex);
+
+    if (startIndex != 0) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (_pageController.hasClients) {
+          _pageController.jumpToPage(startIndex);
+        }
+      });
+    }
   }
 
   void _onPageChanged(int index) {
@@ -227,24 +261,34 @@ class _ReelsScreenState extends State<ReelsScreen> {
             itemCount: provider.reels.length,
             onPageChanged: _onPageChanged,
             itemBuilder: (context, index) {
-              return AnimatedBuilder(
-                animation: _manager,
-                builder: (context, _) {
-                  return ReelVideoView(
-                    key: ValueKey(provider.reels[index].id),
-                    reel: provider.reels[index],
-                    controller: _manager.controllerAt(index),
-                    hasFailed: _manager.hasFailed(index),
-                    isPaused: index == _currentIndex && _isPaused,
-                    onTogglePlayPause: _togglePlayPause,
-                  );
-                },
+              // RepaintBoundary isolates each reel's own compositing layer
+              // (the video surface, especially the platform-view/SurfaceView
+              // path above) from the page-transition transform and from
+              // sibling rebuilds — without it every page's paint is at the
+              // mercy of the same layer as its neighbours during a swipe,
+              // which is a well-known source of jank for platform views
+              // inside a scrollable.
+              return RepaintBoundary(
+                child: AnimatedBuilder(
+                  animation: _manager,
+                  builder: (context, _) {
+                    return ReelVideoView(
+                      key: ValueKey(provider.reels[index].id),
+                      reel: provider.reels[index],
+                      controller: _manager.controllerAt(index),
+                      hasFailed: _manager.hasFailed(index),
+                      isPaused: index == _currentIndex && _isPaused,
+                      onTogglePlayPause: _togglePlayPause,
+                    );
+                  },
+                ),
               );
             },
           ),
           _buildTopBar(),
           _buildBuilderOverlay(provider),
           _buildVideoActionRail(provider),
+          _buildMuteButton(),
         ],
       ),
     );
@@ -280,6 +324,20 @@ class _ReelsScreenState extends State<ReelsScreen> {
               onTap: () => provider.toggleLike(reel.id),
             ),
             const SizedBox(height: 18),
+            // Views — reel.views is a real column (influencer_videos.views),
+            // already parsed by ReelModel but never displayed anywhere;
+            // mirrors the website's Eye icon + count in the same rail
+            // position (ReelView.tsx, between Like and Comment).
+            ReelActionButton(
+              showIconBackground: false,
+              showLabelShadow: true,
+              iconSize: 28,
+              iconBoxSize: 36,
+              icon: Icons.visibility_outlined,
+              label: _formatActionCount(reel.views),
+              onTap: () {},
+            ),
+            const SizedBox(height: 18),
             ReelActionButton(
               showIconBackground: false,
               showLabelShadow: true,
@@ -287,7 +345,7 @@ class _ReelsScreenState extends State<ReelsScreen> {
               iconBoxSize: 36,
               icon: Icons.mode_comment_outlined,
               label: 'Comment',
-              onTap: _showComments,
+              onTap: () => _showComments(reel),
             ),
             const SizedBox(height: 18),
             ReelActionButton(
@@ -312,6 +370,34 @@ class _ReelsScreenState extends State<ReelsScreen> {
               onTap: () => provider.toggleSave(reel.id),
             ),
           ],
+        ),
+      ),
+    );
+  }
+
+  /// Top-right sound toggle — mirrors the website's mute/unmute button
+  /// (ReelView.tsx, `top-4 right-4`, Volume2/VolumeX). Scoped to its own
+  /// AnimatedBuilder so toggling sound repaints only this small icon, not
+  /// the rest of the video overlay.
+  Widget _buildMuteButton() {
+    return Positioned(
+      top: 0,
+      right: 0,
+      child: SafeArea(
+        bottom: false,
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(0, 12, 16, 0),
+          child: AnimatedBuilder(
+            animation: _manager,
+            builder: (context, _) {
+              return _circleIcon(
+                _manager.isMuted
+                    ? Icons.volume_off_rounded
+                    : Icons.volume_up_rounded,
+                onTap: _manager.toggleMute,
+              );
+            },
+          ),
         ),
       ),
     );
@@ -496,13 +582,13 @@ class _ReelsScreenState extends State<ReelsScreen> {
     );
   }
 
-  // ── Comments (placeholder) ───────────────────────────────────────────────
-  void _showComments() {
+  // ── Comments ──────────────────────────────────────────────────────────────
+  void _showComments(ReelModel reel) {
     showModalBottomSheet(
       context: context,
       backgroundColor: Colors.transparent,
       isScrollControlled: true,
-      builder: (_) => const _CommentsSheet(),
+      builder: (_) => _CommentsSheet(reel: reel),
     );
   }
 }
@@ -745,65 +831,291 @@ class _ReelsEmptyState extends StatelessWidget {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Comments placeholder sheet
+// Comments sheet — real data via `post_comments` (post_type = 'video'),
+// mirroring the website's CommentsPanel usage in ReelView.tsx.
 // ─────────────────────────────────────────────────────────────────────────────
-class _CommentsSheet extends StatelessWidget {
-  const _CommentsSheet();
+class _CommentsSheet extends StatefulWidget {
+  const _CommentsSheet({required this.reel});
+
+  final ReelModel reel;
+
+  @override
+  State<_CommentsSheet> createState() => _CommentsSheetState();
+}
+
+class _CommentsSheetState extends State<_CommentsSheet> {
+  final CommentService _service = CommentService();
+  final TextEditingController _input = TextEditingController();
+
+  List<ReelComment>? _comments;
+  bool _loadFailed = false;
+  bool _submitting = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  @override
+  void dispose() {
+    _input.dispose();
+    super.dispose();
+  }
+
+  Future<void> _load() async {
+    try {
+      final comments = await _service.fetchComments(
+        widget.reel.id,
+        _kReelCommentPostType,
+      );
+      if (!mounted) return;
+      setState(() {
+        _comments = comments;
+        _loadFailed = false;
+      });
+    } catch (e) {
+      debugPrint('[Reels] fetchComments failed: $e');
+      if (!mounted) return;
+      setState(() => _loadFailed = true);
+    }
+  }
+
+  Future<void> _submit() async {
+    final content = _input.text.trim();
+    if (content.isEmpty || _submitting) return;
+
+    final userId = Supabase.instance.client.auth.currentUser?.id;
+    if (userId == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Sign in to comment')),
+      );
+      return;
+    }
+
+    setState(() => _submitting = true);
+    try {
+      final comment = await _service.submitComment(
+        postId: widget.reel.id,
+        postType: _kReelCommentPostType,
+        userId: userId,
+        content: content,
+      );
+      if (!mounted) return;
+      setState(() {
+        _comments = [comment, ...?_comments];
+        _input.clear();
+      });
+    } catch (e) {
+      debugPrint('[Reels] submitComment failed: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text("Couldn't post comment")),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _submitting = false);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      height: MediaQuery.of(context).size.height * 0.6,
-      decoration: const BoxDecoration(
-        color: AppColors.textPrimary,
-        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-      ),
-      child: Column(
-        children: [
-          Container(
-            margin: const EdgeInsets.symmetric(vertical: 12),
-            width: 40,
-            height: 4,
-            decoration: BoxDecoration(
-              color: Colors.white.withValues(alpha: 0.3),
-              borderRadius: BorderRadius.circular(2),
+    final bool commentsEnabled = widget.reel.commentsEnabled;
+
+    return Padding(
+      // Rides above the keyboard so the input stays visible.
+      padding: EdgeInsets.only(bottom: MediaQuery.viewInsetsOf(context).bottom),
+      child: Container(
+        height: MediaQuery.sizeOf(context).height * 0.6,
+        decoration: const BoxDecoration(
+          color: AppColors.textPrimary,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+        ),
+        child: Column(
+          children: [
+            Container(
+              margin: const EdgeInsets.symmetric(vertical: 12),
+              width: 40,
+              height: 4,
+              decoration: BoxDecoration(
+                color: Colors.white.withValues(alpha: 0.3),
+                borderRadius: BorderRadius.circular(2),
+              ),
             ),
-          ),
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-            child: Row(
-              children: [
-                Text('Comments',
-                    style: AppTextStyles.heading3
-                        .copyWith(color: Colors.white)),
-                const Spacer(),
-                IconButton(
-                  icon: const Icon(Icons.close, color: Colors.white),
-                  onPressed: () => Navigator.pop(context),
-                ),
-              ],
-            ),
-          ),
-          const Divider(height: 1, color: Colors.white10),
-          Expanded(
-            child: Center(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+              child: Row(
                 children: [
-                  Icon(Icons.mode_comment_outlined,
-                      size: 56, color: Colors.white.withValues(alpha: 0.25)),
-                  const SizedBox(height: 12),
-                  Text(
-                    'Comments coming soon',
-                    style: AppTextStyles.body.copyWith(
-                      color: Colors.white.withValues(alpha: 0.6),
-                    ),
+                  Text('Comments',
+                      style: AppTextStyles.heading3
+                          .copyWith(color: Colors.white)),
+                  const Spacer(),
+                  IconButton(
+                    icon: const Icon(Icons.close, color: Colors.white),
+                    onPressed: () => Navigator.pop(context),
                   ),
                 ],
               ),
             ),
+            const Divider(height: 1, color: Colors.white10),
+            Expanded(child: _buildBody()),
+            if (commentsEnabled) _buildInputBar() else _buildDisabledNotice(),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildBody() {
+    if (_loadFailed) {
+      return Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.wifi_off_rounded,
+                size: 48, color: Colors.white.withValues(alpha: 0.3)),
+            const SizedBox(height: 12),
+            Text('Could not load comments',
+                style: AppTextStyles.body
+                    .copyWith(color: Colors.white.withValues(alpha: 0.6))),
+            const SizedBox(height: 8),
+            TextButton(onPressed: _load, child: const Text('Retry')),
+          ],
+        ),
+      );
+    }
+
+    final comments = _comments;
+    if (comments == null) {
+      return const Center(
+        child: CircularProgressIndicator(color: Colors.white70, strokeWidth: 2),
+      );
+    }
+
+    if (comments.isEmpty) {
+      return Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.mode_comment_outlined,
+                size: 56, color: Colors.white.withValues(alpha: 0.25)),
+            const SizedBox(height: 12),
+            Text(
+              'No comments yet',
+              style: AppTextStyles.body
+                  .copyWith(color: Colors.white.withValues(alpha: 0.6)),
+            ),
+          ],
+        ),
+      );
+    }
+
+    return ListView.separated(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      itemCount: comments.length,
+      separatorBuilder: (_, _) => const SizedBox(height: 16),
+      itemBuilder: (context, index) => _buildCommentRow(comments[index]),
+    );
+  }
+
+  Widget _buildCommentRow(ReelComment comment) {
+    final name = (comment.authorName?.isNotEmpty ?? false)
+        ? comment.authorName!
+        : 'User';
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        CircleAvatar(
+          radius: 16,
+          backgroundColor: Colors.white24,
+          backgroundImage: (comment.authorAvatarUrl?.isNotEmpty ?? false)
+              ? NetworkImage(comment.authorAvatarUrl!)
+              : null,
+          child: (comment.authorAvatarUrl?.isNotEmpty ?? false)
+              ? null
+              : Text(name[0].toUpperCase(),
+                  style: const TextStyle(color: Colors.white, fontSize: 12)),
+        ),
+        const SizedBox(width: 10),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(name,
+                  style: AppTextStyles.body.copyWith(
+                    color: Colors.white,
+                    fontWeight: FontWeight.w600,
+                    fontSize: 13,
+                  )),
+              const SizedBox(height: 2),
+              Text(comment.content,
+                  style: AppTextStyles.body.copyWith(
+                    color: Colors.white.withValues(alpha: 0.85),
+                    fontSize: 13,
+                  )),
+            ],
           ),
-        ],
+        ),
+      ],
+    );
+  }
+
+  Widget _buildInputBar() {
+    return SafeArea(
+      top: false,
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(16, 8, 8, 8),
+        child: Row(
+          children: [
+            Expanded(
+              child: TextField(
+                controller: _input,
+                style: const TextStyle(color: Colors.white),
+                decoration: InputDecoration(
+                  hintText: 'Add a comment...',
+                  hintStyle:
+                      TextStyle(color: Colors.white.withValues(alpha: 0.4)),
+                  filled: true,
+                  fillColor: Colors.white.withValues(alpha: 0.08),
+                  contentPadding: const EdgeInsets.symmetric(
+                      horizontal: 14, vertical: 10),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(24),
+                    borderSide: BorderSide.none,
+                  ),
+                ),
+                textInputAction: TextInputAction.send,
+                onSubmitted: (_) => _submit(),
+              ),
+            ),
+            IconButton(
+              onPressed: _submitting ? null : _submit,
+              icon: _submitting
+                  ? const SizedBox(
+                      width: 18,
+                      height: 18,
+                      child: CircularProgressIndicator(
+                          color: Colors.white70, strokeWidth: 2),
+                    )
+                  : const Icon(Icons.send_rounded, color: AppColors.primary),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildDisabledNotice() {
+    return SafeArea(
+      top: false,
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Text(
+          'Comments are turned off for this creator',
+          textAlign: TextAlign.center,
+          style: AppTextStyles.caption
+              .copyWith(color: Colors.white.withValues(alpha: 0.5)),
+        ),
       ),
     );
   }

@@ -75,6 +75,13 @@ class ReelControllerManager extends ChangeNotifier {
   int _activeIndex = 0;
   bool _disposed = false;
 
+  /// Global sound preference — persists across swipes rather than resetting
+  /// per reel, so muting once keeps every subsequent reel muted until the
+  /// user turns it back on. Applied only to the active controller; preloaded
+  /// neighbours stay muted regardless, same as before.
+  bool _muted = false;
+  bool get isMuted => _muted;
+
   VideoPlayerController? controllerAt(int index) => _controllers[index];
 
   bool hasFailed(int index) => _failedIndices.contains(index);
@@ -136,11 +143,12 @@ class ReelControllerManager extends ChangeNotifier {
         continue;
       }
       if (entry.key == activeIndex) {
-        // The active reel plays with full audio — this is the fix for
-        // Issue 2: previously this branch called setVolume(0.0), muting
-        // every reel with no code path ever restoring volume.
+        // The active reel plays with full audio unless the user has muted —
+        // this is the fix for Issue 2: previously this branch called
+        // setVolume(0.0) unconditionally, muting every reel with no code
+        // path ever restoring volume.
         c
-          ..setVolume(1.0)
+          ..setVolume(_muted ? 0.0 : 1.0)
           ..setLooping(true)
           ..play();
       } else {
@@ -211,7 +219,9 @@ class ReelControllerManager extends ChangeNotifier {
 
       await controller.setLooping(true);
       await controller.setVolume(
-        previewMode ? 0.0 : (index == _activeIndex ? 1.0 : 0.0),
+        previewMode
+            ? 0.0
+            : (index == _activeIndex && !_muted ? 1.0 : 0.0),
       );
 
       if (_controllers[index] != controller) return;
@@ -257,6 +267,17 @@ class ReelControllerManager extends ChangeNotifier {
 
   void pauseActive() {
     _controllers[_activeIndex]?.pause();
+  }
+
+  /// Flips the global sound preference and immediately applies it to the
+  /// active controller (neighbours stay muted either way).
+  void toggleMute() {
+    _muted = !_muted;
+    final active = _controllers[_activeIndex];
+    if (active != null && active.value.isInitialized) {
+      active.setVolume(_muted ? 0.0 : 1.0);
+    }
+    _safeNotify();
   }
 
   void playActive() {

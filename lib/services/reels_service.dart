@@ -45,7 +45,7 @@ class ReelsService {
       final profiles = await _supabase
           .from('profiles')
           .select(
-            'user_id,display_name,avatar_url,phone,verification_status,user_type,company_name,company_logo_url',
+            'user_id,display_name,avatar_url,phone,verification_status,user_type,company_name,company_logo_url,comments_enabled',
           )
           .inFilter('user_id', userIds);
 

@@ -24,6 +24,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../../core/utils/text_input_formatters.dart';
 import '../../../providers/auth_provider.dart';
+import '../../profile/actions/logout_dialog.dart';
 import '../../../services/geocoding_service.dart';
 import '../../../services/profile_media_service.dart';
 import '../../../services/profile_service.dart';
@@ -2008,6 +2009,24 @@ class _BuilderRegistrationScreenState
         ),
         centerTitle: true,
         actions: [
+          // See broker_registration_screen.dart for why this is the only
+          // real way to leave the form at Step 1 — the reference's own
+          // Step 1 has no working Previous control either, and the AppBar
+          // back arrow here has nothing to pop to (pushNamedAndRemoveUntil
+          // cleared the stack on the way in).
+          TextButton.icon(
+            onPressed: () => showLogoutDialog(context),
+            icon: const Icon(Icons.logout, size: 16, color: Colors.white),
+            label: const Text('Logout', style: TextStyle(color: Colors.white)),
+            style: TextButton.styleFrom(
+              backgroundColor: Colors.orange,
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(8),
+              ),
+            ),
+          ),
+          const SizedBox(width: 12),
           Padding(
             padding: const EdgeInsets.only(right: 16),
             child: Icon(

@@ -329,7 +329,12 @@ class PropertyApp extends StatelessWidget {
           case '/visits':
             return PremiumPageRoute(builder: (context) => const VisitsScreen());
           case '/reels':
-            return PremiumPageRoute(builder: (context) => const ReelsScreen());
+            final reelsArgs = settings.arguments as Map<String, dynamic>?;
+            return PremiumPageRoute(
+              builder: (context) => ReelsScreen(
+                initialReelId: reelsArgs?['reelId'] as String?,
+              ),
+            );
           case '/post-property':
             // Role-gated: a builder publishes projects, not listings, and this
             // route is where every one of the eleven callers converges — the
