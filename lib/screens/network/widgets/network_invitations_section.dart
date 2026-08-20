@@ -13,13 +13,24 @@
 //     accepts or rejects them.
 //
 // They are two ends of one `builder_network_invitations` row, so this renders both
-// ends of it: a Received list with accept/decline, and a Sent list with the invite
-// form above it. Which lists have contents is what makes it role-appropriate —
-// nothing here checks a role, because the data already answers the question.
+// ends of it: a Received list with accept/decline (available to every role — anyone
+// can be invited), and a Sent list with the invite form above it (builder-only).
 //
-// That also avoids the trap of gating on `user_type`: a broker can invite too (RLS
-// on `builder_network_invitations` is not builder-only), and hard-coding a role
-// check would take that away.
+// WHY THE INVITE BUTTON *IS* NOW ROLE-GATED
+// ------------------------------------------
+// An earlier version of this file deliberately did not gate the Invite button,
+// reasoning that `builder_network_invitations`' RLS is not builder-only (any
+// authenticated user can insert one naming themselves as `builder_id`), so a broker
+// "can" send one too. That conflated "the database's RLS happens to allow it" with
+// "the product intends it" — the very trap a later audit called out explicitly: this
+// table's RLS was broadened for the generic peer-"Connect" flow, not to turn every
+// role into a network owner who recruits members. A non-builder sending a formal
+// network invitation would create a `builder_networks` row with *them* as
+// `builder_id`, which every owned-network-member classification elsewhere in this
+// module (`network_relationship.dart`) would then have to treat as if they run a
+// real builder network. [isBuilder] gates the button on the intended product role
+// instead of the accidental RLS permission; the Received list stays open to
+// everyone, since anyone can legitimately be on the receiving end of an invitation.
 //
 // EXPIRY IS ENFORCED HERE
 // ----------------------
@@ -45,11 +56,19 @@ class NetworkInvitationsSection extends StatefulWidget {
   const NetworkInvitationsSection({
     super.key,
     required this.userId,
+    this.isBuilder = false,
     this.service,
     this.onChanged,
   });
 
   final String? userId;
+
+  /// Gates the Invite button and the Sent list — see this file's header for
+  /// why sending a formal network invitation is builder-only even though its
+  /// RLS does not itself enforce that. Defaults to `false` so a caller that
+  /// hasn't been updated yet degrades to "no invite controls" rather than
+  /// accidentally granting them.
+  final bool isBuilder;
 
   @visibleForTesting
   final ProfileConnectionService? service;
@@ -64,8 +83,7 @@ class NetworkInvitationsSection extends StatefulWidget {
       _NetworkInvitationsSectionState();
 }
 
-class _NetworkInvitationsSectionState
-    extends State<NetworkInvitationsSection> {
+class _NetworkInvitationsSectionState extends State<NetworkInvitationsSection> {
   late final ProfileConnectionService _connections =
       widget.service ?? ProfileConnectionService();
 
@@ -109,11 +127,11 @@ class _NetworkInvitationsSectionState
 
   /// Turns the service's error enum into something a person can read.
   String _messageFor(ConnectionWriteError error) => switch (error) {
-        ConnectionWriteError.notAllowed => "You can't do that.",
-        ConnectionWriteError.nothingToAccept =>
-          'That invitation is no longer pending.',
-        ConnectionWriteError.failed => 'Something went wrong. Please try again.',
-      };
+    ConnectionWriteError.notAllowed => "You can't do that.",
+    ConnectionWriteError.nothingToAccept =>
+      'That invitation is no longer pending.',
+    ConnectionWriteError.failed => 'Something went wrong. Please try again.',
+  };
 
   Future<void> _accept(NetworkInvitation invitation) async {
     setState(() => _busyId = invitation.id);
@@ -247,18 +265,21 @@ class _NetworkInvitationsSectionState
             Expanded(
               child: Text(
                 received.isEmpty
-                    ? 'Invite a broker or influencer to your network.'
+                    ? (widget.isBuilder
+                          ? 'Invite a broker or influencer to your network.'
+                          : 'Invitations you receive will appear here.')
                     : '${inbox.actionable.length} awaiting your reply',
                 style: AppTextStyles.caption,
               ),
             ),
-            TextButton.icon(
-              onPressed: _busyId == null && widget.userId != null
-                  ? _openInviteSheet
-                  : null,
-              icon: const Icon(Icons.person_add_alt_1_outlined, size: 16),
-              label: const Text('Invite'),
-            ),
+            if (widget.isBuilder)
+              TextButton.icon(
+                onPressed: _busyId == null && widget.userId != null
+                    ? _openInviteSheet
+                    : null,
+                icon: const Icon(Icons.person_add_alt_1_outlined, size: 16),
+                label: const Text('Invite'),
+              ),
           ],
         ),
 
@@ -277,10 +298,7 @@ class _NetworkInvitationsSectionState
         if (received.isEmpty && sent.isEmpty)
           Padding(
             padding: const EdgeInsets.symmetric(vertical: 14),
-            child: Text(
-              'No invitations yet.',
-              style: AppTextStyles.caption,
-            ),
+            child: Text('No invitations yet.', style: AppTextStyles.caption),
           ),
 
         if (received.isNotEmpty) ...[
@@ -362,7 +380,9 @@ class _InvitationCard extends StatelessWidget {
   /// A lapsed `pending` row reads as Expired: telling a user it is pending when no
   /// button will work would be the wrong information.
   String get _statusLabel {
-    if (invitation.hasLapsed && invitation.status == 'pending') return 'Expired';
+    if (invitation.hasLapsed && invitation.status == 'pending') {
+      return 'Expired';
+    }
     return switch (invitation.status) {
       'pending' => 'Pending',
       'accepted' => 'Accepted',
@@ -445,8 +465,11 @@ class _InvitationCard extends StatelessWidget {
             const SizedBox(height: 6),
             Row(
               children: [
-                const Icon(Icons.timer_outlined,
-                    size: 13, color: AppColors.textHint),
+                const Icon(
+                  Icons.timer_outlined,
+                  size: 13,
+                  color: AppColors.textHint,
+                ),
                 const SizedBox(width: 4),
                 Flexible(
                   child: Text(
@@ -515,8 +538,18 @@ class _InvitationCard extends StatelessWidget {
 
   static String _formatDate(DateTime dt) {
     const months = [
-      'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
-      'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
+      'Jan',
+      'Feb',
+      'Mar',
+      'Apr',
+      'May',
+      'Jun',
+      'Jul',
+      'Aug',
+      'Sep',
+      'Oct',
+      'Nov',
+      'Dec',
     ];
     return '${months[dt.month - 1]} ${dt.day}, ${dt.year}';
   }
@@ -533,18 +566,18 @@ class _Avatar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     Widget initials() => Container(
-          width: _size,
-          height: _size,
-          color: AppColors.primaryLight,
-          alignment: Alignment.center,
-          child: Text(
-            name.isEmpty ? '?' : name[0].toUpperCase(),
-            style: AppTextStyles.body.copyWith(
-              fontWeight: FontWeight.w700,
-              color: AppColors.primary,
-            ),
-          ),
-        );
+      width: _size,
+      height: _size,
+      color: AppColors.primaryLight,
+      alignment: Alignment.center,
+      child: Text(
+        name.isEmpty ? '?' : name[0].toUpperCase(),
+        style: AppTextStyles.body.copyWith(
+          fontWeight: FontWeight.w700,
+          color: AppColors.primary,
+        ),
+      ),
+    );
 
     return ClipOval(
       child: url == null || url!.isEmpty
@@ -700,7 +733,9 @@ class _InviteSheetState extends State<_InviteSheet> {
 
   void _submit() {
     if (_memberType == null) {
-      setState(() => _error = 'Choose whether they are a broker or influencer.');
+      setState(
+        () => _error = 'Choose whether they are a broker or influencer.',
+      );
       return;
     }
 
@@ -709,7 +744,9 @@ class _InviteSheetState extends State<_InviteSheet> {
     final phone = _phone.text.trim();
 
     if (picked == null && email.isEmpty && phone.isEmpty) {
-      setState(() => _error = 'Pick someone, or enter an email or phone number.');
+      setState(
+        () => _error = 'Pick someone, or enter an email or phone number.',
+      );
       return;
     }
 
@@ -771,15 +808,18 @@ class _InviteSheetState extends State<_InviteSheet> {
                   ),
                   child: Text(
                     _error!,
-                    style:
-                        AppTextStyles.caption.copyWith(color: AppColors.error),
+                    style: AppTextStyles.caption.copyWith(
+                      color: AppColors.error,
+                    ),
                   ),
                 ),
                 const SizedBox(height: 14),
               ],
 
-              Text('They are a *',
-                  style: AppTextStyles.body.copyWith(fontSize: 12.5)),
+              Text(
+                'They are a *',
+                style: AppTextStyles.body.copyWith(fontSize: 12.5),
+              ),
               const SizedBox(height: 8),
               Row(
                 children: [
@@ -821,8 +861,10 @@ class _InviteSheetState extends State<_InviteSheet> {
               ),
               const SizedBox(height: 16),
 
-              Text('Find someone',
-                  style: AppTextStyles.body.copyWith(fontSize: 12.5)),
+              Text(
+                'Find someone',
+                style: AppTextStyles.body.copyWith(fontSize: 12.5),
+              ),
               const SizedBox(height: 6),
               TextField(
                 controller: _search,
@@ -866,8 +908,11 @@ class _InviteSheetState extends State<_InviteSheet> {
                     style: AppTextStyles.caption.copyWith(fontSize: 11),
                   ),
                   trailing: _selected?.userId == result.userId
-                      ? const Icon(Icons.check_circle,
-                          size: 18, color: AppColors.primary)
+                      ? const Icon(
+                          Icons.check_circle,
+                          size: 18,
+                          color: AppColors.primary,
+                        )
                       : null,
                   onTap: () => setState(() {
                     _selected = result;
@@ -914,8 +959,10 @@ class _InviteSheetState extends State<_InviteSheet> {
               ],
               const SizedBox(height: 14),
 
-              Text('Message',
-                  style: AppTextStyles.body.copyWith(fontSize: 12.5)),
+              Text(
+                'Message',
+                style: AppTextStyles.body.copyWith(fontSize: 12.5),
+              ),
               const SizedBox(height: 6),
               TextField(
                 controller: _message,
@@ -953,17 +1000,16 @@ class _InviteSheetState extends State<_InviteSheet> {
   }
 
   InputDecoration _decoration(String hint) => InputDecoration(
-        hintText: hint,
-        isDense: true,
-        contentPadding:
-            const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-        border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(10),
-          borderSide: const BorderSide(color: AppColors.hairline),
-        ),
-        enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(10),
-          borderSide: const BorderSide(color: AppColors.hairline),
-        ),
-      );
+    hintText: hint,
+    isDense: true,
+    contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+    border: OutlineInputBorder(
+      borderRadius: BorderRadius.circular(10),
+      borderSide: const BorderSide(color: AppColors.hairline),
+    ),
+    enabledBorder: OutlineInputBorder(
+      borderRadius: BorderRadius.circular(10),
+      borderSide: const BorderSide(color: AppColors.hairline),
+    ),
+  );
 }

@@ -44,7 +44,11 @@ class _NetworkHubView extends StatefulWidget {
 }
 
 class _NetworkHubViewState extends State<_NetworkHubView> {
-  String? _loadedUserId;
+  /// De-dup key, folding in the resolved role — see the note below and
+  /// `DeferredSectionLoader.reloadOnRoleChange`'s doc for the underlying race
+  /// this guards against (this screen predates that mixin's promotion out of
+  /// Social, so it never adopted it and carries the same fix inline).
+  String? _loadedKey;
 
   @override
   void didChangeDependencies() {
@@ -56,8 +60,17 @@ class _NetworkHubViewState extends State<_NetworkHubView> {
     if (!mounted) return;
     final auth = context.read<AuthProvider>();
     final userId = auth.userId;
-    if (userId == null || userId == _loadedUserId) return;
-    _loadedUserId = userId;
+    if (userId == null) return;
+    // `userType` only lands once the `profiles` fetch resolves; loading with
+    // whatever role happened to be available before that (always "not a
+    // builder", since `userType` starts null) would cache a builder as a
+    // member for the rest of this screen's lifetime, since `userId` alone
+    // never changes again.
+    if (auth.isResolving) return;
+
+    final key = '$userId::${auth.userType ?? ''}';
+    if (key == _loadedKey) return;
+    _loadedKey = key;
 
     // `load()` raises its loading flag and notifies before its first `await`,
     // and this runs from didChangeDependencies — inside the build phase — so
@@ -75,6 +88,22 @@ class _NetworkHubViewState extends State<_NetworkHubView> {
     });
   }
 
+  /// Re-derives `isBuilder` fresh from `AuthProvider` rather than calling
+  /// `provider.refresh()` directly — that method reuses whichever `isBuilder`
+  /// the last `load()` call was given (see its own doc), which after an
+  /// invitation accept/decline is the one value already known to be current,
+  /// but making that assumption explicit here means this call site can never
+  /// silently go stale if the role were ever resolved late.
+  void _refreshWithCurrentRole() {
+    final auth = context.read<AuthProvider>();
+    final userId = auth.userId;
+    if (userId == null) return;
+    context.read<NetworkHubProvider>().load(
+      userId,
+      isBuilder: auth.userType?.toLowerCase() == 'builder',
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final provider = context.watch<NetworkHubProvider>();
@@ -83,12 +112,13 @@ class _NetworkHubViewState extends State<_NetworkHubView> {
       stats: provider.stats,
       loading: provider.loading,
       failed: provider.failed,
+      isBuilder: provider.isBuilder,
       // Spec F. `context.watch<AuthProvider>()` rather than the cached
-      // `_loadedUserId`: that field exists to make the load idempotent and is null
+      // `_loadedKey`: that field exists to make the load idempotent and is null
       // until the first frame, whereas the invitations section needs the id on the
       // build that renders it.
       userId: context.watch<AuthProvider>().userId,
-      onNetworkChanged: provider.refresh,
+      onNetworkChanged: _refreshWithCurrentRole,
     );
   }
 }
@@ -104,6 +134,12 @@ class NetworkHubBody extends StatelessWidget {
   final bool loading;
   final bool failed;
 
+  /// Whether the signed-in user is a builder — `stats.totalNetworks` means
+  /// "Network Members" (their own owned network) for a builder and
+  /// "Networks Joined" (networks they belong to) for everyone else; the two
+  /// are not interchangeable labels for the same number.
+  final bool isBuilder;
+
   /// Spec F: whose invitations to show.
   ///
   /// Optional so the existing design-parity tests, which pump this body with just
@@ -113,7 +149,7 @@ class NetworkHubBody extends StatelessWidget {
 
   /// Called after an invitation is accepted or declined, so the stats grid can
   /// re-read. An accepted invitation becomes a `builder_networks` row, which is what
-  /// `NetworkService.getAcceptedCount` counts.
+  /// the corrected relationship classification counts.
   final VoidCallback? onNetworkChanged;
 
   const NetworkHubBody({
@@ -121,6 +157,7 @@ class NetworkHubBody extends StatelessWidget {
     required this.stats,
     required this.loading,
     required this.failed,
+    this.isBuilder = false,
     this.userId,
     this.onNetworkChanged,
   });
@@ -140,9 +177,19 @@ class NetworkHubBody extends StatelessWidget {
                 subtitle: 'Memberships, leads & referrals',
               ),
               const SizedBox(height: 18),
-              _StatsGrid(stats: stats, loading: loading, failed: failed),
+              _StatsGrid(
+                stats: stats,
+                loading: loading,
+                failed: failed,
+                isBuilder: isBuilder,
+              ),
               const SizedBox(height: 22),
-              _NavCards(stats: stats, loading: loading, failed: failed),
+              _NavCards(
+                stats: stats,
+                loading: loading,
+                failed: failed,
+                isBuilder: isBuilder,
+              ),
 
               // ── Spec F ──────────────────────────────────────────────────────
               //
@@ -158,6 +205,7 @@ class NetworkHubBody extends StatelessWidget {
                 const SizedBox(height: 10),
                 NetworkInvitationsSection(
                   userId: userId,
+                  isBuilder: isBuilder,
                   onChanged: onNetworkChanged,
                 ),
               ],
@@ -220,11 +268,13 @@ class _StatsGrid extends StatelessWidget {
   final NetworkStats stats;
   final bool loading;
   final bool failed;
+  final bool isBuilder;
 
   const _StatsGrid({
     required this.stats,
     required this.loading,
     required this.failed,
+    required this.isBuilder,
   });
 
   @override
@@ -240,7 +290,9 @@ class _StatsGrid extends StatelessWidget {
         MetricCard(
           icon: Icons.people_outline,
           value: count(stats.totalNetworks),
-          label: 'Networks Joined',
+          // A builder's own owned network vs. the networks someone else
+          // belongs to are not the same count — see `NetworkHubBody.isBuilder`.
+          label: isBuilder ? 'Network Members' : 'Networks Joined',
         ),
         MetricCard(
           icon: Icons.track_changes,
@@ -266,11 +318,13 @@ class _NavCards extends StatelessWidget {
   final NetworkStats stats;
   final bool loading;
   final bool failed;
+  final bool isBuilder;
 
   const _NavCards({
     required this.stats,
     required this.loading,
     required this.failed,
+    required this.isBuilder,
   });
 
   /// The design's subtitles carry live counts ("3 active networks"). They are
@@ -287,10 +341,15 @@ class _NavCards extends StatelessWidget {
       ManageListTile(
         icon: Icons.people_outline,
         label: 'My Networks',
-        subtitle: _subtitle(
-          '${stats.totalNetworks} active networks',
-          'Builder networks you belong to',
-        ),
+        subtitle: isBuilder
+            ? _subtitle(
+                '${stats.totalNetworks} network members',
+                'Brokers and influencers in your network',
+              )
+            : _subtitle(
+                '${stats.totalNetworks} networks joined',
+                'Builder networks you belong to',
+              ),
         onTap: () =>
             Navigator.of(context).pushNamed(AppConstants.myNetworksScreen),
       ),
@@ -320,8 +379,9 @@ class _NavCards extends StatelessWidget {
         icon: Icons.chat_bubble_outline,
         label: 'Communication',
         subtitle: 'Channels, messaging & settings',
-        onTap: () =>
-            Navigator.of(context).pushNamed(AppConstants.networkCommunicationScreen),
+        onTap: () => Navigator.of(
+          context,
+        ).pushNamed(AppConstants.networkCommunicationScreen),
       ),
     ]);
   }

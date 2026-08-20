@@ -82,7 +82,7 @@ enum ProfileConnectionStatus {
 
 class ProfileConnectionService {
   ProfileConnectionService({SupabaseClient? client})
-      : _supabase = client ?? Supabase.instance.client;
+    : _supabase = client ?? Supabase.instance.client;
 
   final SupabaseClient _supabase;
 
@@ -200,15 +200,12 @@ class ProfileConnectionService {
     try {
       final sender = await _senderContext(viewerId!);
 
-      await _supabase.from('builder_networks').upsert(
-        {
-          'builder_id': profileUserId,
-          'member_id': viewerId,
-          'member_type': sender.userType ?? 'individual',
-          'status': 'pending',
-        },
-        onConflict: 'builder_id,member_id',
-      );
+      await _supabase.from('builder_networks').upsert({
+        'builder_id': profileUserId,
+        'member_id': viewerId,
+        'member_type': sender.userType ?? 'individual',
+        'status': 'pending',
+      }, onConflict: 'builder_id,member_id');
 
       // Best-effort, exactly as the portal treats it (UserProfile.tsx:642-644):
       // it logs a failed notification and carries on. The connection is the
@@ -322,15 +319,12 @@ class ProfileConnectionService {
           .update({'status': 'accepted'})
           .eq('id', invitation['id']);
 
-      await _supabase.from('builder_networks').upsert(
-        {
-          'builder_id': profileUserId,
-          'member_id': viewerId,
-          'member_type': invitation['member_type'] ?? 'individual',
-          'status': 'accepted',
-        },
-        onConflict: 'builder_id,member_id',
-      );
+      await _supabase.from('builder_networks').upsert({
+        'builder_id': profileUserId,
+        'member_id': viewerId,
+        'member_type': invitation['member_type'] ?? 'individual',
+        'status': 'accepted',
+      }, onConflict: 'builder_id,member_id');
 
       return null;
     } catch (e) {
@@ -408,6 +402,35 @@ class ProfileConnectionService {
     }
   }
 
+  /// Leaves an *accepted* network relationship — the portal's
+  /// `handleLeaveNetwork` (`NetworkMemberships.tsx`), which marks the row
+  /// `'removed'` rather than deleting it, the same way [declineRequest] marks
+  /// rather than deletes: the other party can still see the relationship
+  /// ended instead of it silently vanishing.
+  ///
+  /// [relationshipId] is the `builder_networks.id` of the row itself — the
+  /// caller already has it from the row being displayed, so this is a single
+  /// `UPDATE ... WHERE id = :id`, the same one-column-filter pattern
+  /// `NetworkService.updateLeadStatus` uses; RLS
+  /// (`builder_id = auth.uid() OR member_id = auth.uid()`) is what actually
+  /// restricts this to a row the caller is a party to; both `builder_id` and
+  /// `member_id` can leave. This works for a `peerConnection` row exactly as
+  /// well as for a genuine owned-member/joined-network one — "leave" is
+  /// meaningful for any accepted relationship, not just a classified one.
+  Future<ConnectionWriteError?> leaveNetwork(String relationshipId) async {
+    if (relationshipId.isEmpty) return ConnectionWriteError.notAllowed;
+    try {
+      await _supabase
+          .from('builder_networks')
+          .update({'status': 'removed'})
+          .eq('id', relationshipId);
+      return null;
+    } catch (e) {
+      debugPrint('ProfileConnectionService.leaveNetwork failed: $e');
+      return ConnectionWriteError.failed;
+    }
+  }
+
   /// Declines one invitation by its row id.
   ///
   /// `InfluencerCollaborationHub.tsx:186-191` — the Collaboration Hub acts on a row
@@ -457,15 +480,12 @@ class ProfileConnectionService {
           .update({'status': 'accepted'})
           .eq('id', invitation.id);
 
-      await _supabase.from('builder_networks').upsert(
-        {
-          'builder_id': invitation.builderId,
-          'member_id': viewerId,
-          'member_type': invitation.memberType,
-          'status': 'accepted',
-        },
-        onConflict: 'builder_id,member_id',
-      );
+      await _supabase.from('builder_networks').upsert({
+        'builder_id': invitation.builderId,
+        'member_id': viewerId,
+        'member_type': invitation.memberType,
+        'status': 'accepted',
+      }, onConflict: 'builder_id,member_id');
 
       return null;
     } catch (e) {
@@ -518,31 +538,34 @@ class ProfileConnectionService {
       final ids = <String>{
         for (final row in receivedRows) row['builder_id'].toString(),
         for (final row in sentRows)
-          if (row['invited_user_id'] != null)
-            row['invited_user_id'].toString(),
+          if (row['invited_user_id'] != null) row['invited_user_id'].toString(),
       }..remove('');
 
       final names = await _profileSummaries(ids);
 
       return NetworkInvitationInbox(
-        received: receivedRows.map((row) {
-          final profile = names[row['builder_id'].toString()];
-          return NetworkInvitation.fromSupabase(
-            row,
-            counterpartName: profile?.name,
-            counterpartAvatarUrl: profile?.avatarUrl,
-            counterpartUserType: profile?.userType,
-          );
-        }).toList(growable: false),
-        sent: sentRows.map((row) {
-          final profile = names[row['invited_user_id']?.toString()];
-          return NetworkInvitation.fromSupabase(
-            row,
-            counterpartName: profile?.name,
-            counterpartAvatarUrl: profile?.avatarUrl,
-            counterpartUserType: profile?.userType,
-          );
-        }).toList(growable: false),
+        received: receivedRows
+            .map((row) {
+              final profile = names[row['builder_id'].toString()];
+              return NetworkInvitation.fromSupabase(
+                row,
+                counterpartName: profile?.name,
+                counterpartAvatarUrl: profile?.avatarUrl,
+                counterpartUserType: profile?.userType,
+              );
+            })
+            .toList(growable: false),
+        sent: sentRows
+            .map((row) {
+              final profile = names[row['invited_user_id']?.toString()];
+              return NetworkInvitation.fromSupabase(
+                row,
+                counterpartName: profile?.name,
+                counterpartAvatarUrl: profile?.avatarUrl,
+                counterpartUserType: profile?.userType,
+              );
+            })
+            .toList(growable: false),
       );
     } catch (e) {
       debugPrint('ProfileConnectionService.listInvitations failed: $e');
@@ -583,7 +606,8 @@ class ProfileConnectionService {
     }
     // The row is meaningless without a recipient, and all three columns are
     // nullable so the database would accept one.
-    final hasRecipient = (invitedUserId?.isNotEmpty ?? false) ||
+    final hasRecipient =
+        (invitedUserId?.isNotEmpty ?? false) ||
         (email?.isNotEmpty ?? false) ||
         (phone?.isNotEmpty ?? false);
     if (!hasRecipient) return ConnectionWriteError.notAllowed;
@@ -609,7 +633,8 @@ class ProfileConnectionService {
             'user_id': invitedUserId,
             'type': 'builder_network_addition',
             'title': 'Network Invitation',
-            'message': '${sender.name} invited you to join their network as a '
+            'message':
+                '${sender.name} invited you to join their network as a '
                 '${networkMemberTypeLabel(memberType).toLowerCase()}',
             'data': {
               'sender_id': viewerId,
@@ -620,7 +645,9 @@ class ProfileConnectionService {
         } catch (e) {
           // Best-effort, as everywhere else in this file: the invitation is the
           // outcome the builder asked for.
-          debugPrint('ProfileConnectionService: invite notification failed: $e');
+          debugPrint(
+            'ProfileConnectionService: invite notification failed: $e',
+          );
         }
       }
 
@@ -657,14 +684,16 @@ class ProfileConnectionService {
           .limit(10);
 
       return List<Map<String, dynamic>>.from(rows)
-          .map((row) => InviteeSuggestion(
-                userId: row['user_id'].toString(),
-                name: (row['company_name']?.toString().isNotEmpty ?? false)
-                    ? row['company_name'].toString()
-                    : (row['display_name']?.toString() ?? 'Unnamed'),
-                userType: row['user_type']?.toString() ?? '',
-                avatarUrl: row['avatar_url']?.toString(),
-              ))
+          .map(
+            (row) => InviteeSuggestion(
+              userId: row['user_id'].toString(),
+              name: (row['company_name']?.toString().isNotEmpty ?? false)
+                  ? row['company_name'].toString()
+                  : (row['display_name']?.toString() ?? 'Unnamed'),
+              userType: row['user_type']?.toString() ?? '',
+              avatarUrl: row['avatar_url']?.toString(),
+            ),
+          )
           .toList();
     } catch (e) {
       debugPrint('ProfileConnectionService.searchInvitees failed: $e');
@@ -705,8 +734,7 @@ class ProfileConnectionService {
   static ConnectionWriteError? writeGuardFor({
     required String? viewerId,
     required String profileUserId,
-  }) =>
-      _writeGuard(viewerId, profileUserId);
+  }) => _writeGuard(viewerId, profileUserId);
 
   static ConnectionWriteError? _writeGuard(
     String? viewerId,
@@ -765,7 +793,6 @@ enum ConnectionWriteError {
   /// Anything else.
   failed,
 }
-
 
 /// One person a builder could invite.
 class InviteeSuggestion {

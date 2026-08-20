@@ -4,6 +4,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:propcid_app/core/constants/app_constants.dart';
 import 'package:propcid_app/core/widgets/segmented_tab_pill.dart';
 import 'package:propcid_app/models/network_models.dart';
+import 'package:propcid_app/models/network_relationship.dart';
 import 'package:propcid_app/models/network_stats.dart';
 import 'package:propcid_app/providers/async_section.dart';
 import 'package:propcid_app/providers/network_section_provider.dart';
@@ -53,6 +54,37 @@ NetworkMembership _membership({
     'auto_convert_leads': true,
     'created_at': '2026-08-01T10:00:00Z',
   }, viewerId: _viewer);
+}
+
+NetworkRelationship _relationship({
+  String id = 'r-1',
+  String builderId = 'builder-1',
+  String memberId = _viewer,
+  String memberType = 'broker',
+  String? status = 'accepted',
+  bool verified = true,
+  num? rate = 2.5,
+  String? counterpartUserType,
+  String? counterpartName,
+  String? counterpartCompanyName,
+}) {
+  return NetworkRelationship.classify(
+    {
+      'id': id,
+      'builder_id': builderId,
+      'member_id': memberId,
+      'member_type': memberType,
+      'status': status,
+      'verified': verified,
+      'commission_rate': rate,
+      'auto_convert_leads': true,
+      'created_at': '2026-08-01T10:00:00Z',
+    },
+    viewerId: _viewer,
+    counterpartUserType: counterpartUserType,
+    counterpartDisplayName: counterpartName,
+    counterpartCompanyName: counterpartCompanyName,
+  );
 }
 
 NetworkLead _lead({String id = 'l-1', String status = 'pending'}) {
@@ -227,7 +259,9 @@ void main() {
       final section = NetworkLeadsSection();
       addTearDown(section.dispose);
 
-      await section.load(() async => [_lead(), _lead(id: '2', status: 'converted')]);
+      await section.load(
+        () async => [_lead(), _lead(id: '2', status: 'converted')],
+      );
 
       expect(section.counts.pending, 1);
       expect(section.counts.converted, 1);
@@ -237,13 +271,15 @@ void main() {
       final section = NetworkChannelsSection();
       addTearDown(section.dispose);
 
-      await section.load(() async => [
-            NetworkChannel.fromJson(const {
-              'id': 'ch1',
-              'channel_id': 'c1',
-              'channel_purpose': 'general',
-            }),
-          ]);
+      await section.load(
+        () async => [
+          NetworkChannel.fromJson(const {
+            'id': 'ch1',
+            'channel_id': 'c1',
+            'channel_purpose': 'general',
+          }),
+        ],
+      );
       expect(section.value.length, 1);
 
       await section.load(() async => throw Exception('boom'));
@@ -261,51 +297,226 @@ void main() {
 
   group('My Networks screen', () {
     testWidgets('empty state matches the design copy', (tester) async {
-      await tester.pumpWidget(_host(const MyNetworksBody(
-        memberships: [],
-        loading: false,
-        failed: false,
-      )));
+      await tester.pumpWidget(
+        _host(
+          const MyNetworksBody(
+            relationships: [],
+            loading: false,
+            failed: false,
+          ),
+        ),
+      );
 
       expect(find.text('My Networks'), findsOneWidget);
       expect(find.text('Current Networks'), findsOneWidget);
       expect(find.text('No Network Memberships'), findsOneWidget);
-      expect(find.textContaining("haven't joined any networks"), findsOneWidget);
+      expect(
+        find.textContaining("haven't joined any networks"),
+        findsOneWidget,
+      );
     });
 
-    testWidgets('renders a membership from the viewer\'s perspective',
-        (tester) async {
-      await tester.pumpWidget(_host(MyNetworksBody(
-        memberships: [_membership()],
-        loading: false,
-        failed: false,
-      )));
+    testWidgets('renders an owned network member by real profile name', (
+      tester,
+    ) async {
+      await tester.pumpWidget(
+        _host(
+          MyNetworksBody(
+            relationships: [
+              _relationship(
+                builderId: _viewer,
+                memberId: 'other-1',
+                counterpartUserType: 'broker',
+                counterpartName: 'Amy Rao',
+              ),
+            ],
+            loading: false,
+            failed: false,
+          ),
+        ),
+      );
 
-      expect(find.text('Member of a builder network'), findsOneWidget);
+      expect(find.text('Current Network Members'), findsOneWidget);
+      expect(find.text('Amy Rao'), findsOneWidget);
       expect(find.text('accepted'), findsOneWidget);
       expect(find.text('Broker'), findsOneWidget);
       expect(find.text('2.5%'), findsOneWidget);
       expect(find.text('No Network Memberships'), findsNothing);
+      // A role-only placeholder must never stand in for a resolved name.
+      expect(find.text('Member of a builder network'), findsNothing);
     });
 
-    testWidgets('shows the builder-side wording when the viewer owns it',
-        (tester) async {
-      await tester.pumpWidget(_host(MyNetworksBody(
-        memberships: [_membership(builderId: _viewer, memberId: 'other')],
-        loading: false,
-        failed: false,
-      )));
+    testWidgets(
+      "shows the person's own name first, with their company as a subtitle",
+      (tester) async {
+        await tester.pumpWidget(
+          _host(
+            MyNetworksBody(
+              relationships: [
+                _relationship(
+                  builderId: _viewer,
+                  memberId: 'other-1',
+                  counterpartUserType: 'broker',
+                  counterpartName: 'sneha',
+                  counterpartCompanyName: 'new world',
+                ),
+              ],
+              loading: false,
+              failed: false,
+            ),
+          ),
+        );
 
-      expect(find.text('Broker in your network'), findsOneWidget);
+        // The name is the primary label; the company is a secondary line,
+        // never a replacement for it.
+        expect(find.text('sneha'), findsOneWidget);
+        expect(find.text('new world'), findsOneWidget);
+      },
+    );
+
+    testWidgets('Leave Network calls onLeave with the tapped relationship', (
+      tester,
+    ) async {
+      // MyNetworksBody itself is the dumb, provider-free presentation layer —
+      // the confirm dialog lives in `_MyNetworksViewState._confirmAndLeave`,
+      // which wraps this exact callback when the real screen is reached
+      // through `MyNetworksScreen`. This only verifies the button reaches
+      // the right callback with the right row.
+      NetworkRelationship? left;
+      final relationship = _relationship(
+        builderId: _viewer,
+        memberId: 'other-1',
+        counterpartUserType: 'broker',
+        counterpartName: 'Amy Rao',
+      );
+      await tester.pumpWidget(
+        _host(
+          MyNetworksBody(
+            relationships: [relationship],
+            loading: false,
+            failed: false,
+            onLeave: (r) => left = r,
+          ),
+        ),
+      );
+
+      await tester.tap(find.text('Leave Network'));
+      await tester.pumpAndSettle();
+
+      expect(left, isNotNull);
+      expect(left!.id, relationship.id);
     });
 
-    testWidgets('a failed load is distinguished from an empty one',
-        (tester) async {
-      await tester.pumpWidget(_host(const MyNetworksBody(
-        memberships: [],
-        loading: false,
-        failed: true,
-      )));
+    testWidgets('no onLeave callback means no Leave Network button', (
+      tester,
+    ) async {
+      await tester.pumpWidget(
+        _host(
+          MyNetworksBody(
+            relationships: [
+              _relationship(
+                builderId: _viewer,
+                memberId: 'other-1',
+                counterpartUserType: 'broker',
+              ),
+            ],
+            loading: false,
+            failed: false,
+          ),
+        ),
+      );
+
+      expect(find.text('Leave Network'), findsNothing);
+    });
+
+    testWidgets(
+      'a row mid-leave shows a busy state and cannot be tapped again',
+      (tester) async {
+        final relationship = _relationship(
+          builderId: _viewer,
+          memberId: 'other-1',
+          counterpartUserType: 'broker',
+        );
+        var tapCount = 0;
+        await tester.pumpWidget(
+          _host(
+            MyNetworksBody(
+              relationships: [relationship],
+              loading: false,
+              failed: false,
+              leavingRelationshipId: relationship.id,
+              onLeave: (_) => tapCount++,
+            ),
+          ),
+        );
+
+        expect(find.text('Leaving…'), findsOneWidget);
+        await tester.tap(find.text('Leaving…'), warnIfMissed: false);
+        expect(tapCount, 0);
+      },
+    );
+
+    testWidgets('renders a joined builder network by real profile name', (
+      tester,
+    ) async {
+      await tester.pumpWidget(
+        _host(
+          MyNetworksBody(
+            relationships: [
+              _relationship(
+                builderId: 'builder-x',
+                memberId: _viewer,
+                counterpartUserType: 'builder',
+                counterpartName: 'Big Builder Co',
+              ),
+            ],
+            loading: false,
+            failed: false,
+          ),
+        ),
+      );
+
+      expect(find.text('Networks Joined'), findsOneWidget);
+      expect(find.text('Big Builder Co'), findsOneWidget);
+      expect(find.text('Builder'), findsOneWidget);
+    });
+
+    testWidgets(
+      'a peer connection is visible but never shows commission details',
+      (tester) async {
+        await tester.pumpWidget(
+          _host(
+            MyNetworksBody(
+              relationships: [
+                _relationship(
+                  builderId: _viewer,
+                  memberId: 'other-2',
+                  counterpartUserType: 'individual',
+                  counterpartName: 'Casual Contact',
+                ),
+              ],
+              loading: false,
+              failed: false,
+            ),
+          ),
+        );
+
+        expect(find.text('Peer Connections'), findsOneWidget);
+        expect(find.text('Casual Contact'), findsOneWidget);
+        // Commission details are only meaningful for an owned network member.
+        expect(find.text('2.5%'), findsNothing);
+        expect(find.text('Commission rate'), findsNothing);
+      },
+    );
+
+    testWidgets('a failed load is distinguished from an empty one', (
+      tester,
+    ) async {
+      await tester.pumpWidget(
+        _host(
+          const MyNetworksBody(relationships: [], loading: false, failed: true),
+        ),
+      );
 
       expect(find.text("Couldn't load your networks"), findsOneWidget);
       expect(find.text('No Network Memberships'), findsNothing);
@@ -313,27 +524,42 @@ void main() {
 
     testWidgets('lays out without overflow on a small screen', (tester) async {
       _useSmallScreen(tester);
-      await tester.pumpWidget(_host(MyNetworksBody(
-        memberships: [
-          _membership(memberType: 'a_very_long_member_type_token'),
-        ],
-        loading: false,
-        failed: false,
-      )));
+      await tester.pumpWidget(
+        _host(
+          MyNetworksBody(
+            relationships: [
+              _relationship(
+                builderId: _viewer,
+                memberId: 'other-3',
+                counterpartUserType: 'broker',
+                counterpartName:
+                    'A Very Long Counterpart Display Name For Layout Testing',
+              ),
+            ],
+            loading: false,
+            failed: false,
+          ),
+        ),
+      );
 
       expect(overflowingBoxes(tester), isEmpty);
     });
   });
 
   group('My Leads screen', () {
-    testWidgets('renders the four status KPIs and the design copy',
-        (tester) async {
-      await tester.pumpWidget(_host(MyLeadsBody(
-        leads: const [],
-        loading: false,
-        failed: false,
-        onSettings: () {},
-      )));
+    testWidgets('renders the four status KPIs and the design copy', (
+      tester,
+    ) async {
+      await tester.pumpWidget(
+        _host(
+          MyLeadsBody(
+            leads: const [],
+            loading: false,
+            failed: false,
+            onSettings: () {},
+          ),
+        ),
+      );
 
       expect(find.text('My Leads'), findsOneWidget);
       expect(find.text('Lead Distribution System'), findsOneWidget);
@@ -353,16 +579,20 @@ void main() {
     });
 
     testWidgets('counts drive the KPI values', (tester) async {
-      await tester.pumpWidget(_host(MyLeadsBody(
-        leads: [
-          _lead(id: '1'),
-          _lead(id: '2'),
-          _lead(id: '3', status: 'converted'),
-        ],
-        loading: false,
-        failed: false,
-        onSettings: () {},
-      )));
+      await tester.pumpWidget(
+        _host(
+          MyLeadsBody(
+            leads: [
+              _lead(id: '1'),
+              _lead(id: '2'),
+              _lead(id: '3', status: 'converted'),
+            ],
+            loading: false,
+            failed: false,
+            onSettings: () {},
+          ),
+        ),
+      );
 
       expect(find.text('2'), findsOneWidget);
       expect(find.text('property_inquiry'), findsNWidgets(3));
@@ -370,12 +600,16 @@ void main() {
     });
 
     testWidgets('a failed load shows em dashes, not zeros', (tester) async {
-      await tester.pumpWidget(_host(MyLeadsBody(
-        leads: const [],
-        loading: false,
-        failed: true,
-        onSettings: () {},
-      )));
+      await tester.pumpWidget(
+        _host(
+          MyLeadsBody(
+            leads: const [],
+            loading: false,
+            failed: true,
+            onSettings: () {},
+          ),
+        ),
+      );
 
       expect(find.text('—'), findsNWidgets(4));
       expect(find.text('0'), findsNothing);
@@ -383,12 +617,16 @@ void main() {
 
     testWidgets('Settings is wired', (tester) async {
       var tapped = 0;
-      await tester.pumpWidget(_host(MyLeadsBody(
-        leads: const [],
-        loading: false,
-        failed: false,
-        onSettings: () => tapped++,
-      )));
+      await tester.pumpWidget(
+        _host(
+          MyLeadsBody(
+            leads: const [],
+            loading: false,
+            failed: false,
+            onSettings: () => tapped++,
+          ),
+        ),
+      );
 
       await tester.tap(find.text('Settings'));
       await tester.pumpAndSettle();
@@ -397,12 +635,16 @@ void main() {
 
     testWidgets('lays out without overflow on a small screen', (tester) async {
       _useSmallScreen(tester);
-      await tester.pumpWidget(_host(MyLeadsBody(
-        leads: [_lead()],
-        loading: false,
-        failed: false,
-        onSettings: () {},
-      )));
+      await tester.pumpWidget(
+        _host(
+          MyLeadsBody(
+            leads: [_lead()],
+            loading: false,
+            failed: false,
+            onSettings: () {},
+          ),
+        ),
+      );
 
       expect(overflowingBoxes(tester), isEmpty);
     });
@@ -410,12 +652,16 @@ void main() {
 
   group('My Referrals screen', () {
     testWidgets('opens on Overview with four KPIs', (tester) async {
-      await tester.pumpWidget(_host(MyReferralsBody(
-        bundle: ReferralBundle.empty,
-        loading: false,
-        failed: false,
-        onCreateReferral: () {},
-      )));
+      await tester.pumpWidget(
+        _host(
+          MyReferralsBody(
+            bundle: ReferralBundle.empty,
+            loading: false,
+            failed: false,
+            onCreateReferral: () {},
+          ),
+        ),
+      );
 
       expect(find.text('My Referrals'), findsOneWidget);
       expect(find.text('Referral & Commission System'), findsOneWidget);
@@ -434,12 +680,16 @@ void main() {
     });
 
     testWidgets('each sub-tab renders its own empty state', (tester) async {
-      await tester.pumpWidget(_host(MyReferralsBody(
-        bundle: ReferralBundle.empty,
-        loading: false,
-        failed: false,
-        onCreateReferral: () {},
-      )));
+      await tester.pumpWidget(
+        _host(
+          MyReferralsBody(
+            bundle: ReferralBundle.empty,
+            loading: false,
+            failed: false,
+            onCreateReferral: () {},
+          ),
+        ),
+      );
 
       await tester.tap(find.text('Referrals'));
       await tester.pumpAndSettle();
@@ -457,8 +707,9 @@ void main() {
       expect(find.text('No performance data yet'), findsOneWidget);
     });
 
-    testWidgets('Performance plots one point per scored period',
-        (tester) async {
+    testWidgets('Performance plots one point per scored period', (
+      tester,
+    ) async {
       final bundle = ReferralBundle(
         performance: [
           NetworkPerformance.fromJson(const {
@@ -474,12 +725,16 @@ void main() {
         ],
       );
 
-      await tester.pumpWidget(_host(MyReferralsBody(
-        bundle: bundle,
-        loading: false,
-        failed: false,
-        onCreateReferral: () {},
-      )));
+      await tester.pumpWidget(
+        _host(
+          MyReferralsBody(
+            bundle: bundle,
+            loading: false,
+            failed: false,
+            onCreateReferral: () {},
+          ),
+        ),
+      );
 
       await tester.tap(find.text('Performance'));
       await tester.pumpAndSettle();
@@ -491,14 +746,19 @@ void main() {
       expect(find.text('No performance data yet'), findsNothing);
     });
 
-    testWidgets('a failed load shows em dashes on the Overview KPIs',
-        (tester) async {
-      await tester.pumpWidget(_host(MyReferralsBody(
-        bundle: ReferralBundle.empty,
-        loading: false,
-        failed: true,
-        onCreateReferral: () {},
-      )));
+    testWidgets('a failed load shows em dashes on the Overview KPIs', (
+      tester,
+    ) async {
+      await tester.pumpWidget(
+        _host(
+          MyReferralsBody(
+            bundle: ReferralBundle.empty,
+            loading: false,
+            failed: true,
+            onCreateReferral: () {},
+          ),
+        ),
+      );
 
       expect(find.text('—'), findsNWidgets(4));
       expect(find.text('₹0'), findsNothing);
@@ -526,12 +786,16 @@ void main() {
         ],
       );
 
-      await tester.pumpWidget(_host(MyReferralsBody(
-        bundle: bundle,
-        loading: false,
-        failed: false,
-        onCreateReferral: () {},
-      )));
+      await tester.pumpWidget(
+        _host(
+          MyReferralsBody(
+            bundle: bundle,
+            loading: false,
+            failed: false,
+            onCreateReferral: () {},
+          ),
+        ),
+      );
       expect(overflowingBoxes(tester), isEmpty, reason: 'Overview');
 
       await tester.tap(find.text('Commissions'));
@@ -542,13 +806,17 @@ void main() {
 
   group('Communication screen', () {
     testWidgets('opens on Channels with the design copy', (tester) async {
-      await tester.pumpWidget(_host(NetworkCommunicationBody(
-        channels: const [],
-        loading: false,
-        failed: false,
-        onCreateChannel: () {},
-        onBulkMessage: () {},
-      )));
+      await tester.pumpWidget(
+        _host(
+          NetworkCommunicationBody(
+            channels: const [],
+            loading: false,
+            failed: false,
+            onCreateChannel: () {},
+            onBulkMessage: () {},
+          ),
+        ),
+      );
 
       expect(find.text('Network Communication'), findsOneWidget);
       expect(find.text('Network Communication Hub'), findsOneWidget);
@@ -559,23 +827,52 @@ void main() {
       expect(find.text('Create First Channel'), findsOneWidget);
     });
 
-    testWidgets('renders a channel with its purpose and auto-join flag',
-        (tester) async {
-      await tester.pumpWidget(_host(NetworkCommunicationBody(
-        channels: [
-          NetworkChannel.fromJson(const {
-            'id': 'ch1',
-            'channel_id': 'c1',
-            'channel_purpose': 'lead_distribution',
-            'is_auto_join': true,
-            'member_types': ['broker'],
-          }),
-        ],
-        loading: false,
-        failed: false,
-        onCreateChannel: () {},
-        onBulkMessage: () {},
-      )));
+    testWidgets(
+      'a broker/influencer/individual sees the exact same Create Channel and '
+      'Bulk Message controls a builder does — the portal has no role check here',
+      (tester) async {
+        await tester.pumpWidget(
+          _host(
+            NetworkCommunicationBody(
+              channels: const [],
+              loading: false,
+              failed: false,
+              isBuilder: false,
+              onCreateChannel: () {},
+              onBulkMessage: () {},
+            ),
+          ),
+        );
+
+        expect(find.text('Network Channels'), findsOneWidget);
+        expect(find.text('Create Channel'), findsOneWidget);
+        expect(find.text('Bulk Message'), findsOneWidget);
+        expect(find.text('Create First Channel'), findsOneWidget);
+      },
+    );
+
+    testWidgets('renders a channel with its purpose and auto-join flag', (
+      tester,
+    ) async {
+      await tester.pumpWidget(
+        _host(
+          NetworkCommunicationBody(
+            channels: [
+              NetworkChannel.fromJson(const {
+                'id': 'ch1',
+                'channel_id': 'c1',
+                'channel_purpose': 'lead_distribution',
+                'is_auto_join': true,
+                'member_types': ['broker'],
+              }),
+            ],
+            loading: false,
+            failed: false,
+            onCreateChannel: () {},
+            onBulkMessage: () {},
+          ),
+        ),
+      );
 
       expect(find.text('Lead distribution'), findsOneWidget);
       expect(find.text('Auto-join'), findsOneWidget);
@@ -583,17 +880,23 @@ void main() {
     });
 
     testWidgets('Messaging and Settings sub-tabs render', (tester) async {
-      await tester.pumpWidget(_host(NetworkCommunicationBody(
-        channels: const [],
-        loading: false,
-        failed: false,
-        onCreateChannel: () {},
-        onBulkMessage: () {},
-      )));
+      await tester.pumpWidget(
+        _host(
+          NetworkCommunicationBody(
+            channels: const [],
+            loading: false,
+            failed: false,
+            onCreateChannel: () {},
+            onBulkMessage: () {},
+          ),
+        ),
+      );
 
       await tester.tap(find.text('Messaging'));
       await tester.pumpAndSettle();
-      expect(find.text('No network messages yet'), findsOneWidget);
+      // Same card for every role — see `_MessagingTab`'s own note.
+      expect(find.text('Send Messages to Your Network'), findsOneWidget);
+      expect(find.text('Compose Message'), findsOneWidget);
 
       await tester.tap(find.text('Settings'));
       await tester.pumpAndSettle();
@@ -602,28 +905,34 @@ void main() {
       expect(find.byType(ToggleRow), findsNWidgets(2));
     });
 
-    testWidgets('the two Settings switches report, and are inert',
-        (tester) async {
-      await tester.pumpWidget(_host(NetworkCommunicationBody(
-        channels: [
-          NetworkChannel.fromJson(const {
-            'id': 'ch1',
-            'channel_id': 'c1',
-            'channel_purpose': 'general',
-            'is_auto_join': true,
-          }),
-        ],
-        loading: false,
-        failed: false,
-        onCreateChannel: () {},
-        onBulkMessage: () {},
-      )));
+    testWidgets('the two Settings switches report, and are inert', (
+      tester,
+    ) async {
+      await tester.pumpWidget(
+        _host(
+          NetworkCommunicationBody(
+            channels: [
+              NetworkChannel.fromJson(const {
+                'id': 'ch1',
+                'channel_id': 'c1',
+                'channel_purpose': 'general',
+                'is_auto_join': true,
+              }),
+            ],
+            loading: false,
+            failed: false,
+            onCreateChannel: () {},
+            onBulkMessage: () {},
+          ),
+        ),
+      );
 
       await tester.tap(find.text('Settings'));
       await tester.pumpAndSettle();
 
-      final toggles =
-          tester.widgetList<AppToggle>(find.byType(AppToggle)).toList();
+      final toggles = tester
+          .widgetList<AppToggle>(find.byType(AppToggle))
+          .toList();
       expect(toggles.length, 2);
       // Read-only: neither can be changed.
       expect(toggles.every((t) => t.onChanged == null), isTrue);
@@ -631,49 +940,56 @@ void main() {
       expect(toggles[0].value, isTrue);
       expect(toggles[1].value, isTrue);
 
-      expect(
-        find.textContaining('reflect your channel setup'),
-        findsOneWidget,
-      );
+      expect(find.textContaining('reflect your channel setup'), findsOneWidget);
     });
 
-    testWidgets('a failed load never reports the switches as on',
-        (tester) async {
-      await tester.pumpWidget(_host(NetworkCommunicationBody(
-        channels: const [],
-        loading: false,
-        failed: true,
-        onCreateChannel: () {},
-        onBulkMessage: () {},
-      )));
+    testWidgets('a failed load never reports the switches as on', (
+      tester,
+    ) async {
+      await tester.pumpWidget(
+        _host(
+          NetworkCommunicationBody(
+            channels: const [],
+            loading: false,
+            failed: true,
+            onCreateChannel: () {},
+            onBulkMessage: () {},
+          ),
+        ),
+      );
 
       expect(find.text("Couldn't load channels"), findsOneWidget);
 
       await tester.tap(find.text('Settings'));
       await tester.pumpAndSettle();
 
-      final toggles =
-          tester.widgetList<AppToggle>(find.byType(AppToggle)).toList();
+      final toggles = tester
+          .widgetList<AppToggle>(find.byType(AppToggle))
+          .toList();
       expect(toggles.every((t) => t.value == false), isTrue);
     });
 
     testWidgets('lays out without overflow on a small screen', (tester) async {
       _useSmallScreen(tester);
-      await tester.pumpWidget(_host(NetworkCommunicationBody(
-        channels: [
-          NetworkChannel.fromJson(const {
-            'id': 'ch1',
-            'channel_id': 'c1',
-            'channel_purpose': 'a_very_long_channel_purpose_token_here',
-            'is_auto_join': true,
-            'member_types': ['broker', 'influencer', 'agent'],
-          }),
-        ],
-        loading: false,
-        failed: false,
-        onCreateChannel: () {},
-        onBulkMessage: () {},
-      )));
+      await tester.pumpWidget(
+        _host(
+          NetworkCommunicationBody(
+            channels: [
+              NetworkChannel.fromJson(const {
+                'id': 'ch1',
+                'channel_id': 'c1',
+                'channel_purpose': 'a_very_long_channel_purpose_token_here',
+                'is_auto_join': true,
+                'member_types': ['broker', 'influencer', 'agent'],
+              }),
+            ],
+            loading: false,
+            failed: false,
+            onCreateChannel: () {},
+            onBulkMessage: () {},
+          ),
+        ),
+      );
 
       expect(overflowingBoxes(tester), isEmpty);
     });
@@ -696,21 +1012,23 @@ void main() {
       final pushed = <String>[];
       final navigatorKey = GlobalKey<NavigatorState>();
 
-      await tester.pumpWidget(MaterialApp(
-        navigatorKey: navigatorKey,
-        home: const NetworkHubBody(
-          stats: NetworkStats.empty,
-          loading: false,
-          failed: false,
+      await tester.pumpWidget(
+        MaterialApp(
+          navigatorKey: navigatorKey,
+          home: const NetworkHubBody(
+            stats: NetworkStats.empty,
+            loading: false,
+            failed: false,
+          ),
+          onGenerateRoute: (settings) {
+            if (settings.name != null) pushed.add(settings.name!);
+            return MaterialPageRoute(
+              settings: settings,
+              builder: (_) => const SizedBox.shrink(),
+            );
+          },
         ),
-        onGenerateRoute: (settings) {
-          if (settings.name != null) pushed.add(settings.name!);
-          return MaterialPageRoute(
-            settings: settings,
-            builder: (_) => const SizedBox.shrink(),
-          );
-        },
-      ));
+      );
 
       for (final label in const [
         'My Networks',

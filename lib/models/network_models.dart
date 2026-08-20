@@ -317,8 +317,7 @@ class ReferralSummary {
     return ReferralSummary(
       totalReferrals: referrals.length,
       converted: referrals.where((r) => r.isConverted).length,
-      totalCommissions:
-          commissions.fold<double>(0, (sum, c) => sum + c.amount),
+      totalCommissions: commissions.fold<double>(0, (sum, c) => sum + c.amount),
       paidOut: commissions
           .where((c) => c.isPaid)
           .fold<double>(0, (sum, c) => sum + c.amount),
@@ -368,22 +367,68 @@ class NetworkPerformance {
   }
 }
 
-/// One `network_channels` row.
+/// One `network_channels` row, optionally hydrated with its `channels` row and
+/// the caller's own participation — see [NetworkCommunicationService.
+/// loadCommunicationData]. [NetworkChannel.fromJson] only ever parses the flat
+/// `network_channels` shape (no nested relation), so every hydrated field below
+/// defaults safely and every existing call site/test keeps working unchanged.
 class NetworkChannel {
   final String id;
   final String channelId;
+  final String builderId;
   final String channelPurpose;
   final bool isAutoJoin;
   final List<String> memberTypes;
   final DateTime? createdAt;
 
+  /// `channels.name` — null until hydrated.
+  final String? name;
+
+  /// `channels.description` — null until hydrated (or genuinely absent).
+  final String? description;
+
+  /// `channels.channel_type` — null until hydrated.
+  final String? channelType;
+
+  /// `channels.is_active` — null until hydrated (never defaulted to `true`,
+  /// so "unknown" is never confused with "known active").
+  final bool? isActive;
+
+  /// `channels.created_by` — null until hydrated.
+  final String? createdBy;
+
+  /// `channels.max_participants` — null until hydrated.
+  final int? maxParticipants;
+
+  /// Count of `channel_participants` rows for this channel — 0 until
+  /// hydrated, which is indistinguishable from "hydrated and empty"; callers
+  /// needing that distinction should check [name] for hydration first.
+  final int participantCount;
+
+  /// The signed-in user's own `channel_participants.role` for this channel —
+  /// null until hydrated, or if they are not a participant.
+  final String? currentUserRole;
+
+  /// Whether the signed-in user has a `channel_participants` row here.
+  final bool isCurrentUserParticipant;
+
   const NetworkChannel({
     required this.id,
     required this.channelId,
     required this.channelPurpose,
+    this.builderId = '',
     this.isAutoJoin = false,
     this.memberTypes = const [],
     this.createdAt,
+    this.name,
+    this.description,
+    this.channelType,
+    this.isActive,
+    this.createdBy,
+    this.maxParticipants,
+    this.participantCount = 0,
+    this.currentUserRole,
+    this.isCurrentUserParticipant = false,
   });
 
   factory NetworkChannel.fromJson(Map<String, dynamic> json) {
@@ -391,6 +436,7 @@ class NetworkChannel {
     return NetworkChannel(
       id: '${json['id'] ?? ''}',
       channelId: '${json['channel_id'] ?? ''}',
+      builderId: '${json['builder_id'] ?? ''}',
       channelPurpose: '${json['channel_purpose'] ?? ''}',
       isAutoJoin: json['is_auto_join'] == true,
       memberTypes: types is List ? types.map((e) => '$e').toList() : const [],
@@ -404,6 +450,196 @@ class NetworkChannel {
     final spaced = channelPurpose.replaceAll('_', ' ');
     return spaced[0].toUpperCase() + spaced.substring(1);
   }
+
+  /// True once `channels.admin` has been checked, and it is `admin`.
+  bool get isCurrentUserAdmin => currentUserRole?.toLowerCase() == 'admin';
+
+  /// Two-letter avatar fallback — the channel name when hydrated, otherwise
+  /// its purpose. Mirrors [ChannelSummary.initials].
+  String get initials {
+    final base = (name != null && name!.trim().isNotEmpty)
+        ? name!.trim()
+        : purposeLabel;
+    final parts = base.split(RegExp(r'\s+'));
+    if (parts.isEmpty || parts.first.isEmpty) return '#';
+    if (parts.length == 1) {
+      return parts.first.substring(0, 1).toUpperCase();
+    }
+    return (parts[0].substring(0, 1) + parts[1].substring(0, 1)).toUpperCase();
+  }
+
+  /// The name shown on a channel card/thread header — the real channel name
+  /// when hydrated, falling back to the humanised purpose so a card is never
+  /// left blank while (or if) hydration hasn't happened.
+  String get displayName =>
+      (name != null && name!.trim().isNotEmpty) ? name!.trim() : purposeLabel;
+
+  NetworkChannel copyWith({
+    String? name,
+    String? description,
+    String? channelType,
+    bool? isActive,
+    String? createdBy,
+    int? maxParticipants,
+    int? participantCount,
+    String? currentUserRole,
+    bool? isCurrentUserParticipant,
+  }) {
+    return NetworkChannel(
+      id: id,
+      channelId: channelId,
+      builderId: builderId,
+      channelPurpose: channelPurpose,
+      isAutoJoin: isAutoJoin,
+      memberTypes: memberTypes,
+      createdAt: createdAt,
+      name: name ?? this.name,
+      description: description ?? this.description,
+      channelType: channelType ?? this.channelType,
+      isActive: isActive ?? this.isActive,
+      createdBy: createdBy ?? this.createdBy,
+      maxParticipants: maxParticipants ?? this.maxParticipants,
+      participantCount: participantCount ?? this.participantCount,
+      currentUserRole: currentUserRole ?? this.currentUserRole,
+      isCurrentUserParticipant:
+          isCurrentUserParticipant ?? this.isCurrentUserParticipant,
+    );
+  }
+}
+
+/// One accepted `builder_networks` row, with the member's public profile
+/// resolved — the pool Create Channel's auto-join and Bulk Message draw from.
+///
+/// Only ever populated from rows the service already filtered to
+/// `status = 'accepted'` — there is no `status` field here because an
+/// unaccepted row must never reach this model in the first place.
+class NetworkMember {
+  final String id;
+  final String memberId;
+  final String memberType;
+  final bool verified;
+  final String? displayName;
+  final String? avatarUrl;
+
+  const NetworkMember({
+    required this.id,
+    required this.memberId,
+    required this.memberType,
+    this.verified = false,
+    this.displayName,
+    this.avatarUrl,
+  });
+
+  factory NetworkMember.fromSupabase(
+    Map<String, dynamic> json, {
+    String? displayName,
+    String? avatarUrl,
+  }) {
+    return NetworkMember(
+      id: '${json['id'] ?? ''}',
+      memberId: '${json['member_id'] ?? ''}',
+      memberType: '${json['member_type'] ?? ''}',
+      verified: json['verified'] == true,
+      displayName: displayName,
+      avatarUrl: avatarUrl,
+    );
+  }
+
+  String get resolvedName =>
+      (displayName != null && displayName!.trim().isNotEmpty)
+      ? displayName!.trim()
+      : 'Unknown';
+
+  String get initial =>
+      resolvedName.isEmpty ? '?' : resolvedName[0].toUpperCase();
+}
+
+/// A channel's `channel_purpose` options, in the portal's own dropdown order
+/// (`NetworkCommunicationHub.tsx`'s `SelectItem`s) — distinct from
+/// [NetworkChannel.purposeLabel]'s generic humanisation, since the portal's
+/// labels ("Lead Updates", not "Leads") are not derivable from the stored
+/// token alone.
+class ChannelPurposeOption {
+  const ChannelPurposeOption(this.value, this.label);
+
+  final String value;
+  final String label;
+}
+
+const List<ChannelPurposeOption> kChannelPurposeOptions = [
+  ChannelPurposeOption('general', 'General Discussion'),
+  ChannelPurposeOption('leads', 'Lead Updates'),
+  ChannelPurposeOption('announcements', 'Announcements'),
+  ChannelPurposeOption('training', 'Training & Resources'),
+  ChannelPurposeOption('performance', 'Performance Updates'),
+];
+
+/// Bulk Message's three pickers, each in the portal's own dropdown order.
+class BulkMessageOption {
+  const BulkMessageOption(this.value, this.label);
+
+  final String value;
+  final String label;
+}
+
+const List<BulkMessageOption> kBulkMessageRecipientTypes = [
+  BulkMessageOption('all', 'All Members'),
+  BulkMessageOption('brokers', 'Brokers Only'),
+  BulkMessageOption('influencers', 'Influencers Only'),
+  BulkMessageOption('verified_only', 'Verified Members Only'),
+];
+
+const List<BulkMessageOption> kBulkMessageTypes = [
+  BulkMessageOption('announcement', 'Announcement'),
+  BulkMessageOption('lead_alert', 'Lead Alert'),
+  BulkMessageOption('training', 'Training Update'),
+  BulkMessageOption('performance_update', 'Performance Update'),
+];
+
+const List<BulkMessageOption> kBulkMessagePriorities = [
+  BulkMessageOption('low', 'Low'),
+  BulkMessageOption('medium', 'Medium'),
+  BulkMessageOption('high', 'High'),
+  BulkMessageOption('urgent', 'Urgent'),
+];
+
+/// Bulk Message's recipient filter — a pure function so it is unit-testable
+/// with no backend, and so the sheet's live recipient count and the actual
+/// send use the exact same logic. Mirrors
+/// `NetworkCommunicationHub.tsx`'s `recipient_type` switch: `all` keeps
+/// everyone, the other three narrow by `member_type`/`verified`. [members] is
+/// assumed already filtered to accepted rows for this builder (the only rows
+/// the service ever produces) — this only applies the recipient-type filter,
+/// de-dupes by [NetworkMember.memberId], and excludes [builderId] as a
+/// last-resort safety net against a member row ever naming the builder.
+List<NetworkMember> filterBulkMessageRecipients({
+  required List<NetworkMember> members,
+  required String recipientType,
+  required String builderId,
+}) {
+  bool matchesType(NetworkMember member) {
+    switch (recipientType) {
+      case 'brokers':
+        return member.memberType == 'broker';
+      case 'influencers':
+        return member.memberType == 'influencer';
+      case 'verified_only':
+        return member.verified;
+      case 'all':
+      default:
+        return true;
+    }
+  }
+
+  final seen = <String>{};
+  final result = <NetworkMember>[];
+  for (final member in members) {
+    if (!matchesType(member)) continue;
+    if (member.memberId.isEmpty || member.memberId == builderId) continue;
+    if (!seen.add(member.memberId)) continue;
+    result.add(member);
+  }
+  return result;
 }
 
 /// The Referrals bundle, so one section can feed all four sub-tabs.

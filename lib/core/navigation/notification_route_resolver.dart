@@ -75,22 +75,33 @@ NotificationDestination? resolveNotificationDestination({
       final followerId = id('follower_id') ?? id('sender_id');
       return followerId == null
           ? null
-          : NotificationDestination(
-              AppConstants.publicProfileScreen,
-              {'userId': followerId},
-            );
+          : NotificationDestination(AppConstants.publicProfileScreen, {
+              'userId': followerId,
+            });
 
     case 'builder_network_addition':
       // The portal goes to `/networks/members` unconditionally (`:73`). This app's
       // `sendRequest` and `sendBuilderInvite` both write `sender_id`, so the person
       // can be opened directly — strictly more useful, and the list is the fallback.
       final senderId = id('sender_id');
-      return senderId != null
-          ? NotificationDestination(
-              AppConstants.publicProfileScreen,
-              {'userId': senderId},
-            )
-          : const NotificationDestination(AppConstants.myNetworksScreen);
+      if (senderId != null) {
+        return NotificationDestination(AppConstants.publicProfileScreen, {
+          'userId': senderId,
+        });
+      }
+      // `NetworkCommunicationService.sendBulkMessage` reuses this same enum
+      // value for a broadcast announcement — the one writer of it with no
+      // `sender_id` at all (see its own `data` shape:
+      // `{message_type, priority}`). Routing a bulk announcement to "the
+      // sender's connection list" would misleadingly read as if it were a
+      // connection request; the Communication screen it was actually sent
+      // from is the honest destination.
+      if (id('message_type') != null) {
+        return const NotificationDestination(
+          AppConstants.networkCommunicationScreen,
+        );
+      }
+      return const NotificationDestination(AppConstants.myNetworksScreen);
 
     case 'property_approved':
     case 'property_like':
@@ -99,10 +110,9 @@ NotificationDestination? resolveNotificationDestination({
       final propertyId = id('property_id') ?? id('propertyId');
       return propertyId == null
           ? null
-          : NotificationDestination(
-              AppConstants.propertyDetailScreen,
-              {'propertyId': propertyId},
-            );
+          : NotificationDestination(AppConstants.propertyDetailScreen, {
+              'propertyId': propertyId,
+            });
 
     case 'project_shared':
       // `/project/${projectId}` (`:96`). `ProjectShareService` does write
@@ -110,20 +120,18 @@ NotificationDestination? resolveNotificationDestination({
       final projectId = id('projectId') ?? id('project_id');
       return projectId == null
           ? null
-          : NotificationDestination(
-              AppConstants.projectDetailScreen,
-              {'projectId': projectId},
-            );
+          : NotificationDestination(AppConstants.projectDetailScreen, {
+              'projectId': projectId,
+            });
 
     case 'profile_view':
       // `/user/${viewer_id}` else `/profile-views` (`:101-107`). Only reachable if
       // the unapplied `migration2` enum value lands.
       final viewerId = id('viewer_id');
       return viewerId != null
-          ? NotificationDestination(
-              AppConstants.publicProfileScreen,
-              {'userId': viewerId},
-            )
+          ? NotificationDestination(AppConstants.publicProfileScreen, {
+              'userId': viewerId,
+            })
           : const NotificationDestination(AppConstants.profileViewsScreen);
 
     // ── List destinations ──────────────────────────────────────────────────

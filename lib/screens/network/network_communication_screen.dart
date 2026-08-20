@@ -1,35 +1,38 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../../core/animations/page_transitions.dart';
 import '../../core/constants/app_constants.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/widgets/empty_state_view.dart';
 import '../../core/widgets/segmented_tab_pill.dart';
 import '../../models/network_models.dart';
 import '../../providers/auth_provider.dart';
-import '../../providers/network_section_provider.dart';
+import '../../providers/chat_thread_provider.dart';
+import '../../providers/network_communication_provider.dart';
 import '../../widgets/shared/app_action_button.dart';
 import '../../widgets/shared/app_surface_card.dart';
 import '../../widgets/shared/toggle_row.dart';
-import '../shared/section_loader.dart';
+import '../messaging/chat_thread_screen.dart';
+import 'widgets/bulk_message_sheet.dart';
+import 'widgets/create_network_channel_sheet.dart';
 import 'widgets/network_screen_shell.dart';
 
 /// Network ▸ Communication — the design's `isCommunication` screen.
 ///
-/// Three sub-tabs (Channels / Messaging / Settings) over `network_channels`.
-///
-/// Read-only: creating a channel and sending a bulk message are writes, and the
-/// two Settings switches have no column of their own — `network_channels` stores
-/// `is_auto_join` and `member_types` per channel, not per-network notification
-/// preferences. They are therefore reported from the channels that exist rather
-/// than presented as editable settings. See the note rendered on that tab.
+/// Three sub-tabs (Channels / Messaging / Settings) over `network_channels`,
+/// `channels` and `channel_participants`. Builders can create channels
+/// (auto-joining eligible accepted members) and send bulk messages to their
+/// accepted network; members see and open only the channels they actually
+/// participate in. Settings stays read-only — see the note rendered on that
+/// tab — because neither switch has a column of its own to persist to.
 class NetworkCommunicationScreen extends StatelessWidget {
   const NetworkCommunicationScreen({super.key});
 
   @override
   Widget build(BuildContext context) {
     return ChangeNotifierProvider(
-      create: (_) => NetworkChannelsSection(),
+      create: (_) => NetworkCommunicationProvider(),
       child: const _CommunicationView(),
     );
   }
@@ -42,28 +45,81 @@ class _CommunicationView extends StatefulWidget {
   State<_CommunicationView> createState() => _CommunicationViewState();
 }
 
-class _CommunicationViewState extends State<_CommunicationView>
-    with DeferredSectionLoader<_CommunicationView> {
+class _CommunicationViewState extends State<_CommunicationView> {
+  String? _loadedUserId;
+
   @override
-  void loadSection(String userId) {
-    // `network_channels` is keyed by builder_id. A member legitimately has no
-    // rows, and the query returns an empty list rather than failing.
-    context.read<NetworkChannelsSection>().loadFor(userId);
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _loadIfNeeded();
+  }
+
+  /// Mirrors [DeferredSectionLoader] but also needs `isBuilder`, which that
+  /// mixin's `loadSection(String userId)` signature has no room for — a
+  /// member and a builder read entirely different tables (see
+  /// [NetworkCommunicationService.loadCommunicationData]), so the role has to
+  /// travel with the load, not just the id.
+  void _loadIfNeeded() {
+    if (!mounted) return;
+    final auth = context.read<AuthProvider>();
+    final userId = auth.userId;
+    if (userId == null || userId == _loadedUserId) return;
+    _loadedUserId = userId;
+
+    final isBuilder = auth.userType?.toLowerCase() == 'builder';
+    final provider = context.read<NetworkCommunicationProvider>();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      provider.load(userId, isBuilder: isBuilder);
+    });
+  }
+
+  Future<void> _createChannel() async {
+    await showCreateNetworkChannelSheet(context);
+    // The provider already refreshed itself on success; nothing further to
+    // do here — this screen watches the same instance the sheet mutated.
+  }
+
+  Future<void> _bulkMessage() async {
+    final count = await showBulkMessageSheet(context);
+    if (count == null || !mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('Bulk message sent to $count network members.')),
+    );
+  }
+
+  Future<void> _openChannel(NetworkChannel channel) async {
+    final provider = context.read<NetworkCommunicationProvider>();
+    await Navigator.of(context).push(
+      PremiumPageRoute(
+        settings: const RouteSettings(name: AppConstants.channelChatScreen),
+        builder: (_) => ChatThreadScreen(
+          kind: ChatThreadKind.channel,
+          threadId: channel.channelId,
+          title: channel.displayName,
+          subtitle: channel.participantCount == 1
+              ? '1 member'
+              : '${channel.participantCount} members',
+          initials: channel.initials,
+          isChannelAdmin: channel.isCurrentUserAdmin,
+        ),
+      ),
+    );
+    if (mounted) await provider.refresh();
   }
 
   @override
   Widget build(BuildContext context) {
-    final section = context.watch<NetworkChannelsSection>();
-    final isBuilder =
-        context.read<AuthProvider>().userType?.toLowerCase() == 'builder';
+    final provider = context.watch<NetworkCommunicationProvider>();
 
     return NetworkCommunicationBody(
-      channels: section.value,
-      loading: section.loading,
-      failed: section.failed,
-      isBuilder: isBuilder,
-      onCreateChannel: () => openSectionPlaceholder(context, 'Create Channel'),
-      onBulkMessage: () => openSectionPlaceholder(context, 'Bulk Message'),
+      channels: provider.channels,
+      loading: provider.loading,
+      failed: provider.failed,
+      isBuilder: provider.isBuilder,
+      onCreateChannel: _createChannel,
+      onBulkMessage: _bulkMessage,
+      onOpenChannel: _openChannel,
     );
   }
 }
@@ -76,6 +132,10 @@ class NetworkCommunicationBody extends StatefulWidget {
   final VoidCallback onCreateChannel;
   final VoidCallback onBulkMessage;
 
+  /// Optional so every pre-existing widget test that constructs this body
+  /// directly (with no channel to tap) keeps compiling unchanged.
+  final ValueChanged<NetworkChannel>? onOpenChannel;
+
   const NetworkCommunicationBody({
     super.key,
     required this.channels,
@@ -84,6 +144,7 @@ class NetworkCommunicationBody extends StatefulWidget {
     required this.onCreateChannel,
     required this.onBulkMessage,
     this.isBuilder = false,
+    this.onOpenChannel,
   });
 
   @override
@@ -96,6 +157,10 @@ class _NetworkCommunicationBodyState extends State<NetworkCommunicationBody> {
 
   static const List<String> _tabs = ['Channels', 'Messaging', 'Settings'];
 
+  /// Below this, two side-by-side action buttons truncate their labels — the
+  /// exact regression this rewrite fixes. Stack instead of shrinking further.
+  static const double _stackedActionsBreakpoint = 360;
+
   @override
   Widget build(BuildContext context) {
     return NetworkScreenShell(
@@ -105,32 +170,15 @@ class _NetworkCommunicationBodyState extends State<NetworkCommunicationBody> {
         const SizedBox(height: 18),
         NetworkIntroBanner(
           title: 'Network Communication Hub',
-          description: 'Manage channels, send announcements, and stay '
+          description:
+              'Manage channels, send announcements, and stay '
               'connected with your network',
-          action: Row(
-            children: [
-              Expanded(
-                child: AppActionButton(
-                  label: 'Create Channel',
-                  height: 40,
-                  fontSize: 12.5,
-                  icon: Icons.add,
-                  onTap: widget.onCreateChannel,
-                ),
-              ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: AppActionButton(
-                  label: 'Bulk Message',
-                  height: 40,
-                  fontSize: 12.5,
-                  icon: Icons.send_outlined,
-                  variant: AppActionButtonVariant.outline,
-                  onTap: widget.onBulkMessage,
-                ),
-              ),
-            ],
-          ),
+          // Not role-gated: the portal's `NetworkCommunicationHub.tsx` shows
+          // Create Channel/Bulk Message to every signed-in user with no
+          // `user_type` check at all — a broker, influencer or individual
+          // can create their own channel and message their own accepted
+          // network exactly like a builder can.
+          action: _buildActions(),
         ),
         const SizedBox(height: AppConstants.spacingL),
         SegmentedTabPill(
@@ -146,22 +194,51 @@ class _NetworkCommunicationBodyState extends State<NetworkCommunicationBody> {
     );
   }
 
+  /// A responsive `Wrap` rather than a fixed `Row`: on a narrow phone each
+  /// button gets the full width on its own line; on a wider one they share a
+  /// row, matching the design without ever truncating a label.
+  Widget _buildActions() {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final stacked = constraints.maxWidth < _stackedActionsBreakpoint;
+        final createButton = AppActionButton(
+          label: 'Create Channel',
+          height: 40,
+          fontSize: 12.5,
+          icon: Icons.add,
+          onTap: widget.onCreateChannel,
+        );
+        final bulkButton = AppActionButton(
+          label: 'Bulk Message',
+          height: 40,
+          fontSize: 12.5,
+          icon: Icons.send_outlined,
+          variant: AppActionButtonVariant.outline,
+          onTap: widget.onBulkMessage,
+        );
+
+        if (stacked) {
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [createButton, const SizedBox(height: 10), bulkButton],
+          );
+        }
+
+        return Row(
+          children: [
+            Expanded(child: createButton),
+            const SizedBox(width: 10),
+            Expanded(child: bulkButton),
+          ],
+        );
+      },
+    );
+  }
+
   Widget _buildTab() {
     switch (_tab) {
       case 1:
-        return const DashboardCard(
-          child: SizedBox(
-            height: 128,
-            child: Center(
-              child: EmptyStateView(
-                icon: Icons.chat_bubble_outline,
-                message: 'No network messages yet',
-                iconCircleSize: 52,
-                padding: EdgeInsets.symmetric(vertical: 4),
-              ),
-            ),
-          ),
-        );
+        return _MessagingTab(onComposeMessage: widget.onBulkMessage);
       case 2:
         return _SettingsTab(channels: widget.channels, failed: widget.failed);
       default:
@@ -206,10 +283,12 @@ class _NetworkCommunicationBodyState extends State<NetworkCommunicationBody> {
         child: EmptyStateView(
           icon: Icons.chat_bubble_outline,
           title: 'No Channels Created',
-          message: 'Create channels to organize communication with your '
-              'network members.',
+          message:
+              'Create channels to organize communication with your network.',
           iconCircleSize: 56,
           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+          // Not role-gated — see the create/bulk-message action row's own
+          // note.
           actionLabel: 'Create First Channel',
           onAction: widget.onCreateChannel,
         ),
@@ -221,9 +300,42 @@ class _NetworkCommunicationBodyState extends State<NetworkCommunicationBody> {
       children: [
         for (var i = 0; i < widget.channels.length; i++) ...[
           SizedBox(height: i == 0 ? AppConstants.spacingL : 10),
-          _ChannelRow(channel: widget.channels[i]),
+          _ChannelRow(
+            channel: widget.channels[i],
+            onOpen: widget.onOpenChannel == null
+                ? null
+                : () => widget.onOpenChannel!(widget.channels[i]),
+          ),
         ],
       ],
+    );
+  }
+}
+
+/// Messaging tab — matches the portal's copy exactly: an explanation plus a
+/// "Compose Message" CTA that opens the same Bulk Message sheet the header
+/// button does, for every role — the portal renders this same static card
+/// with no `user_type` check. There is no sent-message history: the backend
+/// has no `network_broadcasts` table and sender-side notification history is
+/// not readable back through current RLS, so this never fabricates one.
+class _MessagingTab extends StatelessWidget {
+  final VoidCallback onComposeMessage;
+
+  const _MessagingTab({required this.onComposeMessage});
+
+  @override
+  Widget build(BuildContext context) {
+    return DashboardCard(
+      child: EmptyStateView(
+        icon: Icons.send_outlined,
+        title: 'Send Messages to Your Network',
+        message:
+            'Send announcements, lead alerts, and updates to all or '
+            'specific network members.',
+        iconCircleSize: 56,
+        actionLabel: 'Compose Message',
+        onAction: onComposeMessage,
+      ),
     );
   }
 }
@@ -266,10 +378,10 @@ class _SettingsTab extends StatelessWidget {
                   'These reflect your channel setup. Changing them becomes '
                   'available once channel management ships.',
                   style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        fontSize: 11.5,
-                        height: 1.45,
-                        color: AppColors.primary,
-                      ),
+                    fontSize: 11.5,
+                    height: 1.45,
+                    color: AppColors.primary,
+                  ),
                 ),
               ),
             ],
@@ -301,10 +413,21 @@ class _SettingsTab extends StatelessWidget {
 class _ChannelRow extends StatelessWidget {
   final NetworkChannel channel;
 
-  const _ChannelRow({required this.channel});
+  /// Null when there is nothing to open with (no callback wired) — renders
+  /// the row without an action rather than a dead button. Also withheld by
+  /// the caller when [NetworkChannel.isCurrentUserParticipant] is false, so a
+  /// channel the viewer isn't actually in can never be tapped open.
+  final VoidCallback? onOpen;
+
+  const _ChannelRow({required this.channel, this.onOpen});
 
   @override
   Widget build(BuildContext context) {
+    final hasName = channel.name != null && channel.name!.trim().isNotEmpty;
+    final hasDescription =
+        channel.description != null && channel.description!.trim().isNotEmpty;
+    final canOpen = onOpen != null && channel.isCurrentUserParticipant;
+
     return Container(
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
@@ -314,6 +437,30 @@ class _ChannelRow extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
+          if (hasName) ...[
+            Text(
+              channel.name!.trim(),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                fontSize: 14,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+            if (hasDescription) ...[
+              const SizedBox(height: 3),
+              Text(
+                channel.description!.trim(),
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                  fontSize: 11.5,
+                  color: AppColors.textSecondary,
+                ),
+              ),
+            ],
+            const SizedBox(height: 8),
+          ],
           Row(
             children: [
               const Icon(Icons.tag, size: 16, color: AppColors.primary),
@@ -324,9 +471,9 @@ class _ChannelRow extends StatelessWidget {
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                        fontSize: 13,
-                        fontWeight: FontWeight.w600,
-                      ),
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                  ),
                 ),
               ),
               if (channel.isAutoJoin) ...[
@@ -335,11 +482,27 @@ class _ChannelRow extends StatelessWidget {
               ],
             ],
           ),
+          const SizedBox(height: 8),
+          NetworkDetailRow(
+            label: 'Participants',
+            value: '${channel.participantCount}',
+          ),
           if (channel.memberTypes.isNotEmpty) ...[
-            const SizedBox(height: 8),
+            const SizedBox(height: 4),
             NetworkDetailRow(
               label: 'Member types',
               value: channel.memberTypes.join(', '),
+            ),
+          ],
+          if (onOpen != null) ...[
+            const SizedBox(height: 10),
+            SizedBox(
+              width: double.infinity,
+              child: OutlinedButton.icon(
+                onPressed: canOpen ? onOpen : null,
+                icon: const Icon(Icons.chat_bubble_outline, size: 16),
+                label: const Text('Open Channel'),
+              ),
             ),
           ],
         ],

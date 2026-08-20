@@ -1,10 +1,14 @@
 /// The four KPIs the Network hub shows above its navigation cards.
 ///
 /// Mirrors `NetworkStats` in `features/network/NetworkDashboard.tsx` field for
-/// field, including [totalReferrals] — React hardcodes that to `0` with the
-/// comment "Temporarily disable this query to fix TS error", so a real referral
-/// count has no backend implementation on either platform yet. Reporting the
-/// same `0` keeps the two portals consistent instead of inventing a number.
+/// field. [totalReferrals] no longer mirrors the portal's own placeholder,
+/// though: React hardcodes it to `0` with the comment "Temporarily disable
+/// this query to fix TS error", but `network_referrals`/its RLS already
+/// support a real `referrer_id`-scoped count (the same query
+/// `NetworkService.getReferralBundle` already runs correctly), so
+/// [NetworkHubProvider.load] now computes a genuine value via
+/// `NetworkRelationshipService.countReferralsMade` instead of perpetuating a
+/// gap the portal itself never actually needed to have.
 class NetworkStats {
   final int totalNetworks;
   final int activeLeads;

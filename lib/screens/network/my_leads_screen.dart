@@ -42,6 +42,13 @@ class _MyLeadsView extends StatefulWidget {
 
 class _MyLeadsViewState extends State<_MyLeadsView>
     with DeferredSectionLoader<_MyLeadsView> {
+  // This screen branches on `AuthProvider.userType` (builder vs. member reads
+  // different `network_leads` columns) — see `loadSection` below. Without
+  // this, a builder whose first load races ahead of role resolution would be
+  // permanently cached as a member. See the field's own doc.
+  @override
+  bool get reloadOnRoleChange => true;
+
   @override
   void loadSection(String userId) {
     final isBuilder =
@@ -167,7 +174,8 @@ class MyLeadsBody extends StatelessWidget {
         child: EmptyStateView(
           icon: Icons.track_changes,
           title: 'No Leads Available',
-          message: 'Leads will appear here when customers submit inquiries '
+          message:
+              'Leads will appear here when customers submit inquiries '
               'through your properties or projects.',
           padding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
         ),

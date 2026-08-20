@@ -44,13 +44,20 @@ class _MyReferralsView extends StatefulWidget {
 
 class _MyReferralsViewState extends State<_MyReferralsView>
     with DeferredSectionLoader<_MyReferralsView> {
+  // Branches on `AuthProvider.userType` (builder vs. member column pair) —
+  // see `loadSection` below and `DeferredSectionLoader.reloadOnRoleChange`'s
+  // own doc for why this must not be cached against a role read too early.
+  @override
+  bool get reloadOnRoleChange => true;
+
   @override
   void loadSection(String userId) {
     final isBuilder =
         context.read<AuthProvider>().userType?.toLowerCase() == 'builder';
-    context
-        .read<NetworkReferralsSection>()
-        .loadFor(userId, isBuilder: isBuilder);
+    context.read<NetworkReferralsSection>().loadFor(
+      userId,
+      isBuilder: isBuilder,
+    );
   }
 
   @override
@@ -539,10 +546,7 @@ class _CommissionRow extends StatelessWidget {
             ),
           ),
           const SizedBox(width: AppConstants.spacingS),
-          NetworkStatusPill(
-            commission.status,
-            positive: commission.isPaid,
-          ),
+          NetworkStatusPill(commission.status, positive: commission.isPaid),
         ],
       ),
     );

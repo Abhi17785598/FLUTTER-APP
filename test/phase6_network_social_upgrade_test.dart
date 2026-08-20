@@ -54,13 +54,13 @@ class _FakeAuth extends AuthProvider {
 /// [SubscriptionProvider] internally. Signed out by default, which is the state
 /// that exercises the free-tier defaults without reaching the network.
 Widget _upgradeHost({String? userId, String? userType}) => MultiProvider(
-      providers: [
-        ChangeNotifierProvider<AuthProvider>.value(
-          value: _FakeAuth(id: userId, type: userType),
-        ),
-      ],
-      child: const MaterialApp(home: UpgradeScreen()),
-    );
+  providers: [
+    ChangeNotifierProvider<AuthProvider>.value(
+      value: _FakeAuth(id: userId, type: userType),
+    ),
+  ],
+  child: const MaterialApp(home: UpgradeScreen()),
+);
 
 void main() {
   setUpAll(() async {
@@ -102,13 +102,13 @@ void main() {
 
     test('rounds fractional amounts and keeps the sign', () {
       expect(
-        const NetworkStats(monthlyCommissions: 1499.6)
-            .monthlyCommissionsDisplay,
+        const NetworkStats(
+          monthlyCommissions: 1499.6,
+        ).monthlyCommissionsDisplay,
         '₹1,500',
       );
       expect(
-        const NetworkStats(monthlyCommissions: -2500)
-            .monthlyCommissionsDisplay,
+        const NetworkStats(monthlyCommissions: -2500).monthlyCommissionsDisplay,
         '-₹2,500',
       );
     });
@@ -129,18 +129,21 @@ void main() {
       expect(provider.stats.totalNetworks, 0);
     });
 
-    test('reports failure instead of zeros when the query cannot run', () async {
-      // Supabase is not initialised in a unit test, so the service throws on
-      // construction — exactly the path a real query failure takes.
-      final provider = NetworkHubProvider();
-      addTearDown(provider.dispose);
+    test(
+      'reports failure instead of zeros when the query cannot run',
+      () async {
+        // Supabase is not initialised in a unit test, so the service throws on
+        // construction — exactly the path a real query failure takes.
+        final provider = NetworkHubProvider();
+        addTearDown(provider.dispose);
 
-      await provider.load('user-1', isBuilder: true);
+        await provider.load('user-1', isBuilder: true);
 
-      expect(provider.loading, isFalse);
-      expect(provider.failed, isTrue);
-      expect(provider.stats.totalNetworks, 0);
-    });
+        expect(provider.loading, isFalse);
+        expect(provider.failed, isTrue);
+        expect(provider.stats.totalNetworks, 0);
+      },
+    );
 
     test('notifying after dispose does not throw', () async {
       final provider = NetworkHubProvider();
@@ -152,8 +155,9 @@ void main() {
   });
 
   group('Network hub', () {
-    testWidgets('renders the design\'s four KPIs and four destinations',
-        (tester) async {
+    testWidgets('renders the design\'s four KPIs and four destinations', (
+      tester,
+    ) async {
       await tester.pumpWidget(
         _host(
           const NetworkHubBody(
@@ -198,8 +202,9 @@ void main() {
       expect(find.text('Performance Summary'), findsOneWidget);
     });
 
-    testWidgets('drives nav-card subtitles from the live counts',
-        (tester) async {
+    testWidgets('drives nav-card subtitles from the live counts', (
+      tester,
+    ) async {
       await tester.pumpWidget(
         _host(
           const NetworkHubBody(
@@ -210,9 +215,29 @@ void main() {
         ),
       );
 
-      expect(find.text('3 active networks'), findsOneWidget);
+      // Non-builder (the default) reads as "networks joined" — a builder's
+      // own owned-network count uses different wording, see the next test.
+      expect(find.text('3 networks joined'), findsOneWidget);
       expect(find.text('5 active leads'), findsOneWidget);
     });
+
+    testWidgets(
+      "drives a builder's nav-card subtitle from the live member count",
+      (tester) async {
+        await tester.pumpWidget(
+          _host(
+            const NetworkHubBody(
+              stats: NetworkStats(totalNetworks: 3, activeLeads: 5),
+              loading: false,
+              failed: false,
+              isBuilder: true,
+            ),
+          ),
+        );
+
+        expect(find.text('3 network members'), findsOneWidget);
+      },
+    );
 
     testWidgets('shows a shimmer, not zeros, while loading', (tester) async {
       await tester.pumpWidget(
@@ -233,8 +258,9 @@ void main() {
       expect(find.text('Builder networks you belong to'), findsOneWidget);
     });
 
-    testWidgets('shows em dashes, not zeros, when the query failed',
-        (tester) async {
+    testWidgets('shows em dashes, not zeros, when the query failed', (
+      tester,
+    ) async {
       await tester.pumpWidget(
         _host(
           const NetworkHubBody(
@@ -250,8 +276,9 @@ void main() {
       expect(find.text('0'), findsNothing);
     });
 
-    testWidgets('never presents the invented performance figures',
-        (tester) async {
+    testWidgets('never presents the invented performance figures', (
+      tester,
+    ) async {
       await tester.pumpWidget(
         _host(
           const NetworkHubBody(
@@ -329,8 +356,9 @@ void main() {
   });
 
   group('Social hub', () {
-    testWidgets('renders the header and all six design destinations',
-        (tester) async {
+    testWidgets('renders the header and all six design destinations', (
+      tester,
+    ) async {
       await tester.pumpWidget(_host(const SocialHubScreen()));
 
       expect(find.text('Social'), findsOneWidget);
@@ -395,8 +423,9 @@ void main() {
   });
 
   group('Upgrade screen', () {
-    testWidgets('renders the individual ladder at monthly pricing',
-        (tester) async {
+    testWidgets('renders the individual ladder at monthly pricing', (
+      tester,
+    ) async {
       await tester.pumpWidget(_upgradeHost());
       await tester.pumpAndSettle();
 
@@ -424,8 +453,9 @@ void main() {
       expect(find.text(PlanCatalogue.yearlySavingLabel), findsNothing);
     });
 
-    testWidgets('yearly reprices every card to the flat annual charge',
-        (tester) async {
+    testWidgets('yearly reprices every card to the flat annual charge', (
+      tester,
+    ) async {
       await tester.pumpWidget(_upgradeHost());
       await tester.pumpAndSettle();
 
@@ -445,8 +475,9 @@ void main() {
       expect(find.textContaining('Billed annually'), findsNothing);
     });
 
-    testWidgets('tapping the Monthly/Yearly labels also switches',
-        (tester) async {
+    testWidgets('tapping the Monthly/Yearly labels also switches', (
+      tester,
+    ) async {
       await tester.pumpWidget(_upgradeHost());
       await tester.pumpAndSettle();
 
@@ -459,8 +490,9 @@ void main() {
       expect(find.text('/month'), findsNWidgets(4));
     });
 
-    testWidgets('a broker sees the broker ladder, not the individual one',
-        (tester) async {
+    testWidgets('a broker sees the broker ladder, not the individual one', (
+      tester,
+    ) async {
       await tester.pumpWidget(_upgradeHost(userType: 'broker'));
       await tester.pumpAndSettle();
 
@@ -472,16 +504,18 @@ void main() {
       expect(find.text('₹9'), findsNothing);
     });
 
-    testWidgets('an unknown role falls back to the individual ladder',
-        (tester) async {
+    testWidgets('an unknown role falls back to the individual ladder', (
+      tester,
+    ) async {
       await tester.pumpWidget(_upgradeHost(userType: 'admin'));
       await tester.pumpAndSettle();
 
       expect(find.text('Owner Plus'), findsOneWidget);
     });
 
-    testWidgets('the account plan is marked current and is not tappable',
-        (tester) async {
+    testWidgets('the account plan is marked current and is not tappable', (
+      tester,
+    ) async {
       await tester.pumpWidget(_upgradeHost());
       await tester.pumpAndSettle();
 
@@ -508,8 +542,9 @@ void main() {
       );
     });
 
-    testWidgets('a paid CTA signed out asks for sign-in and buys nothing',
-        (tester) async {
+    testWidgets('a paid CTA signed out asks for sign-in and buys nothing', (
+      tester,
+    ) async {
       await tester.pumpWidget(_upgradeHost());
       await tester.pumpAndSettle();
 
@@ -601,8 +636,9 @@ void main() {
   });
 
   group('AppToggle geometry', () {
-    testWidgets('default settings-row size is unchanged by Phase 6',
-        (tester) async {
+    testWidgets('default settings-row size is unchanged by Phase 6', (
+      tester,
+    ) async {
       await tester.pumpWidget(
         _host(Center(child: AppToggle(value: false, onChanged: (_) {}))),
       );
@@ -617,8 +653,9 @@ void main() {
       expect(track.height, 24);
     });
 
-    testWidgets('accepts the design\'s larger billing-period size',
-        (tester) async {
+    testWidgets('accepts the design\'s larger billing-period size', (
+      tester,
+    ) async {
       await tester.pumpWidget(
         _host(
           Center(
@@ -670,8 +707,9 @@ void main() {
       expect(AppConstants.upgradeScreen, '/upgrade');
     });
 
-    testWidgets('destinations push the hub routes, not the placeholder',
-        (tester) async {
+    testWidgets('destinations push the hub routes, not the placeholder', (
+      tester,
+    ) async {
       final pushed = <String>[];
 
       await tester.pumpWidget(

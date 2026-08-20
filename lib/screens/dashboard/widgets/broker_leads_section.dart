@@ -30,6 +30,7 @@ import '../../../core/theme/app_text_styles.dart';
 import '../../../models/broker_section_models.dart';
 import '../../../models/property_model.dart';
 import '../../../services/broker_sections_service.dart';
+import '../../../widgets/shared/stat_kpi_card.dart';
 import 'builder_section_kit.dart';
 
 class BrokerLeadsSection extends StatefulWidget {
@@ -173,17 +174,17 @@ class _BrokerLeadsSectionState extends State<BrokerLeadsSection> {
     final items = _items;
     final visible = _visible;
 
+    // isEmpty is deliberately false: the portal keeps its KPI cards visible
+    // even with zero leads (`IncomingLeadsManager.tsx:436-539`) and only the
+    // list area below them goes empty. Handing `items?.isEmpty` to the shell
+    // would collapse the stats strip and filter row along with the list,
+    // which is not what the portal does.
     return BuilderSectionShell(
       failed: _failed,
       loaded: items != null,
-      isEmpty: items?.isEmpty ?? false,
+      isEmpty: false,
       onRetry: _load,
       errorTitle: "Couldn't load your leads",
-      // No create action exists — a buyer raises an enquiry — so an empty section
-      // has to explain itself rather than collapse.
-      emptyMessage: widget.properties.isEmpty
-          ? 'Enquiries appear here once you publish a listing.'
-          : 'No enquiries yet.',
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -196,11 +197,19 @@ class _BrokerLeadsSectionState extends State<BrokerLeadsSection> {
           const SizedBox(height: AppConstants.spacingM),
           if (visible.isEmpty)
             Padding(
-              padding: const EdgeInsets.symmetric(vertical: 12),
+              padding: const EdgeInsets.symmetric(vertical: 24),
               child: Center(
                 child: Text(
-                  'No ${brokerLeadStatusLabel(_statusFilter).toLowerCase()} '
-                  'leads.',
+                  (items?.isEmpty ?? true)
+                      // No leads at all, unfiltered — the portal's
+                      // `leads.length === 0` copy.
+                      ? (widget.properties.isEmpty
+                          ? 'Enquiries appear here once you publish a listing.'
+                          : 'No enquiries yet.')
+                      // Leads exist, but none match the selected filter.
+                      : 'No ${brokerLeadStatusLabel(_statusFilter).toLowerCase()} '
+                          'leads.',
+                  textAlign: TextAlign.center,
                   style: AppTextStyles.caption,
                 ),
               ),
@@ -222,7 +231,16 @@ class _BrokerLeadsSectionState extends State<BrokerLeadsSection> {
   }
 }
 
-/// The four counters `BrokerLeadsManager.tsx:139-160` shows above the list.
+/// The six KPI cards `BrokerLeadsManager.tsx:442-538` shows above the list —
+/// Total Leads, New Leads, Active Deals, Closed Deals, Conversion Rate, Total
+/// Deal Value — on the same `MetricCard`/`MetricCardGrid` every other
+/// dashboard tab's Analytics and Audience grids use, rather than the bespoke
+/// pill row this replaces.
+///
+/// The portal always shows all six, closed value included — it never hides
+/// "₹0" behind a `deals.length === 0` check — so this doesn't either; with
+/// the "Closed Deals" card sitting right next to it, a ₹0 deal value reads as
+/// "nothing closed yet," not as a missing number.
 class _LeadStatsStrip extends StatelessWidget {
   const _LeadStatsStrip({required this.stats});
 
@@ -230,25 +248,45 @@ class _LeadStatsStrip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return SingleChildScrollView(
-      scrollDirection: Axis.horizontal,
-      physics: const ClampingScrollPhysics(),
-      child: Row(
-        children: [
-          _Stat(label: 'Total', value: '${stats.total}'),
-          _Stat(label: 'New', value: '${stats.newLeads}'),
-          _Stat(label: 'Active', value: '${stats.active}'),
-          _Stat(
-            label: 'Conversion',
-            value: '${stats.conversionRate.toStringAsFixed(1)}%',
-          ),
-          if (stats.closed > 0)
-            _Stat(
-              label: 'Closed Value',
-              value: _compactRupees(stats.closedValue),
-            ),
-        ],
-      ),
+    return MetricCardGrid(
+      cards: [
+        MetricCard(
+          icon: Icons.forum_outlined,
+          value: '${stats.total}',
+          label: 'Total Leads',
+          accent: AppColors.statusNewLaunch,
+        ),
+        MetricCard(
+          icon: Icons.schedule_outlined,
+          value: '${stats.newLeads}',
+          label: 'New Leads',
+          accent: AppColors.statusPending,
+        ),
+        MetricCard(
+          icon: Icons.trending_up_rounded,
+          value: '${stats.active}',
+          label: 'Active Deals',
+          accent: AppColors.warning,
+        ),
+        MetricCard(
+          icon: Icons.check_circle_outline,
+          value: '${stats.closed}',
+          label: 'Closed Deals',
+          accent: AppColors.success,
+        ),
+        MetricCard(
+          icon: Icons.percent_rounded,
+          value: '${stats.conversionRate.toStringAsFixed(1)}%',
+          label: 'Conversion Rate',
+          accent: AppColors.amenityIndigo,
+        ),
+        MetricCard(
+          icon: Icons.payments_outlined,
+          value: _compactRupees(stats.closedValue),
+          label: 'Total Deal Value',
+          accent: AppColors.success,
+        ),
+      ],
     );
   }
 
@@ -262,40 +300,6 @@ class _LeadStatsStrip extends StatelessWidget {
     if (value >= 10000000) return '₹${trim(value / 10000000)} Cr';
     if (value >= 100000) return '₹${trim(value / 100000)} L';
     return '₹${value.round()}';
-  }
-}
-
-class _Stat extends StatelessWidget {
-  const _Stat({required this.label, required this.value});
-
-  final String label;
-  final String value;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      margin: const EdgeInsets.only(right: 8),
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-      decoration: BoxDecoration(
-        color: AppColors.primary.withValues(alpha: 0.06),
-        borderRadius: BorderRadius.circular(10),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            value,
-            style: AppTextStyles.body.copyWith(
-              fontSize: 15,
-              fontWeight: FontWeight.w700,
-              color: AppColors.primary,
-            ),
-          ),
-          const SizedBox(height: 1),
-          Text(label, style: AppTextStyles.caption.copyWith(fontSize: 10.5)),
-        ],
-      ),
-    );
   }
 }
 

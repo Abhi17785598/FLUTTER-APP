@@ -41,22 +41,18 @@ NetworkInvitation _invitation({
   String? message = 'Come and market our new launch.',
   String? expiresAt = '2099-01-01T00:00:00Z',
   String? counterpartName = 'Prestige Estates',
-}) =>
-    NetworkInvitation.fromSupabase(
-      {
-        'id': id,
-        'builder_id': builderId,
-        'invited_user_id': invitedUserId,
-        'email': email,
-        'phone': phone,
-        'member_type': memberType,
-        'invitation_message': message,
-        'status': status,
-        'expires_at': expiresAt,
-        'created_at': '2026-05-01T10:00:00Z',
-      },
-      counterpartName: counterpartName,
-    );
+}) => NetworkInvitation.fromSupabase({
+  'id': id,
+  'builder_id': builderId,
+  'invited_user_id': invitedUserId,
+  'email': email,
+  'phone': phone,
+  'member_type': memberType,
+  'invitation_message': message,
+  'status': status,
+  'expires_at': expiresAt,
+  'created_at': '2026-05-01T10:00:00Z',
+}, counterpartName: counterpartName);
 
 // ── Fake ────────────────────────────────────────────────────────────────────
 
@@ -71,8 +67,16 @@ class _FakeConnections extends ProfileConnectionService {
 
   final List<String> accepted = [];
   final List<String> declined = [];
-  final List<({String memberType, String? userId, String? email, String? phone,
-      String? message})> invites = [];
+  final List<
+    ({
+      String memberType,
+      String? userId,
+      String? email,
+      String? phone,
+      String? message,
+    })
+  >
+  invites = [];
   final List<String> searches = [];
   int loads = 0;
 
@@ -150,8 +154,9 @@ Future<void> _pump(
   await tester.pumpWidget(
     MaterialApp(
       builder: (context, c) => MediaQuery(
-        data: MediaQuery.of(context)
-            .copyWith(textScaler: TextScaler.linear(textScale)),
+        data: MediaQuery.of(
+          context,
+        ).copyWith(textScaler: TextScaler.linear(textScale)),
         child: c!,
       ),
       home: Scaffold(body: SingleChildScrollView(child: child)),
@@ -179,22 +184,24 @@ void main() {
     test('is exactly the CHECK constraint', () {
       // member_type TEXT NOT NULL CHECK (member_type IN ('broker','influencer'))
       // — 20250905144708:51, and the portal's TS union matches.
-      expect(
-        kNetworkMemberTypes.map((t) => t.value).toList(),
-        ['broker', 'influencer'],
-      );
+      expect(kNetworkMemberTypes.map((t) => t.value).toList(), [
+        'broker',
+        'influencer',
+      ]);
     });
 
-    test('individual is not invitable, even though builder_networks carries it',
-        () {
-      // `builder_networks.member_type` does hold 'individual' — sendRequest writes
-      // it from the sender's own user_type — but an *invitation* cannot.
-      expect(isValidNetworkMemberType('broker'), isTrue);
-      expect(isValidNetworkMemberType('influencer'), isTrue);
-      expect(isValidNetworkMemberType('individual'), isFalse);
-      expect(isValidNetworkMemberType('builder'), isFalse);
-      expect(isValidNetworkMemberType(null), isFalse);
-    });
+    test(
+      'individual is not invitable, even though builder_networks carries it',
+      () {
+        // `builder_networks.member_type` does hold 'individual' — sendRequest writes
+        // it from the sender's own user_type — but an *invitation* cannot.
+        expect(isValidNetworkMemberType('broker'), isTrue);
+        expect(isValidNetworkMemberType('influencer'), isTrue);
+        expect(isValidNetworkMemberType('individual'), isFalse);
+        expect(isValidNetworkMemberType('builder'), isFalse);
+        expect(isValidNetworkMemberType(null), isFalse);
+      },
+    );
 
     test('a stored value outside the picker still reads', () {
       expect(networkMemberTypeLabel('broker'), 'Broker');
@@ -271,8 +278,9 @@ void main() {
 
   // ── 4. The section ──────────────────────────────────────────────────────
   group('NetworkInvitationsSection', () {
-    testWidgets('renders a received invitation with accept and decline',
-        (tester) async {
+    testWidgets('renders a received invitation with accept and decline', (
+      tester,
+    ) async {
       await _pump(
         tester,
         NetworkInvitationsSection(
@@ -312,8 +320,9 @@ void main() {
       expect(find.text('Decline'), findsNothing);
     });
 
-    testWidgets('an expired invitation lists but cannot be acted on',
-        (tester) async {
+    testWidgets('an expired invitation lists but cannot be acted on', (
+      tester,
+    ) async {
       final service = _FakeConnections(
         inbox: NetworkInvitationInbox(
           received: [_invitation(expiresAt: '2020-01-01T00:00:00Z')],
@@ -375,8 +384,9 @@ void main() {
       expect(refreshed, 1);
     });
 
-    testWidgets('declining confirms first and says the sender will see it',
-        (tester) async {
+    testWidgets('declining confirms first and says the sender will see it', (
+      tester,
+    ) async {
       final service = _FakeConnections(
         inbox: NetworkInvitationInbox(received: [_invitation()]),
       );
@@ -388,7 +398,10 @@ void main() {
 
       await tester.tap(find.text('Decline'));
       await tester.pumpAndSettle();
-      expect(find.textContaining('will see that it was declined'), findsOneWidget);
+      expect(
+        find.textContaining('will see that it was declined'),
+        findsOneWidget,
+      );
 
       await tester.tap(find.widgetWithText(TextButton, 'Keep'));
       await tester.pumpAndSettle();
@@ -402,7 +415,9 @@ void main() {
       expect(service.declined, ['inv-1']);
     });
 
-    testWidgets('a stale row is reported and triggers a reload', (tester) async {
+    testWidgets('a stale row is reported and triggers a reload', (
+      tester,
+    ) async {
       final service = _FakeConnections(
         inbox: NetworkInvitationInbox(received: [_invitation()]),
       )..acceptError = ConnectionWriteError.nothingToAccept;
@@ -416,12 +431,16 @@ void main() {
       await tester.tap(find.text('Accept'));
       await tester.pumpAndSettle();
 
-      expect(find.text('That invitation is no longer pending.'), findsOneWidget);
+      expect(
+        find.text('That invitation is no longer pending.'),
+        findsOneWidget,
+      );
       expect(service.loads, greaterThan(loadsBefore));
     });
 
-    testWidgets('an off-platform invite explains why it is inert',
-        (tester) async {
+    testWidgets('an off-platform invite explains why it is inert', (
+      tester,
+    ) async {
       await _pump(
         tester,
         NetworkInvitationsSection(
@@ -448,12 +467,14 @@ void main() {
       );
     });
 
-    testWidgets('an empty inbox says so and still offers Invite',
-        (tester) async {
+    testWidgets('an empty inbox says so and still offers Invite to a builder', (
+      tester,
+    ) async {
       await _pump(
         tester,
         NetworkInvitationsSection(
           userId: 'u-1',
+          isBuilder: true,
           service: _FakeConnections(),
         ),
       );
@@ -461,14 +482,28 @@ void main() {
       expect(find.text('Invite'), findsOneWidget);
     });
 
-    testWidgets('a signed-out viewer loads nothing and cannot invite',
-        (tester) async {
+    testWidgets('a non-builder never sees the Invite control', (tester) async {
+      await _pump(
+        tester,
+        NetworkInvitationsSection(userId: 'u-1', service: _FakeConnections()),
+      );
+      expect(find.text('No invitations yet.'), findsOneWidget);
+      expect(find.text('Invite'), findsNothing);
+    });
+
+    testWidgets('a signed-out viewer loads nothing and cannot invite', (
+      tester,
+    ) async {
       final service = _FakeConnections(
         inbox: NetworkInvitationInbox(received: [_invitation()]),
       );
       await _pump(
         tester,
-        NetworkInvitationsSection(userId: null, service: service),
+        NetworkInvitationsSection(
+          userId: null,
+          isBuilder: true,
+          service: service,
+        ),
       );
 
       expect(find.text('Prestige Estates'), findsNothing);
@@ -486,6 +521,7 @@ void main() {
         tester,
         NetworkInvitationsSection(
           userId: 'u-1',
+          isBuilder: true,
           service: _FakeConnections(
             inbox: NetworkInvitationInbox(
               received: [_invitation()],
@@ -511,7 +547,11 @@ void main() {
       final service = _FakeConnections()..results = results;
       await _pump(
         tester,
-        NetworkInvitationsSection(userId: 'u-1', service: service),
+        NetworkInvitationsSection(
+          userId: 'u-1',
+          isBuilder: true,
+          service: service,
+        ),
         size: const Size(360, 2600),
       );
       await tester.tap(find.text('Invite'));
@@ -564,8 +604,9 @@ void main() {
       expect(invite.userId, isNull);
     });
 
-    testWidgets('picking someone sends their id and drops the email',
-        (tester) async {
+    testWidgets('picking someone sends their id and drops the email', (
+      tester,
+    ) async {
       // The portal keeps its two insert paths separate; the payload must not carry
       // both a user id and an email.
       final service = await openSheet(
@@ -617,8 +658,9 @@ void main() {
       expect(service.searches, ['as']);
     });
 
-    testWidgets('the note is optional and trimmed to null when blank',
-        (tester) async {
+    testWidgets('the note is optional and trimmed to null when blank', (
+      tester,
+    ) async {
       final service = await openSheet(tester);
       await tester.tap(find.text('Broker'));
       await tester.pumpAndSettle();
@@ -650,31 +692,37 @@ void main() {
       );
     });
 
-    test('an expired invitation is refused at the service, not just the UI',
-        () async {
-      // The UI hiding a button is not a guarantee.
-      final error = await ProfileConnectionService().acceptInvitation(
-        viewerId: 'u-1',
-        invitation: _invitation(expiresAt: '2020-01-01T00:00:00Z'),
-      );
-      expect(error, ConnectionWriteError.nothingToAccept);
+    test(
+      'an expired invitation is refused at the service, not just the UI',
+      () async {
+        // The UI hiding a button is not a guarantee.
+        final error = await ProfileConnectionService().acceptInvitation(
+          viewerId: 'u-1',
+          invitation: _invitation(expiresAt: '2020-01-01T00:00:00Z'),
+        );
+        expect(error, ConnectionWriteError.nothingToAccept);
 
-      final declineError = await ProfileConnectionService().declineInvitation(
-        viewerId: 'u-1',
-        invitation: _invitation(expiresAt: '2020-01-01T00:00:00Z'),
-      );
-      expect(declineError, ConnectionWriteError.nothingToAccept);
-    });
+        final declineError = await ProfileConnectionService().declineInvitation(
+          viewerId: 'u-1',
+          invitation: _invitation(expiresAt: '2020-01-01T00:00:00Z'),
+        );
+        expect(declineError, ConnectionWriteError.nothingToAccept);
+      },
+    );
 
     test('an anonymous viewer cannot accept or decline', () async {
       expect(
-        await ProfileConnectionService()
-            .acceptInvitation(viewerId: null, invitation: _invitation()),
+        await ProfileConnectionService().acceptInvitation(
+          viewerId: null,
+          invitation: _invitation(),
+        ),
         ConnectionWriteError.notAllowed,
       );
       expect(
-        await ProfileConnectionService()
-            .declineInvitation(viewerId: '', invitation: _invitation()),
+        await ProfileConnectionService().declineInvitation(
+          viewerId: '',
+          invitation: _invitation(),
+        ),
         ConnectionWriteError.notAllowed,
       );
     });

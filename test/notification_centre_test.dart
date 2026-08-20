@@ -40,16 +40,15 @@ AppNotification _notif({
   bool isRead = false,
   Map<String, dynamic> data = const {'projectId': 'p-1'},
   String? createdAt,
-}) =>
-    AppNotification.fromSupabase({
-      'id': id,
-      'type': type,
-      'title': title,
-      'message': message,
-      'is_read': isRead,
-      'data': data,
-      'created_at': createdAt ?? DateTime.now().toUtc().toIso8601String(),
-    });
+}) => AppNotification.fromSupabase({
+  'id': id,
+  'type': type,
+  'title': title,
+  'message': message,
+  'is_read': isRead,
+  'data': data,
+  'created_at': createdAt ?? DateTime.now().toUtc().toIso8601String(),
+});
 
 class _FakeAuth extends AuthProvider {
   _FakeAuth({this.id = 'u-1'});
@@ -145,13 +144,16 @@ Future<List<RouteSettings>> _pumpScreen(
   await tester.pumpWidget(
     MultiProvider(
       providers: [
-        ChangeNotifierProvider<AuthProvider>.value(value: _FakeAuth(id: userId)),
+        ChangeNotifierProvider<AuthProvider>.value(
+          value: _FakeAuth(id: userId),
+        ),
         ChangeNotifierProvider<NotificationProvider>.value(value: provider),
       ],
       child: MaterialApp(
         builder: (context, child) => MediaQuery(
-          data: MediaQuery.of(context)
-              .copyWith(textScaler: TextScaler.linear(textScale)),
+          data: MediaQuery.of(
+            context,
+          ).copyWith(textScaler: TextScaler.linear(textScale)),
           child: child!,
         ),
         home: const NotificationsScreen(),
@@ -168,7 +170,6 @@ Future<List<RouteSettings>> _pumpScreen(
   await tester.pumpAndSettle();
   return pushed;
 }
-
 
 void main() {
   setUpAll(() async {
@@ -190,13 +191,24 @@ void main() {
       // The base six plus twelve ADD VALUE migrations. A value with no style would
       // silently render as System.
       const applied = [
-        'new_follower', 'channel_addition', 'builder_network_addition',
-        'property_approved', 'property_inquiry', 'message_received',
-        'lead_assigned', 'lead_status_update', 'network_lead_new',
-        'channel_message', 'project_shared', 'property_like',
-        'visit_booking_update', 'social_publish_started',
-        'social_publish_success', 'social_publish_failed',
-        'social_retry_started', 'social_retry_success',
+        'new_follower',
+        'channel_addition',
+        'builder_network_addition',
+        'property_approved',
+        'property_inquiry',
+        'message_received',
+        'lead_assigned',
+        'lead_status_update',
+        'network_lead_new',
+        'channel_message',
+        'project_shared',
+        'property_like',
+        'visit_booking_update',
+        'social_publish_started',
+        'social_publish_success',
+        'social_publish_failed',
+        'social_retry_started',
+        'social_retry_success',
       ];
       for (final type in applied) {
         expect(kNotificationStyles.containsKey(type), isTrue, reason: type);
@@ -210,22 +222,28 @@ void main() {
       for (final type in NotificationTypes.unapplied) {
         expect(notificationStyleFor(type), kFallbackNotificationStyle);
       }
-      expect(notificationStyleFor('invented_later'),
-          kFallbackNotificationStyle);
+      expect(
+        notificationStyleFor('invented_later'),
+        kFallbackNotificationStyle,
+      );
       expect(notificationStyleFor(null), kFallbackNotificationStyle);
     });
 
     test('every style lands in a known bucket', () {
       final buckets = {...kNotificationFilters, 'System'};
       for (final entry in kNotificationStyles.entries) {
-        expect(buckets.contains(entry.value.filter), isTrue,
-            reason: entry.key);
+        expect(buckets.contains(entry.value.filter), isTrue, reason: entry.key);
       }
     });
 
     test('the filter chips are the design\'s five', () {
-      expect(kNotificationFilters,
-          ['All', 'Price Drop', 'Visits', 'Matches', 'Enquiries']);
+      expect(kNotificationFilters, [
+        'All',
+        'Price Drop',
+        'Visits',
+        'Matches',
+        'Enquiries',
+      ]);
     });
   });
 
@@ -248,25 +266,39 @@ void main() {
       String iso(Duration ago) =>
           DateTime.now().toUtc().subtract(ago).toIso8601String();
 
-      expect(_notif(createdAt: iso(const Duration(seconds: 5))).relativeTime,
-          'Just now');
-      expect(_notif(createdAt: iso(const Duration(minutes: 2))).relativeTime,
-          '2 min ago');
-      expect(_notif(createdAt: iso(const Duration(hours: 1))).relativeTime,
-          '1 hr ago');
-      expect(_notif(createdAt: iso(const Duration(hours: 5))).relativeTime,
-          '5 hrs ago');
-      expect(_notif(createdAt: iso(const Duration(days: 1))).relativeTime,
-          'Yesterday');
-      expect(_notif(createdAt: iso(const Duration(days: 3))).relativeTime,
-          '3 days ago');
+      expect(
+        _notif(createdAt: iso(const Duration(seconds: 5))).relativeTime,
+        'Just now',
+      );
+      expect(
+        _notif(createdAt: iso(const Duration(minutes: 2))).relativeTime,
+        '2 min ago',
+      );
+      expect(
+        _notif(createdAt: iso(const Duration(hours: 1))).relativeTime,
+        '1 hr ago',
+      );
+      expect(
+        _notif(createdAt: iso(const Duration(hours: 5))).relativeTime,
+        '5 hrs ago',
+      );
+      expect(
+        _notif(createdAt: iso(const Duration(days: 1))).relativeTime,
+        'Yesterday',
+      );
+      expect(
+        _notif(createdAt: iso(const Duration(days: 3))).relativeTime,
+        '3 days ago',
+      );
     });
 
     test('a future timestamp does not read as negative', () {
       // Clock skew between server and device is real.
       final future = DateTime.now().toUtc().add(const Duration(minutes: 5));
-      expect(_notif(createdAt: future.toIso8601String()).relativeTime,
-          'Just now');
+      expect(
+        _notif(createdAt: future.toIso8601String()).relativeTime,
+        'Just now',
+      );
     });
 
     test('the column list is explicit, not select(*)', () {
@@ -279,11 +311,13 @@ void main() {
   // ── 3. The provider ────────────────────────────────────────────────────
   group('NotificationProvider', () {
     test('loads, counts unread and subscribes', () async {
-      final service = _FakeService(rows: [
-        _notif(id: 'a'),
-        _notif(id: 'b', isRead: true),
-        _notif(id: 'c'),
-      ]);
+      final service = _FakeService(
+        rows: [
+          _notif(id: 'a'),
+          _notif(id: 'b', isRead: true),
+          _notif(id: 'c'),
+        ],
+      );
       final provider = NotificationProvider(service: service);
       addTearDown(provider.dispose);
 
@@ -299,7 +333,12 @@ void main() {
     test('the unread count is derived, so it cannot drift', () async {
       // The portal keeps a separate counter and adjusts it by ±1, then has to
       // recalculate from scratch in its UPDATE listener to fix the drift.
-      final service = _FakeService(rows: [_notif(id: 'a'), _notif(id: 'b')]);
+      final service = _FakeService(
+        rows: [
+          _notif(id: 'a'),
+          _notif(id: 'b'),
+        ],
+      );
       final provider = NotificationProvider(service: service);
       addTearDown(provider.dispose);
       await provider.load('u-1');
@@ -392,10 +431,12 @@ void main() {
     });
 
     test('a realtime update replaces in place and preserves order', () async {
-      final service = _FakeService(rows: [
-        _notif(id: 'a'),
-        _notif(id: 'b'),
-      ]);
+      final service = _FakeService(
+        rows: [
+          _notif(id: 'a'),
+          _notif(id: 'b'),
+        ],
+      );
       final provider = NotificationProvider(service: service);
       addTearDown(provider.dispose);
       await provider.load('u-1');
@@ -431,17 +472,22 @@ void main() {
       service.writeShouldFail = true;
       await provider.markRead(provider.items.first);
 
-      expect(provider.items.first.isRead, isFalse,
-          reason: 'the optimistic flip must not survive a failed write');
+      expect(
+        provider.items.first.isRead,
+        isFalse,
+        reason: 'the optimistic flip must not survive a failed write',
+      );
       expect(provider.unreadCount, 1);
     });
 
     test('mark all read filters and restores exactly on failure', () async {
-      final service = _FakeService(rows: [
-        _notif(id: 'a'),
-        _notif(id: 'b', isRead: true),
-        _notif(id: 'c'),
-      ]);
+      final service = _FakeService(
+        rows: [
+          _notif(id: 'a'),
+          _notif(id: 'b', isRead: true),
+          _notif(id: 'c'),
+        ],
+      );
       final provider = NotificationProvider(service: service);
       addTearDown(provider.dispose);
       await provider.load('u-1');
@@ -494,17 +540,20 @@ void main() {
 
   // ── 4. G-4 routing ──────────────────────────────────────────────────────
   group('resolveNotificationDestination', () {
-    NotificationDestination? resolve(String type,
-            [Map<String, dynamic> data = const {}]) =>
-        resolveNotificationDestination(type: type, data: data);
+    NotificationDestination? resolve(
+      String type, [
+      Map<String, dynamic> data = const {},
+    ]) => resolveNotificationDestination(type: type, data: data);
 
-    test('project_shared opens the project — the one that resolves in practice',
-        () {
-      // ProjectShareService writes `projectId`.
-      final d = resolve('project_shared', {'projectId': 'p-1'});
-      expect(d!.route, AppConstants.projectDetailScreen);
-      expect(d.arguments!['projectId'], 'p-1');
-    });
+    test(
+      'project_shared opens the project — the one that resolves in practice',
+      () {
+        // ProjectShareService writes `projectId`.
+        final d = resolve('project_shared', {'projectId': 'p-1'});
+        expect(d!.route, AppConstants.projectDetailScreen);
+        expect(d.arguments!['projectId'], 'p-1');
+      },
+    );
 
     test('builder_network_addition opens the sender when the id is there', () {
       // Both of this app's writers emit `sender_id`; the portal routes to a list.
@@ -520,14 +569,26 @@ void main() {
       expect(d.arguments, isNull);
     });
 
+    test(
+      'a bulk-message builder_network_addition opens Communication, not the members list',
+      () {
+        // NetworkCommunicationService.sendBulkMessage's exact `data` shape —
+        // no `sender_id`, so it must not be mistaken for a connection request.
+        final d = resolve('builder_network_addition', {
+          'message_type': 'announcement',
+          'priority': 'medium',
+        });
+        expect(d!.route, AppConstants.networkCommunicationScreen);
+      },
+    );
+
     test('chat types all reach the messages list', () {
       for (final type in [
         'channel_addition',
         'channel_message',
         'message_received',
       ]) {
-        expect(resolve(type)!.route, AppConstants.messagesScreen,
-            reason: type);
+        expect(resolve(type)!.route, AppConstants.messagesScreen, reason: type);
       }
     });
 
@@ -544,8 +605,10 @@ void main() {
     test('property_inquiry reaches the role dashboard', () {
       // The portal's `/manage-properties` has no Flutter counterpart; listings are
       // managed on the role dashboard.
-      expect(resolve('property_inquiry')!.route,
-          AppConstants.manageDashboardScreen);
+      expect(
+        resolve('property_inquiry')!.route,
+        AppConstants.manageDashboardScreen,
+      );
     });
 
     test('an id-less property notification goes nowhere', () {
@@ -600,8 +663,9 @@ void main() {
 
   // ── 5. The screen ───────────────────────────────────────────────────────
   group('NotificationsScreen', () {
-    testWidgets('renders real rows with title, message and time',
-        (tester) async {
+    testWidgets('renders real rows with title, message and time', (
+      tester,
+    ) async {
       final provider = NotificationProvider(
         service: _FakeService(rows: [_notif()]),
       );
@@ -650,8 +714,9 @@ void main() {
       );
     });
 
-    testWidgets('tapping an unroutable row still marks it read',
-        (tester) async {
+    testWidgets('tapping an unroutable row still marks it read', (
+      tester,
+    ) async {
       final service = _FakeService(
         rows: [
           _notif(
@@ -695,7 +760,12 @@ void main() {
     });
 
     testWidgets('mark all read clears the pill', (tester) async {
-      final service = _FakeService(rows: [_notif(id: 'a'), _notif(id: 'b')]);
+      final service = _FakeService(
+        rows: [
+          _notif(id: 'a'),
+          _notif(id: 'b'),
+        ],
+      );
       final provider = NotificationProvider(service: service);
       addTearDown(provider.dispose);
       await provider.load('u-1');
@@ -712,18 +782,27 @@ void main() {
 
     testWidgets('filters narrow by bucket', (tester) async {
       final provider = NotificationProvider(
-        service: _FakeService(rows: [
-          _notif(id: 'a', type: NotificationTypes.visitBookingUpdate,
-              title: 'Visit Confirmed', data: const {}),
-          _notif(id: 'b', type: NotificationTypes.propertyInquiry,
-              title: 'New Enquiry', data: const {}),
-        ]),
+        service: _FakeService(
+          rows: [
+            _notif(
+              id: 'a',
+              type: NotificationTypes.visitBookingUpdate,
+              title: 'Visit Confirmed',
+              data: const {},
+            ),
+            _notif(
+              id: 'b',
+              type: NotificationTypes.propertyInquiry,
+              title: 'New Enquiry',
+              data: const {},
+            ),
+          ],
+        ),
       );
       addTearDown(provider.dispose);
       await provider.load('u-1');
 
-      await _pumpScreen(tester, provider: provider,
-          size: const Size(700, 900));
+      await _pumpScreen(tester, provider: provider, size: const Size(700, 900));
 
       expect(find.text('Visit Confirmed'), findsOneWidget);
       expect(find.text('New Enquiry'), findsOneWidget);
@@ -734,19 +813,25 @@ void main() {
       expect(find.text('New Enquiry'), findsNothing);
     });
 
-    testWidgets('an empty filter is distinguished from an empty inbox',
-        (tester) async {
+    testWidgets('an empty filter is distinguished from an empty inbox', (
+      tester,
+    ) async {
       final provider = NotificationProvider(
-        service: _FakeService(rows: [
-          _notif(id: 'a', type: NotificationTypes.propertyInquiry,
-              title: 'New Enquiry', data: const {}),
-        ]),
+        service: _FakeService(
+          rows: [
+            _notif(
+              id: 'a',
+              type: NotificationTypes.propertyInquiry,
+              title: 'New Enquiry',
+              data: const {},
+            ),
+          ],
+        ),
       );
       addTearDown(provider.dispose);
       await provider.load('u-1');
 
-      await _pumpScreen(tester, provider: provider,
-          size: const Size(700, 900));
+      await _pumpScreen(tester, provider: provider, size: const Size(700, 900));
 
       await tester.tap(find.text('Visits'));
       await tester.pumpAndSettle();
@@ -766,8 +851,9 @@ void main() {
       expect(find.text("You're all caught up!"), findsOneWidget);
     });
 
-    testWidgets('a failed load offers a retry, not "all caught up"',
-        (tester) async {
+    testWidgets('a failed load offers a retry, not "all caught up"', (
+      tester,
+    ) async {
       final service = _FakeService()..shouldFail = true;
       final provider = NotificationProvider(service: service);
       addTearDown(provider.dispose);
@@ -781,7 +867,9 @@ void main() {
     });
 
     testWidgets('a realtime arrival appears without a refresh', (tester) async {
-      final service = _FakeService(rows: [_notif(id: 'a', title: 'First')]);
+      final service = _FakeService(
+        rows: [_notif(id: 'a', title: 'First')],
+      );
       final provider = NotificationProvider(service: service);
       addTearDown(provider.dispose);
       await provider.load('u-1');
@@ -798,21 +886,33 @@ void main() {
 
     testWidgets('lays out cleanly at 320 dp and 130% text', (tester) async {
       final provider = NotificationProvider(
-        service: _FakeService(rows: [
-          _notif(
-            title: 'A rather long notification title that wraps',
-            message: 'And a message long enough to need two lines and then '
-                'some more beyond that.',
-          ),
-          _notif(id: 'b', isRead: true, type: NotificationTypes.newFollower,
-              title: 'New follower', data: const {}),
-        ]),
+        service: _FakeService(
+          rows: [
+            _notif(
+              title: 'A rather long notification title that wraps',
+              message:
+                  'And a message long enough to need two lines and then '
+                  'some more beyond that.',
+            ),
+            _notif(
+              id: 'b',
+              isRead: true,
+              type: NotificationTypes.newFollower,
+              title: 'New follower',
+              data: const {},
+            ),
+          ],
+        ),
       );
       addTearDown(provider.dispose);
       await provider.load('u-1');
 
-      await _pumpScreen(tester, provider: provider,
-          textScale: 1.3, size: const Size(320, 900));
+      await _pumpScreen(
+        tester,
+        provider: provider,
+        textScale: 1.3,
+        size: const Size(320, 900),
+      );
 
       // Asserts on HORIZONTAL overflow only, and deliberately.
       //
@@ -821,9 +921,9 @@ void main() {
       // thirteen screens, which Spec G did not touch and must not refactor. Every
       // overflow this screen's own content could cause is horizontal: the app bar
       // row, the card row, the filter chips and the metadata row.
-      final horizontal = overflowingBoxes(tester)
-          .where((o) => o.contains('horizontal'))
-          .toList();
+      final horizontal = overflowingBoxes(
+        tester,
+      ).where((o) => o.contains('horizontal')).toList();
       expect(horizontal, isEmpty);
 
       // The nav bar's overflow raises framework exceptions, and flutter_test fails
@@ -842,14 +942,18 @@ void main() {
         expect(
           text.contains('overflowed') || text.contains('Multiple exceptions'),
           isTrue,
-          reason: 'only the known nav-bar overflow is tolerated here, got: $text',
+          reason:
+              'only the known nav-bar overflow is tolerated here, got: $text',
         );
         drained++;
       }
-      expect(drained, greaterThan(0),
-          reason: 'if this ever hits zero the nav bar was fixed — drop this block');
+      expect(
+        drained,
+        greaterThan(0),
+        reason:
+            'if this ever hits zero the nav bar was fixed — drop this block',
+      );
     });
-
   });
 
   // ── 6. Service contract ─────────────────────────────────────────────────

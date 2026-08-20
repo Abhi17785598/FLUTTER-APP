@@ -19,13 +19,41 @@ import '../stubs/coming_soon_screen.dart';
 mixin DeferredSectionLoader<T extends StatefulWidget> on State<T> {
   String? _loadedUserId;
 
+  /// Internal de-dup key. Equal to [_loadedUserId] for every existing caller
+  /// (default [reloadOnRoleChange] is false) — kept separate so
+  /// [reloadSection] can still hand [loadSection] a bare user id even when
+  /// [reloadOnRoleChange] folds the resolved role into this key instead.
+  String? _loadedKey;
+
   /// The user the section was loaded for, so a Refresh control can re-run the
   /// same fetch without looking the id up again.
   String? get loadedUserId => _loadedUserId;
 
-  /// Kick off the section's fetch. Called at most once per user id, always
-  /// after the current frame.
+  /// Kick off the section's fetch. Called at most once per user id (or once
+  /// per user+role, see [reloadOnRoleChange]), always after the current
+  /// frame.
   void loadSection(String userId);
+
+  /// Override to `true` for a section whose [loadSection] branches on
+  /// `AuthProvider.userType` (builder vs. non-builder).
+  ///
+  /// `AuthProvider.userId` becomes non-null as soon as a session exists, but
+  /// `userType` only lands later, once the `profiles` fetch resolves
+  /// (`AuthProvider.isResolving` is true for that whole window). The default
+  /// (`false`) guard here is keyed on `userId` alone, so a role-branching
+  /// section that happens to run its very first load during that window gets
+  /// permanently cached against the wrong branch — a genuine builder can load
+  /// once as a non-builder and never reload, because `userId` alone never
+  /// changes again.
+  ///
+  /// Setting this to `true` makes the guard also wait for
+  /// `!AuthProvider.isResolving` and fold the resolved `userType` into the
+  /// de-dup key, so a section reloads exactly once more if the role that was
+  /// available on first load (there isn't one, since resolution isn't done)
+  /// differs from the role that lands once resolution completes — while
+  /// still loading at most once per stable `(userId, userType)` pair, same as
+  /// before for every other caller.
+  bool get reloadOnRoleChange => false;
 
   /// Re-runs [loadSection] for the already-resolved user. No-op before the
   /// first load.
@@ -39,8 +67,14 @@ mixin DeferredSectionLoader<T extends StatefulWidget> on State<T> {
   void didChangeDependencies() {
     super.didChangeDependencies();
 
-    final userId = context.read<AuthProvider>().userId;
-    if (userId == null || userId == _loadedUserId) return;
+    final auth = context.read<AuthProvider>();
+    final userId = auth.userId;
+    if (userId == null) return;
+    if (reloadOnRoleChange && auth.isResolving) return;
+
+    final key = reloadOnRoleChange ? '$userId::${auth.userType ?? ''}' : userId;
+    if (key == _loadedKey) return;
+    _loadedKey = key;
     _loadedUserId = userId;
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -53,7 +87,7 @@ mixin DeferredSectionLoader<T extends StatefulWidget> on State<T> {
 /// Opens the shared placeholder for an action a phase does not implement, so a
 /// control never dead-ends.
 void openSectionPlaceholder(BuildContext context, String title) {
-  Navigator.of(context).push(
-    PremiumPageRoute(builder: (_) => ComingSoonScreen(title: title)),
-  );
+  Navigator.of(
+    context,
+  ).push(PremiumPageRoute(builder: (_) => ComingSoonScreen(title: title)));
 }
