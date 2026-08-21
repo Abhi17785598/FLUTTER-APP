@@ -336,6 +336,12 @@ class _FiltersScreenState extends State<FiltersScreen> {
             values: _draftBudgetRange,
             min: AppConstants.priceMin,
             max: AppConstants.priceMax,
+            // Snaps to ₹10 L increments, matching the reference's
+            // `step={PRICE_STEP}` (Search.tsx) and filter_sheet.dart's slider.
+            divisions:
+                ((AppConstants.priceMax - AppConstants.priceMin) /
+                        AppConstants.priceStep)
+                    .round(),
             activeColor: AppColors.primary,
             inactiveColor: AppColors.textHint.withOpacity(0.3),
             onChanged: (values) {

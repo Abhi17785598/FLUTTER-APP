@@ -9,22 +9,36 @@ import '../../../core/widgets/empty_state_view.dart';
 import '../../../core/widgets/scale_tap.dart';
 import '../../../core/widgets/segmented_tab_pill.dart';
 import '../../../models/article_summary.dart';
+import '../../../models/influencer_video_model.dart';
 import '../../../models/property_model.dart';
 import '../../../widgets/property_card_compact.dart';
+import '../../dashboard/widgets/my_videos_section.dart' show InfluencerApprovalPill;
 
 /// "My Content" — All / Properties / Articles tabs over the user's own
-/// listings and article submissions (blueprint §4.1, §16.4).
+/// listings and article submissions (blueprint §4.1, §16.4), plus a Videos
+/// tab — mirroring the portal's `ProfileDashboardShell.tsx` "My Content"
+/// block, which shows a fourth "Videos" tab only for influencer accounts
+/// (`:4049`). Video data is `InfluencerVideoService.listMine`'s existing
+/// `influencer_videos` read (already used by the Manage Dashboard's
+/// `MyVideosSection`) — no new query.
 ///
 /// Owns only the selected-tab index; all data is passed in from
 /// `ProfileProvider`.
 class MyContentSection extends StatefulWidget {
   final List<PropertyModel> properties;
   final List<ArticleSummary> articles;
+  final List<InfluencerVideoModel> videos;
+
+  /// Shows the "Videos" tab — only true for influencer accounts, mirroring
+  /// the portal's `userType === "influencer"` gate.
+  final bool showVideosTab;
+
   final bool isLoading;
   final bool hasFailed;
   final VoidCallback onRetry;
   final void Function(PropertyModel property) onPropertyTap;
   final void Function(ArticleSummary article) onArticleTap;
+  final void Function(InfluencerVideoModel video) onVideoTap;
   final VoidCallback onAddProperty;
   final void Function(PropertyModel property) onEditProperty;
   final void Function(PropertyModel property) onDeleteProperty;
@@ -33,11 +47,14 @@ class MyContentSection extends StatefulWidget {
     super.key,
     required this.properties,
     required this.articles,
+    this.videos = const [],
+    this.showVideosTab = false,
     required this.isLoading,
     required this.hasFailed,
     required this.onRetry,
     required this.onPropertyTap,
     required this.onArticleTap,
+    required this.onVideoTap,
     required this.onAddProperty,
     required this.onEditProperty,
     required this.onDeleteProperty,
@@ -48,9 +65,11 @@ class MyContentSection extends StatefulWidget {
 }
 
 class _MyContentSectionState extends State<MyContentSection> {
-  static const List<String> _tabs = ['All', 'Properties', 'Articles'];
-
   int _selected = 0;
+
+  List<String> get _tabs => widget.showVideosTab
+      ? const ['All', 'Properties', 'Videos', 'Articles']
+      : const ['All', 'Properties', 'Articles'];
 
   @override
   Widget build(BuildContext context) {
@@ -82,13 +101,18 @@ class _MyContentSectionState extends State<MyContentSection> {
       );
     }
 
-    final showProperties = _selected == 0 || _selected == 1;
-    final showArticles = _selected == 0 || _selected == 2;
+    final selectedLabel = _tabs[_selected];
+    final showProperties = selectedLabel == 'All' || selectedLabel == 'Properties';
+    final showVideos = selectedLabel == 'All' || selectedLabel == 'Videos';
+    final showArticles = selectedLabel == 'All' || selectedLabel == 'Articles';
 
     final properties = showProperties ? widget.properties : const [];
+    final videos = showVideos ? widget.videos : const <InfluencerVideoModel>[];
     final articles = showArticles ? widget.articles : const <ArticleSummary>[];
 
-    if (properties.isEmpty && articles.isEmpty) return _buildEmpty();
+    if (properties.isEmpty && videos.isEmpty && articles.isEmpty) {
+      return _buildEmpty(selectedLabel);
+    }
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -99,6 +123,13 @@ class _MyContentSectionState extends State<MyContentSection> {
             onTap: () => widget.onPropertyTap(property),
             onEdit: () => widget.onEditProperty(property),
             onDelete: () => widget.onDeleteProperty(property),
+          ),
+          const SizedBox(height: AppConstants.spacingM),
+        ],
+        for (final video in videos) ...[
+          _VideoRow(
+            video: video,
+            onTap: () => widget.onVideoTap(video),
           ),
           const SizedBox(height: AppConstants.spacingM),
         ],
@@ -113,9 +144,9 @@ class _MyContentSectionState extends State<MyContentSection> {
     );
   }
 
-  Widget _buildEmpty() {
-    switch (_selected) {
-      case 1:
+  Widget _buildEmpty(String selectedLabel) {
+    switch (selectedLabel) {
+      case 'Properties':
         return EmptyStateView(
           icon: Icons.apartment_rounded,
           title: 'No properties yet',
@@ -125,7 +156,15 @@ class _MyContentSectionState extends State<MyContentSection> {
           iconCircleSize: 56,
           titleFontSize: 14.5,
         );
-      case 2:
+      case 'Videos':
+        return const EmptyStateView(
+          icon: Icons.videocam_outlined,
+          title: 'No videos yet',
+          message: 'Videos you upload will appear here.',
+          iconCircleSize: 56,
+          titleFontSize: 14.5,
+        );
+      case 'Articles':
         return const EmptyStateView(
           icon: Icons.article_outlined,
           title: 'No articles yet',
@@ -248,6 +287,92 @@ class _ArticleRow extends StatelessWidget {
                       ),
                       const SizedBox(height: 6),
                       _ArticleStatusChip(status: article.displayStatus),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// One video in the My Content list — same row weight as [_ArticleRow], with
+/// [InfluencerApprovalPill] (already used on the Manage Dashboard's video
+/// cards) standing in for the article status chip.
+class _VideoRow extends StatelessWidget {
+  final InfluencerVideoModel video;
+  final VoidCallback onTap;
+
+  const _VideoRow({required this.video, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    return Semantics(
+      label: '${video.title}, ${video.approvalStatus}',
+      button: true,
+      child: ScaleTap(
+        onTap: onTap,
+        child: ColoredBox(
+          color: AppColors.background,
+          child: Container(
+            padding: const EdgeInsets.all(AppConstants.spacingM),
+            decoration: BoxDecoration(
+              color: AppColors.cardBackground,
+              borderRadius: BorderRadius.circular(AppConstants.cardRadius),
+              boxShadow: AppColors.surfaceCardShadow,
+            ),
+            child: Row(
+              children: [
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(
+                    AppConstants.imageThumbnailRadius,
+                  ),
+                  child: SizedBox(
+                    width: 52,
+                    height: 52,
+                    child: video.thumbnailUrl == null
+                        ? const ColoredBox(
+                            color: AppColors.primaryLight,
+                            child: Icon(
+                              Icons.videocam_outlined,
+                              size: 22,
+                              color: AppColors.primary,
+                            ),
+                          )
+                        : CachedNetworkImage(
+                            imageUrl: video.thumbnailUrl!,
+                            fit: BoxFit.cover,
+                            errorWidget: (_, _, _) => const ColoredBox(
+                              color: AppColors.primaryLight,
+                              child: Icon(
+                                Icons.videocam_outlined,
+                                size: 22,
+                                color: AppColors.primary,
+                              ),
+                            ),
+                          ),
+                  ),
+                ),
+                const SizedBox(width: AppConstants.spacingM),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        video.title,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: AppTextStyles.body.copyWith(
+                          fontSize: 13.5,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                      const SizedBox(height: 6),
+                      InfluencerApprovalPill(approvalStatus: video.approvalStatus),
                     ],
                   ),
                 ),

@@ -325,7 +325,11 @@ class _PropertyReelsSectionState extends State<PropertyReelsSection>
     return Padding(
       padding: const EdgeInsets.only(right: PropertyReelsSection.cardGap),
       child: GestureDetector(
-        onTap: () => Navigator.pushNamed(context, AppConstants.reelsScreen),
+        onTap: () => Navigator.pushNamed(
+          context,
+          AppConstants.reelsScreen,
+          arguments: {'reelId': reel.id},
+        ),
         child: ClipRRect(
           borderRadius: BorderRadius.circular(16),
           child: SizedBox(

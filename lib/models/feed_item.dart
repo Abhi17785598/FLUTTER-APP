@@ -34,6 +34,13 @@ class FeedItem {
   final DateTime? createdAt;
   final String title;
   final String subtitle;
+
+  /// `properties.location`, shown as its own pin-icon row on the card —
+  /// mirrors the portal's `CombinedFeed.tsx` `PropertyCard` (title → price →
+  /// location). Only populated for property items; projects already carry
+  /// their location in [subtitle] and videos have no location concept on the
+  /// portal either, so this stays empty for those types.
+  final String location;
   final String? imageUrl;
   final String? videoUrl;
   final int views;
@@ -53,6 +60,7 @@ class FeedItem {
     required this.createdAt,
     required this.title,
     required this.subtitle,
+    this.location = '',
     required this.views,
     required this.likes,
     required this.posterName,
@@ -95,6 +103,7 @@ class FeedItem {
       createdAt: DateTime.tryParse(json['created_at']?.toString() ?? ''),
       title: json['title']?.toString() ?? '',
       subtitle: PropertyModel.formatIndianPrice(json['price']),
+      location: json['location']?.toString() ?? '',
       imageUrl: images.isNotEmpty ? images.first : null,
       views: _int(json['views']),
       likes: _int(json['likes']),

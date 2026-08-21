@@ -69,9 +69,32 @@ class _ComparePropertiesScreenState extends State<ComparePropertiesScreen>
       isScrollControlled: true,
       builder: (_) => _PropertyPickerSheet(properties: props),
     );
-    if (result != null) {
-      setState(() => _slots[slot] = result);
+    if (result == null) return;
+
+    // Same rule as the portal's `canAddProperty` (CompareContext.tsx:88-105):
+    // every compared property must share the category (residential/
+    // commercial/land/pg) AND the listing type (sell/rent) of whichever
+    // property was added first. The button itself is never disabled in
+    // advance — a mismatched pick is simply rejected here, same as the
+    // portal.
+    final other = _slots[slot == 0 ? 1 : 0];
+    if (other != null &&
+        (other.category != result.category ||
+            other.propertyType != result.propertyType)) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            "Can't compare these — you can only compare properties of the "
+            'same category and listing type.',
+          ),
+          backgroundColor: AppColors.error,
+        ),
+      );
+      return;
     }
+
+    setState(() => _slots[slot] = result);
   }
 
   // ─── UI ─────────────────────────────────────

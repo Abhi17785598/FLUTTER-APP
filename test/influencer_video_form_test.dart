@@ -8,8 +8,6 @@
 //     point of `let videoUrl = editingVideo?.video_url` (:128-130);
 //   * the form seeding from the row being edited, hashtags included (:29-38);
 //   * that a failed upload does not write a row.
-import 'dart:io';
-
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:image_picker/image_picker.dart';
@@ -64,7 +62,7 @@ class _FakeMediaService extends InfluencerMediaService {
 
   @override
   Future<String> uploadVideo({
-    required File file,
+    required XFile file,
     required String userId,
     void Function(String stage)? onProgress,
   }) async {
@@ -80,7 +78,7 @@ class _FakeMediaService extends InfluencerMediaService {
 
   @override
   Future<String> uploadThumbnail({
-    required File file,
+    required XFile file,
     required String userId,
   }) async {
     thumbnailUploads.add(file.path);

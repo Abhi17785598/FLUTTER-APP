@@ -14,6 +14,7 @@ import 'providers/filter_provider.dart';
 import 'providers/shortlist_provider.dart';
 import 'providers/auth_provider.dart';
 import 'providers/reels_provider.dart';
+import 'providers/projects_provider.dart';
 import 'providers/available_locations_provider.dart';
 import 'providers/recent_searches_provider.dart';
 import 'voice_agent/providers/voice_agent_provider.dart';
@@ -61,6 +62,7 @@ Future<void> main() async {
         ChangeNotifierProvider(create: (_) => FilterProvider()),
         ChangeNotifierProvider(create: (_) => ShortlistProvider()),
         ChangeNotifierProvider(create: (_) => ReelsProvider()),
+        ChangeNotifierProvider(create: (_) => ProjectsProvider()),
         ChangeNotifierProvider(create: (_) => AvailableLocationsProvider()),
         // Proxied on AuthProvider because recent searches live in
         // `ai_user_memory` for a signed-in user and in shared_preferences for
