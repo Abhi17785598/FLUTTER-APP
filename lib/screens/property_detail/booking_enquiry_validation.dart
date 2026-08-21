@@ -26,16 +26,22 @@ class VisitFormValidation {
     return null;
   }
 
-  /// `BookVisitModal.tsx:344-350`: a slot is disabled once its literal
-  /// leading number is <= the current 24-hour hour, and only when [date] is
-  /// today. Transcribed exactly, quirks included — e.g. "01:00" (meant as
-  /// 1 PM) only disables in the 00:xx/01:xx hour of the following morning,
-  /// not in the afternoon it actually represents.
+  /// The 9 slots (`10:00`..`06:00`) are a 10 AM-6 PM visiting-hours day —
+  /// `01:00`-`06:00` are the afternoon hours (1 PM-6 PM), not 1 AM-6 AM.
+  /// `BookVisitModal.tsx:344-350` disables a slot by comparing its literal
+  /// leading number against the current 24-hour hour, which — read
+  /// literally — disables every single slot once it's past noon, since
+  /// 1-6 are all <= any afternoon hour. Fixed here rather than transcribed:
+  /// converting the label to its real 24-hour value first is what the
+  /// comparison was actually meant to do (never let today's booking pick an
+  /// already-past time), and the literal version made same-day booking
+  /// unusable for more than half the day.
   static bool isSlotDisabled(String time, DateTime date, DateTime now) {
     final bool isToday =
         date.year == now.year && date.month == now.month && date.day == now.day;
     if (!isToday) return false;
-    final int slotHour = int.parse(time.split(':').first);
+    final int label = int.parse(time.split(':').first);
+    final int slotHour = label == 12 ? 12 : (label < 10 ? label + 12 : label);
     return slotHour <= now.hour;
   }
 }

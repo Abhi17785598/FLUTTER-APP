@@ -2084,6 +2084,10 @@ class _PropertyDetailScreenState extends State<PropertyDetailScreen>
           authProvider.profileRow?['phone']?.toString() ??
           '',
     );
+    // `BookVisitModal.tsx`'s optional Message textarea — was missing here
+    // entirely even though `VisitBookingService.createBooking` already
+    // accepted it.
+    final TextEditingController messageController = TextEditingController();
 
     DateTime? selectedDate;
     String? selectedTime;
@@ -2152,6 +2156,7 @@ class _PropertyDetailScreenState extends State<PropertyDetailScreen>
                   visitorPhone: phone,
                   preferredDate: selectedDate!,
                   preferredTime: selectedTime!,
+                  message: messageController.text,
                   ownerName: _ownerProfile?.displayName,
                   ownerPhone: _ownerProfile?.phone,
                 );
@@ -2295,6 +2300,22 @@ class _PropertyDetailScreenState extends State<PropertyDetailScreen>
                         child: Text(timeError!,
                             style: const TextStyle(color: Colors.red, fontSize: 12)),
                       ),
+                    const SizedBox(height: 20),
+                    Text(
+                      'Message',
+                      style: AppTextStyles.heading3.copyWith(fontSize: 16),
+                    ),
+                    const SizedBox(height: 8),
+                    TextField(
+                      controller: messageController,
+                      maxLines: 3,
+                      decoration: InputDecoration(
+                        hintText: 'Any requirements...',
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                      ),
+                    ),
                     const SizedBox(height: 32),
                     SizedBox(
                       width: double.infinity,

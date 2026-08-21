@@ -48,14 +48,32 @@ void main() {
       expect(VisitFormValidation.isSlotDisabled('10:00', future, now), isFalse);
     });
 
-    test('disabled for today once the slot\'s leading number is <= the current hour', () {
+    test('a slot is disabled for today once its real (PM-aware) hour has passed', () {
       final today = DateTime(2026, 9, 9);
-      final now = DateTime(2026, 9, 9, 2, 30); // 2:30am
-      // BookVisitModal.tsx's exact (quirky) comparison: "02:00"'s leading
-      // number (2) <= the current hour (2) disables it, even though "02:00"
-      // is meant to represent 2 PM.
+      final now = DateTime(2026, 9, 9, 14, 30); // 2:30 PM
+      // "02:00" means 2 PM (14:00) here, not 2 AM — it has passed by 2:30 PM.
       expect(VisitFormValidation.isSlotDisabled('02:00', today, now), isTrue);
+      // "04:00" means 4 PM (16:00) — still ahead of 2:30 PM.
       expect(VisitFormValidation.isSlotDisabled('04:00', today, now), isFalse);
+    });
+
+    test('morning slots (10:00, 11:00) and noon are not treated as PM', () {
+      final today = DateTime(2026, 9, 9);
+      final now = DateTime(2026, 9, 9, 10, 30); // 10:30 AM
+      expect(VisitFormValidation.isSlotDisabled('10:00', today, now), isTrue);
+      expect(VisitFormValidation.isSlotDisabled('11:00', today, now), isFalse);
+      expect(VisitFormValidation.isSlotDisabled('12:00', today, now), isFalse);
+      // Every afternoon slot is still ahead of 10:30 AM.
+      expect(VisitFormValidation.isSlotDisabled('06:00', today, now), isFalse);
+    });
+
+    test('every slot stays selectable in the evening after 6 PM only if the date rolls over', () {
+      // The old literal-label comparison disabled every slot once it was
+      // past noon; this is the regression it was fixed for.
+      final today = DateTime(2026, 9, 9);
+      final lateAfternoon = DateTime(2026, 9, 9, 17, 0); // 5 PM
+      expect(VisitFormValidation.isSlotDisabled('06:00', today, lateAfternoon), isFalse);
+      expect(VisitFormValidation.isSlotDisabled('05:00', today, lateAfternoon), isTrue);
     });
   });
 
