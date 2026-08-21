@@ -374,12 +374,19 @@ class _ProfileViewState extends State<_ProfileView> {
                       MyContentSection(
                         properties: profile.properties,
                         articles: profile.articles,
+                        videos: profile.videos,
+                        showVideosTab: isInfluencer,
                         isLoading: profile.contentLoading,
                         hasFailed: profile.contentFailed,
                         onRetry: profile.refresh,
                         onPropertyTap: _openPropertyDetail,
                         onArticleTap: (article) =>
                             _openArticleEditor(article.id),
+                        onVideoTap: (video) => Navigator.pushNamed(
+                          context,
+                          AppConstants.reelsScreen,
+                          arguments: {'reelId': video.id},
+                        ),
                         onAddProperty: () => Navigator.pushNamed(
                           context,
                           AppConstants.postPropertyScreen,

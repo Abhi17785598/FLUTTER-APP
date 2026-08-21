@@ -752,6 +752,14 @@ class _FilterSheetState extends State<_FilterSheet> {
             values: _budget,
             min: AppConstants.priceMin,
             max: AppConstants.priceMax,
+            // Snaps to ₹10 L increments, matching the reference's
+            // `step={PRICE_STEP}` (Search.tsx) — without this the slider
+            // dragged continuously and landed on odd, non-round values that
+            // never matched the reference's behavior.
+            divisions:
+                ((AppConstants.priceMax - AppConstants.priceMin) /
+                        AppConstants.priceStep)
+                    .round(),
             onChanged: (values) => setState(() => _budget = values),
           ),
         ),

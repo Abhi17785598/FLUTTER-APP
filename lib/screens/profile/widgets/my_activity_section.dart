@@ -5,20 +5,26 @@ import 'package:provider/provider.dart';
 import '../../../core/constants/app_constants.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_text_styles.dart';
+import '../../../models/project_model.dart';
 import '../../../models/reel_model.dart';
+import '../../../providers/projects_provider.dart';
 import '../../../providers/property_provider.dart';
 import '../../../providers/reels_provider.dart';
 import '../../../widgets/property_card_compact.dart';
+import '../../dashboard/widgets/my_projects_section.dart'
+    show projectPriceRangeLabel;
 
 /// "My Activity" — Liked / Saved tabs, mirroring the portal's
 /// `IndividualUserActivity.tsx` (rendered inside `ProfileDashboardShell`).
-/// Reads straight from `PropertyProvider`'s existing, already-persisted
-/// `user_likes`/`saved_properties`-backed state — no new data source, no new
-/// table. Scoped to properties only, except the "Saved" tab which also
-/// exposes a Properties/Reels filter (mirroring the portal's Properties/
-/// Projects/Reels filter pills inside its own "Saved" tab), backed by
-/// `ReelsProvider`'s `saved_reels`-persisted state. Projects and the "Liked"
-/// tab's Reels filter aren't replicated — out of scope for this fix.
+/// Both tabs expose the same Properties/Projects/Reels filter pills the
+/// portal shows inside each of its own Liked/Saved tabs, backed by:
+///  - Properties: `PropertyProvider`'s existing `user_likes`/
+///    `saved_properties`-backed state.
+///  - Reels: `ReelsProvider`'s existing `user_likes`/`saved_reels`-backed
+///    state.
+///  - Projects: `ProjectsProvider`'s `user_likes`/`saved_projects`-backed
+///    state.
+/// No new data source beyond what each provider already persists.
 class MyActivitySection extends StatefulWidget {
   const MyActivitySection({super.key});
 
@@ -26,15 +32,17 @@ class MyActivitySection extends StatefulWidget {
   State<MyActivitySection> createState() => _MyActivitySectionState();
 }
 
+/// Which content type is shown inside a Liked/Saved tab — mirrors the
+/// portal's Properties/Projects/Reels filter pills.
+enum _ContentFilter { properties, projects, reels }
+
 class _MyActivitySectionState extends State<MyActivitySection>
     with SingleTickerProviderStateMixin {
   late final TabController _tabController =
       TabController(length: 2, vsync: this);
 
-  /// Which filter is active inside the "Saved" tab — mirrors the portal's
-  /// Properties/Reels filter pills. Defaults to Properties, matching the
-  /// tab's pre-existing behavior.
-  bool _showSavedReels = false;
+  _ContentFilter _likedFilter = _ContentFilter.properties;
+  _ContentFilter _savedFilter = _ContentFilter.properties;
 
   @override
   void dispose() {
@@ -44,11 +52,20 @@ class _MyActivitySectionState extends State<MyActivitySection>
 
   @override
   Widget build(BuildContext context) {
-    return Consumer2<PropertyProvider, ReelsProvider>(
-      builder: (context, propertyProvider, reelsProvider, _) {
-        final liked = propertyProvider.getLikedProperties();
-        final saved = propertyProvider.getShortlistedProperties();
+    return Consumer3<PropertyProvider, ReelsProvider, ProjectsProvider>(
+      builder: (context, propertyProvider, reelsProvider, projectsProvider, _) {
+        final likedProperties = propertyProvider.getLikedProperties();
+        final likedProjects = projectsProvider.getLikedProjects();
+        final likedReels = reelsProvider.getLikedReels();
+
+        final savedProperties = propertyProvider.getShortlistedProperties();
+        final savedProjects = projectsProvider.getSavedProjects();
         final savedReels = reelsProvider.getSavedReels();
+
+        final likedTotal =
+            likedProperties.length + likedProjects.length + likedReels.length;
+        final savedTotal =
+            savedProperties.length + savedProjects.length + savedReels.length;
 
         return Container(
           decoration: BoxDecoration(
@@ -70,7 +87,7 @@ class _MyActivitySectionState extends State<MyActivitySection>
                       children: [
                         const Icon(Icons.favorite, size: 16),
                         const SizedBox(width: 6),
-                        Text('Liked (${liked.length})'),
+                        Text('Liked ($likedTotal)'),
                       ],
                     ),
                   ),
@@ -80,43 +97,74 @@ class _MyActivitySectionState extends State<MyActivitySection>
                       children: [
                         const Icon(Icons.bookmark, size: 16),
                         const SizedBox(width: 6),
-                        Text('Saved (${saved.length})'),
+                        Text('Saved ($savedTotal)'),
                       ],
                     ),
                   ),
                 ],
               ),
               SizedBox(
-                height: 260,
+                height: 300,
                 child: TabBarView(
                   controller: _tabController,
                   children: [
-                    _ActivityList(
-                      properties: liked,
-                      emptyText: 'No liked properties yet',
-                      onFavoriteToggle: (id) => propertyProvider.toggleLike(id),
+                    Column(
+                      children: [
+                        _ContentFilterPills(
+                          current: _likedFilter,
+                          propertiesCount: likedProperties.length,
+                          projectsCount: likedProjects.length,
+                          reelsCount: likedReels.length,
+                          onChanged: (f) =>
+                              setState(() => _likedFilter = f),
+                        ),
+                        Expanded(
+                          child: switch (_likedFilter) {
+                            _ContentFilter.properties => _ActivityList(
+                                properties: likedProperties,
+                                emptyText: 'No liked properties yet',
+                                onFavoriteToggle: (id) =>
+                                    propertyProvider.toggleLike(id),
+                              ),
+                            _ContentFilter.projects => _ProjectsList(
+                                projects: likedProjects,
+                                emptyText: 'No liked projects yet',
+                              ),
+                            _ContentFilter.reels => _ReelsList(
+                                reels: likedReels,
+                                emptyText: 'No liked reels yet',
+                              ),
+                          },
+                        ),
+                      ],
                     ),
                     Column(
                       children: [
-                        _SavedFilterPills(
-                          showReels: _showSavedReels,
-                          savedCount: saved.length,
-                          savedReelsCount: savedReels.length,
-                          onChanged: (showReels) =>
-                              setState(() => _showSavedReels = showReels),
+                        _ContentFilterPills(
+                          current: _savedFilter,
+                          propertiesCount: savedProperties.length,
+                          projectsCount: savedProjects.length,
+                          reelsCount: savedReels.length,
+                          onChanged: (f) =>
+                              setState(() => _savedFilter = f),
                         ),
                         Expanded(
-                          child: _showSavedReels
-                              ? _SavedReelsList(
-                                  reels: savedReels,
-                                  emptyText: 'No saved reels yet',
-                                )
-                              : _ActivityList(
-                                  properties: saved,
-                                  emptyText: 'No saved properties yet',
-                                  onFavoriteToggle: (id) =>
-                                      propertyProvider.toggleShortlist(id),
-                                ),
+                          child: switch (_savedFilter) {
+                            _ContentFilter.properties => _ActivityList(
+                                properties: savedProperties,
+                                emptyText: 'No saved properties yet',
+                                onFavoriteToggle: (id) =>
+                                    propertyProvider.toggleShortlist(id),
+                              ),
+                            _ContentFilter.projects => _ProjectsList(
+                                projects: savedProjects,
+                                emptyText: 'No saved projects yet',
+                              ),
+                            _ContentFilter.reels => _ReelsList(
+                                reels: savedReels,
+                                emptyText: 'No saved reels yet',
+                              ),
+                          },
                         ),
                       ],
                     ),
@@ -131,21 +179,23 @@ class _MyActivitySectionState extends State<MyActivitySection>
   }
 }
 
-/// Properties/Reels filter pills inside the "Saved" tab — mirrors the
-/// portal's filter buttons inside `IndividualUserActivity`'s "Saved" tab
-/// (Projects isn't replicated here; out of scope).
-class _SavedFilterPills extends StatelessWidget {
-  const _SavedFilterPills({
-    required this.showReels,
-    required this.savedCount,
-    required this.savedReelsCount,
+/// Properties/Projects/Reels filter pills inside a Liked/Saved tab — mirrors
+/// the portal's filter buttons inside `IndividualUserActivity`'s Liked/Saved
+/// tabs.
+class _ContentFilterPills extends StatelessWidget {
+  const _ContentFilterPills({
+    required this.current,
+    required this.propertiesCount,
+    required this.projectsCount,
+    required this.reelsCount,
     required this.onChanged,
   });
 
-  final bool showReels;
-  final int savedCount;
-  final int savedReelsCount;
-  final ValueChanged<bool> onChanged;
+  final _ContentFilter current;
+  final int propertiesCount;
+  final int projectsCount;
+  final int reelsCount;
+  final ValueChanged<_ContentFilter> onChanged;
 
   @override
   Widget build(BuildContext context) {
@@ -154,17 +204,24 @@ class _SavedFilterPills extends StatelessWidget {
       child: Row(
         children: [
           _FilterChip(
-            label: 'Properties ($savedCount)',
+            label: 'Properties ($propertiesCount)',
             icon: Icons.home_outlined,
-            selected: !showReels,
-            onTap: () => onChanged(false),
+            selected: current == _ContentFilter.properties,
+            onTap: () => onChanged(_ContentFilter.properties),
           ),
           const SizedBox(width: 8),
           _FilterChip(
-            label: 'Reels ($savedReelsCount)',
+            label: 'Projects ($projectsCount)',
+            icon: Icons.apartment_outlined,
+            selected: current == _ContentFilter.projects,
+            onTap: () => onChanged(_ContentFilter.projects),
+          ),
+          const SizedBox(width: 8),
+          _FilterChip(
+            label: 'Reels ($reelsCount)',
             icon: Icons.video_collection_outlined,
-            selected: showReels,
-            onTap: () => onChanged(true),
+            selected: current == _ContentFilter.reels,
+            onTap: () => onChanged(_ContentFilter.reels),
           ),
         ],
       ),
@@ -225,13 +282,13 @@ class _FilterChip extends StatelessWidget {
   }
 }
 
-/// Renders saved reels as compact thumbnail rows — mirrors the portal's
+/// Renders liked/saved reels as compact thumbnail rows — mirrors the portal's
 /// `ReelItem` inside `IndividualUserActivity` (thumbnail + title + "Reel"
-/// label, no inline unsave affordance there either; unsaving happens via the
-/// bookmark icon in the reel player itself). Tapping opens the reel player
+/// label, no inline unlike/unsave affordance there either; that happens via
+/// the reel player's own like/bookmark icons). Tapping opens the reel player
 /// scrolled to that reel.
-class _SavedReelsList extends StatelessWidget {
-  const _SavedReelsList({required this.reels, required this.emptyText});
+class _ReelsList extends StatelessWidget {
+  const _ReelsList({required this.reels, required this.emptyText});
 
   final List<ReelModel> reels;
   final String emptyText;
@@ -314,6 +371,115 @@ class _SavedReelsList extends StatelessWidget {
                       ),
                       const SizedBox(height: 4),
                       Text('Reel', style: AppTextStyles.caption),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+}
+
+/// Renders liked/saved projects as compact thumbnail rows — mirrors the
+/// portal's `ProjectItem` inside `IndividualUserActivity` (thumbnail + name +
+/// location + price range, no inline unlike/unsave affordance there either).
+/// Tapping opens the project's existing detail screen.
+class _ProjectsList extends StatelessWidget {
+  const _ProjectsList({required this.projects, required this.emptyText});
+
+  final List<ProjectModel> projects;
+  final String emptyText;
+
+  @override
+  Widget build(BuildContext context) {
+    if (projects.isEmpty) {
+      return Center(child: Text(emptyText, style: AppTextStyles.caption));
+    }
+
+    return ListView.builder(
+      padding: const EdgeInsets.symmetric(vertical: 8),
+      itemCount: projects.length,
+      itemBuilder: (context, index) {
+        final project = projects[index];
+        final thumbnailUrl = project.logoUrl.isNotEmpty
+            ? project.logoUrl
+            : project.masterLayoutUrl;
+
+        return GestureDetector(
+          onTap: () => Navigator.pushNamed(
+            context,
+            AppConstants.projectDetailScreen,
+            arguments: {'projectId': project.id},
+          ),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(8),
+                  child: thumbnailUrl.isNotEmpty
+                      ? CachedNetworkImage(
+                          imageUrl: thumbnailUrl,
+                          width: 56,
+                          height: 56,
+                          fit: BoxFit.cover,
+                          placeholder: (context, url) => Container(
+                            width: 56,
+                            height: 56,
+                            color: AppColors.textHint.withOpacity(0.1),
+                          ),
+                          errorWidget: (context, url, error) => Container(
+                            width: 56,
+                            height: 56,
+                            color: AppColors.textHint.withOpacity(0.1),
+                            child: const Icon(Icons.apartment_outlined),
+                          ),
+                        )
+                      : Container(
+                          width: 56,
+                          height: 56,
+                          color: AppColors.textHint.withOpacity(0.1),
+                          child: const Icon(Icons.apartment_outlined),
+                        ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        project.title.isNotEmpty
+                            ? project.title
+                            : 'Untitled project',
+                        style: AppTextStyles.body.copyWith(
+                          fontWeight: FontWeight.w600,
+                          fontSize: 14,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      const SizedBox(height: 4),
+                      if (project.location.isNotEmpty)
+                        Text(
+                          project.location,
+                          style: AppTextStyles.caption,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      if (project.hasPriceRange) ...[
+                        const SizedBox(height: 2),
+                        Text(
+                          projectPriceRangeLabel(project),
+                          style: AppTextStyles.caption.copyWith(
+                            color: AppColors.primary,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ],
                     ],
                   ),
                 ),

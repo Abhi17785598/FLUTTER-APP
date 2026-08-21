@@ -77,6 +77,29 @@ class ProjectService {
     }
   }
 
+  /// Every project in [projectIds], in no particular order — for rendering a
+  /// liked/saved-projects list from a set of ids (My Activity), where there is
+  /// no general "all projects" cache to filter locally the way properties and
+  /// reels do. Same visibility as [fetchById]: RLS only returns rows the
+  /// caller may see.
+  Future<List<ProjectModel>> fetchByIds(List<String> projectIds) async {
+    if (projectIds.isEmpty) return [];
+    try {
+      final rows = await _supabase
+          .from(_table)
+          .select(ProjectModel.columns)
+          .inFilter('id', projectIds);
+
+      return rows
+          .map((row) => ProjectModel.fromSupabase(Map<String, dynamic>.from(row)))
+          .where((project) => project.id.isNotEmpty)
+          .toList(growable: false);
+    } catch (e) {
+      debugPrint('ProjectService.fetchByIds failed: $e');
+      rethrow;
+    }
+  }
+
   /// Creates a project and returns the stored row.
   ///
   /// `builder_id` is set here and only here — the portal adds it on insert and

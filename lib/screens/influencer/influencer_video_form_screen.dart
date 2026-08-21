@@ -30,9 +30,11 @@
 // of the same family rather than as a new dialect.
 import 'dart:io';
 
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
+import 'package:video_player/video_player.dart';
 
 import '../../core/constants/influencer_video_options.dart';
 import '../../models/influencer_video_model.dart';
@@ -118,8 +120,14 @@ class _InfluencerVideoFormScreenState extends State<InfluencerVideoFormScreen> {
   String? _videoType;
 
   /// A newly picked file, or null when the stored URL still stands.
-  File? _videoFile;
-  File? _thumbnailFile;
+  ///
+  /// Kept as the `XFile` `image_picker` returns, not converted to a
+  /// `dart:io.File` — on Flutter Web an `XFile`'s "path" is a `blob:` URL,
+  /// and `dart:io.File` operations (`exists`/`length`/`readAsBytes`) throw
+  /// `Unsupported operation` there. `XFile.readAsBytes()` works on every
+  /// platform, which is all [InfluencerMediaService] actually needs.
+  XFile? _videoFile;
+  XFile? _thumbnailFile;
 
   /// What the preview shows: a stored URL on an edit, a local path once picked.
   String _videoPreview = '';
@@ -166,7 +174,7 @@ class _InfluencerVideoFormScreenState extends State<InfluencerVideoFormScreen> {
         await _picker.pickVideo(source: ImageSource.gallery);
     if (picked == null || !mounted) return;
     setState(() {
-      _videoFile = File(picked.path);
+      _videoFile = picked;
       _videoPreview = picked.path;
       // Picking a video answers the "upload a video" issue; leaving it listed
       // would be stale.
@@ -186,7 +194,7 @@ class _InfluencerVideoFormScreenState extends State<InfluencerVideoFormScreen> {
     );
     if (picked == null || !mounted) return;
     setState(() {
-      _thumbnailFile = File(picked.path);
+      _thumbnailFile = picked;
       _thumbnailPreview = picked.path;
     });
   }
@@ -496,12 +504,15 @@ class _InfluencerVideoFormScreenState extends State<InfluencerVideoFormScreen> {
 
 // ── Media tiles ─────────────────────────────────────────────────────────────
 
-/// The video slot: empty prompt, or the chosen file's name with a swap action.
+/// The video slot: empty prompt, or the chosen file with an inline preview
+/// player and a swap action.
 ///
-/// No inline playback. `video_player` would need a controller per state change and
-/// a native surface the form does not otherwise require, and the portal's own
-/// preview is a muted `<video>` the user cannot scrub either.
-class _VideoPickerTile extends StatelessWidget {
+/// Mirrors `InfluencerVideoModal.tsx`'s inline `<video controls>` preview
+/// (`:329-346`) — shown immediately once a file is picked, before upload,
+/// using the same `video_player` package/lifecycle the reels feed already
+/// uses (`ReelVideoView`/`ReelControllerManager`), just a single local
+/// controller instead of that sliding window.
+class _VideoPickerTile extends StatefulWidget {
   const _VideoPickerTile({
     required this.preview,
     required this.isLocal,
@@ -515,59 +526,244 @@ class _VideoPickerTile extends StatelessWidget {
   final VoidCallback onPick;
 
   @override
+  State<_VideoPickerTile> createState() => _VideoPickerTileState();
+}
+
+class _VideoPickerTileState extends State<_VideoPickerTile> {
+  VideoPlayerController? _controller;
+  String? _controllerSource;
+
+  @override
+  void initState() {
+    super.initState();
+    _syncController();
+  }
+
+  @override
+  void didUpdateWidget(_VideoPickerTile oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (!widget.enabled && oldWidget.enabled) {
+      // Submission is starting (`enabled: !_submitting` in the parent).
+      // Tear the live platform view down now, before `_submit()`'s
+      // publish/boost dialogs and final `Navigator.pop` run — a
+      // `VideoPlayer` still mounted through that route churn is a known
+      // trigger for Flutter's "check that it really is our descendant"
+      // `InheritedElement` assertion (platform views don't survive
+      // Navigator transitions cleanly).
+      _controller?.dispose();
+      _controller = null;
+      _controllerSource = null;
+      _initFailed = false;
+      return;
+    }
+    if (widget.enabled &&
+        (oldWidget.preview != widget.preview ||
+            oldWidget.isLocal != widget.isLocal ||
+            !oldWidget.enabled)) {
+      _syncController();
+    }
+  }
+
+  bool _initFailed = false;
+
+  void _syncController() {
+    final preview = widget.preview;
+    final previous = _controller;
+    if (preview.isEmpty) {
+      _controller = null;
+      _controllerSource = null;
+      _initFailed = false;
+      previous?.dispose();
+      return;
+    }
+    if (preview == _controllerSource) return;
+
+    _controllerSource = preview;
+    _initFailed = false;
+
+    VideoPlayerController controller;
+    try {
+      // `VideoPlayerController.file` needs `dart:io` file access, which is
+      // unsupported on Flutter Web (throws "Unsupported operation:
+      // Platform._operatingSystem"). A local pick's path on web is already a
+      // `blob:` URL the browser can play directly, so it goes through the
+      // network-url controller instead — same as a stored remote video.
+      controller = (widget.isLocal && !kIsWeb)
+          ? VideoPlayerController.file(File(preview))
+          : VideoPlayerController.networkUrl(Uri.parse(preview));
+    } catch (e) {
+      _controller = null;
+      _initFailed = true;
+      previous?.dispose();
+      return;
+    }
+
+    _controller = controller;
+    controller
+      ..setLooping(true)
+      ..initialize().then((_) {
+        if (mounted && _controller == controller) setState(() {});
+      }).catchError((_) {
+        if (mounted && _controller == controller) {
+          setState(() => _initFailed = true);
+        }
+      });
+    previous?.dispose();
+  }
+
+  void _togglePlay() {
+    final controller = _controller;
+    if (controller == null || !controller.value.isInitialized) return;
+    setState(() {
+      controller.value.isPlaying ? controller.pause() : controller.play();
+    });
+  }
+
+  @override
+  void dispose() {
+    _controller?.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
+    final preview = widget.preview;
     final chosen = preview.isNotEmpty;
 
-    return InkWell(
-      onTap: enabled ? onPick : null,
-      borderRadius: BorderRadius.circular(8),
-      child: Container(
-        padding: const EdgeInsets.all(14),
-        decoration: BoxDecoration(
-          color: PortalTheme.cardSurface,
-          borderRadius: BorderRadius.circular(8),
-          border: Border.all(
-            color: chosen ? PortalTheme.accent : PortalTheme.cardBorder,
-            style: chosen ? BorderStyle.solid : BorderStyle.solid,
+    if (!chosen) {
+      return InkWell(
+        onTap: widget.enabled ? widget.onPick : null,
+        borderRadius: BorderRadius.circular(8),
+        child: Container(
+          padding: const EdgeInsets.all(14),
+          decoration: BoxDecoration(
+            color: PortalTheme.cardSurface,
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(color: PortalTheme.cardBorder),
+          ),
+          child: Row(
+            children: [
+              PortalIcon('upload', size: 20, color: PortalTheme.radioIdle),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('Choose a video', style: PortalTheme.inputText),
+                    const SizedBox(height: 2),
+                    Text('MP4, MOV or WEBM', style: PortalTheme.helperText),
+                  ],
+                ),
+              ),
+            ],
           ),
         ),
-        child: Row(
-          children: [
-            PortalIcon(
-              chosen ? 'play' : 'upload',
-              size: 20,
-              color: chosen ? PortalTheme.accent : PortalTheme.radioIdle,
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    chosen ? _fileLabel(preview) : 'Choose a video',
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: PortalTheme.inputText,
-                  ),
-                  const SizedBox(height: 2),
-                  Text(
-                    chosen
-                        ? (isLocal ? 'Ready to upload' : 'Current video')
-                        : 'MP4, MOV or WEBM',
-                    style: PortalTheme.helperText,
-                  ),
-                ],
+      );
+    }
+
+    final controller = _controller;
+    final ready = controller != null && controller.value.isInitialized;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        ClipRRect(
+          borderRadius: BorderRadius.circular(8),
+          child: AspectRatio(
+            aspectRatio: 16 / 9,
+            child: GestureDetector(
+              onTap: ready ? _togglePlay : null,
+              child: ColoredBox(
+                color: Colors.black,
+                child: ready
+                    ? Stack(
+                        alignment: Alignment.center,
+                        fit: StackFit.expand,
+                        children: [
+                          FittedBox(
+                            fit: BoxFit.cover,
+                            child: SizedBox(
+                              width: controller.value.size.width,
+                              height: controller.value.size.height,
+                              child: VideoPlayer(controller),
+                            ),
+                          ),
+                          if (!controller.value.isPlaying)
+                            const Icon(
+                              Icons.play_arrow_rounded,
+                              color: Colors.white,
+                              size: 48,
+                            ),
+                        ],
+                      )
+                    : !widget.enabled
+                        ? const Center(
+                            child: Icon(
+                              Icons.videocam_outlined,
+                              color: Colors.white54,
+                              size: 32,
+                            ),
+                          )
+                        : _initFailed
+                            ? const Center(
+                                child: Icon(
+                                  Icons.videocam_off_outlined,
+                                  color: Colors.white70,
+                                  size: 32,
+                                ),
+                              )
+                            : const Center(
+                                child: CircularProgressIndicator(
+                                  color: Colors.white,
+                                ),
+                              ),
               ),
             ),
-            if (chosen)
-              Text(
-                'Change',
-                style: PortalTheme.helperText
-                    .copyWith(color: PortalTheme.accent),
-              ),
-          ],
+          ),
         ),
-      ),
+        const SizedBox(height: 8),
+        InkWell(
+          onTap: widget.enabled ? widget.onPick : null,
+          borderRadius: BorderRadius.circular(8),
+          child: Container(
+            padding: const EdgeInsets.all(14),
+            decoration: BoxDecoration(
+              color: PortalTheme.cardSurface,
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: PortalTheme.accent),
+            ),
+            child: Row(
+              children: [
+                PortalIcon('play', size: 20, color: PortalTheme.accent),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        _fileLabel(preview),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: PortalTheme.inputText,
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        widget.isLocal ? 'Ready to upload' : 'Current video',
+                        style: PortalTheme.helperText,
+                      ),
+                    ],
+                  ),
+                ),
+                Text(
+                  'Change',
+                  style:
+                      PortalTheme.helperText.copyWith(color: PortalTheme.accent),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ],
     );
   }
 
@@ -631,7 +827,12 @@ class _ThumbnailPickerTile extends StatelessWidget {
           borderRadius: BorderRadius.circular(8),
           child: AspectRatio(
             aspectRatio: 16 / 9,
-            child: isLocal
+            // `Image.file` needs `dart:io` file access, unsupported on
+            // Flutter Web. A local pick's path on web is already a `blob:`
+            // URL the browser can load directly, so it goes through
+            // `Image.network` instead — same fix as the video preview tile
+            // above.
+            child: (isLocal && !kIsWeb)
                 ? Image.file(File(preview), fit: BoxFit.cover)
                 : Image.network(
                     preview,

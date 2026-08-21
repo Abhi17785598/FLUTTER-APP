@@ -28,6 +28,7 @@ import '../../services/session_service.dart';
 import '../../models/nearby_place.dart';
 import '../../models/property_model.dart';
 import '../../models/property_detail_bundle.dart';
+import '../../services/visit_requests_service.dart';
 
 // =============================================================================
 // PropertyDetailScreen
@@ -2042,16 +2043,33 @@ class _PropertyDetailScreenState extends State<PropertyDetailScreen>
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
       builder: (BuildContext sheetContext) {
-        String selectedDate = 'Tomorrow';
+        // Real, relative dates — `preferred_date` is a NOT NULL `DATE`
+        // column (20260314133000_add_property_visit_bookings.sql:9), so a
+        // free-text label like the old hardcoded "May 21, 2026" cannot be
+        // written to it. The chip UI is unchanged; only the underlying
+        // values are now real, matching the reference's Book Visit dialog
+        // requiring an actual selected date (BookVisitModal.tsx:124-125).
+        final now = DateTime.now();
+        final List<DateTime> dateValues = List.generate(
+          4,
+          (i) => DateTime(now.year, now.month, now.day + i + 1),
+        );
+        const List<String> months = [
+          'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+          'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
+        ];
+        String dateLabel(int index, DateTime d) =>
+            index == 0 ? 'Tomorrow' : '${d.day} ${months[d.month - 1]} ${d.year}';
+
+        DateTime selectedDateValue = dateValues[0];
+        String selectedDate = dateLabel(0, dateValues[0]);
         String selectedTime = '10:00 AM';
+        bool submitting = false;
 
         return StatefulBuilder(
           builder: (BuildContext ctx, StateSetter setModalState) {
             final List<String> dates = [
-              'Tomorrow',
-              'May 21, 2026',
-              'May 22, 2026',
-              'May 23, 2026',
+              for (var i = 0; i < dateValues.length; i++) dateLabel(i, dateValues[i]),
             ];
             final List<String> times = [
               '10:00 AM',
@@ -2125,7 +2143,10 @@ class _PropertyDetailScreenState extends State<PropertyDetailScreen>
                             ),
                             onSelected: (bool selected) {
                               if (selected) {
-                                setModalState(() => selectedDate = date);
+                                setModalState(() {
+                                  selectedDate = date;
+                                  selectedDateValue = dateValues[index];
+                                });
                               }
                             },
                           ),
@@ -2174,31 +2195,72 @@ class _PropertyDetailScreenState extends State<PropertyDetailScreen>
                     width: double.infinity,
                     height: 48,
                     child: ElevatedButton(
-                      onPressed: () {
-                        propertyProvider.addVisit({
-                          'propertyId': property.id,
-                          'title': property.title,
-                          'location': property.location,
-                          'date': selectedDate,
-                          'time': selectedTime,
-                          'agentName': 'Rajesh Kumar',
-                          'agentPhone': '+91 98765 43210',
-                          'status': 'Confirmed',
-                          'isUpcoming': true,
-                        });
-                        Navigator.pop(sheetContext);
-                        _showSuccessDialog(context, selectedDate, selectedTime);
-                      },
+                      onPressed: submitting
+                          ? null
+                          : () async {
+                              // Real insert into `property_visit_bookings`,
+                              // mirroring `BookVisitModal.tsx`'s
+                              // `handleSubmit` (:132-202) — a fresh request
+                              // always starts `status: 'pending'`.
+                              final authUser =
+                                  Supabase.instance.client.auth.currentUser;
+                              final userId = authUser?.id;
+                              if (userId == null) {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  const SnackBar(
+                                    content: Text('Please log in to book a visit'),
+                                  ),
+                                );
+                                return;
+                              }
+
+                              setModalState(() => submitting = true);
+                              try {
+                                await VisitRequestsService().createPropertyVisit(
+                                  userId: userId,
+                                  propertyId: property.id as String,
+                                  visitorName: authUser
+                                          ?.userMetadata?['full_name']
+                                          ?.toString() ??
+                                      '',
+                                  visitorPhone: authUser?.phone ?? '',
+                                  preferredDate: selectedDateValue,
+                                  preferredTime: selectedTime,
+                                );
+                                if (!sheetContext.mounted) return;
+                                Navigator.pop(sheetContext);
+                                _showSuccessDialog(context, selectedDate, selectedTime);
+                              } catch (e) {
+                                setModalState(() => submitting = false);
+                                if (!context.mounted) return;
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  const SnackBar(
+                                    content: Text(
+                                      'Failed to submit visit request. Please check your connection.',
+                                    ),
+                                  ),
+                                );
+                              }
+                            },
                       style: ElevatedButton.styleFrom(
                         backgroundColor: AppColors.primary,
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(12),
                         ),
                       ),
-                      child: const Text(
-                        'Confirm Schedule',
-                        style: TextStyle(color: Colors.white, fontSize: 16),
-                      ),
+                      child: submitting
+                          ? const SizedBox(
+                              width: 20,
+                              height: 20,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                color: Colors.white,
+                              ),
+                            )
+                          : const Text(
+                              'Confirm Schedule',
+                              style: TextStyle(color: Colors.white, fontSize: 16),
+                            ),
                     ),
                   ),
                 ],
