@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_text_styles.dart';
+import '../../../core/utils/amount_in_words.dart';
 import '../../../core/widgets/wizard_kit.dart';
 import '../../../providers/post_property_provider.dart';
 import '../listing_area_units.dart';
@@ -145,6 +146,7 @@ class _PricingStepState extends State<PricingStep> {
   Widget _priceField(PostPropertyProvider provider) {
     final label = _askingPriceLabel(provider.category, provider.listingIntent);
     if (label == null) return const SizedBox.shrink();
+    final words = amountToWordsIndian(provider.price);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -164,6 +166,15 @@ class _PricingStepState extends State<PricingStep> {
             },
           ),
         ),
+        // Mirrors `<AmountInWords value={...}/>` (PricingStep.tsx:53) —
+        // "₹45,00,000 · Forty Five Lakh Rupees", live on every keystroke.
+        if (words.isNotEmpty) ...[
+          const SizedBox(height: 4),
+          Text(
+            '₹${groupIndianDigits(provider.price)} · $words Rupees',
+            style: AppTextStyles.caption,
+          ),
+        ],
         const WizardDivider(),
       ],
     );

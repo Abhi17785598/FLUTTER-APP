@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
@@ -386,14 +387,29 @@ class _MediaContactStepState extends State<MediaContactStep> {
                                           size: 32,
                                         ),
                                       )
-                                    : Image.file(
-                                        File(item.file.path),
-                                        fit: BoxFit.cover,
-                                        errorBuilder: (context, error, stackTrace) => Container(
-                                          color: Colors.grey.shade200,
-                                          child: const Icon(Icons.broken_image),
-                                        ),
-                                      ),
+                                    // `Image.file` needs `dart:io` file
+                                    // access, unsupported on Flutter Web —
+                                    // an `XFile`'s path on web is already a
+                                    // `blob:` URL the browser can load
+                                    // directly, so it goes through
+                                    // `Image.network` there instead.
+                                    : kIsWeb
+                                        ? Image.network(
+                                            item.file.path,
+                                            fit: BoxFit.cover,
+                                            errorBuilder: (context, error, stackTrace) => Container(
+                                              color: Colors.grey.shade200,
+                                              child: const Icon(Icons.broken_image),
+                                            ),
+                                          )
+                                        : Image.file(
+                                            File(item.file.path),
+                                            fit: BoxFit.cover,
+                                            errorBuilder: (context, error, stackTrace) => Container(
+                                              color: Colors.grey.shade200,
+                                              child: const Icon(Icons.broken_image),
+                                            ),
+                                          ),
                               ),
                               Positioned(
                                 top: 4,

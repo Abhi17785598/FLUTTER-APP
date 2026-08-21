@@ -49,6 +49,7 @@
 import 'dart:io';
 
 import 'package:flutter/foundation.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:video_compress/video_compress.dart';
 
@@ -91,27 +92,34 @@ class InfluencerMediaService {
   /// while cutting a phone clip enough to clear 50 MB. If compression fails or
   /// somehow returns a larger file, the original is used and the size gate below
   /// decides: a failed optimisation must not become a failed upload.
+  ///
+  /// Takes the `XFile` `image_picker` returns rather than a `dart:io.File` —
+  /// on Flutter Web, `file.path` is a `blob:` URL, and `dart:io.File`
+  /// operations on it throw `Unsupported operation: _Namespace`.
+  /// `XFile.readAsBytes()` works on every platform.
   Future<String> uploadVideo({
-    required File file,
+    required XFile file,
     required String userId,
     void Function(String stage)? onProgress,
   }) async {
-    if (!await file.exists()) {
+    Uint8List originalBytes;
+    try {
+      originalBytes = await file.readAsBytes();
+    } catch (e) {
       throw const InfluencerMediaException('That video could not be read.');
+    }
+    if (originalBytes.isEmpty) {
+      throw const InfluencerMediaException('That video appears to be empty.');
     }
 
     onProgress?.call('Compressing video…');
-    final File toUpload = await _compress(file);
+    final Uint8List toUpload = await _compress(file, originalBytes);
 
-    final int length = await toUpload.length();
-    if (length == 0) {
-      throw const InfluencerMediaException('That video appears to be empty.');
-    }
-    if (length > maxVideoBytes) {
+    if (toUpload.length > maxVideoBytes) {
       // The portal's wording, with the real number
       // (InfluencerVideoModal.tsx:136-138).
       throw InfluencerMediaException(
-        'Video is too large (${_mb(length)}). Maximum is '
+        'Video is too large (${_mb(toUpload.length)}). Maximum is '
         '${_mb(maxVideoBytes)}. Please upload a shorter or lower-resolution '
         'clip.',
       );
@@ -119,9 +127,9 @@ class InfluencerMediaService {
 
     onProgress?.call('Uploading video…');
     return _upload(
-      bytes: await toUpload.readAsBytes(),
-      path: '$userId/$videoPrefix/${_stamp()}-${sanitizeFileName(file.path)}',
-      fileName: file.path,
+      bytes: toUpload,
+      path: '$userId/$videoPrefix/${_stamp()}-${sanitizeFileName(file.name)}',
+      fileName: file.name,
     );
   }
 
@@ -132,28 +140,29 @@ class InfluencerMediaService {
   /// that during selection — the same approach `ProfileMediaService` takes — so
   /// there is nothing left to do here but check and send.
   Future<String> uploadThumbnail({
-    required File file,
+    required XFile file,
     required String userId,
   }) async {
-    if (!await file.exists()) {
+    Uint8List bytes;
+    try {
+      bytes = await file.readAsBytes();
+    } catch (e) {
       throw const InfluencerMediaException('That image could not be read.');
     }
-
-    final int length = await file.length();
-    if (length == 0) {
+    if (bytes.isEmpty) {
       throw const InfluencerMediaException('That image appears to be empty.');
     }
-    if (length > maxThumbnailBytes) {
+    if (bytes.length > maxThumbnailBytes) {
       throw InfluencerMediaException(
         'That thumbnail is larger than the ${_mb(maxThumbnailBytes)} limit.',
       );
     }
 
     return _upload(
-      bytes: await file.readAsBytes(),
+      bytes: bytes,
       path:
-          '$userId/$thumbnailPrefix/${_stamp()}-${sanitizeFileName(file.path)}',
-      fileName: file.path,
+          '$userId/$thumbnailPrefix/${_stamp()}-${sanitizeFileName(file.name)}',
+      fileName: file.name,
     );
   }
 
@@ -175,18 +184,25 @@ class InfluencerMediaService {
     return compressed;
   }
 
-  Future<File> _compress(File file) async {
+  /// Compression is an optimisation, never a gate — any failure (including
+  /// "unsupported on this platform") falls back to [originalBytes] and lets
+  /// the caller's size check have the final say.
+  Future<Uint8List> _compress(XFile file, Uint8List originalBytes) async {
+    if (kIsWeb) {
+      // `video_compress` has no web implementation, and there is no real
+      // filesystem path to hand it on web anyway — an `XFile.path` there is
+      // a `blob:` URL, not something `dart:io.File` can open.
+      return originalBytes;
+    }
     try {
-      final compressed = await compressForUpload(file);
-      // Compression is an optimisation, never a gate. A codec the device cannot
-      // re-encode, or an already-small clip that grows, both fall back to the
-      // original and let the size check have the final say.
-      if (await compressed.length() >= await file.length()) return file;
-      return compressed;
+      final compressed = await compressForUpload(File(file.path));
+      final compressedBytes = await compressed.readAsBytes();
+      if (compressedBytes.length >= originalBytes.length) return originalBytes;
+      return compressedBytes;
     } catch (e) {
       debugPrint('InfluencerMediaService compression failed, '
           'uploading original: $e');
-      return file;
+      return originalBytes;
     }
   }
 

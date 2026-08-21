@@ -17,7 +17,8 @@ import 'widgets/reel_action_button.dart';
 import 'widgets/reel_controller_manager.dart';
 import 'widgets/reel_info_panel.dart';
 import 'widgets/reel_property_card.dart';
-import 'package:video_player/video_player.dart' show VideoViewType;
+import 'package:video_player/video_player.dart'
+    show VideoPlayerController, VideoViewType;
 
 import 'widgets/reel_video_view.dart';
 
@@ -138,7 +139,16 @@ class _ReelsScreenState extends State<ReelsScreen> {
       _currentIndex = index;
       _isPaused = false;
     });
-    _manager.onActiveIndexChanged(index);
+    // Deferred a frame: onActiveIndexChanged disposes/initializes native
+    // video surfaces (real platform-channel round trips), and starting that
+    // work in the same call stack as the page-change notification meant it
+    // began competing with the PageView's own settle animation for the UI
+    // thread at the exact moment of the swipe. Starting it only once that
+    // frame has been drawn keeps the fling/settle smooth.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      _manager.onActiveIndexChanged(index);
+    });
   }
 
   void _togglePlayPause() {
@@ -269,18 +279,13 @@ class _ReelsScreenState extends State<ReelsScreen> {
               // which is a well-known source of jank for platform views
               // inside a scrollable.
               return RepaintBoundary(
-                child: AnimatedBuilder(
-                  animation: _manager,
-                  builder: (context, _) {
-                    return ReelVideoView(
-                      key: ValueKey(provider.reels[index].id),
-                      reel: provider.reels[index],
-                      controller: _manager.controllerAt(index),
-                      hasFailed: _manager.hasFailed(index),
-                      isPaused: index == _currentIndex && _isPaused,
-                      onTogglePlayPause: _togglePlayPause,
-                    );
-                  },
+                child: _ReelPageSurface(
+                  key: ValueKey(provider.reels[index].id),
+                  manager: _manager,
+                  index: index,
+                  reel: provider.reels[index],
+                  isPaused: index == _currentIndex && _isPaused,
+                  onTogglePlayPause: _togglePlayPause,
                 ),
               );
             },
@@ -589,6 +594,104 @@ class _ReelsScreenState extends State<ReelsScreen> {
       backgroundColor: Colors.transparent,
       isScrollControlled: true,
       builder: (_) => _CommentsSheet(reel: reel),
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// One PageView slot's video surface — rebuilds only for its own state
+// ─────────────────────────────────────────────────────────────────────────────
+
+/// Renders one page's [ReelVideoView], listening to [manager] but rebuilding
+/// only when THIS index's own (controller, ready, failed) state actually
+/// changes — not on every notification the manager fires.
+///
+/// [ReelControllerManager] is one [ChangeNotifier] shared by the whole
+/// sliding window: muting, a neighbour finishing its preload-init, or a
+/// far-out-of-window controller being disposed all call `notifyListeners()`.
+/// The previous code wrapped every built page in an `AnimatedBuilder` keyed
+/// to that same notifier, so any one of those unrelated events rebuilt every
+/// visible/preloading page at once — right as the swipe's settle animation
+/// was running. Comparing before calling `setState` bounds each page's
+/// rebuilds to changes that are actually its own.
+class _ReelPageSurface extends StatefulWidget {
+  const _ReelPageSurface({
+    super.key,
+    required this.manager,
+    required this.index,
+    required this.reel,
+    required this.isPaused,
+    required this.onTogglePlayPause,
+  });
+
+  final ReelControllerManager manager;
+  final int index;
+  final ReelModel reel;
+  final bool isPaused;
+  final VoidCallback onTogglePlayPause;
+
+  @override
+  State<_ReelPageSurface> createState() => _ReelPageSurfaceState();
+}
+
+class _ReelPageSurfaceState extends State<_ReelPageSurface> {
+  VideoPlayerController? _controller;
+  bool _ready = false;
+  bool _hasFailed = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _sync();
+    widget.manager.addListener(_onManagerChanged);
+  }
+
+  @override
+  void didUpdateWidget(_ReelPageSurface oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.manager != widget.manager) {
+      oldWidget.manager.removeListener(_onManagerChanged);
+      widget.manager.addListener(_onManagerChanged);
+    }
+    if (oldWidget.manager != widget.manager || oldWidget.index != widget.index) {
+      _sync();
+    }
+  }
+
+  @override
+  void dispose() {
+    widget.manager.removeListener(_onManagerChanged);
+    super.dispose();
+  }
+
+  void _sync() {
+    _controller = widget.manager.controllerAt(widget.index);
+    _ready = _controller?.value.isInitialized ?? false;
+    _hasFailed = widget.manager.hasFailed(widget.index);
+  }
+
+  void _onManagerChanged() {
+    final controller = widget.manager.controllerAt(widget.index);
+    final ready = controller?.value.isInitialized ?? false;
+    final hasFailed = widget.manager.hasFailed(widget.index);
+    if (controller == _controller && ready == _ready && hasFailed == _hasFailed) {
+      return;
+    }
+    setState(() {
+      _controller = controller;
+      _ready = ready;
+      _hasFailed = hasFailed;
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return ReelVideoView(
+      reel: widget.reel,
+      controller: _controller,
+      hasFailed: _hasFailed,
+      isPaused: widget.isPaused,
+      onTogglePlayPause: widget.onTogglePlayPause,
     );
   }
 }

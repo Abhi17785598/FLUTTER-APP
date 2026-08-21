@@ -23,7 +23,7 @@ class FeedService {
       _supabase
           .from('properties')
           .select(
-            'id, title, price, media_urls, user_id, created_at, views, likes',
+            'id, title, price, location, media_urls, user_id, created_at, views, likes',
           )
           .inFilter('status', ['active', 'sold'])
           .eq('approval_status', 'approved')

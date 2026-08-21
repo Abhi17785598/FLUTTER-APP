@@ -1,9 +1,11 @@
 import 'package:flutter/foundation.dart';
 
 import '../models/article_summary.dart';
+import '../models/influencer_video_model.dart';
 import '../models/profile_stats.dart';
 import '../models/property_model.dart';
 import '../services/article_service.dart';
+import '../services/influencer_video_service.dart';
 import '../services/network_service.dart';
 import '../services/profile_view_service.dart';
 import '../services/property_service.dart';
@@ -25,17 +27,21 @@ class ProfileProvider extends ChangeNotifier {
     ProfileViewService? profileViewService,
     PropertyService? propertyService,
     ArticleService? articleService,
+    InfluencerVideoService? influencerVideoService,
   })  : _networkService = networkService ?? NetworkService(),
         _ratingsService = ratingsService ?? RatingsService(),
         _profileViewService = profileViewService ?? ProfileViewService(),
         _propertyService = propertyService ?? PropertyService(),
-        _articleService = articleService ?? ArticleService();
+        _articleService = articleService ?? ArticleService(),
+        _influencerVideoService =
+            influencerVideoService ?? InfluencerVideoService();
 
   final NetworkService _networkService;
   final RatingsService _ratingsService;
   final ProfileViewService _profileViewService;
   final PropertyService _propertyService;
   final ArticleService _articleService;
+  final InfluencerVideoService _influencerVideoService;
 
   String? _lastUserId;
 
@@ -45,6 +51,7 @@ class ProfileProvider extends ChangeNotifier {
 
   List<PropertyModel> _properties = const [];
   List<ArticleSummary> _articles = const [];
+  List<InfluencerVideoModel> _videos = const [];
   bool _contentLoading = true;
   bool _contentFailed = false;
 
@@ -54,10 +61,12 @@ class ProfileProvider extends ChangeNotifier {
 
   List<PropertyModel> get properties => List.unmodifiable(_properties);
   List<ArticleSummary> get articles => List.unmodifiable(_articles);
+  List<InfluencerVideoModel> get videos => List.unmodifiable(_videos);
   bool get contentLoading => _contentLoading;
   bool get contentFailed => _contentFailed;
 
-  bool get hasAnyContent => _properties.isNotEmpty || _articles.isNotEmpty;
+  bool get hasAnyContent =>
+      _properties.isNotEmpty || _articles.isNotEmpty || _videos.isNotEmpty;
 
   Future<void> load(String userId) async {
     _lastUserId = userId;
@@ -106,18 +115,25 @@ class ProfileProvider extends ChangeNotifier {
     notifyListeners();
 
     try {
+      // Fetched unconditionally, same as the portal's `fetchUserVideos` —
+      // gating "Videos" to influencer accounts happens at the tab-visibility
+      // layer (`MyContentSection.showVideosTab`), not here; a non-influencer
+      // simply has no rows in `influencer_videos`.
       final results = await Future.wait([
         _propertyService.getPropertiesByUser(userId),
         _articleService.listOwn(userId),
+        _influencerVideoService.listMine(userId),
       ]);
 
       _properties = results[0] as List<PropertyModel>;
       _articles = results[1] as List<ArticleSummary>;
+      _videos = results[2] as List<InfluencerVideoModel>;
     } catch (e) {
       debugPrint('ProfileProvider._loadContent failed: $e');
       _contentFailed = true;
       _properties = const [];
       _articles = const [];
+      _videos = const [];
     } finally {
       _contentLoading = false;
       notifyListeners();

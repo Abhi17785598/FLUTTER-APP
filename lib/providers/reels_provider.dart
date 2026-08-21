@@ -184,6 +184,12 @@ class ReelsProvider with ChangeNotifier {
     return _reels.where((r) => _savedIds.contains(r.id)).toList();
   }
 
+  /// Cached reels the user has liked — same approach as [getSavedReels],
+  /// backing the "Liked" tab's Reels filter in My Activity.
+  List<ReelModel> getLikedReels() {
+    return _reels.where((r) => _likedIds.contains(r.id)).toList();
+  }
+
   void toggleFollow(String id) {
     _followedIds.contains(id)
         ? _followedIds.remove(id)

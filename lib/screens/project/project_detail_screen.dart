@@ -5,11 +5,11 @@
 // WHAT IS PORTED, AND WHAT IS NOT
 // ------------------------------
 // Ported: the project read, the builder-profile read with its auth-aware column
-// list, the flattened media gallery (`getAllMedia`, :637-644), and every field the
-// page shows.
+// list, the flattened media gallery (`getAllMedia`, :637-644), every field the
+// page shows, and like/save (`user_likes.project_id` / `saved_projects`, via
+// `ProjectsProvider` — the gallery header's heart/bookmark actions).
 //
 // Not ported, each because it is a different table and a later phase:
-//   * like / save — `user_likes`, `saved_projects`
 //   * comments — `comments` plus a realtime subscription
 //   * "Book a visit" — `project_visit_bookings`, phase B7
 //   * admin approve — an `approval_status` write, admin-only
@@ -34,6 +34,7 @@ import '../../core/widgets/empty_state_view.dart';
 import '../../models/project_model.dart';
 import '../../models/user_profile.dart';
 import '../../providers/auth_provider.dart';
+import '../../providers/projects_provider.dart';
 import '../../services/project_service.dart';
 import '../../services/user_profile_service.dart';
 import '../dashboard/widgets/my_projects_section.dart'
@@ -212,6 +213,7 @@ class _ProjectDetailScreenState extends State<ProjectDetailScreen> {
     }
 
     final project = _project!;
+    final projectsProvider = context.watch<ProjectsProvider>();
 
     return Scaffold(
       backgroundColor: AppColors.background,
@@ -220,6 +222,12 @@ class _ProjectDetailScreenState extends State<ProjectDetailScreen> {
           _GalleryHeader(
             images: project.galleryImages,
             onBack: () => Navigator.of(context).maybePop(),
+            isLiked: projectsProvider.isLiked(project.id),
+            isSaved: projectsProvider.isSaved(project.id),
+            onToggleLike: () =>
+                projectsProvider.toggleLike(project.id, project: project),
+            onToggleSave: () =>
+                projectsProvider.toggleSave(project.id, project: project),
           ),
           SliverToBoxAdapter(
             child: Padding(
@@ -350,10 +358,29 @@ class _Shell extends StatelessWidget {
 }
 
 class _GalleryHeader extends StatefulWidget {
-  const _GalleryHeader({required this.images, required this.onBack});
+  const _GalleryHeader({
+    required this.images,
+    required this.onBack,
+    required this.isLiked,
+    required this.isSaved,
+    required this.onToggleLike,
+    required this.onToggleSave,
+  });
 
   final List<String> images;
   final VoidCallback onBack;
+
+  /// Like — backed by `user_likes.project_id`, a separate action from Save
+  /// below, mirroring the property detail screen's Like/Save split
+  /// (`property_detail_screen.dart`'s `_buildTopActions`: Heart = Like,
+  /// Bookmark = Save, never two hearts).
+  final bool isLiked;
+
+  /// Save/Shortlist — backed by `saved_projects`.
+  final bool isSaved;
+
+  final VoidCallback onToggleLike;
+  final VoidCallback onToggleSave;
 
   @override
   State<_GalleryHeader> createState() => _GalleryHeaderState();
@@ -381,6 +408,23 @@ class _GalleryHeaderState extends State<_GalleryHeader> {
         icon: const Icon(Icons.arrow_back, color: Colors.white),
         onPressed: widget.onBack,
       ),
+      actions: [
+        IconButton(
+          icon: Icon(
+            widget.isLiked ? Icons.favorite : Icons.favorite_border,
+            color: widget.isLiked ? Colors.red : Colors.white,
+          ),
+          onPressed: widget.onToggleLike,
+        ),
+        IconButton(
+          icon: Icon(
+            widget.isSaved ? Icons.bookmark : Icons.bookmark_border,
+            color: Colors.white,
+          ),
+          onPressed: widget.onToggleSave,
+        ),
+        const SizedBox(width: 4),
+      ],
       flexibleSpace: FlexibleSpaceBar(
         background: Stack(
           fit: StackFit.expand,
