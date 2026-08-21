@@ -197,7 +197,27 @@ class PortalTextField extends StatelessWidget {
               style: PortalTheme.inputText,
               decoration: InputDecoration(
                 isDense: true,
+                // The app-wide `ThemeData.inputDecorationTheme`
+                // (app_theme.dart) sets its own `focusedBorder` (a blue,
+                // 2px, radius-14 OutlineInputBorder) as a default for every
+                // text field. `border:` only fills that one named slot —
+                // `enabledBorder`/`focusedBorder`/`disabledBorder`/
+                // `errorBorder`/`focusedErrorBorder` are separate slots that
+                // `InputDecoration.applyDefaults` fills from the theme
+                // independently when left unset, regardless of what
+                // `border:` says. Leaving them unset let that theme default
+                // paint its blue outline over this field's own outer
+                // `Container` border the moment it gained focus — the actual
+                // "double border" this was. Setting every slot to
+                // `InputBorder.none` here means this inner `TextField` never
+                // draws a border in any state, so the outer `Container`'s
+                // single border (drawn above) is the only one ever visible.
                 border: InputBorder.none,
+                enabledBorder: InputBorder.none,
+                focusedBorder: InputBorder.none,
+                disabledBorder: InputBorder.none,
+                errorBorder: InputBorder.none,
+                focusedErrorBorder: InputBorder.none,
                 contentPadding: EdgeInsets.zero,
                 hintText: hint,
                 hintStyle: PortalTheme.inputText
