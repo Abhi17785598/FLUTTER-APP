@@ -145,6 +145,14 @@ class BrokerLeadService {
     );
   }
 
+  /// Public passthrough to [_fetchPrices] — `UnifiedLeadsService` needs the
+  /// same raw-price read for its own closed-value fold over a differently
+  /// filtered id set (closed + inquiry-sourced ids from the unified list,
+  /// not a `List<BrokerLead>`), so it calls this rather than duplicating the
+  /// query.
+  Future<Map<String, double>> fetchRawPrices(List<String> propertyIds) =>
+      _fetchPrices(propertyIds);
+
   /// Raw `price` per property id, parsed the portal's way.
   ///
   /// A failure yields an empty map rather than propagating: the other three
@@ -329,6 +337,44 @@ class PropertyVisitBookingService {
         date: preferredDate,
         time: preferredTime,
       );
+    }
+  }
+
+  /// Writes only [status] (and `updated_at`) — the slot stays as it is.
+  ///
+  /// The Leads tab's unified status picker only ever moves a visit between
+  /// pending/confirmed/completed (see `visitLeadStatusToDb`); it has no date
+  /// or time to send, unlike [updateBooking], which is the Visits tab's own
+  /// "reschedule" editor. Notifies the same way `updateBooking` does, for the
+  /// same statuses.
+  Future<void> updateStatusOnly({
+    required String bookingId,
+    required String? userId,
+    required String propertyTitle,
+    required String status,
+  }) async {
+    final rows = await _supabase
+        .from(table)
+        .update({
+          'status': status,
+          'updated_at': DateTime.now().toUtc().toIso8601String(),
+        })
+        .eq('id', bookingId)
+        .select('preferred_date, preferred_time');
+
+    if (_notifyingStatuses.contains(status) && userId != null) {
+      final rowList = List<Map<String, dynamic>>.from(rows);
+      final row = rowList.isEmpty ? null : rowList.first;
+      final date = row != null ? DateTime.tryParse(row['preferred_date']?.toString() ?? '') : null;
+      if (date != null) {
+        await _notifyVisitor(
+          userId: userId,
+          propertyTitle: propertyTitle,
+          status: status,
+          date: date,
+          time: row?['preferred_time']?.toString(),
+        );
+      }
     }
   }
 

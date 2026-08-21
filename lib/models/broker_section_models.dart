@@ -286,6 +286,119 @@ class PropertyVisitBooking {
   }
 }
 
+/// Where a [UnifiedLead] came from — the `LeadSource` union
+/// `IncomingLeadsManager.tsx:37` carries, minus `project_visit`/`profile`:
+/// nothing in this app creates `project_visit_bookings` or
+/// `profile_visit_requests` yet, so unifying them here would be a UI for a
+/// data source that can't exist.
+enum UnifiedLeadSource { inquiry, visit }
+
+/// A [BrokerLead] and a [PropertyVisitBooking], folded onto one CRM shape —
+/// the mobile port of `IncomingLeadsManager.tsx`'s `Lead` interface (`:41-55`).
+///
+/// [status] is always one of [kBrokerLeadStatuses]' five values (or `lost`,
+/// which that list omits — see `broker_section_options.dart`), regardless of
+/// [source]. `visitLeadStatusFromDb`/`visitLeadStatusToDb` do the extra fold
+/// a visit booking needs; an inquiry's status is already in this vocabulary
+/// coming out of [BrokerLead].
+class UnifiedLead {
+  const UnifiedLead({
+    required this.id,
+    required this.source,
+    required this.propertyId,
+    required this.buyerName,
+    required this.status,
+    this.propertyTitle,
+    this.buyerEmail,
+    this.buyerPhone,
+    this.message,
+    this.preferredContactTime,
+    this.preferredVisitDate,
+    this.preferredVisitTime,
+    this.requesterUserId,
+    this.createdAt,
+    this.updatedAt,
+  });
+
+  final String id;
+  final UnifiedLeadSource source;
+  final String propertyId;
+  final String? propertyTitle;
+  final String buyerName;
+  final String? buyerEmail;
+  final String? buyerPhone;
+  final String? message;
+
+  /// Unified CRM status — see the class doc comment.
+  final String status;
+
+  /// Inquiry-only: `property_inquiries.preferred_contact_time`, a free-text
+  /// preference like "Evenings" — not a scheduled slot.
+  final String? preferredContactTime;
+
+  /// Visit-only: the actual requested date/time.
+  final DateTime? preferredVisitDate;
+  final String? preferredVisitTime;
+
+  /// The requester's `auth.users.id` — visit-only, needed to notify them on a
+  /// status change. Inquiries don't notify from this picker (the portal's
+  /// `handleStatusChange` only calls `notifyVisitBookingUpdate` for the
+  /// non-inquiry branch).
+  final String? requesterUserId;
+
+  final DateTime? createdAt;
+  final DateTime? updatedAt;
+
+  factory UnifiedLead.fromInquiry(BrokerLead lead) => UnifiedLead(
+        id: lead.id,
+        source: UnifiedLeadSource.inquiry,
+        propertyId: lead.propertyId,
+        propertyTitle: lead.propertyTitle,
+        buyerName: lead.buyerName,
+        buyerEmail: lead.contactEmail,
+        buyerPhone: lead.contactPhone,
+        message: lead.message,
+        status: lead.status,
+        preferredContactTime: lead.preferredContactTime,
+        requesterUserId: lead.inquirerId,
+        createdAt: lead.createdAt,
+        updatedAt: lead.updatedAt,
+      );
+
+  factory UnifiedLead.fromVisit(PropertyVisitBooking booking) => UnifiedLead(
+        id: booking.id,
+        source: UnifiedLeadSource.visit,
+        propertyId: booking.propertyId,
+        propertyTitle: booking.propertyTitle,
+        buyerName: booking.visitorName,
+        buyerPhone: booking.visitorPhone,
+        message: booking.message,
+        status: visitLeadStatusFromDb(booking.status),
+        preferredVisitDate: booking.preferredDate,
+        preferredVisitTime: booking.preferredTime,
+        requesterUserId: booking.userId,
+        createdAt: booking.createdAt,
+      );
+
+  UnifiedLead withStatus(String status) => UnifiedLead(
+        id: id,
+        source: source,
+        propertyId: propertyId,
+        propertyTitle: propertyTitle,
+        buyerName: buyerName,
+        buyerEmail: buyerEmail,
+        buyerPhone: buyerPhone,
+        message: message,
+        status: status,
+        preferredContactTime: preferredContactTime,
+        preferredVisitDate: preferredVisitDate,
+        preferredVisitTime: preferredVisitTime,
+        requesterUserId: requesterUserId,
+        createdAt: createdAt,
+        updatedAt: updatedAt,
+      );
+}
+
 /// One `broker_profiles` row.
 ///
 /// Only `full_name` is NOT NULL. `approval_status` is CHECK-constrained and set by

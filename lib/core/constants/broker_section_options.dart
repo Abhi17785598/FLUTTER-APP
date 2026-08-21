@@ -118,6 +118,54 @@ const Set<String> kActiveBrokerLeadStatuses = {
   'negotiation',
 };
 
+// ── Unified leads (inquiries + visit bookings together) ─────────────────────
+//
+// `IncomingLeadsManager.tsx` folds `property_visit_bookings` (and
+// `project_visit_bookings`/`profile_visit_requests`, not ported here — nothing
+// in this app creates those two yet) into the *same* CRM vocabulary
+// [kBrokerLeadStatuses] already used for inquiries, via its own
+// `visitStatusMap`/`visitReverseStatusMap` (`:71-87`):
+//
+//   pending     ⇄ new / contacted   (both map back to pending — see below)
+//   confirmed   ⇄ viewing_scheduled
+//   rescheduled  → viewing_scheduled   ← one-way; the 5-option picker never
+//                                        writes 'rescheduled' back
+//   completed   ⇄ negotiation / closed (both map back to completed)
+//   cancelled    → lost                ← one-way, and 'lost' is excluded
+//                                        from the picker, same reasoning as
+//                                        inquiries' own missing 'lost'
+//
+// Unlike inquiries (one dbValue per app value), two DB values fold onto one
+// app value here, and two app values fold onto one DB value on the way back
+// — hence separate functions rather than reusing [BrokerLeadStatus].
+
+/// App status for a stored `property_visit_bookings.status`.
+///
+/// Unmapped values (there are none today; the column has no CHECK) fall back
+/// to `new`, matching `visitStatusMap[...] || 'new'` (`IncomingLeadsManager
+/// .tsx:130`).
+String visitLeadStatusFromDb(String? dbValue) => switch (dbValue) {
+      'pending' => 'new',
+      'confirmed' => 'viewing_scheduled',
+      'rescheduled' => 'viewing_scheduled',
+      'completed' => 'negotiation',
+      'cancelled' => 'lost',
+      _ => 'new',
+    };
+
+/// The booking status to write for an app status picked from
+/// [kBrokerLeadStatuses] — always one of pending/confirmed/completed, since
+/// the picker never offers 'lost' and this app's Leads tab never reschedules
+/// a slot (that stays the Visits tab's job).
+String visitLeadStatusToDb(String value) => switch (value) {
+      'new' => 'pending',
+      'contacted' => 'pending',
+      'viewing_scheduled' => 'confirmed',
+      'negotiation' => 'completed',
+      'closed' => 'completed',
+      _ => 'pending',
+    };
+
 // ── Broker profile ──────────────────────────────────────────────────────────
 //
 // `broker_profiles` (20260423000001_create_broker_profiles_table.sql). Only

@@ -25,6 +25,7 @@ import 'package:propcid_app/screens/dashboard/widgets/broker_leads_section.dart'
 import 'package:propcid_app/screens/dashboard/widgets/broker_profile_section.dart';
 import 'package:propcid_app/screens/dashboard/widgets/broker_visit_bookings_section.dart';
 import 'package:propcid_app/services/broker_sections_service.dart';
+import 'package:propcid_app/services/unified_leads_service.dart';
 
 import 'support/overflow_detector.dart';
 
@@ -178,6 +179,7 @@ class _FakeBookingService extends PropertyVisitBookingService {
   bool shouldFail = false;
 
   final List<({String id, String status})> updates = [];
+  final List<({String id, String status})> statusOnlyWrites = [];
   final List<int> scopes = [];
 
   /// The callback the widget handed [subscribe]; a test fires it to simulate a
@@ -220,6 +222,16 @@ class _FakeBookingService extends PropertyVisitBookingService {
     required String propertyTitle,
   }) async {
     updates.add((id: booking.id, status: status));
+  }
+
+  @override
+  Future<void> updateStatusOnly({
+    required String bookingId,
+    required String? userId,
+    required String propertyTitle,
+    required String status,
+  }) async {
+    statusOnlyWrites.add((id: bookingId, status: status));
   }
 }
 
@@ -418,13 +430,27 @@ void main() {
 
   // ── 5. Leads section ────────────────────────────────────────────────────
   group('BrokerLeadsSection', () {
+    // Every case below composes a fresh `_FakeLeadService`/`_FakeBookingService`
+    // pair into a `UnifiedLeadsService` — the same composition
+    // `UnifiedLeadsService`'s own constructor does in production, just with
+    // both halves faked. An empty booking list keeps inquiry-only cases
+    // behaving exactly as before the Leads/Visits unification.
+    UnifiedLeadsService unified({
+      List<BrokerLead> leads = const [],
+      List<PropertyVisitBooking> bookings = const [],
+    }) =>
+        UnifiedLeadsService(
+          leadService: _FakeLeadService(rows: leads),
+          visitService: _FakeBookingService(rows: bookings),
+        );
+
     testWidgets('renders a lead with its property, stats and status',
         (tester) async {
       await _pump(
         tester,
         BrokerLeadsSection(
           properties: [_property()],
-          service: _FakeLeadService(rows: [_lead()]),
+          service: unified(leads: [_lead()]),
         ),
         size: const Size(320, 1200),
       );
@@ -435,18 +461,91 @@ void main() {
       expect(find.text('New'), findsWidgets);
       expect(find.text('Call'), findsOneWidget);
       expect(find.text('Email'), findsOneWidget);
+      expect(find.text('Inquiry'), findsOneWidget);
       // The stats strip.
       expect(find.text('Total'), findsOneWidget);
       expect(find.text('Conversion'), findsOneWidget);
     });
 
-    testWidgets('no listings yields a different message than no enquiries',
+    testWidgets(
+        'a visit booking shows up as a lead too, with the visitor\'s real name',
+        (tester) async {
+      await _pump(
+        tester,
+        BrokerLeadsSection(
+          properties: [_property()],
+          service: unified(bookings: [_booking()]),
+        ),
+        size: const Size(320, 1200),
+      );
+
+      // Unlike an inquiry, a visit carries the visitor's actual name.
+      expect(find.text('Rahul Sharma'), findsOneWidget);
+      expect(find.text('Sea View 3BHK'), findsOneWidget);
+      expect(find.text('Morning preferred.'), findsOneWidget);
+      expect(find.text('Visit Request'), findsOneWidget);
+      // pending -> new, via visitLeadStatusFromDb.
+      expect(find.text('New'), findsWidgets);
+      expect(find.textContaining('Sep'), findsOneWidget); // preferred date
+    });
+
+    testWidgets('inquiries and visits are merged into one sorted, counted list',
+        (tester) async {
+      await _pump(
+        tester,
+        BrokerLeadsSection(
+          properties: [_property()],
+          service: unified(
+            leads: [_lead(id: 'l-1')],
+            bookings: [_booking(id: 'b-1')],
+          ),
+        ),
+        size: const Size(320, 1400),
+      );
+
+      expect(find.text('Interested Buyer'), findsOneWidget);
+      expect(find.text('Rahul Sharma'), findsOneWidget);
+      // Both count toward the same "Total" stat.
+      expect(find.text('2'), findsWidgets);
+    });
+
+    testWidgets(
+        'changing a visit lead\'s status writes to property_visit_bookings, not property_inquiries',
+        (tester) async {
+      final leadService = _FakeLeadService();
+      final visitService = _FakeBookingService(rows: [_booking()]);
+      await _pump(
+        tester,
+        BrokerLeadsSection(
+          properties: [_property()],
+          service: UnifiedLeadsService(
+            leadService: leadService,
+            visitService: visitService,
+          ),
+        ),
+        size: const Size(320, 1200),
+      );
+
+      await tester.tap(find.byType(PopupMenuButton<String>));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Viewing Scheduled').last);
+      await tester.pumpAndSettle();
+
+      // Routed to the booking table (via visitLeadStatusToDb: 'confirmed'),
+      // never to the inquiry service.
+      expect(leadService.statusWrites, isEmpty);
+      expect(visitService.statusOnlyWrites.single.id, 'b-1');
+      expect(visitService.statusOnlyWrites.single.status, 'confirmed');
+      expect(find.textContaining('Marked as viewing scheduled'), findsOneWidget);
+    });
+
+    testWidgets('no listings yields a different message than no leads',
         (tester) async {
       await _pump(
         tester,
         BrokerLeadsSection(
           properties: const [],
-          service: _FakeLeadService(),
+          service: unified(),
         ),
       );
       expect(find.textContaining('once you publish a listing'), findsOneWidget);
@@ -455,29 +554,41 @@ void main() {
         tester,
         BrokerLeadsSection(
           properties: [_property()],
-          service: _FakeLeadService(),
+          service: unified(),
         ),
       );
-      expect(find.text('No enquiries yet.'), findsOneWidget);
+      expect(find.text('No leads yet.'), findsOneWidget);
     });
 
     testWidgets('an empty listing scope issues no unfiltered read',
         (tester) async {
-      final service = _FakeLeadService(rows: [_lead()]);
+      final leadService = _FakeLeadService(rows: [_lead()]);
       await _pump(
         tester,
-        BrokerLeadsSection(properties: const [], service: service),
+        BrokerLeadsSection(
+          properties: const [],
+          service: UnifiedLeadsService(
+            leadService: leadService,
+            visitService: _FakeBookingService(),
+          ),
+        ),
       );
       expect(find.text('Interested Buyer'), findsNothing);
-      expect(service.scopes, [0]);
+      expect(leadService.scopes, [0]);
     });
 
     testWidgets('changing status writes the app value and recomputes stats',
         (tester) async {
-      final service = _FakeLeadService(rows: [_lead()]);
+      final leadService = _FakeLeadService(rows: [_lead()]);
       await _pump(
         tester,
-        BrokerLeadsSection(properties: [_property()], service: service),
+        BrokerLeadsSection(
+          properties: [_property()],
+          service: UnifiedLeadsService(
+            leadService: leadService,
+            visitService: _FakeBookingService(),
+          ),
+        ),
         size: const Size(320, 1200),
       );
 
@@ -486,20 +597,26 @@ void main() {
       await tester.tap(find.text('Negotiation').last);
       await tester.pumpAndSettle();
 
-      expect(service.statusWrites.single.id, 'l-1');
+      expect(leadService.statusWrites.single.id, 'l-1');
       // The app-side value; the service maps it to the enum.
-      expect(service.statusWrites.single.status, 'negotiation');
+      expect(leadService.statusWrites.single.status, 'negotiation');
       expect(find.textContaining('Marked as negotiation'), findsOneWidget);
     });
 
     testWidgets('a refused status is surfaced, not swallowed', (tester) async {
-      final service = _FakeLeadService(rows: [_lead()])
+      final leadService = _FakeLeadService(rows: [_lead()])
         ..statusError = const BrokerSectionException(
           '"lost" is not a status this lead can be set to.',
         );
       await _pump(
         tester,
-        BrokerLeadsSection(properties: [_property()], service: service),
+        BrokerLeadsSection(
+          properties: [_property()],
+          service: UnifiedLeadsService(
+            leadService: leadService,
+            visitService: _FakeBookingService(),
+          ),
+        ),
         size: const Size(320, 1200),
       );
 
@@ -517,7 +634,7 @@ void main() {
         tester,
         BrokerLeadsSection(
           properties: [_property()],
-          service: _FakeLeadService(rows: [_lead(phone: null)]),
+          service: unified(leads: [_lead(phone: null)]),
         ),
         size: const Size(320, 1200),
       );
@@ -526,13 +643,19 @@ void main() {
     });
 
     testWidgets('the filter narrows without re-querying', (tester) async {
-      final service = _FakeLeadService(rows: [
+      final leadService = _FakeLeadService(rows: [
         _lead(id: 'a', dbStatus: 'pending'),
         _lead(id: 'b', dbStatus: 'closed'),
       ]);
       await _pump(
         tester,
-        BrokerLeadsSection(properties: [_property()], service: service),
+        BrokerLeadsSection(
+          properties: [_property()],
+          service: UnifiedLeadsService(
+            leadService: leadService,
+            visitService: _FakeBookingService(),
+          ),
+        ),
         size: kFilterViewport,
       );
 
@@ -542,7 +665,7 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.text('Interested Buyer'), findsOneWidget);
-      expect(service.scopes, hasLength(1));
+      expect(leadService.scopes, hasLength(1));
     });
 
     testWidgets('a failure offers a retry', (tester) async {
@@ -550,7 +673,10 @@ void main() {
         tester,
         BrokerLeadsSection(
           properties: [_property()],
-          service: _FakeLeadService()..shouldFail = true,
+          service: UnifiedLeadsService(
+            leadService: _FakeLeadService()..shouldFail = true,
+            visitService: _FakeBookingService(),
+          ),
         ),
       );
       expect(find.text("Couldn't load your leads"), findsOneWidget);
@@ -562,7 +688,7 @@ void main() {
         tester,
         BrokerLeadsSection(
           properties: [_property()],
-          service: _FakeLeadService(rows: [_lead(dbStatus: 'scheduled')]),
+          service: unified(leads: [_lead(dbStatus: 'scheduled')]),
         ),
         textScale: 1.3,
         size: const Size(320, 1400),

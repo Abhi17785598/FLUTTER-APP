@@ -29,7 +29,8 @@ import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_text_styles.dart';
 import '../../../models/broker_section_models.dart';
 import '../../../models/property_model.dart';
-import '../../../services/broker_sections_service.dart';
+import '../../../services/broker_sections_service.dart' show BrokerSectionException;
+import '../../../services/unified_leads_service.dart';
 import '../../../widgets/shared/stat_kpi_card.dart';
 import 'builder_section_kit.dart';
 
@@ -53,16 +54,16 @@ class BrokerLeadsSection extends StatefulWidget {
   final ValueChanged<int>? onCountChanged;
 
   @visibleForTesting
-  final BrokerLeadService? service;
+  final UnifiedLeadsService? service;
 
   @override
   State<BrokerLeadsSection> createState() => _BrokerLeadsSectionState();
 }
 
 class _BrokerLeadsSectionState extends State<BrokerLeadsSection> {
-  late final BrokerLeadService _leads = widget.service ?? BrokerLeadService();
+  late final UnifiedLeadsService _leads = widget.service ?? UnifiedLeadsService();
 
-  List<BrokerLead>? _items;
+  List<UnifiedLead>? _items;
   BrokerLeadStats _stats = BrokerLeadStats.empty;
   bool _failed = false;
   String? _busyLeadId;
@@ -114,15 +115,15 @@ class _BrokerLeadsSectionState extends State<BrokerLeadsSection> {
     );
   }
 
-  Future<void> _setStatus(BrokerLead lead, String status) async {
+  Future<void> _setStatus(UnifiedLead lead, String status) async {
     if (status == lead.status) return;
 
     setState(() => _busyLeadId = lead.id);
     try {
-      await _leads.setStatus(leadId: lead.id, status: status);
+      final updatedLead = await _leads.setStatus(lead, status);
       if (!mounted) return;
       final updated = _items
-          ?.map((l) => l.id == lead.id ? l.withStatus(status) : l)
+          ?.map((l) => l.id == lead.id ? updatedLead : l)
           .toList();
       // Recomputed rather than adjusted by hand: conversion rate and closed value
       // both move when a single status changes, and adjusting four counters in
@@ -146,24 +147,24 @@ class _BrokerLeadsSectionState extends State<BrokerLeadsSection> {
     }
   }
 
-  Future<void> _call(BrokerLead lead) async {
-    final phone = lead.contactPhone;
+  Future<void> _call(UnifiedLead lead) async {
+    final phone = lead.buyerPhone;
     if (phone == null) return;
     if (!await launchUrl(Uri(scheme: 'tel', path: phone))) {
       _toast('Could not open the dialler.', isError: true);
     }
   }
 
-  Future<void> _email(BrokerLead lead) async {
-    final email = lead.contactEmail;
+  Future<void> _email(UnifiedLead lead) async {
+    final email = lead.buyerEmail;
     if (email == null) return;
     if (!await launchUrl(Uri(scheme: 'mailto', path: email))) {
       _toast('Could not open your mail app.', isError: true);
     }
   }
 
-  List<BrokerLead> get _visible {
-    final all = _items ?? const <BrokerLead>[];
+  List<UnifiedLead> get _visible {
+    final all = _items ?? const <UnifiedLead>[];
     final filter = _statusFilter;
     if (filter == null) return all;
     return all.where((l) => l.status == filter).toList();
@@ -204,8 +205,8 @@ class _BrokerLeadsSectionState extends State<BrokerLeadsSection> {
                       // No leads at all, unfiltered — the portal's
                       // `leads.length === 0` copy.
                       ? (widget.properties.isEmpty
-                          ? 'Enquiries appear here once you publish a listing.'
-                          : 'No enquiries yet.')
+                          ? 'Leads appear here once you publish a listing.'
+                          : 'No leads yet.')
                       // Leads exist, but none match the selected filter.
                       : 'No ${brokerLeadStatusLabel(_statusFilter).toLowerCase()} '
                           'leads.',
@@ -361,7 +362,7 @@ class _LeadCard extends StatelessWidget {
     required this.onStatusChanged,
   });
 
-  final BrokerLead lead;
+  final UnifiedLead lead;
   final bool busy;
   final VoidCallback onCall;
   final VoidCallback onEmail;
@@ -376,22 +377,49 @@ class _LeadCard extends StatelessWidget {
         _ => AppColors.textHint,
       };
 
+  /// `sourceBadge` — `IncomingLeadsManager.tsx:388-397` — collapsed to the
+  /// two sources this app has (`visit`/`project_visit` share one label
+  /// there; only `visit` is reachable here).
+  static ({IconData icon, String label}) _source(UnifiedLeadSource source) =>
+      switch (source) {
+        UnifiedLeadSource.inquiry => (icon: Icons.forum_outlined, label: 'Inquiry'),
+        UnifiedLeadSource.visit => (icon: Icons.event_available_outlined, label: 'Visit Request'),
+      };
+
   @override
   Widget build(BuildContext context) {
+    final source = _source(lead.source);
     return BuilderSectionCard(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            // `property_inquiries` has no name column, so this is the portal's own
-            // placeholder rather than data.
-            lead.buyerName,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: AppTextStyles.body.copyWith(
-              fontSize: 14,
-              fontWeight: FontWeight.w700,
-            ),
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  // `property_inquiries` has no name column, so an inquiry's
+                  // name is the portal's own placeholder rather than data —
+                  // a visit's is the visitor's real name they typed.
+                  lead.buyerName,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: AppTextStyles.body.copyWith(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 6),
+              Icon(source.icon, size: 12, color: AppColors.textHint),
+              const SizedBox(width: 3),
+              Text(
+                source.label,
+                style: AppTextStyles.caption.copyWith(
+                  fontSize: 10.5,
+                  color: AppColors.textHint,
+                ),
+              ),
+            ],
           ),
           const SizedBox(height: 3),
           Text(
@@ -441,6 +469,25 @@ class _LeadCard extends StatelessWidget {
               ],
             ),
           ],
+          if (lead.preferredVisitDate != null) ...[
+            const SizedBox(height: 6),
+            Row(
+              children: [
+                const Icon(Icons.calendar_today_outlined,
+                    size: 13, color: AppColors.textHint),
+                const SizedBox(width: 4),
+                Expanded(
+                  child: Text(
+                    '${_formatDate(lead.preferredVisitDate!)}'
+                    '${(lead.preferredVisitTime?.isNotEmpty ?? false) ? ' at ${lead.preferredVisitTime}' : ''}',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: AppTextStyles.caption.copyWith(fontSize: 11.5),
+                  ),
+                ),
+              ],
+            ),
+          ],
           const SizedBox(height: AppConstants.spacingM),
           const Divider(height: 1, color: AppColors.hairline),
           const SizedBox(height: 6),
@@ -455,14 +502,18 @@ class _LeadCard extends StatelessWidget {
                     label: 'Call',
                     // Disabled rather than hidden when the enquirer left no
                     // number: the action exists, this lead just lacks the detail.
-                    onTap: lead.contactPhone == null ? null : onCall,
+                    onTap: lead.buyerPhone == null ? null : onCall,
                   ),
                 ),
                 Expanded(
                   child: BuilderAction(
                     icon: Icons.mail_outline_rounded,
                     label: 'Email',
-                    onTap: lead.contactEmail == null ? null : onEmail,
+                    // Visit-sourced leads carry no email at all — visitors
+                    // only give a name/phone (`property_visit_bookings` has
+                    // no email column), so this stays disabled for every one
+                    // of them, not just the rare inquiry with none.
+                    onTap: lead.buyerEmail == null ? null : onEmail,
                   ),
                 ),
               ],
@@ -470,6 +521,14 @@ class _LeadCard extends StatelessWidget {
         ],
       ),
     );
+  }
+
+  static String _formatDate(DateTime date) {
+    const months = [
+      'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+      'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
+    ];
+    return '${date.day} ${months[date.month - 1]} ${date.year}';
   }
 }
 
