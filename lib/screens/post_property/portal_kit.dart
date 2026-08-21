@@ -183,6 +183,17 @@ class PortalTextField extends StatelessWidget {
               keyboardType: keyboardType,
               inputFormatters: inputFormatters,
               maxLines: maxLines,
+              // Leaving this unset lets the platform decide these fields are
+              // autofillable (a browser's or Android's own heuristic based on
+              // the field's neighbouring label/hint) and draw its own
+              // highlight/outline over them while focused — outside this
+              // widget's own painting, and the source of the "blue border"
+              // some fields showed while typing. None of these portal-ported
+              // fields (headline, plot no., mauja, tehsil, ...) are things a
+              // platform autofill service should ever be suggesting values
+              // for, so it's turned off explicitly here rather than left to
+              // guesswork.
+              autofillHints: const [],
               style: PortalTheme.inputText,
               decoration: InputDecoration(
                 isDense: true,
