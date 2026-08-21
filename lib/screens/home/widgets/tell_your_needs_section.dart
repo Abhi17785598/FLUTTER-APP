@@ -168,6 +168,9 @@ class _TellYourNeedsSectionState extends State<TellYourNeedsSection> {
             TextField(
               controller: _nameController,
               textCapitalization: TextCapitalization.words,
+              inputFormatters: [
+                FilteringTextInputFormatter.allow(RegExp(r'[a-zA-Z\s]')),
+              ],
               style: AppTextStyles.body.copyWith(fontSize: 13.5),
               decoration: sheetFieldDecoration(hint: 'Your Name*'),
             ),

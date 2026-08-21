@@ -188,6 +188,11 @@ class AppConstants {
   static const String myLeadsScreen = '/network/leads';
   static const String myReferralsScreen = '/network/referrals';
   static const String networkCommunicationScreen = '/network/communication';
+
+  /// Builder-only, matching the portal's `analytics` tab on
+  /// `NetworkDashboard.tsx`, which is only registered/rendered for
+  /// `profile?.user_type === 'builder'`.
+  static const String networkAnalyticsScreen = '/network/analytics';
   // ──────────────────────────────────────────
 
   // Image Placeholders

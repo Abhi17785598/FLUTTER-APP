@@ -41,6 +41,7 @@ import 'screens/messaging/messages_list_screen.dart';
 import 'screens/network/my_leads_screen.dart';
 import 'screens/network/my_networks_screen.dart';
 import 'screens/network/my_referrals_screen.dart';
+import 'screens/network/network_analytics_screen.dart';
 import 'screens/network/network_communication_screen.dart';
 import 'screens/network/network_hub_screen.dart';
 import 'screens/social/social_accounts_screen.dart';
@@ -78,10 +79,7 @@ class PropertyApp extends StatelessWidget {
       builder: (context, child) {
         return PendingInvitationGate(
           child: Stack(
-            children: [
-              child ?? const SizedBox.shrink(),
-              const FloatingAiOrb(),
-            ],
+            children: [child ?? const SizedBox.shrink(), const FloatingAiOrb()],
           ),
         );
       },
@@ -326,14 +324,19 @@ class PropertyApp extends StatelessWidget {
               builder: (context) => const NetworkCommunicationScreen(),
             );
 
+          case AppConstants.networkAnalyticsScreen:
+            return PremiumPageRoute(
+              settings: settings,
+              builder: (context) => const NetworkAnalyticsScreen(),
+            );
+
           case '/visits':
             return PremiumPageRoute(builder: (context) => const VisitsScreen());
           case '/reels':
             final reelsArgs = settings.arguments as Map<String, dynamic>?;
             return PremiumPageRoute(
-              builder: (context) => ReelsScreen(
-                initialReelId: reelsArgs?['reelId'] as String?,
-              ),
+              builder: (context) =>
+                  ReelsScreen(initialReelId: reelsArgs?['reelId'] as String?),
             );
           case '/post-property':
             // Role-gated: a builder publishes projects, not listings, and this
@@ -346,8 +349,7 @@ class PropertyApp extends StatelessWidget {
               settings: settings,
               builder: (context) => PostPropertyRouteGate(
                 editPropertyId: listingArgs?['editPropertyId'] as String?,
-                editBundle:
-                    listingArgs?['editBundle'] as PropertyEditBundle?,
+                editBundle: listingArgs?['editBundle'] as PropertyEditBundle?,
               ),
             );
 

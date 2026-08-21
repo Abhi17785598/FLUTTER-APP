@@ -383,6 +383,18 @@ class _NavCards extends StatelessWidget {
           context,
         ).pushNamed(AppConstants.networkCommunicationScreen),
       ),
+      // Builder-only — matches the portal's `analytics` tab, which is only
+      // registered/rendered for `profile?.user_type === 'builder'`
+      // (`NetworkDashboard.tsx`'s `getTabsForUserType`).
+      if (isBuilder)
+        ManageListTile(
+          icon: Icons.bar_chart_rounded,
+          label: 'Analytics',
+          subtitle: 'Performance, trends & insights',
+          onTap: () => Navigator.of(
+            context,
+          ).pushNamed(AppConstants.networkAnalyticsScreen),
+        ),
     ]);
   }
 }

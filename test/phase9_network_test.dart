@@ -1051,5 +1051,53 @@ void main() {
         AppConstants.networkCommunicationScreen,
       ]);
     });
+
+    testWidgets(
+      'a builder additionally gets an Analytics card pushing the real route',
+      (tester) async {
+        final pushed = <String>[];
+        final navigatorKey = GlobalKey<NavigatorState>();
+
+        await tester.pumpWidget(
+          MaterialApp(
+            navigatorKey: navigatorKey,
+            home: const NetworkHubBody(
+              stats: NetworkStats.empty,
+              loading: false,
+              failed: false,
+              isBuilder: true,
+            ),
+            onGenerateRoute: (settings) {
+              if (settings.name != null) pushed.add(settings.name!);
+              return MaterialPageRoute(
+                settings: settings,
+                builder: (_) => const SizedBox.shrink(),
+              );
+            },
+          ),
+        );
+
+        await tester.ensureVisible(find.text('Analytics'));
+        await tester.pumpAndSettle();
+        await tester.tap(find.text('Analytics'));
+        await tester.pumpAndSettle();
+
+        expect(pushed, contains(AppConstants.networkAnalyticsScreen));
+      },
+    );
+
+    testWidgets('a non-builder never sees the Analytics card', (tester) async {
+      await tester.pumpWidget(
+        _host(
+          const NetworkHubBody(
+            stats: NetworkStats.empty,
+            loading: false,
+            failed: false,
+          ),
+        ),
+      );
+
+      expect(find.text('Analytics'), findsNothing);
+    });
   });
 }
