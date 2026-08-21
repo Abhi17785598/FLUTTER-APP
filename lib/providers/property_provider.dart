@@ -430,14 +430,4 @@ void _syncShortlistFlags() {
     return _properties.where((p) => p.isFeatured).toList();
   }
 
-<<<<<<< HEAD
-=======
-  int _enquiriesCount = 3;
-  int get enquiriesCount => _enquiriesCount;
-
-  void incrementEnquiries() {
-    _enquiriesCount++;
-    notifyListeners();
-  }
->>>>>>> 4cc2f8f1151720a0527ef22857dfdd7e7f541b28
 }
