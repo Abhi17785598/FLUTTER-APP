@@ -404,6 +404,7 @@ class _PropertyDimensionsStepState extends State<PropertyDimensionsStep> {
           child: PortalTextField(
             controller: _surveyNumber,
             prefix: const PortalIconTint('file-digit', color: _cWater),
+            inputFormatters: _kNumericish,
             onChanged: (v) => p.setText('surveyNumber', v),
           ),
         ),
@@ -417,6 +418,7 @@ class _PropertyDimensionsStepState extends State<PropertyDimensionsStep> {
           child: PortalTextField(
             controller: _fsiFarAllowed,
             prefix: const PortalIconTint('bar-chart-2', color: _cWater),
+            inputFormatters: _kNumericish,
             onChanged: (v) => p.setText('fsiFarAllowed', v),
           ),
         ),
@@ -427,6 +429,9 @@ class _PropertyDimensionsStepState extends State<PropertyDimensionsStep> {
           child: PortalTextField(
             controller: _floorAllowed,
             prefix: const PortalIconTint('layers', color: _cFloors),
+            // The portal runs `/\D/g` here (digits only, no decimal) —
+            // unlike the other land fields, which allow `.`.
+            inputFormatters: [FilteringTextInputFormatter.digitsOnly],
             onChanged: (v) => p.setText('floorAllowed', v),
           ),
         ),
@@ -437,6 +442,7 @@ class _PropertyDimensionsStepState extends State<PropertyDimensionsStep> {
           child: _withUnit(
             controller: _heightRestriction,
             prefix: const PortalIconTint('arrow-up-from-line', color: _cRooms),
+            inputFormatters: _kNumericish,
             onChanged: (v) => p.setText('heightRestriction', v),
             unit: p.text('heightRestrictionUnit').isEmpty
                 ? kHeightRestrictionUnits.first

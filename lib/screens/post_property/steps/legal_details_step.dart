@@ -1,5 +1,6 @@
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_text_styles.dart';
@@ -140,6 +141,9 @@ class _LegalDetailsStepState extends State<LegalDetailsStep> {
                   child: WizardTextField(
                     controller: _ownerNameController,
                     hint: 'As recorded on the title',
+                    inputFormatters: [
+                      FilteringTextInputFormatter.allow(RegExp(r'[a-zA-Z\s]')),
+                    ],
                     onChanged: (v) => context
                         .read<PostPropertyProvider>()
                         .setText('ownerName', v),

@@ -23,8 +23,12 @@ import '../../widgets/property_card_horizontal.dart';
 import '../../widgets/emi_calculator_widget.dart';
 import '../gallery/gallery_viewer_screen.dart';
 import '../../services/nearby_places_service.dart';
+import '../../services/property_inquiry_service.dart';
 import '../../services/property_service.dart';
 import '../../services/session_service.dart';
+import '../../services/visit_booking_service.dart';
+import '../../providers/auth_provider.dart';
+import 'booking_enquiry_validation.dart';
 import '../../models/nearby_place.dart';
 import '../../models/property_model.dart';
 import '../../models/property_detail_bundle.dart';
@@ -45,9 +49,16 @@ import '../../models/property_detail_bundle.dart';
 class PropertyDetailScreen extends StatefulWidget {
   final String propertyId;
 
+  /// Injectable for tests — default to real, Supabase-backed services when
+  /// null.
+  final VisitBookingService? visitBookingService;
+  final PropertyInquiryService? inquiryService;
+
   const PropertyDetailScreen({
     super.key,
     required this.propertyId,
+    this.visitBookingService,
+    this.inquiryService,
   });
 
   @override
@@ -81,6 +92,11 @@ class _PropertyDetailScreenState extends State<PropertyDetailScreen>
   PropertyOwnerProfile? _ownerProfile;
   bool _isLoadingProperty = true;
   String? _loadError;
+
+  late final VisitBookingService _visitBookingService =
+      widget.visitBookingService ?? VisitBookingService();
+  late final PropertyInquiryService _inquiryService =
+      widget.inquiryService ?? PropertyInquiryService();
 
   List<PropertyModel> _relatedProperties = <PropertyModel>[];
   bool _isLoadingRelated = true;
@@ -2029,7 +2045,10 @@ class _PropertyDetailScreenState extends State<PropertyDetailScreen>
   }
 
   // ===========================================================================
-  // SCHEDULE VISIT BOTTOM SHEET — unchanged
+  // SCHEDULE VISIT BOTTOM SHEET — real `property_visit_bookings` insert,
+  // matching BookVisitModal.tsx's fields/validation (name/phone regex, date
+  // not in the past, time slot list) and never reporting success before
+  // Supabase confirms the write.
   // ===========================================================================
 
   void _showScheduleBottomSheet(
@@ -2037,29 +2056,116 @@ class _PropertyDetailScreenState extends State<PropertyDetailScreen>
     dynamic property,
     PropertyProvider propertyProvider,
   ) {
+    final AuthProvider authProvider =
+        Provider.of<AuthProvider>(context, listen: false);
+    final User? currentUser = Supabase.instance.client.auth.currentUser;
+
+    if (currentUser == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please sign in to book a visit.')),
+      );
+      return;
+    }
+
+    // Same 9-slot list `BookVisitModal.tsx:71-81` stores verbatim as
+    // `preferred_time` — not 24-hour labels, so kept exactly as the portal
+    // writes them rather than "corrected".
+    const List<String> timeSlots = [
+      '10:00', '11:00', '12:00', '01:00', '02:00', '03:00', '04:00', '05:00', '06:00',
+    ];
+
+    final TextEditingController nameController = TextEditingController(
+      text: authProvider.userName.isNotEmpty
+          ? authProvider.userName
+          : (currentUser.userMetadata?['full_name']?.toString() ?? ''),
+    );
+    final TextEditingController phoneController = TextEditingController(
+      text: currentUser.phone ??
+          authProvider.profileRow?['phone']?.toString() ??
+          '',
+    );
+
+    DateTime? selectedDate;
+    String? selectedTime;
+    String? nameError;
+    String? phoneError;
+    String? dateError;
+    String? timeError;
+    bool isSubmitting = false;
+
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
       builder: (BuildContext sheetContext) {
-        String selectedDate = 'Tomorrow';
-        String selectedTime = '10:00 AM';
-
         return StatefulBuilder(
           builder: (BuildContext ctx, StateSetter setModalState) {
-            final List<String> dates = [
-              'Tomorrow',
-              'May 21, 2026',
-              'May 22, 2026',
-              'May 23, 2026',
-            ];
-            final List<String> times = [
-              '10:00 AM',
-              '12:00 PM',
-              '02:00 PM',
-              '04:00 PM',
-              '06:00 PM',
-            ];
+            bool isSlotDisabled(String time) {
+              final DateTime? date = selectedDate;
+              if (date == null) return false;
+              return VisitFormValidation.isSlotDisabled(
+                  time, date, DateTime.now());
+            }
+
+            Future<void> pickDate() async {
+              final DateTime now = DateTime.now();
+              final DateTime today = DateTime(now.year, now.month, now.day);
+              final DateTime? picked = await showDatePicker(
+                context: ctx,
+                initialDate: selectedDate ?? today,
+                firstDate: today,
+                lastDate: today.add(const Duration(days: 365)),
+              );
+              if (picked != null) {
+                setModalState(() {
+                  selectedDate = picked;
+                  dateError = null;
+                  if (selectedTime != null && isSlotDisabled(selectedTime!)) {
+                    selectedTime = null;
+                  }
+                });
+              }
+            }
+
+            Future<void> submit() async {
+              if (isSubmitting) return; // guards against a double tap
+              final String name = nameController.text.trim();
+              final String phone = phoneController.text.trim();
+              setModalState(() {
+                nameError = VisitFormValidation.nameError(name);
+                phoneError = VisitFormValidation.phoneError(phone);
+                dateError = selectedDate == null ? 'Please select date' : null;
+                timeError = selectedTime == null ? 'Please select time' : null;
+              });
+              if (nameError != null ||
+                  phoneError != null ||
+                  dateError != null ||
+                  timeError != null) {
+                return;
+              }
+
+              setModalState(() => isSubmitting = true);
+              try {
+                await _visitBookingService.createBooking(
+                  propertyId: property.id as String,
+                  visitorName: name,
+                  visitorPhone: phone,
+                  preferredDate: selectedDate!,
+                  preferredTime: selectedTime!,
+                  ownerName: _ownerProfile?.displayName,
+                  ownerPhone: _ownerProfile?.phone,
+                );
+                if (!mounted) return;
+                Navigator.pop(sheetContext);
+                _showSuccessDialog(context, selectedDate!, selectedTime!);
+              } catch (e) {
+                if (!mounted) return;
+                setModalState(() => isSubmitting = false);
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(content: Text(_describeBookingError(e))),
+                );
+              }
+            }
 
             return Container(
               decoration: const BoxDecoration(
@@ -2075,133 +2181,149 @@ class _PropertyDetailScreenState extends State<PropertyDetailScreen>
                 top: 16,
                 bottom: MediaQuery.of(ctx).viewInsets.bottom + 24,
               ),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Center(
-                    child: Container(
-                      width: 40,
-                      height: 4,
-                      decoration: BoxDecoration(
-                        color: AppColors.textHint,
-                        borderRadius: BorderRadius.circular(2),
+              child: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Center(
+                      child: Container(
+                        width: 40,
+                        height: 4,
+                        decoration: BoxDecoration(
+                          color: AppColors.textHint,
+                          borderRadius: BorderRadius.circular(2),
+                        ),
                       ),
                     ),
-                  ),
-                  const SizedBox(height: 16),
-                  Text('Schedule a Visit', style: AppTextStyles.heading2),
-                  const SizedBox(height: 4),
-                  Text(
-                    property.title as String,
-                    style: AppTextStyles.body
-                        .copyWith(color: AppColors.textSecondary),
-                  ),
-                  const SizedBox(height: 20),
-                  Text(
-                    'Select Date',
-                    style: AppTextStyles.heading3.copyWith(fontSize: 16),
-                  ),
-                  const SizedBox(height: 8),
-                  SizedBox(
-                    height: 40,
-                    child: ListView.builder(
-                      scrollDirection: Axis.horizontal,
-                      itemCount: dates.length,
-                      itemBuilder: (BuildContext _, int index) {
-                        final String date = dates[index];
-                        final bool isSelected = date == selectedDate;
-                        return Padding(
-                          padding: const EdgeInsets.only(right: 8),
-                          child: ChoiceChip(
-                            label: Text(date),
-                            selected: isSelected,
-                            selectedColor: AppColors.primary,
-                            backgroundColor: AppColors.cardBackground,
-                            labelStyle: AppTextStyles.chip.copyWith(
-                              color: isSelected
-                                  ? Colors.white
-                                  : AppColors.textSecondary,
-                            ),
-                            onSelected: (bool selected) {
-                              if (selected) {
-                                setModalState(() => selectedDate = date);
-                              }
-                            },
-                          ),
-                        );
-                      },
+                    const SizedBox(height: 16),
+                    Text('Schedule a Visit', style: AppTextStyles.heading2),
+                    const SizedBox(height: 4),
+                    Text(
+                      property.title as String,
+                      style: AppTextStyles.body
+                          .copyWith(color: AppColors.textSecondary),
                     ),
-                  ),
-                  const SizedBox(height: 20),
-                  Text(
-                    'Select Time Slot',
-                    style: AppTextStyles.heading3.copyWith(fontSize: 16),
-                  ),
-                  const SizedBox(height: 8),
-                  SizedBox(
-                    height: 40,
-                    child: ListView.builder(
-                      scrollDirection: Axis.horizontal,
-                      itemCount: times.length,
-                      itemBuilder: (BuildContext _, int index) {
-                        final String time = times[index];
-                        final bool isSelected = time == selectedTime;
-                        return Padding(
-                          padding: const EdgeInsets.only(right: 8),
-                          child: ChoiceChip(
-                            label: Text(time),
-                            selected: isSelected,
-                            selectedColor: AppColors.primary,
-                            backgroundColor: AppColors.cardBackground,
-                            labelStyle: AppTextStyles.chip.copyWith(
-                              color: isSelected
-                                  ? Colors.white
-                                  : AppColors.textSecondary,
-                            ),
-                            onSelected: (bool selected) {
-                              if (selected) {
-                                setModalState(() => selectedTime = time);
-                              }
-                            },
-                          ),
-                        );
-                      },
-                    ),
-                  ),
-                  const SizedBox(height: 32),
-                  SizedBox(
-                    width: double.infinity,
-                    height: 48,
-                    child: ElevatedButton(
-                      onPressed: () {
-                        propertyProvider.addVisit({
-                          'propertyId': property.id,
-                          'title': property.title,
-                          'location': property.location,
-                          'date': selectedDate,
-                          'time': selectedTime,
-                          'agentName': 'Rajesh Kumar',
-                          'agentPhone': '+91 98765 43210',
-                          'status': 'Confirmed',
-                          'isUpcoming': true,
-                        });
-                        Navigator.pop(sheetContext);
-                        _showSuccessDialog(context, selectedDate, selectedTime);
-                      },
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: AppColors.primary,
-                        shape: RoundedRectangleBorder(
+                    const SizedBox(height: 20),
+                    TextField(
+                      controller: nameController,
+                      decoration: InputDecoration(
+                        labelText: 'Name *',
+                        errorText: nameError,
+                        border: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(12),
                         ),
                       ),
-                      child: const Text(
-                        'Confirm Schedule',
-                        style: TextStyle(color: Colors.white, fontSize: 16),
+                    ),
+                    const SizedBox(height: 12),
+                    TextField(
+                      controller: phoneController,
+                      keyboardType: TextInputType.phone,
+                      maxLength: 10,
+                      decoration: InputDecoration(
+                        labelText: 'Phone *',
+                        errorText: phoneError,
+                        counterText: '',
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
                       ),
                     ),
-                  ),
-                ],
+                    const SizedBox(height: 20),
+                    Text(
+                      'Select Date',
+                      style: AppTextStyles.heading3.copyWith(fontSize: 16),
+                    ),
+                    const SizedBox(height: 8),
+                    OutlinedButton.icon(
+                      onPressed: pickDate,
+                      icon: const Icon(Icons.calendar_today, size: 18),
+                      label: Text(
+                        selectedDate == null
+                            ? 'Pick a date'
+                            : '${selectedDate!.day}/${selectedDate!.month}/${selectedDate!.year}',
+                      ),
+                    ),
+                    if (dateError != null)
+                      Padding(
+                        padding: const EdgeInsets.only(top: 4),
+                        child: Text(dateError!,
+                            style: const TextStyle(color: Colors.red, fontSize: 12)),
+                      ),
+                    const SizedBox(height: 20),
+                    Text(
+                      'Select Time Slot',
+                      style: AppTextStyles.heading3.copyWith(fontSize: 16),
+                    ),
+                    const SizedBox(height: 8),
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      children: timeSlots.map((String time) {
+                        final bool isSelected = time == selectedTime;
+                        final bool disabled = isSlotDisabled(time);
+                        return ChoiceChip(
+                          label: Text(time),
+                          selected: isSelected,
+                          selectedColor: AppColors.primary,
+                          backgroundColor: disabled
+                              ? AppColors.textHint.withOpacity(0.15)
+                              : AppColors.cardBackground,
+                          labelStyle: AppTextStyles.chip.copyWith(
+                            color: isSelected
+                                ? Colors.white
+                                : (disabled
+                                    ? AppColors.textHint
+                                    : AppColors.textSecondary),
+                          ),
+                          onSelected: disabled
+                              ? null
+                              : (bool selected) {
+                                  if (selected) {
+                                    setModalState(() {
+                                      selectedTime = time;
+                                      timeError = null;
+                                    });
+                                  }
+                                },
+                        );
+                      }).toList(),
+                    ),
+                    if (timeError != null)
+                      Padding(
+                        padding: const EdgeInsets.only(top: 4),
+                        child: Text(timeError!,
+                            style: const TextStyle(color: Colors.red, fontSize: 12)),
+                      ),
+                    const SizedBox(height: 32),
+                    SizedBox(
+                      width: double.infinity,
+                      height: 48,
+                      child: ElevatedButton(
+                        onPressed: isSubmitting ? null : submit,
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: AppColors.primary,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                        ),
+                        child: isSubmitting
+                            ? const SizedBox(
+                                width: 20,
+                                height: 20,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                  color: Colors.white,
+                                ),
+                              )
+                            : const Text(
+                                'Confirm Schedule',
+                                style: TextStyle(color: Colors.white, fontSize: 16),
+                              ),
+                      ),
+                    ),
+                  ],
+                ),
               ),
             );
           },
@@ -2210,7 +2332,8 @@ class _PropertyDetailScreenState extends State<PropertyDetailScreen>
     );
   }
 
-  void _showSuccessDialog(BuildContext context, String date, String time) {
+  void _showSuccessDialog(BuildContext context, DateTime date, String time) {
+    final String formattedDate = '${date.day}/${date.month}/${date.year}';
     showDialog(
       context: context,
       builder: (BuildContext dialogContext) => AlertDialog(
@@ -2224,7 +2347,7 @@ class _PropertyDetailScreenState extends State<PropertyDetailScreen>
           ],
         ),
         content: Text(
-            'Your visit is successfully scheduled for $date at $time.'),
+            'Your visit is successfully scheduled for $formattedDate at $time.'),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(dialogContext),
@@ -2248,8 +2371,13 @@ class _PropertyDetailScreenState extends State<PropertyDetailScreen>
     );
   }
 
+  String _describeBookingError(Object error) =>
+      describeSubmitError(error, "Couldn't book this visit");
+
   // ===========================================================================
-  // ENQUIRY BOTTOM SHEET — unchanged
+  // ENQUIRY BOTTOM SHEET — real `property_inquiries` insert. No client-side
+  // notification or interest-count bump: both already happen via DB trigger
+  // (see PropertyInquiryService's doc comment).
   // ===========================================================================
 
   void _showEnquiryBottomSheet(
@@ -2257,6 +2385,14 @@ class _PropertyDetailScreenState extends State<PropertyDetailScreen>
     dynamic property,
     PropertyProvider propertyProvider,
   ) {
+    final User? currentUser = Supabase.instance.client.auth.currentUser;
+    if (currentUser == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please sign in to send an enquiry.')),
+      );
+      return;
+    }
+
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
@@ -2267,9 +2403,51 @@ class _PropertyDetailScreenState extends State<PropertyDetailScreen>
               'Hi, I am interested in "${property.title}". Please contact me with more details.',
         );
         bool shareContact = true;
+        bool isSubmitting = false;
+        String? messageError;
 
         return StatefulBuilder(
           builder: (BuildContext ctx, StateSetter setModalState) {
+            Future<void> submit() async {
+              if (isSubmitting) return; // guards against a double tap
+              final String message = messageController.text.trim();
+              setModalState(() {
+                messageError = message.isEmpty ? 'Please enter a message' : null;
+              });
+              if (messageError != null) return;
+
+              setModalState(() => isSubmitting = true);
+              try {
+                await _inquiryService.submit(
+                  propertyId: property.id as String,
+                  message: message,
+                  contactPhone: shareContact ? currentUser.phone : null,
+                  contactEmail: shareContact ? currentUser.email : null,
+                );
+                if (!mounted) return;
+                Navigator.pop(sheetContext);
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text(
+                      'Enquiry sent successfully! The owner will contact you shortly.',
+                    ),
+                    backgroundColor: AppColors.success,
+                  ),
+                );
+              } on DuplicateInquiryException catch (e) {
+                if (!mounted) return;
+                setModalState(() => isSubmitting = false);
+                ScaffoldMessenger.of(context)
+                    .showSnackBar(SnackBar(content: Text(e.toString())));
+              } catch (e) {
+                if (!mounted) return;
+                setModalState(() => isSubmitting = false);
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(content: Text(_describeEnquiryError(e))),
+                );
+              }
+            }
+
             return Container(
               decoration: const BoxDecoration(
                 color: AppColors.surface,
@@ -2312,6 +2490,7 @@ class _PropertyDetailScreenState extends State<PropertyDetailScreen>
                     maxLines: 4,
                     decoration: InputDecoration(
                       hintText: 'Enter your message...',
+                      errorText: messageError,
                       border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(12),
                         borderSide: BorderSide(
@@ -2335,7 +2514,7 @@ class _PropertyDetailScreenState extends State<PropertyDetailScreen>
                       ),
                       Expanded(
                         child: Text(
-                          'Share my phone number & email with agent',
+                          'Share my phone number & email with owner',
                           style: AppTextStyles.caption.copyWith(fontSize: 12),
                         ),
                       ),
@@ -2346,28 +2525,26 @@ class _PropertyDetailScreenState extends State<PropertyDetailScreen>
                     width: double.infinity,
                     height: 48,
                     child: ElevatedButton(
-                      onPressed: () {
-                        propertyProvider.incrementEnquiries();
-                        Navigator.pop(sheetContext);
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(
-                            content: Text(
-                              'Enquiry sent successfully! The agent will contact you shortly.',
-                            ),
-                            backgroundColor: AppColors.success,
-                          ),
-                        );
-                      },
+                      onPressed: isSubmitting ? null : submit,
                       style: ElevatedButton.styleFrom(
                         backgroundColor: AppColors.primary,
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(12),
                         ),
                       ),
-                      child: const Text(
-                        'Send Enquiry',
-                        style: TextStyle(color: Colors.white, fontSize: 16),
-                      ),
+                      child: isSubmitting
+                          ? const SizedBox(
+                              width: 20,
+                              height: 20,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                color: Colors.white,
+                              ),
+                            )
+                          : const Text(
+                              'Send Enquiry',
+                              style: TextStyle(color: Colors.white, fontSize: 16),
+                            ),
                     ),
                   ),
                 ],
@@ -2378,6 +2555,9 @@ class _PropertyDetailScreenState extends State<PropertyDetailScreen>
       },
     );
   }
+
+  String _describeEnquiryError(Object error) =>
+      describeSubmitError(error, "Couldn't send this enquiry");
 
   // ===========================================================================
   // ICON HELPER

@@ -271,7 +271,6 @@ class HomeHeader extends StatelessWidget {
             ),
             SizedBox(height: 16),
             Text('Version: 1.0.0'),
-            Text('Developer: Rajesh Kumar'),
           ],
         ),
         actions: [

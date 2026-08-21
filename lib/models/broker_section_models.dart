@@ -144,6 +144,10 @@ class PropertyVisitBooking {
     required this.visitorPhone,
     required this.preferredDate,
     this.propertyTitle,
+    this.propertyImageUrl,
+    this.propertyLocation,
+    this.ownerName,
+    this.ownerPhone,
     this.preferredTime,
     this.message,
     this.status = 'pending',
@@ -162,6 +166,21 @@ class PropertyVisitBooking {
 
   /// Resolved from the broker's own property list.
   final String? propertyTitle;
+
+  /// Buyer-side ("My Visits") hydration only — resolved from the inline
+  /// `properties(...)` join in [VisitBookingService.listMyBookings]/
+  /// [PropertyVisitBooking.fromBuyerRow]. Null on rows built via
+  /// [PropertyVisitBooking.fromSupabase] (the broker path), which already has
+  /// the title from its own property list and has no use for the image/location.
+  final String? propertyImageUrl;
+  final String? propertyLocation;
+
+  /// The property owner's name/phone, resolved the same PII-aware way
+  /// `PropertyService.getPropertyDetail` already does for the detail screen
+  /// (`profiles.phone` selected only for a signed-in caller) — buyer-side only,
+  /// same reasoning as [propertyImageUrl].
+  final String? ownerName;
+  final String? ownerPhone;
 
   final String? preferredTime;
   final String? message;
@@ -196,6 +215,41 @@ class PropertyVisitBooking {
     );
   }
 
+  /// A buyer's own row, as returned by [VisitBookingService.listMyBookings] or
+  /// [VisitBookingService.createBooking] — `MyVisitRequests.tsx:99-110`'s
+  /// property-source mapping, plus [ownerName]/[ownerPhone] resolved separately
+  /// (see their doc comments) since the portal itself does not show either on
+  /// this screen.
+  factory PropertyVisitBooking.fromBuyerRow(
+    Map<String, dynamic> json, {
+    String? ownerName,
+    String? ownerPhone,
+  }) {
+    final property = json['properties'] as Map<String, dynamic>?;
+    final mediaUrls = property?['media_urls'];
+    final firstImage =
+        (mediaUrls is List && mediaUrls.isNotEmpty) ? mediaUrls.first : null;
+
+    return PropertyVisitBooking(
+      id: json['id']?.toString() ?? '',
+      propertyId: json['property_id']?.toString() ?? '',
+      userId: json['user_id']?.toString() ?? '',
+      visitorName: json['visitor_name']?.toString() ?? '',
+      visitorPhone: json['visitor_phone']?.toString() ?? '',
+      preferredDate: _date(json['preferred_date']) ??
+          DateTime.fromMillisecondsSinceEpoch(0),
+      propertyTitle: _nullIfEmpty(property?['title']?.toString()),
+      propertyImageUrl: _nullIfEmpty(firstImage?.toString()),
+      propertyLocation: _nullIfEmpty(property?['location']?.toString()),
+      ownerName: _nullIfEmpty(ownerName),
+      ownerPhone: _nullIfEmpty(ownerPhone),
+      preferredTime: _nullIfEmpty(json['preferred_time']),
+      message: _nullIfEmpty(json['message']),
+      status: json['status']?.toString() ?? 'pending',
+      createdAt: _date(json['created_at']),
+    );
+  }
+
   PropertyVisitBooking copyWith({
     DateTime? preferredDate,
     String? preferredTime,
@@ -209,6 +263,10 @@ class PropertyVisitBooking {
       visitorPhone: visitorPhone,
       preferredDate: preferredDate ?? this.preferredDate,
       propertyTitle: propertyTitle,
+      propertyImageUrl: propertyImageUrl,
+      propertyLocation: propertyLocation,
+      ownerName: ownerName,
+      ownerPhone: ownerPhone,
       preferredTime: preferredTime ?? this.preferredTime,
       message: message,
       status: status ?? this.status,
