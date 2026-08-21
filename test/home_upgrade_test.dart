@@ -403,6 +403,31 @@ void main() {
         isTrue,
       );
     });
+
+    test('a name with digits or symbols blocks submission, otherwise complete',
+        () {
+      // PropertyVerificationModal.tsx:267-274's regex, mirrored here.
+      expect(
+        canSubmitVerification(
+          otpVerified: true,
+          name: 'Rahul123',
+          useUpid: false,
+          upid: '',
+          propertyAddress: '12 MG Road, Pune',
+        ),
+        isFalse,
+      );
+      expect(
+        canSubmitVerification(
+          otpVerified: true,
+          name: 'Rahul Sharma',
+          useUpid: false,
+          upid: '',
+          propertyAddress: '12 MG Road, Pune',
+        ),
+        isTrue,
+      );
+    });
   });
 
   // ── 5b. The form itself is live before OTP ─────────────────────────────
@@ -488,6 +513,45 @@ void main() {
         expect(find.text(label), findsOneWidget, reason: '$label is missing');
       }
       expect(find.textContaining('Add more details'), findsNothing);
+    });
+
+    testWidgets(
+        'name/place fields strip digits and symbols as they are typed',
+        (tester) async {
+      await pumpForm(tester);
+
+      Future<void> expectLettersOnly(String hint, String typed, String expected) async {
+        final field = find.byWidgetPredicate(
+          (w) => w is TextField && w.decoration?.hintText == hint,
+        );
+        await tester.enterText(field, typed);
+        await tester.pumpAndSettle();
+        expect(find.text(expected), findsOneWidget, reason: hint);
+      }
+
+      await expectLettersOnly('Enter your full name', 'Rahul123!', 'Rahul');
+      await expectLettersOnly('Enter seller name', 'Amit@2026', 'Amit');
+      await expectLettersOnly('Enter district', 'Pune#1', 'Pune');
+    });
+
+    testWidgets(
+        'Plot No/Flat No and Khasra No allow digits, letters, "-" and "/" only',
+        (tester) async {
+      await pumpForm(tester);
+
+      final plotField = find.byWidgetPredicate(
+        (w) => w is TextField && w.decoration?.hintText == 'Enter plot or flat number',
+      );
+      await tester.enterText(plotField, '12-A/B#!');
+      await tester.pumpAndSettle();
+      expect(find.text('12-A/B'), findsOneWidget);
+
+      final khasraField = find.byWidgetPredicate(
+        (w) => w is TextField && w.decoration?.hintText == 'Enter khasra number',
+      );
+      await tester.enterText(khasraField, '67/2*&');
+      await tester.pumpAndSettle();
+      expect(find.text('67/2'), findsOneWidget);
     });
 
     testWidgets('the method toggle swaps the path and is live before OTP',

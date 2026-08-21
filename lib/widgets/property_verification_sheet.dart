@@ -76,7 +76,11 @@ bool canSubmitVerification({
   required String propertyAddress,
 }) {
   if (!otpVerified) return false;
-  if (name.trim().isEmpty) return false;
+  final trimmedName = name.trim();
+  if (trimmedName.isEmpty) return false;
+  // PropertyVerificationModal.tsx:267-274 — same regex as the submit-time
+  // "Full name should only contain alphabets" guard in _submit().
+  if (!RegExp(r'^[a-zA-Z\s]+$').hasMatch(trimmedName)) return false;
   if (useUpid) return upid.trim().isNotEmpty;
   return propertyAddress.trim().isNotEmpty;
 }
@@ -108,6 +112,27 @@ class PropertyVerificationSheet extends StatefulWidget {
 class _PropertyVerificationSheetState extends State<PropertyVerificationSheet> {
   final EdgeFunctionsService _functions = EdgeFunctionsService();
   final PropertyVerificationService _service = PropertyVerificationService();
+
+  /// Name/place fields (Your Name, Seller Name, Registered in the Name,
+  /// Property Type, Mauja, Tehsil, District, State, Country) — letters and
+  /// spaces only, the same character set `PropertyVerificationModal.tsx:543`
+  /// strips Your Name down to live (`e.target.value.replace(/[^a-zA-Z\s]/g,
+  /// '')`) and the same `FilteringTextInputFormatter.allow` pattern already
+  /// used for name fields in `media_contact_step.dart`/`legal_details_step
+  /// .dart`. The portal never applied this to the other eight fields, but a
+  /// place/type name containing a digit or symbol is invalid input on both
+  /// platforms regardless, so it is applied consistently here.
+  static final List<TextInputFormatter> _lettersOnly = [
+    FilteringTextInputFormatter.allow(RegExp(r'[a-zA-Z\s]')),
+  ];
+
+  /// Plot/Flat No. and Khasra No. — real-world values look like "12-A",
+  /// "45/B" or "Khasra 67/2", so digits, letters, spaces, `-` and `/` are
+  /// allowed; anything else (emoji, other punctuation) is not a legitimate
+  /// plot/khasra identifier.
+  static final List<TextInputFormatter> _plotOrKhasraNo = [
+    FilteringTextInputFormatter.allow(RegExp(r'[a-zA-Z0-9\s\-/]')),
+  ];
 
   // Field set and the "India" default from PropertyVerificationModal.tsx:46-61.
   final TextEditingController _upidController = TextEditingController();
@@ -326,8 +351,14 @@ class _PropertyVerificationSheetState extends State<PropertyVerificationSheet> {
       );
       return;
     }
-    if (_nameController.text.trim().isEmpty) {
+    final String name = _nameController.text.trim();
+    if (name.isEmpty) {
       _toast('Please provide your name', isError: true);
+      return;
+    }
+    // PropertyVerificationModal.tsx:267-274 — same regex, same message.
+    if (!RegExp(r'^[a-zA-Z\s]+$').hasMatch(name)) {
+      _toast('Full name should only contain alphabets', isError: true);
       return;
     }
 
@@ -470,6 +501,7 @@ class _PropertyVerificationSheetState extends State<PropertyVerificationSheet> {
                         controller: _nameController,
                         hint: 'Enter your full name',
                         textCapitalization: TextCapitalization.words,
+                        inputFormatters: _lettersOnly,
                       ),
                       _contactField(),
                       if (_otpSent && !_otpVerified) _otpBlock(),
@@ -506,22 +538,26 @@ class _PropertyVerificationSheetState extends State<PropertyVerificationSheet> {
         controller: _sellerNameController,
         hint: 'Enter seller name',
         textCapitalization: TextCapitalization.words,
+        inputFormatters: _lettersOnly,
       ),
       _field(
         label: 'Registered in the Name',
         controller: _registeredInNameController,
         hint: 'Enter registered name',
         textCapitalization: TextCapitalization.words,
+        inputFormatters: _lettersOnly,
       ),
       _field(
         label: 'Plot No/Flat No',
         controller: _plotFlatNoController,
         hint: 'Enter plot or flat number',
+        inputFormatters: _plotOrKhasraNo,
       ),
       _field(
         label: 'Property Type',
         controller: _propertyTypeController,
         hint: 'Plot/House/Flat/Land/etc',
+        inputFormatters: _lettersOnly,
       ),
       _field(
         label: 'Colony Name',
@@ -533,36 +569,42 @@ class _PropertyVerificationSheetState extends State<PropertyVerificationSheet> {
         label: 'Khasra No',
         controller: _khasraNoController,
         hint: 'Enter khasra number',
+        inputFormatters: _plotOrKhasraNo,
       ),
       _field(
         label: 'Mauja',
         controller: _maujaController,
         hint: 'Enter mauja',
         textCapitalization: TextCapitalization.words,
+        inputFormatters: _lettersOnly,
       ),
       _field(
         label: 'Tehsil',
         controller: _tehsilController,
         hint: 'Enter tehsil',
         textCapitalization: TextCapitalization.words,
+        inputFormatters: _lettersOnly,
       ),
       _field(
         label: 'District',
         controller: _districtController,
         hint: 'Enter district',
         textCapitalization: TextCapitalization.words,
+        inputFormatters: _lettersOnly,
       ),
       _field(
         label: 'State',
         controller: _stateController,
         hint: 'Enter state',
         textCapitalization: TextCapitalization.words,
+        inputFormatters: _lettersOnly,
       ),
       _field(
         label: 'Country',
         controller: _countryController,
         hint: 'Enter country',
         textCapitalization: TextCapitalization.words,
+        inputFormatters: _lettersOnly,
       ),
     ];
   }
@@ -578,6 +620,7 @@ class _PropertyVerificationSheetState extends State<PropertyVerificationSheet> {
     int maxLines = 1,
     String? helper,
     TextCapitalization textCapitalization = TextCapitalization.none,
+    List<TextInputFormatter>? inputFormatters,
   }) {
     return Padding(
       padding: const EdgeInsets.only(bottom: AppConstants.spacingL),
@@ -590,6 +633,7 @@ class _PropertyVerificationSheetState extends State<PropertyVerificationSheet> {
             controller: controller,
             maxLines: maxLines,
             textCapitalization: textCapitalization,
+            inputFormatters: inputFormatters,
             style: AppTextStyles.body.copyWith(fontSize: 13.5),
             decoration: sheetFieldDecoration(hint: hint),
           ),
