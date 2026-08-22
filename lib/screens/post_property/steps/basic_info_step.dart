@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
 import '../../../core/theme/app_colors.dart';
@@ -359,6 +360,9 @@ class _BasicInfoStepState extends State<BasicInfoStep> {
           child: PortalTextField(
             controller: _pgPropertyName,
             hint: 'e.g., Zolo Stays, Stanza Living...',
+            inputFormatters: [
+              FilteringTextInputFormatter.allow(RegExp(r'[a-zA-Z\s]')),
+            ],
             onChanged: (v) => _p.setText('pgPropertyName', v),
           ),
         ),

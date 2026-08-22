@@ -1,6 +1,7 @@
-// Builder flow — Phase B4: the Content tab's project list and its three actions.
+// Builder flow — Phase B4: the Content tab's project list and its four actions.
 //
 // What is pinned:
+//   * Manage Inventory opens `ManageUnitsScreen` for that project;
 //   * Edit routes through `/add-project` with the project as an argument, so the
 //     gate's un-gated edit branch stays the single definition of that rule;
 //   * Delete confirms first, names **all three** cascades, and only then writes;
@@ -16,6 +17,7 @@ import 'package:propcid_app/core/constants/app_constants.dart';
 import 'package:propcid_app/models/project_model.dart';
 import 'package:propcid_app/providers/auth_provider.dart';
 import 'package:propcid_app/screens/dashboard/widgets/my_projects_section.dart';
+import 'package:propcid_app/screens/team/widgets/manage_units_screen.dart';
 import 'package:propcid_app/services/project_service.dart';
 import 'package:propcid_app/services/project_share_service.dart';
 
@@ -156,7 +158,7 @@ void main() {
 
   // ── 1. Rendering ───────────────────────────────────────────────────────
   group('rendering', () {
-    testWidgets('a project renders with its three actions', (tester) async {
+    testWidgets('a project renders with its four actions', (tester) async {
       await _pump(
         tester,
         service: _FakeProjectService(rows: [_project()]),
@@ -165,6 +167,7 @@ void main() {
       expect(find.text('Green Valley'), findsOneWidget);
       expect(find.text('Group Housing · Pune'), findsOneWidget);
       expect(find.text('45/120 units'), findsOneWidget);
+      expect(find.text('Inventory'), findsOneWidget);
       expect(find.text('Edit'), findsOneWidget);
       expect(find.text('Share'), findsOneWidget);
       expect(find.text('Delete'), findsOneWidget);
@@ -208,7 +211,28 @@ void main() {
     });
   });
 
-  // ── 2. Edit ────────────────────────────────────────────────────────────
+  // ── 2. Manage Inventory ──────────────────────────────────────────────────
+  group('manage inventory', () {
+    testWidgets('opens ManageUnitsScreen for that project', (tester) async {
+      await _pump(
+        tester,
+        service: _FakeProjectService(rows: [_project(id: 'p-5')]),
+      );
+
+      await tester.tap(find.text('Inventory'));
+      // Not pumpAndSettle: the pushed screen's own initState kicks off a real
+      // Supabase read that never resolves in this test's fake environment,
+      // which pumpAndSettle would wait on indefinitely. Bounded pumps instead
+      // just carry the push transition to completion.
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 300));
+      await tester.pump();
+
+      expect(find.byType(ManageUnitsScreen), findsOneWidget);
+    });
+  });
+
+  // ── 3. Edit ────────────────────────────────────────────────────────────
   group('edit', () {
     testWidgets('routes to /add-project carrying the project', (tester) async {
       // Through the route, not a direct construction, so AddProjectRouteGate's
@@ -244,7 +268,7 @@ void main() {
     });
   });
 
-  // ── 3. Delete ──────────────────────────────────────────────────────────
+  // ── 4. Delete ──────────────────────────────────────────────────────────
   group('delete', () {
     testWidgets('confirms first and names all three cascades', (tester) async {
       final service = _FakeProjectService(rows: [_project()]);
@@ -309,7 +333,7 @@ void main() {
     });
   });
 
-  // ── 4. Share ───────────────────────────────────────────────────────────
+  // ── 5. Share ───────────────────────────────────────────────────────────
   group('share', () {
     testWidgets('reports how many connections were notified', (tester) async {
       final share = _FakeShareService(

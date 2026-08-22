@@ -458,6 +458,9 @@ class _MediaContactStepState extends State<MediaContactStep> {
                   child: WizardTextField(
                     controller: _ownerManagerNameController,
                     hint: 'e.g., Rahul Sharma',
+                    inputFormatters: [
+                      FilteringTextInputFormatter.allow(RegExp(r'[a-zA-Z\s]')),
+                    ],
                     onChanged: (v) =>
                         context.read<PostPropertyProvider>().setText('ownerManagerName', v),
                   ),

@@ -196,10 +196,7 @@ class _TeamInventoryTabState extends State<TeamInventoryTab> {
   void _manageUnits(ProjectModel project) {
     Navigator.of(context).push(
       MaterialPageRoute(
-        builder: (_) => ManageUnitsScreen(
-          projectId: project.id,
-          projectTitle: project.title,
-        ),
+        builder: (_) => ManageUnitsScreen(project: project),
       ),
     );
   }

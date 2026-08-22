@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import '../../../core/widgets/wizard_kit.dart';
 import '../../../providers/post_property_provider.dart';
@@ -467,6 +468,9 @@ class _AmenitiesStepState extends State<AmenitiesStep> {
                 child: WizardTextField(
                   controller: _businessTypeController,
                   hint: 'e.g., IT Services, Retail Outlet',
+                  inputFormatters: [
+                    FilteringTextInputFormatter.allow(RegExp(r'[a-zA-Z\s]')),
+                  ],
                   onChanged: (v) =>
                       context.read<PostPropertyProvider>().setText('businessType', v),
                 ),

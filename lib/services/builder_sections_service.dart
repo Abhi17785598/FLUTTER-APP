@@ -143,6 +143,32 @@ class ProjectInventoryService {
     return InventoryUnit.fromSupabase(Map<String, dynamic>.from(row));
   }
 
+  /// Adds several units to [projectId] in one request.
+  ///
+  /// `InventoryTableEditor.tsx`'s "Save All New" does one bulk
+  /// `insert(insertData)` of every valid drafted row rather than one request
+  /// per row; this is that same call. An empty [payloads] short-circuits
+  /// rather than sending `insert([])`, which Postgres would otherwise accept
+  /// as a well-formed no-op request for no reason.
+  Future<List<InventoryUnit>> createUnits({
+    required String projectId,
+    required List<Map<String, dynamic>> payloads,
+  }) async {
+    if (payloads.isEmpty) return const [];
+
+    final rows = await _supabase
+        .from(table)
+        .insert([
+          for (final payload in payloads)
+            <String, dynamic>{'project_id': projectId, ...payload},
+        ])
+        .select(InventoryUnit.columns);
+
+    return List<Map<String, dynamic>>.from(rows)
+        .map(InventoryUnit.fromSupabase)
+        .toList();
+  }
+
   /// Updates one unit's editable fields.
   Future<void> updateUnit({
     required String unitId,

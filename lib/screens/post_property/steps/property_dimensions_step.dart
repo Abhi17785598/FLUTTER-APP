@@ -533,6 +533,8 @@ class _PropertyDimensionsStepState extends State<PropertyDimensionsStep> {
         child: PortalTextField(
           controller: _totalFloors,
           prefix: const PortalIconTint('layers', color: _cFloors),
+          keyboardType: TextInputType.number,
+          inputFormatters: [FilteringTextInputFormatter.digitsOnly],
           onChanged: p.setTotalFloors,
         ),
       );
@@ -599,6 +601,8 @@ class _PropertyDimensionsStepState extends State<PropertyDimensionsStep> {
           child: PortalTextField(
             controller: _floorNo,
             prefix: const PortalIconTint('arrow-up', color: _cDoc),
+            keyboardType: TextInputType.number,
+            inputFormatters: [FilteringTextInputFormatter.digitsOnly],
             onChanged: p.setFloorNo,
           ),
         ),
@@ -686,6 +690,9 @@ class _PropertyDimensionsStepState extends State<PropertyDimensionsStep> {
             child: PortalTextField(
               controller: _buildingName,
               hint: 'Enter building name',
+              inputFormatters: [
+                FilteringTextInputFormatter.allow(RegExp(r'[a-zA-Z\s]')),
+              ],
               onChanged: (v) => p.setBuildingInventoryValue('buildingName', v),
             ),
           ),
@@ -698,6 +705,8 @@ class _PropertyDimensionsStepState extends State<PropertyDimensionsStep> {
             child: PortalTextField(
               controller: _buildingCode,
               hint: 'Enter building Number',
+              keyboardType: TextInputType.number,
+              inputFormatters: [FilteringTextInputFormatter.digitsOnly],
               onChanged: (v) => p.setBuildingInventoryValue('buildingCode', v),
             ),
           ),
@@ -721,6 +730,7 @@ class _PropertyDimensionsStepState extends State<PropertyDimensionsStep> {
               controller: _totalFloorsBuilding,
               hint: 'e.g. 10',
               keyboardType: TextInputType.number,
+              inputFormatters: [FilteringTextInputFormatter.digitsOnly],
               onChanged: (v) =>
                   p.setBuildingInventoryValue('totalFloorsBuilding', v),
             ),
@@ -1175,6 +1185,9 @@ class _BuildingFloorInventoryState extends State<_BuildingFloorInventory> {
                   child: PortalTextField(
                     controller: _ctrl('$floorNumber:floorName', text('floorName')),
                     hint: 'e.g. Ground Floor',
+                    inputFormatters: [
+                      FilteringTextInputFormatter.allow(RegExp(r'[a-zA-Z\s]')),
+                    ],
                     onChanged: (v) =>
                         p.setBuildingFloorField(floorNumber, 'floorName', v),
                   ),

@@ -1,7 +1,9 @@
 // screens/dashboard/widgets/my_projects_section.dart
 //
 // The builder's projects on the dashboard's Content tab, with the actions the
-// portal's `BuilderProjectsManager` offers: Edit, Delete and Share.
+// portal's `BuilderProjectsManager` offers: Manage Inventory, Edit, Share and
+// Delete. ("Mark to brokers" is `BuilderOfferService`'s own flow, reached
+// from the Manage Dashboard's Offers tab, not a per-card action here.)
 //
 // Replaces the read-only `BuilderRecentProjectsWidget` in the tab's section list.
 // That widget, and the `BuilderProjectService` / `BuilderProjectModel` pair it
@@ -38,6 +40,7 @@ import '../../../models/property_model.dart';
 import '../../../providers/auth_provider.dart';
 import '../../../services/project_service.dart';
 import '../../../services/project_share_service.dart';
+import '../../team/widgets/manage_units_screen.dart';
 
 /// Cover thumbnail edge.
 const double _kThumbSize = 74;
@@ -142,6 +145,19 @@ class _MyProjectsSectionState extends State<MyProjectsSection> {
       context,
       AppConstants.projectDetailScreen,
       arguments: {'projectId': project.id},
+    );
+  }
+
+  /// The portal's per-card "Manage Inventory" (`BuilderProjectsManager.tsx`),
+  /// which opens `ProjectInventoryManager` for that one project. Reuses the
+  /// same screen the Team Workspace's Inventory tab already opens for the
+  /// same purpose — a unit isn't scoped by who is managing it, only by
+  /// `project_id`.
+  void _manageInventory(ProjectModel project) {
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => ManageUnitsScreen(project: project),
+      ),
     );
   }
 
@@ -311,6 +327,7 @@ class _MyProjectsSectionState extends State<MyProjectsSection> {
             onEdit: () => _edit(items[i]),
             onDelete: () => _delete(items[i]),
             onShare: () => _share(items[i]),
+            onManageInventory: () => _manageInventory(items[i]),
             units: widget.unitCounts?[items[i].id],
             onStatusChanged: widget.showStatusPicker
                 ? (status) => _setStatus(items[i], status)
@@ -330,6 +347,7 @@ class _ProjectCard extends StatelessWidget {
     required this.onEdit,
     required this.onDelete,
     required this.onShare,
+    required this.onManageInventory,
     this.units,
     this.onStatusChanged,
   });
@@ -340,6 +358,7 @@ class _ProjectCard extends StatelessWidget {
   final VoidCallback onEdit;
   final VoidCallback onDelete;
   final VoidCallback onShare;
+  final VoidCallback onManageInventory;
 
   /// Spec H: unit tallies, when the parent supplied them.
   final InventoryCounts? units;
@@ -392,6 +411,13 @@ class _ProjectCard extends StatelessWidget {
             else
               Row(
                 children: [
+                  Expanded(
+                    child: _Action(
+                      icon: Icons.inventory_2_outlined,
+                      label: 'Inventory',
+                      onTap: onManageInventory,
+                    ),
+                  ),
                   Expanded(
                     child: _Action(
                       icon: Icons.edit_outlined,
