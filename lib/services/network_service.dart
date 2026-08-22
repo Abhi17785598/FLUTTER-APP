@@ -163,21 +163,104 @@ class NetworkService {
     }
   }
 
-  /// Sets one lead's status. `TeamLeadsView.tsx:67-82`: an UPDATE by id, no
-  /// other column touched, no client-side check of who may call this —
-  /// `network_leads`'s own RLS (`Team members can update builder leads`,
-  /// builder-level, matching [listLeads]'s own `isBuilder` reads) is what
-  /// actually authorizes it.
+  /// Sets one lead's status. `LeadDistributionSystem.tsx`'s
+  /// `handleUpdateLeadStatus`: an UPDATE by id, no client-side check of who
+  /// may call this — `network_leads`'s own RLS (`Team members can update
+  /// builder leads`, builder-level, matching [listLeads]'s own `isBuilder`
+  /// reads) is what actually authorizes it.
+  ///
+  /// Also stamps `contacted_at` / `conversion_date` on the matching
+  /// transitions, exactly as that handler does — without this, a lead moved
+  /// to "contacted" through the app would carry a real `assigned_at` (set
+  /// server-side by the `assign-lead-automatically` function regardless of
+  /// which platform assigned it) but no `contacted_at`, which is one of the
+  /// two columns [getPerformanceMetrics] needs to compute a response time at
+  /// all.
   Future<void> updateLeadStatus(String leadId, String status) async {
     try {
-      await _supabase
-          .from('network_leads')
-          .update({'status': status})
-          .eq('id', leadId);
+      final updates = <String, dynamic>{'status': status};
+      if (status == 'contacted') {
+        updates['contacted_at'] = DateTime.now().toUtc().toIso8601String();
+      } else if (status == 'converted') {
+        updates['conversion_date'] = DateTime.now().toUtc().toIso8601String();
+      }
+
+      await _supabase.from('network_leads').update(updates).eq('id', leadId);
     } catch (e) {
       debugPrint('NetworkService.updateLeadStatus failed: $e');
       rethrow;
     }
+  }
+
+  /// Success rate and average response time over this user's network leads —
+  /// the Network hub's "Performance Summary" card.
+  ///
+  /// Neither figure exists in the portal: `NetworkDashboard.tsx` types `85%`
+  /// and `2.3 hrs` directly into the markup with no query behind either.
+  /// `network_leads` already carries what both need — `status` for success,
+  /// `assigned_at`/`contacted_at` for response time — the same two timestamp
+  /// columns an existing RLS predicate
+  /// (`20260710123600_audit_optimize_rls_initplan.sql`) already requires
+  /// non-null together, which is reused here as the definition of "a lead
+  /// that got a real, timed response".
+  Future<({double? successRate, double? avgResponseTimeHours})>
+      getPerformanceMetrics(String userId, {required bool isBuilder}) async {
+    try {
+      final column = isBuilder ? 'builder_id' : 'assigned_member_id';
+      final rows = await _supabase
+          .from('network_leads')
+          .select('status, assigned_at, contacted_at')
+          .eq(column, userId);
+
+      return computePerformanceMetrics(List<Map<String, dynamic>>.from(rows));
+    } catch (e) {
+      debugPrint('NetworkService.getPerformanceMetrics failed: $e');
+      rethrow;
+    }
+  }
+
+  /// The arithmetic behind [getPerformanceMetrics], pulled out as a pure
+  /// function so it can be unit-tested without a Supabase round trip.
+  ///
+  /// Success rate: `converted` leads over every lead scoped to this user,
+  /// regardless of status — "of everything that ever came to me, how much did
+  /// I close". Response time: hours between `assigned_at` and `contacted_at`,
+  /// averaged over leads that reached at least `contacted` with both
+  /// timestamps set — a lead still `pending`/`assigned` has no response yet
+  /// to time, and one missing either timestamp cannot be timed at all.
+  ///
+  /// Both are null on an empty list — "no data", not "0%"/"0 hrs" — matching
+  /// [NetworkStats.successRatePercent]'s own null-means-no-data contract.
+  static ({double? successRate, double? avgResponseTimeHours})
+      computePerformanceMetrics(List<Map<String, dynamic>> leads) {
+    if (leads.isEmpty) {
+      return (successRate: null, avgResponseTimeHours: null);
+    }
+
+    final converted = leads.where((l) => l['status'] == 'converted').length;
+    final successRate = converted / leads.length * 100;
+
+    final responded = leads.where((l) {
+      final status = l['status'];
+      return (status == 'contacted' || status == 'converted') &&
+          l['assigned_at'] != null &&
+          l['contacted_at'] != null;
+    }).toList();
+
+    if (responded.isEmpty) {
+      return (successRate: successRate, avgResponseTimeHours: null);
+    }
+
+    final totalHours = responded.fold<double>(0, (sum, l) {
+      final assignedAt = DateTime.parse(l['assigned_at'] as String);
+      final contactedAt = DateTime.parse(l['contacted_at'] as String);
+      return sum + contactedAt.difference(assignedAt).inMinutes / 60.0;
+    });
+
+    return (
+      successRate: successRate,
+      avgResponseTimeHours: totalHours / responded.length,
+    );
   }
 
   /// Referrals, commissions and scored periods in one round trip.

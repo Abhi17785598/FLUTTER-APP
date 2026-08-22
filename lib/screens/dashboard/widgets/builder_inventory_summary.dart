@@ -12,6 +12,13 @@
 //   Total Units         Σ project_inventory rows
 //   Units Sold          Σ rows with status == 'sold'
 //
+// All six are unconditional on the portal — `totalUnits`/`soldUnits` render as
+// `0` in their own card exactly like the other four, never hidden. This used
+// to hide the last two tiles below a `_totalUnits > 0` guard, so a builder who
+// had not yet added any `project_inventory` rows for any project saw four
+// cards instead of six, reading as though the feature were missing entirely.
+// Matching the portal's own unconditional layout removed that guard.
+//
 // PRESENTATION ONLY
 // -----------------
 // Every figure is a fold over two collections the Builder dashboard already holds:
@@ -64,13 +71,11 @@ class BuilderInventorySummary extends StatelessWidget {
         AppColors.statusNewLaunch,
       ),
       _Tile('Completed', '${_withStatus('completed')}', AppColors.primary),
-      // Both unit figures are omitted rather than shown as 0 when no project has
-      // inventory rows: "0 units" reads as a problem, and an absent inventory is the
-      // normal state for a builder who has not loaded one.
-      if (_totalUnits > 0) ...[
-        _Tile('Total Units', '$_totalUnits', AppColors.textSecondary),
-        _Tile('Units Sold', '$_soldUnits', AppColors.warning),
-      ],
+      // Unconditional, matching the portal — see the file header. `0` here
+      // means "no inventory added yet", which is worth showing directly
+      // rather than making the whole card disappear.
+      _Tile('Total Units', '$_totalUnits', AppColors.textSecondary),
+      _Tile('Units Sold', '$_soldUnits', AppColors.warning),
     ];
 
     return SingleChildScrollView(

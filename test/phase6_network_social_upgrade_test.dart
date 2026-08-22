@@ -12,6 +12,7 @@ import 'package:propcid_app/models/network_stats.dart';
 import 'package:propcid_app/providers/auth_provider.dart';
 import 'package:propcid_app/providers/network_hub_provider.dart';
 import 'package:propcid_app/screens/network/network_hub_screen.dart';
+import 'package:propcid_app/services/network_service.dart';
 import 'package:propcid_app/screens/social/social_hub_screen.dart';
 import 'package:propcid_app/screens/subscription/plan_catalogue.dart';
 import 'package:propcid_app/screens/subscription/upgrade_screen.dart';
@@ -116,6 +117,82 @@ void main() {
     test('mirrors React by reporting no referral count', () {
       // React: `const referralsCount = 0; // Temporarily disable this query`.
       expect(const NetworkStats().totalReferrals, 0);
+    });
+
+    test('the three performance figures are em dashes with no data', () {
+      const stats = NetworkStats.empty;
+      expect(stats.successRateDisplay, '—');
+      expect(stats.avgResponseTimeDisplay, '—');
+      expect(stats.networkRatingDisplay, '—');
+    });
+
+    test('formats real performance figures, not the portal\'s hardcoded ones',
+        () {
+      const stats = NetworkStats(
+        successRatePercent: 84.6,
+        avgResponseTimeHours: 2.34,
+        networkRating: 4.8,
+      );
+      expect(stats.successRateDisplay, '85%'); // rounds, does not truncate
+      expect(stats.avgResponseTimeDisplay, '2.3 hrs');
+      expect(stats.networkRatingDisplay, '4.8/5');
+    });
+  });
+
+  group('NetworkService.computePerformanceMetrics', () {
+    test('an empty lead list is no data, not a zero rate', () {
+      final result = NetworkService.computePerformanceMetrics(const []);
+      expect(result.successRate, isNull);
+      expect(result.avgResponseTimeHours, isNull);
+    });
+
+    test('success rate counts converted over every lead, any status', () {
+      final result = NetworkService.computePerformanceMetrics([
+        {'status': 'converted', 'assigned_at': null, 'contacted_at': null},
+        {'status': 'pending', 'assigned_at': null, 'contacted_at': null},
+        {'status': 'lost', 'assigned_at': null, 'contacted_at': null},
+        {'status': 'assigned', 'assigned_at': null, 'contacted_at': null},
+      ]);
+      expect(result.successRate, 25.0);
+    });
+
+    test('response time only counts contacted/converted leads with both '
+        'timestamps', () {
+      final result = NetworkService.computePerformanceMetrics([
+        // Counts: 2 hours.
+        {
+          'status': 'contacted',
+          'assigned_at': '2026-01-01T10:00:00Z',
+          'contacted_at': '2026-01-01T12:00:00Z',
+        },
+        // Counts: 4 hours.
+        {
+          'status': 'converted',
+          'assigned_at': '2026-01-02T09:00:00Z',
+          'contacted_at': '2026-01-02T13:00:00Z',
+        },
+        // Not contacted yet — excluded even though it has an assigned_at.
+        {
+          'status': 'assigned',
+          'assigned_at': '2026-01-03T09:00:00Z',
+          'contacted_at': null,
+        },
+        // Contacted but missing assigned_at — cannot be timed, excluded.
+        {
+          'status': 'contacted',
+          'assigned_at': null,
+          'contacted_at': '2026-01-04T09:00:00Z',
+        },
+      ]);
+      expect(result.avgResponseTimeHours, 3.0); // (2 + 4) / 2
+    });
+
+    test('leads exist but none were ever contacted: rate yes, time no', () {
+      final result = NetworkService.computePerformanceMetrics([
+        {'status': 'pending', 'assigned_at': null, 'contacted_at': null},
+      ]);
+      expect(result.successRate, 0.0);
+      expect(result.avgResponseTimeHours, isNull);
     });
   });
 
@@ -297,6 +374,28 @@ void main() {
       expect(find.text('Success Rate'), findsOneWidget);
       expect(find.text('Response Time'), findsOneWidget);
       expect(find.text('Network Rating'), findsOneWidget);
+    });
+
+    testWidgets('renders real performance figures once a source exists', (
+      tester,
+    ) async {
+      await tester.pumpWidget(
+        _host(
+          const NetworkHubBody(
+            stats: NetworkStats(
+              successRatePercent: 85,
+              avgResponseTimeHours: 2.3,
+              networkRating: 4.8,
+            ),
+            loading: false,
+            failed: false,
+          ),
+        ),
+      );
+
+      expect(find.text('85%'), findsOneWidget);
+      expect(find.text('2.3 hrs'), findsOneWidget);
+      expect(find.text('4.8/5'), findsOneWidget);
     });
 
     testWidgets('lays out without overflow on a small screen', (tester) async {

@@ -4,6 +4,7 @@ import '../models/network_relationship.dart';
 import '../models/network_stats.dart';
 import '../services/network_relationship_service.dart';
 import '../services/network_service.dart';
+import '../services/ratings_service.dart';
 
 /// Loads the Network hub's four KPIs.
 ///
@@ -14,8 +15,10 @@ class NetworkHubProvider extends ChangeNotifier {
   NetworkHubProvider({
     NetworkService? service,
     NetworkRelationshipService? relationshipService,
+    RatingsService? ratingsService,
   }) : _service = service,
-       _relationshipService = relationshipService;
+       _relationshipService = relationshipService,
+       _ratingsService = ratingsService;
 
   /// Constructed lazily rather than in a field initialiser: [NetworkService]
   /// resolves `Supabase.instance.client` on construction, and this provider is
@@ -27,6 +30,9 @@ class NetworkHubProvider extends ChangeNotifier {
   NetworkRelationshipService? _relationshipService;
   NetworkRelationshipService get _relationships =>
       _relationshipService ??= NetworkRelationshipService();
+
+  RatingsService? _ratingsService;
+  RatingsService get _ratings => _ratingsService ??= RatingsService();
 
   NetworkStats _stats = NetworkStats.empty;
   bool _loading = true;
@@ -49,6 +55,21 @@ class NetworkHubProvider extends ChangeNotifier {
   /// portal-inherited hardcoded `totalReferrals: 0` with a real count — every
   /// other figure ([NetworkService.getNetworkStats]'s leads/commissions) is
   /// unchanged and still comes from there.
+  ///
+  /// Also populates the Performance Summary card's three figures
+  /// ([NetworkStats.successRatePercent], [NetworkStats.avgResponseTimeHours],
+  /// [NetworkStats.networkRating]) — none of which the portal ever computed
+  /// for real either (see [NetworkService.getPerformanceMetrics]'s own
+  /// comment).
+  ///
+  /// That fetch is deliberately kept out of the [Future.wait] below rather
+  /// than added as a fourth/fifth entry: the four KPI tiles are the whole
+  /// point of this screen, and folding two more queries into the same
+  /// `Future.wait` would mean a `network_leads` read failing (or this user
+  /// simply having no ratings yet in a way [RatingsService] doesn't already
+  /// treat as empty) took the KPI tiles down with it too — a strictly worse
+  /// outcome than the Performance Summary card alone falling back to its own
+  /// em dashes while the rest of the hub loads normally.
   Future<void> load(String userId, {required bool isBuilder}) async {
     _userId = userId;
     _isBuilder = isBuilder;
@@ -73,11 +94,19 @@ class NetworkHubProvider extends ChangeNotifier {
           .where((r) => r.kind == wantedKind)
           .length;
 
+      final performance = await _loadPerformanceSummary(
+        userId,
+        isBuilder: isBuilder,
+      );
+
       _stats = NetworkStats(
         totalNetworks: networksCount,
         activeLeads: baseStats.activeLeads,
         totalReferrals: referralsMade,
         monthlyCommissions: baseStats.monthlyCommissions,
+        successRatePercent: performance.successRate,
+        avgResponseTimeHours: performance.avgResponseTimeHours,
+        networkRating: performance.networkRating,
       );
       _failed = false;
     } catch (_) {
@@ -88,6 +117,40 @@ class NetworkHubProvider extends ChangeNotifier {
     } finally {
       _loading = false;
       _safeNotify();
+    }
+  }
+
+  /// The Performance Summary card's three figures, best-effort.
+  ///
+  /// A failure here (RLS denying `network_leads` to this role, a transient
+  /// network error, anything) degrades to "no data" — the same null the card
+  /// already renders as an em dash for a user who simply has no leads or
+  /// ratings yet — rather than failing [load] itself.
+  Future<
+      ({
+        double? successRate,
+        double? avgResponseTimeHours,
+        double? networkRating,
+      })> _loadPerformanceSummary(
+    String userId, {
+    required bool isBuilder,
+  }) async {
+    try {
+      final results = await Future.wait([
+        _network.getPerformanceMetrics(userId, isBuilder: isBuilder),
+        _ratings.getRatingSummary(userId),
+      ]);
+      final performance =
+          results[0] as ({double? successRate, double? avgResponseTimeHours});
+      final ratingSummary = results[1] as ({int count, double average});
+
+      return (
+        successRate: performance.successRate,
+        avgResponseTimeHours: performance.avgResponseTimeHours,
+        networkRating: ratingSummary.count == 0 ? null : ratingSummary.average,
+      );
+    } catch (_) {
+      return (successRate: null, avgResponseTimeHours: null, networkRating: null);
     }
   }
 

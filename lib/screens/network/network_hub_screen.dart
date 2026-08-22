@@ -234,7 +234,7 @@ class NetworkHubBody extends StatelessWidget {
                 ),
               ),
               const SizedBox(height: AppConstants.spacingM),
-              const _PerformanceSummary(),
+              _PerformanceSummary(stats: stats),
             ],
           ),
         ),
@@ -401,22 +401,29 @@ class _NavCards extends StatelessWidget {
 
 /// Performance Summary — three labelled rows with a dark value pill.
 ///
-/// The values are intentionally em dashes. React renders `85%`, `2.3 hrs` and
-/// `4.8/5` as hardcoded literals in `NetworkDashboard.tsx` with no query
-/// behind them, so there is nothing to read and presenting those figures as
-/// live metrics would be inventing data. The rows are kept so the section
-/// matches the design and gains real values the moment a source exists.
+/// React renders `85%`, `2.3 hrs` and `4.8/5` as hardcoded literals in
+/// `NetworkDashboard.tsx` with no query behind any of them. Rather than
+/// perpetuate that gap, [stats] carries real figures computed from
+/// `network_leads` (success rate, response time — see
+/// `NetworkService.getPerformanceMetrics`) and from this user's own ratings
+/// (network rating, the same figure the Profile screen's Reviews tile shows).
+/// A row whose figure has no data yet (no leads, no ratings, or the load
+/// failed) still shows an em dash rather than a zero or the portal's
+/// invented number — [NetworkStats]'s three display getters already encode
+/// that fallback, so this widget only has to read them.
 class _PerformanceSummary extends StatelessWidget {
-  const _PerformanceSummary();
+  const _PerformanceSummary({required this.stats});
 
-  static const List<String> _rows = [
-    'Success Rate',
-    'Response Time',
-    'Network Rating',
-  ];
+  final NetworkStats stats;
 
   @override
   Widget build(BuildContext context) {
+    final rows = [
+      ('Success Rate', stats.successRateDisplay),
+      ('Response Time', stats.avgResponseTimeDisplay),
+      ('Network Rating', stats.networkRatingDisplay),
+    ];
+
     return DashboardCard(
       padding: const EdgeInsets.symmetric(
         horizontal: 4,
@@ -429,7 +436,7 @@ class _PerformanceSummary extends StatelessWidget {
             padding: EdgeInsets.symmetric(horizontal: AppConstants.spacingM),
             child: _CardHeading('Performance Summary'),
           ),
-          for (final label in _rows)
+          for (final (label, value) in rows)
             Padding(
               padding: const EdgeInsets.symmetric(
                 horizontal: AppConstants.spacingM,
@@ -447,7 +454,7 @@ class _PerformanceSummary extends StatelessWidget {
                     ),
                   ),
                   const SizedBox(width: AppConstants.spacingS),
-                  const _ValuePill('—'),
+                  _ValuePill(value),
                 ],
               ),
             ),
