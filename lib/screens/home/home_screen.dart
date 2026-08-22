@@ -13,7 +13,6 @@ import 'widgets/property_reels_section.dart';
 import 'widgets/featured_properties_section.dart';
 import 'widgets/trending_section.dart';
 import 'widgets/budget_section.dart';
-import 'widgets/recommended_section.dart';
 import 'widgets/property_rail_section.dart';
 import 'widgets/premium_banner_section.dart';
 import 'widgets/scroll_reveal.dart';
@@ -24,6 +23,11 @@ import 'widgets/smart_tools_section.dart';
 import 'widgets/trending_cities_section.dart';
 import 'widgets/latest_articles_section.dart';
 import 'widgets/popular_agents_section.dart';
+import 'widgets/featured_projects_section.dart';
+import 'widgets/latest_projects_section.dart';
+import 'widgets/top_builders_section.dart';
+import 'widgets/investors_corner_section.dart';
+import 'widgets/city_roi_section.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -94,6 +98,16 @@ class _HomeScreenState extends State<HomeScreen> {
       const ScrollReveal(child: PremiumBannerSection()),
 
       const SizedBox(height: 24),
+
+      // Featured Projects (builder_projects, via the admin-curated
+      // `featured_projects` table) sits directly before Featured Properties
+      // (properties, via `hot_properties`) — the same order the web home
+      // page uses for its "Featured Projects" / "Hot Properties" pair. Kept
+      // as two separate sections/queries/cards on purpose: projects and
+      // properties are different entities ([ProjectModel] vs
+      // [PropertyModel]) and must never be shown as if they were the same
+      // list.
+      const FeaturedProjectsSection(),
       const FeaturedPropertiesSection(),
       const SizedBox(height: 24),
 
@@ -103,13 +117,19 @@ class _HomeScreenState extends State<HomeScreen> {
       // hole in the feed. See `_kNewsBottomGap`.
       const ScrollReveal(child: NewsSection()),
 
-      // "Latest projects" — newest listings first. Sits directly under
-      // Featured, right after the Premium banner, and keeps its header even
-      // before any listings exist so the feed doesn't open with a gap.
+      // Top Builders — mirrors the web home page's sidebar position, right
+      // after Latest News.
+      const TopBuildersSection(),
+
+      // "New Listings" — individual property listings, newest first. This is
+      // deliberately titled differently from the section below: it renders
+      // `properties` rows, not `builder_projects` rows, and the two used to
+      // share the title "Latest Projects" while showing entirely different
+      // data — exactly the property/project conflation this pass fixes.
       PropertyRailSection(
-        title: 'Latest Projects',
+        title: 'New Listings',
         showWhenEmpty: true,
-        emptyMessage: 'No projects listed yet',
+        emptyMessage: 'No properties listed yet',
         selector: (all) {
           final newest = List.of(all)
             ..sort(
@@ -121,6 +141,11 @@ class _HomeScreenState extends State<HomeScreen> {
         },
       ),
       const SizedBox(height: 24),
+
+      // The genuine "Latest Projects" rail — `builder_projects`, not
+      // `properties`. Sits right after New Listings, mirroring the web home
+      // page's Latest-Projects-in-city → Top Brokers → Top Influencers order.
+      const LatestProjectsSection(),
 
       // Popular Brokers / Popular Influencers — mirrors the web home page's
       // "Top Brokers" / "Top Influencers" position, right after the latest
@@ -140,42 +165,13 @@ class _HomeScreenState extends State<HomeScreen> {
       const ScrollReveal(child: SmartToolsSection()),
       const SizedBox(height: 28),
 
+      // Investor's Corner, then City ROI Index — mirrors the web home
+      // page's order right after its "Useful Tools" block. Each renders
+      // nothing when the admin table has no active rows.
+      const InvestorsCornerSection(),
+      const CityRoiSection(),
+
       const BudgetSection(),
-      const SizedBox(height: 28),
-
-      const RecommendedSection(),
-      const SizedBox(height: 32),
-
-      // The "step up" rail — visibly larger cards, plus a one-shot reveal —
-      // reads as the premium moment among the property rails.
-      ScrollReveal(
-        child: PropertyRailSection(
-          title: 'Luxury Collection',
-          cardWidth: 260,
-          cardImageHeight: 170,
-          selector: (all) {
-            // ₹2Cr+ — same threshold as the "₹2Cr+" Browse-by-Budget bucket.
-            final luxury = all.where((p) => p.price >= 20000000).toList()
-              ..sort((a, b) => b.price.compareTo(a.price));
-            return luxury.take(8).toList();
-          },
-        ),
-      ),
-      const SizedBox(height: 32),
-
-      PropertyRailSection(
-        title: 'Investment Opportunities',
-        selector: (all) {
-          // Proxy for "hot": most-viewed + most-enquired-about listings.
-          final hottest = List.of(all)
-            ..sort((a, b) {
-              final scoreA = (a.views ?? 0) + (a.interestCount ?? 0);
-              final scoreB = (b.views ?? 0) + (b.interestCount ?? 0);
-              return scoreB.compareTo(scoreA);
-            });
-          return hottest.take(8).toList();
-        },
-      ),
       const SizedBox(height: 100),
     ];
 

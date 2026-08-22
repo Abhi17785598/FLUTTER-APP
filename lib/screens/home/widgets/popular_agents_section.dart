@@ -27,8 +27,11 @@ import '../../../services/people_search_service.dart';
 import '../../../widgets/section_header.dart';
 import '../../../widgets/verified_badge.dart';
 
-const double _kAgentRailHeight = 168;
-const double _kAgentCardWidth = 138;
+/// Shared with [TopBuildersSection] — one card style for every profile rail
+/// on Home, so a builder/broker/influencer card reads as the same kind of
+/// thing wherever it appears.
+const double kAgentRailHeight = 168;
+const double kAgentCardWidth = 138;
 
 class PopularBrokersSection extends StatelessWidget {
   const PopularBrokersSection({super.key, this.service});
@@ -98,7 +101,7 @@ class _PopularAgentsRailState extends State<_PopularAgentsRail> {
             children: [
               SectionHeader(title: widget.title),
               SizedBox(
-                height: _kAgentRailHeight,
+                height: kAgentRailHeight,
                 child: ListView.builder(
                   scrollDirection: Axis.horizontal,
                   padding: const EdgeInsets.symmetric(
@@ -113,7 +116,7 @@ class _PopularAgentsRailState extends State<_PopularAgentsRail> {
                         AppConstants.publicProfileScreen,
                         arguments: {'userId': agents[i].userId},
                       ),
-                      child: _AgentCard(agent: agents[i]),
+                      child: AgentCard(agent: agents[i]),
                     ),
                   ),
                 ),
@@ -126,8 +129,11 @@ class _PopularAgentsRailState extends State<_PopularAgentsRail> {
   }
 }
 
-class _AgentCard extends StatelessWidget {
-  const _AgentCard({required this.agent});
+/// The card used by every profile rail on Home (brokers, influencers,
+/// builders) — avatar, name/company, city, then either a verified badge or
+/// years of experience.
+class AgentCard extends StatelessWidget {
+  const AgentCard({super.key, required this.agent});
 
   final UserProfile agent;
 
@@ -136,7 +142,7 @@ class _AgentCard extends StatelessWidget {
     final experience = agent.effectiveExperience;
 
     return Container(
-      width: _kAgentCardWidth,
+      width: kAgentCardWidth,
       padding: const EdgeInsets.symmetric(
         horizontal: AppConstants.spacingS,
         vertical: AppConstants.spacingM,

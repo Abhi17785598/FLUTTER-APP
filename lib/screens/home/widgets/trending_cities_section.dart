@@ -59,7 +59,7 @@ class _TrendingCitiesSectionState extends State<TrendingCitiesSection> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const SectionHeader(title: 'Trending Cities'),
+              const SectionHeader(title: 'Top Trending Cities'),
               SizedBox(
                 height: _kCityRailHeight,
                 child: ListView.builder(

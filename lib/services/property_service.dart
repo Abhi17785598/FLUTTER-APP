@@ -330,6 +330,51 @@ class PropertyService {
     return result as bool? ?? false;
   }
 
+  /// Live counts for the Home "Popular Categories" tiles.
+  ///
+  /// Mirrors `PropertyCategories.tsx`'s `countProperties` queries for the
+  /// five property-side categories: same table, same `status`/
+  /// `approval_status` filter, same `category`/`property_type` column
+  /// split. `head: true` has no direct supabase_flutter equivalent, so each
+  /// query selects just `id` and caps at 1 row — the exact total still comes
+  /// back via the `count` header regardless of that cap, so this returns the
+  /// same number while transferring far less than a full row set would.
+  ///
+  /// The reference component also counts brokers/builders/influencers/
+  /// projects tiles, omitted here: this app has no "browse all" screen for
+  /// those roles to navigate a tap to yet, and a tile that can't be tapped
+  /// correctly is worse than one that isn't shown.
+  Future<Map<String, int>> getCategoryCounts() async {
+    Future<int> count({String? category, String? propertyType}) async {
+      var query = _supabase
+          .from('properties')
+          .select('id')
+          .eq('status', 'active')
+          .eq('approval_status', 'approved');
+      if (category != null) query = query.eq('category', category);
+      if (propertyType != null) query = query.eq('property_type', propertyType);
+
+      final response = await query.limit(1).count(CountOption.exact);
+      return response.count;
+    }
+
+    final results = await Future.wait([
+      count(category: 'land'),
+      count(category: 'residential'),
+      count(category: 'commercial'),
+      count(propertyType: 'rent'),
+      count(propertyType: 'sell'),
+    ]);
+
+    return {
+      'land': results[0],
+      'residential': results[1],
+      'commercial': results[2],
+      'rent': results[3],
+      'sell': results[4],
+    };
+  }
+
   Future<List<AvailableLocation>> getAvailableLocations() async {
     final rows = await _supabase
         .from('available_locations')

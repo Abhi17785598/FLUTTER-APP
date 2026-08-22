@@ -57,6 +57,34 @@ class ProjectService {
     }
   }
 
+  /// Newest active, approved projects — the Home "Latest Projects" rail.
+  ///
+  /// Mirrors the portal's `LatestProjectsSection.tsx` query: same table
+  /// (`builder_projects`, NOT `properties`), same two-flag filter
+  /// (`status='active'`, `approval_status='approved'`), same `created_at`
+  /// descending order. Kept on this service rather than a new one — this is
+  /// exactly the table [ProjectService] already owns, just a public read
+  /// instead of an owner-scoped one.
+  Future<List<ProjectModel>> listLatestActive({int limit = 8}) async {
+    try {
+      final rows = await _supabase
+          .from(_table)
+          .select(ProjectModel.columns)
+          .eq('status', 'active')
+          .eq('approval_status', 'approved')
+          .order('created_at', ascending: false)
+          .limit(limit);
+
+      return rows
+          .map((row) => ProjectModel.fromSupabase(Map<String, dynamic>.from(row)))
+          .where((project) => project.id.isNotEmpty)
+          .toList(growable: false);
+    } catch (e) {
+      debugPrint('ProjectService.listLatestActive failed: $e');
+      rethrow;
+    }
+  }
+
   /// One project by id, or null when it does not exist or is not visible.
   ///
   /// Readable by anyone when `status = 'active'` (the public policy) and by its

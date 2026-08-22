@@ -27,7 +27,16 @@ import 'package:propcid_app/providers/filter_provider.dart';
 import 'package:propcid_app/providers/reels_provider.dart';
 import 'package:propcid_app/screens/home/widgets/property_reels_section.dart';
 import 'package:propcid_app/screens/reels/widgets/reel_controller_manager.dart';
+import 'package:propcid_app/services/property_service.dart';
 import 'package:propcid_app/widgets/category_icon_grid.dart';
+
+/// Stubs the live category-count fetch so these widget tests never touch the
+/// network — only the tap/filter behaviour below is under test, not the
+/// count badges.
+class _FakePropertyService extends PropertyService {
+  @override
+  Future<Map<String, int>> getCategoryCounts() async => const {};
+}
 
 /// One `influencer_videos` row as `ReelsService.getReels` hands it over, with
 /// the joined property merged under `_property`.
@@ -266,7 +275,9 @@ void main() {
         ChangeNotifierProvider<FilterProvider>.value(
           value: filters,
           child: MaterialApp(
-            home: const Scaffold(body: CategoryIconGrid()),
+            home: Scaffold(
+              body: CategoryIconGrid(service: _FakePropertyService()),
+            ),
             onGenerateRoute: (settings) {
               pushed.add(settings.name);
               return MaterialPageRoute(builder: (_) => const SizedBox());
@@ -287,67 +298,70 @@ void main() {
       await tester.pumpWidget(
         ChangeNotifierProvider<FilterProvider>.value(
           value: FilterProvider(),
-          child: const MaterialApp(home: Scaffold(body: CategoryIconGrid())),
+          child: MaterialApp(
+            home: Scaffold(
+              body: CategoryIconGrid(service: _FakePropertyService()),
+            ),
+          ),
         ),
       );
+      await tester.pumpAndSettle();
 
       for (final label in const [
-        'Buy\nProperties',
-        'Rent\nProperties',
-        'Plots /\nLands',
-        'Commercial\nSpaces',
-        'PG /\nCo-living',
+        'Land',
+        'Residential',
+        'Commercial',
+        'Rent',
+        'For Sale',
       ]) {
         expect(find.text(label), findsOneWidget, reason: label);
       }
     });
 
-    testWidgets('Buy filters by listing type, not category', (tester) async {
-      // `PropertyCategories.tsx:55-59` — For Sale sets `property_type=sell` and
-      // no category, so a plot listed for sale belongs under Buy too.
-      final (filters, pushed) = await tapShortcut(tester, 'Buy\nProperties');
-      expect(filters.listingType, 'sell');
-      expect(filters.category, isNull);
-      expect(pushed, contains(AppConstants.searchResultsScreen));
-    });
-
-    testWidgets('Rent filters by listing type', (tester) async {
-      final (filters, pushed) = await tapShortcut(tester, 'Rent\nProperties');
-      expect(filters.listingType, 'rent');
-      expect(filters.category, isNull);
-      expect(pushed, contains(AppConstants.searchResultsScreen));
-    });
-
-    testWidgets('Plots / Lands filters by category', (tester) async {
-      final (filters, pushed) = await tapShortcut(tester, 'Plots /\nLands');
+    testWidgets('Land filters by category', (tester) async {
+      final (filters, pushed) = await tapShortcut(tester, 'Land');
       expect(filters.category, 'land');
       expect(filters.listingType, isNull);
       expect(pushed, contains(AppConstants.searchResultsScreen));
     });
 
+    testWidgets('Residential filters by category', (tester) async {
+      final (filters, pushed) = await tapShortcut(tester, 'Residential');
+      expect(filters.category, 'residential');
+      expect(filters.listingType, isNull);
+      expect(pushed, contains(AppConstants.searchResultsScreen));
+    });
+
     testWidgets('Commercial filters by category', (tester) async {
-      final (filters, pushed) =
-          await tapShortcut(tester, 'Commercial\nSpaces');
+      final (filters, pushed) = await tapShortcut(tester, 'Commercial');
       expect(filters.category, 'commercial');
       expect(pushed, contains(AppConstants.searchResultsScreen));
     });
 
-    testWidgets('PG / Co-living filters by category', (tester) async {
-      final (filters, pushed) = await tapShortcut(tester, 'PG /\nCo-living');
-      // The wire value, not the display label — `setCategory` silently coerces
-      // anything outside `validCategories` to null, which would quietly show
-      // unfiltered results instead of failing.
-      expect(filters.category, 'pg_coliving');
+    testWidgets('Rent filters by listing type', (tester) async {
+      final (filters, pushed) = await tapShortcut(tester, 'Rent');
+      expect(filters.listingType, 'rent');
+      expect(filters.category, isNull);
+      expect(pushed, contains(AppConstants.searchResultsScreen));
+    });
+
+    testWidgets('For Sale filters by listing type, not category',
+        (tester) async {
+      // `PropertyCategories.tsx:55-59` — For Sale sets `property_type=sell`
+      // and no category, so a plot listed for sale belongs under it too.
+      final (filters, pushed) = await tapShortcut(tester, 'For Sale');
+      expect(filters.listingType, 'sell');
+      expect(filters.category, isNull);
       expect(pushed, contains(AppConstants.searchResultsScreen));
     });
 
     testWidgets('a shortcut clears whatever was filtered before it',
         (tester) async {
-      // Commercial, then Buy. Without the reset the leftover category would
-      // survive and "Buy Properties" would show commercial-only results.
+      // Commercial, then For Sale. Without the reset the leftover category
+      // would survive and "For Sale" would show commercial-only results.
       final (filters, _) = await tapShortcut(
         tester,
-        'Buy\nProperties',
+        'For Sale',
         seed: (f) {
           f.setCategory('commercial');
           f.setSubtype('Office');

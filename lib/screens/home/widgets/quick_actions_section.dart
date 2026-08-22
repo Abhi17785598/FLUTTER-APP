@@ -24,20 +24,18 @@ class _QuickAction {
   final Map<String, dynamic>? args;
 }
 
-/// Premium quick-action cards — same 4 destinations/routes as before
-/// (EMI Calculator, Compare, Visits, Post Property), just wider, with a
+/// Premium quick-action cards — Compare, Visits, Post Property, with a
 /// gradient icon badge and a subtitle.
+///
+/// EMI Calculator used to be a 4th card here, duplicating the EMI Calculator
+/// tool that also lives in `SmartToolsSection`'s "Smart Tools" rail (the
+/// portal's "Useful Tools" grouping) further down the same page — the exact
+/// duplicate this list existed to avoid. That entry was removed; Smart Tools
+/// is now the Homepage's single EMI Calculator entry point.
 class QuickActionsSection extends StatelessWidget {
   const QuickActionsSection({super.key});
 
   static const List<_QuickAction> _actions = [
-    _QuickAction(
-      label: 'EMI Calculator',
-      subtitle: 'Plan your budget',
-      icon: Icons.calculate_rounded,
-      gradient: [Color(0xFF5B50E8), Color(0xFF7C72F0)],
-      route: AppConstants.emiCalculatorScreen,
-    ),
     _QuickAction(
       label: 'Compare',
       subtitle: 'Find better deals',
