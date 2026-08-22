@@ -50,18 +50,29 @@ const double kPublicAvatarSize = 88;
 /// intended design.
 const double kPublicHeaderHeight = kPublicCoverHeight + kPublicAvatarOverhang;
 
-/// Scroll distance over which the header collapses to a plain pinned bar.
+/// Scroll distance over which the header collapses down to a pinned bar
+/// (still showing the cover — see [_CoverBackground] — just shorter).
 ///
 /// Shared with the screen so the collapse fraction it publishes and the avatar's
 /// scroll compensation here divide by the same number. If they disagree, the
 /// avatar drifts relative to the content it belongs to.
 const double kPublicHeaderCollapseRange = kPublicHeaderHeight - kToolbarHeight;
 
-/// Fraction of the collapse at which the bar starts turning solid.
-const double _kSolidStart = 0.55;
+/// Fraction of the collapse at which the large overhanging avatar starts
+/// fading out, ahead of the small avatar+title swapping in.
+///
+/// The cover itself (photo or gradient) never turns into a flat opaque bar —
+/// see [_CoverBackground] — so this no longer paces a backdrop transition,
+/// only the handoff between the two avatar treatments, kept late so the large
+/// avatar stays exactly as it looked at the top of the screen for nearly the
+/// whole scroll.
+const double _kAvatarFadeStart = 0.85;
 
 /// Fraction at which the pinned title is fully in.
-const double _kTitleStart = 0.75;
+///
+/// Starts after the large avatar has finished fading (0.85 → 1.0), so the two
+/// never overlap.
+const double _kTitleStart = 0.92;
 
 class PublicProfileCoverHeader extends StatelessWidget {
   /// `profiles.background_image_url`. Null falls back to the brand gradient.
@@ -129,28 +140,27 @@ class PublicProfileCoverHeader extends StatelessWidget {
         valueListenable: collapse,
         builder: (context, t, _) {
           final topInset = MediaQuery.paddingOf(context).top;
-          final solid = _solidProgress(t);
+          final avatarFade = _avatarFadeProgress(t);
 
           return Stack(
             clipBehavior: Clip.none,
             children: [
               // The cover occupies only the top `kPublicCoverHeight`; the
               // remaining overhang strip is transparent so the page background
-              // shows through behind the avatar.
+              // shows through behind the avatar. Always the photo/gradient —
+              // see [_CoverBackground] — at every scroll position, not just
+              // while expanded.
               Positioned(
                 top: 0,
                 left: 0,
                 right: 0,
                 height: kPublicCoverHeight + topInset,
-                child: _CoverBackground(
-                  coverImageUrl: coverImageUrl,
-                  collapse: t,
-                ),
+                child: _CoverBackground(coverImageUrl: coverImageUrl),
               ),
-              // Dropped entirely once the bar is solid: by then it is invisible,
+              // Dropped entirely once fully faded: by then it is invisible,
               // and `Clip.none` would otherwise let it paint past the collapsed
               // bar's bounds.
-              if (avatarOverlay != null && solid < 1)
+              if (avatarOverlay != null && avatarFade < 1)
                 Positioned(
                   left: 20,
                   // Straddles the cover's bottom edge — 46 dp above it, 42 dp
@@ -163,9 +173,9 @@ class PublicProfileCoverHeader extends StatelessWidget {
                       kPublicCoverHeight -
                       (kPublicAvatarSize - kPublicAvatarOverhang) -
                       t * kPublicHeaderCollapseRange,
-                  // Fades as the bar turns solid, so it is gone before the
-                  // collapsed title's own small avatar arrives.
-                  child: Opacity(opacity: 1 - solid, child: avatarOverlay),
+                  // Fades out near the end of the collapse, so it is gone
+                  // before the collapsed title's own small avatar arrives.
+                  child: Opacity(opacity: 1 - avatarFade, child: avatarOverlay),
                 ),
             ],
           );
@@ -181,117 +191,94 @@ class PublicProfileCoverHeader extends StatelessWidget {
         ),
       ),
       titleSpacing: 0,
-      leading: ValueListenableBuilder<double>(
-        valueListenable: collapse,
-        builder: (context, t, _) => GlassCircleIconButton(
-          icon: Icons.arrow_back_ios_new_rounded,
-          semanticLabel: 'Back',
-          onTap: onBack,
-          solidProgress: _solidProgress(t),
-        ),
+      // The cover is always the photo/gradient behind these — see
+      // [_CoverBackground] — so the glass treatment (white glyph on frosted
+      // glass) never needs to darken into a plain-bar style; `solidProgress`
+      // is left at its default 0 throughout.
+      leading: GlassCircleIconButton(
+        icon: Icons.arrow_back_ios_new_rounded,
+        semanticLabel: 'Back',
+        onTap: onBack,
       ),
       leadingWidth: 52,
       actions: [
-        ValueListenableBuilder<double>(
-          valueListenable: collapse,
-          builder: (context, t, _) => GlassCircleIconButton(
-            icon: Icons.share_outlined,
-            semanticLabel: 'Share this profile',
-            onTap: onShare,
-            solidProgress: _solidProgress(t),
-          ),
+        GlassCircleIconButton(
+          icon: Icons.share_outlined,
+          semanticLabel: 'Share this profile',
+          onTap: onShare,
         ),
         const SizedBox(width: 2),
-        ValueListenableBuilder<double>(
-          valueListenable: collapse,
-          builder: (context, t, _) => GlassCircleIconButton(
-            icon: Icons.more_vert_rounded,
-            semanticLabel: 'More options',
-            onTap: onMore,
-            solidProgress: _solidProgress(t),
-          ),
+        GlassCircleIconButton(
+          icon: Icons.more_vert_rounded,
+          semanticLabel: 'More options',
+          onTap: onMore,
         ),
         const SizedBox(width: 6),
       ],
     );
   }
 
-  /// Remaps the raw collapse fraction so nothing changes until the cover is
-  /// mostly gone, then completes quickly. A linear fade would wash the glass
-  /// buttons out while the photo is still fully visible behind them.
-  static double _solidProgress(double t) {
-    if (t <= _kSolidStart) return 0;
-    return ((t - _kSolidStart) / (1 - _kSolidStart)).clamp(0.0, 1.0);
+  /// Remaps the raw collapse fraction so the large avatar holds its shape
+  /// until late in the scroll, then fades out quickly right before the small
+  /// avatar+title takes over.
+  static double _avatarFadeProgress(double t) {
+    if (t <= _kAvatarFadeStart) return 0;
+    return ((t - _kAvatarFadeStart) / (1 - _kAvatarFadeStart)).clamp(0.0, 1.0);
   }
 }
 
-/// Cover photo (or gradient), its legibility scrim, and the white fill that
-/// replaces both once collapsed.
+/// Cover photo (or gradient) and its legibility scrim.
+///
+/// Stays the cover at every scroll position — it never turns into a flat
+/// opaque bar. Collapsing an app bar into a plain solid colour is the common
+/// pattern, but doing that here means alpha-blending a solid fill over the
+/// still fully visible photo/gradient, which necessarily passes through a
+/// pale, washed-out intermediate tint for as long as the blend is in
+/// progress (and reads as exactly that — "washed out"/"whitish" — for
+/// however much of the scroll the blend spans). Keeping the cover itself
+/// as the pinned bar's background avoids that entirely: nothing here ever
+/// fades toward another colour, so there is no intermediate tint to pass
+/// through. `GlassCircleIconButton`'s icons and `_CollapsedTitle`'s text stay
+/// styled for a photo/gradient backdrop (white) rather than switching to a
+/// dark-on-white scheme, since that backdrop is what they now sit on
+/// permanently.
 class _CoverBackground extends StatelessWidget {
   final String? coverImageUrl;
-  final double collapse;
 
-  const _CoverBackground({required this.coverImageUrl, required this.collapse});
+  const _CoverBackground({required this.coverImageUrl});
 
   @override
   Widget build(BuildContext context) {
-    final solid = PublicProfileCoverHeader._solidProgress(collapse);
-
-    // The bottom corners straighten as the bar becomes a plain app bar.
-    final radius = Radius.circular(28 * (1 - solid));
-
     return RepaintBoundary(
-      child: Stack(
-        fit: StackFit.expand,
-        children: [
-          ClipRRect(
-            borderRadius: BorderRadius.only(
-              bottomLeft: radius,
-              bottomRight: radius,
-            ),
-            child: Stack(
-              fit: StackFit.expand,
-              children: [
-                _coverFill(context),
-                // Bottom-up scrim: guarantees the glass buttons and the pinned
-                // title stay legible over any photo, however light.
-                Opacity(
-                  opacity: 1 - solid,
-                  child: const DecoratedBox(
-                    decoration: BoxDecoration(
-                      gradient: LinearGradient(
-                        begin: Alignment.topCenter,
-                        end: Alignment.bottomCenter,
-                        colors: [
-                          Color(0x001A1A2E),
-                          Color(0x001A1A2E),
-                          Color(0x8C1A1A2E),
-                        ],
-                        stops: [0.0, 0.45, 1.0],
-                      ),
-                    ),
-                  ),
+      child: ClipRRect(
+        borderRadius: const BorderRadius.only(
+          bottomLeft: Radius.circular(28),
+          bottomRight: Radius.circular(28),
+        ),
+        child: Stack(
+          fit: StackFit.expand,
+          children: [
+            _coverFill(context),
+            // Bottom-up scrim: guarantees the glass buttons and the pinned
+            // title stay legible over any photo, however light. Present at
+            // every scroll position, not just while expanded, since the
+            // photo/gradient it sits on is too.
+            const DecoratedBox(
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                  colors: [
+                    Color(0x001A1A2E),
+                    Color(0x001A1A2E),
+                    Color(0x8C1A1A2E),
+                  ],
+                  stops: [0.0, 0.45, 1.0],
                 ),
-                // Fades in as the bar pins, so the collapsed state is an opaque
-                // surface rather than a cropped photo.
-                Opacity(
-                  opacity: solid,
-                  child: const ColoredBox(color: AppColors.cardBackground),
-                ),
-              ],
-            ),
-          ),
-          // Hairline under the collapsed bar, matching how every other surface in
-          // the app separates itself.
-          if (solid > 0)
-            Align(
-              alignment: Alignment.bottomCenter,
-              child: Opacity(
-                opacity: solid,
-                child: Container(height: 1, color: AppColors.hairline),
               ),
             ),
-        ],
+          ],
+        ),
       ),
     );
   }
@@ -324,7 +311,11 @@ class _GradientCover extends StatelessWidget {
       );
 }
 
-/// Small avatar + name, faded in only once the cover has essentially gone.
+/// Small avatar + name, faded in only once the large avatar has handed off.
+///
+/// White text: it sits directly on the cover's photo/gradient plus scrim —
+/// see [_CoverBackground] — the same backdrop the glass icon buttons already
+/// assume, never a solid white bar.
 class _CollapsedTitle extends StatelessWidget {
   final String title;
   final String? avatarUrl;
@@ -362,6 +353,7 @@ class _CollapsedTitle extends StatelessWidget {
                 style: AppTextStyles.heading3.copyWith(
                   fontSize: 15,
                   fontWeight: FontWeight.w700,
+                  color: Colors.white,
                 ),
               ),
             ),
