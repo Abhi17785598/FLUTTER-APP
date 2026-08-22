@@ -21,6 +21,9 @@ import 'widgets/property_verification_section.dart';
 import 'widgets/news_section.dart';
 import 'widgets/tell_your_needs_section.dart';
 import 'widgets/smart_tools_section.dart';
+import 'widgets/trending_cities_section.dart';
+import 'widgets/latest_articles_section.dart';
+import 'widgets/popular_agents_section.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -69,6 +72,12 @@ class _HomeScreenState extends State<HomeScreen> {
       const CategoryIconGrid(),
       const SizedBox(height: 18),
 
+      // Trending Cities — mirrors the web home page's position for this rail,
+      // right after the category tiles. Renders nothing (no trailing gap
+      // left behind either) when the admin table has no active cities; see
+      // TrendingCitiesSection's own bottom padding.
+      const TrendingCitiesSection(),
+
       // Property Verification — one of the first "do something" moments on the
       // page, mirroring its high position on the web home page.
       const ScrollReveal(child: PropertyVerificationSection()),
@@ -76,6 +85,10 @@ class _HomeScreenState extends State<HomeScreen> {
 
       const PropertyReelsSection(),
       const SizedBox(height: 4),
+
+      // Latest Articles. Same "renders nothing, owns its own trailing gap"
+      // convention as Latest News below — see LatestArticlesSection.
+      const LatestArticlesSection(),
 
       // Premium Banner bleeds on both edges — no extra gap either side.
       const ScrollReveal(child: PremiumBannerSection()),
@@ -108,6 +121,13 @@ class _HomeScreenState extends State<HomeScreen> {
         },
       ),
       const SizedBox(height: 24),
+
+      // Popular Brokers / Popular Influencers — mirrors the web home page's
+      // "Top Brokers" / "Top Influencers" position, right after the latest
+      // listings. Each renders nothing (and owns its own trailing gap) when
+      // there are no matching approved profiles.
+      const PopularBrokersSection(),
+      const PopularInfluencersSection(),
 
       const TrendingSection(),
       const SizedBox(height: 24),

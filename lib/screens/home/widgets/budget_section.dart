@@ -1,8 +1,9 @@
 import 'package:flutter/material.dart';
 
-import '../../../core/constants/app_constants.dart';
+import '../../../core/navigation/banner_destination_resolver.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_text_styles.dart';
+import '../../../models/banner_destination.dart';
 import '../../../widgets/section_header.dart';
 
 class _BudgetBucket {
@@ -11,17 +12,27 @@ class _BudgetBucket {
     required this.icon,
     required this.color,
     required this.image,
+    this.budgetMin,
+    this.budgetMax,
   });
 
   final String label;
   final IconData icon;
   final Color color;
   final String image;
+
+  /// Bucket bounds in rupees, same fields `BannerDestination.collection`
+  /// already uses for the hero banner's "Luxury Collection" tile — null
+  /// means unbounded on that side (`BannerDestinationResolver` fills the
+  /// gap with `AppConstants.priceMin`/`priceMax`).
+  final double? budgetMin;
+  final double? budgetMax;
 }
 
-/// Same 4 buckets, same (unfiltered) `/search-results` navigation as
-/// before on every tile — this is a visual-only redesign, so that
-/// pre-existing behavior is preserved as-is rather than silently "fixed".
+/// Same 4 buckets as before; each tile now applies its price range to
+/// `FilterProvider` (via `BannerDestinationResolver`, the same mechanism
+/// the hero banner's budget tile uses) before opening search results,
+/// instead of navigating there with no filter applied.
 class BudgetSection extends StatelessWidget {
   const BudgetSection({super.key});
 
@@ -32,6 +43,7 @@ class BudgetSection extends StatelessWidget {
       color: Color(0xFF22C55E),
       image:
           'https://images.unsplash.com/photo-1502672260266-1c1ef2d93688?w=400&h=300&fit=crop',
+      budgetMax: 5000000,
     ),
     _BudgetBucket(
       label: '₹50L – ₹1Cr',
@@ -39,6 +51,8 @@ class BudgetSection extends StatelessWidget {
       color: Color(0xFF3B82F6),
       image:
           'https://images.unsplash.com/photo-1545324418-cc1a3fa10c00?w=400&h=300&fit=crop',
+      budgetMin: 5000000,
+      budgetMax: 10000000,
     ),
     _BudgetBucket(
       label: '₹1Cr – ₹2Cr',
@@ -46,6 +60,8 @@ class BudgetSection extends StatelessWidget {
       color: AppColors.primary,
       image:
           'https://images.unsplash.com/photo-1613490493576-7fde63acd811?w=400&h=300&fit=crop',
+      budgetMin: 10000000,
+      budgetMax: 20000000,
     ),
     _BudgetBucket(
       label: '₹2Cr+',
@@ -53,6 +69,7 @@ class BudgetSection extends StatelessWidget {
       color: Color(0xFFF97316),
       image:
           'https://images.unsplash.com/photo-1512917774080-9991f1c4c750?w=400&h=300&fit=crop',
+      budgetMin: 20000000,
     ),
   ];
 
@@ -78,9 +95,12 @@ class BudgetSection extends StatelessWidget {
             itemBuilder: (context, index) {
               final budget = _budgets[index];
               return GestureDetector(
-                onTap: () => Navigator.pushNamed(
+                onTap: () => BannerDestinationResolver.navigate(
                   context,
-                  AppConstants.searchResultsScreen,
+                  BannerDestination.collection(
+                    budgetMin: budget.budgetMin,
+                    budgetMax: budget.budgetMax,
+                  ),
                 ),
                 child: Container(
                   decoration: BoxDecoration(

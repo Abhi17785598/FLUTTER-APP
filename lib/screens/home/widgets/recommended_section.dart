@@ -5,6 +5,7 @@ import '../../../core/constants/app_constants.dart';
 import '../../../providers/property_provider.dart';
 import '../../../widgets/property_card_vertical.dart';
 import '../../../widgets/section_header.dart';
+import 'trending_section.dart';
 
 /// "More properties you haven't already seen" — the loaded `properties` list
 /// minus whatever Featured/Trending already showed, top 8. No new query.
@@ -16,9 +17,11 @@ class RecommendedSection extends StatelessWidget {
     return Consumer<PropertyProvider>(
       builder: (context, propertyProvider, child) {
         final all = propertyProvider.properties;
+        // Excludes the same top-4 TrendingSection actually renders (sorted by
+        // views), not a re-guessed slice — see TrendingSection.topTrending.
         final shownIds = <String>{
           ...propertyProvider.getFeaturedProperties().map((p) => p.id),
-          ...all.take(4).map((p) => p.id),
+          ...TrendingSection.topTrending(all).map((p) => p.id),
         };
         final recommended = all
             .where((p) => !shownIds.contains(p.id))

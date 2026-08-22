@@ -147,6 +147,36 @@ class PeopleSearchService {
     }
   }
 
+  /// Approved brokers and influencers for the Home "Popular Brokers" /
+  /// "Popular Influencers" rails.
+  ///
+  /// Mirrors the portal's home-page `agentsQuery`
+  /// (`PublicHomePage.tsx`/`AuthenticatedHomePage.tsx`, `fetchProjects`): one
+  /// round trip covering both roles (`user_type IN ('broker','influencer')`),
+  /// left for the caller to split by [UserProfile.isBroker] /
+  /// [UserProfile.isInfluencer] — same as the portal's own
+  /// `mappedAgents.filter(...)` split. The portal sends no `.order()` here
+  /// either, so row order is left as Postgres returns it.
+  Future<List<UserProfile>> listPopularAgents({int limit = 20}) async {
+    try {
+      final rows = await _supabase
+          .from(_table)
+          .select(columns)
+          .inFilter('user_type', const ['broker', 'influencer'])
+          .eq('approval_status', 'approved')
+          .not('is_blocked', 'is', true)
+          .limit(limit);
+
+      return List<Map<String, dynamic>>.from(rows)
+          .map((row) => UserProfile.fromMap(Map<String, dynamic>.from(row)))
+          .where((profile) => profile.userId.isNotEmpty)
+          .toList(growable: false);
+    } catch (e) {
+      debugPrint('PeopleSearchService.listPopularAgents failed: $e');
+      rethrow;
+    }
+  }
+
   /// Rating aggregates for [userIds], keyed by `user_id`.
   ///
   /// `pages/ExploreCity.tsx:212-215` verbatim — one batched read of

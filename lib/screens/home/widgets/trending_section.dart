@@ -2,20 +2,37 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../../../core/constants/app_constants.dart';
+import '../../../models/property_model.dart';
 import '../../../providers/property_provider.dart';
 import '../../../widgets/property_card_vertical.dart';
 import '../../../widgets/section_header.dart';
 
-/// Same data source as before (`properties.take(4)`) and same navigation —
-/// extracted verbatim into its own widget.
+/// "Trending This Week" — sorted by `views` descending, a genuine popularity
+/// signal rather than a plain `.take(4)` off the already `created_at`-DESC
+/// list. The previous `.take(4)` selector just returned the newest 4
+/// listings again, which is exactly the "same properties in every section"
+/// duplication this rail should not reproduce — the newest listings already
+/// anchor "Latest Projects", so this rail needs its own ordering to earn its
+/// place on the page.
 class TrendingSection extends StatelessWidget {
   const TrendingSection({super.key});
+
+  /// The rail's own selection, exposed so [RecommendedSection] can exclude
+  /// exactly what this rail shows rather than guessing at a different slice.
+  static List<PropertyModel> topTrending(
+    List<PropertyModel> all, {
+    int count = 4,
+  }) {
+    final byViews = List.of(all)
+      ..sort((a, b) => (b.views ?? 0).compareTo(a.views ?? 0));
+    return byViews.take(count).toList();
+  }
 
   @override
   Widget build(BuildContext context) {
     return Consumer<PropertyProvider>(
       builder: (context, propertyProvider, child) {
-        final trendingProperties = propertyProvider.properties.take(4).toList();
+        final trendingProperties = topTrending(propertyProvider.properties);
         if (trendingProperties.isEmpty) return const SizedBox.shrink();
 
         return Column(

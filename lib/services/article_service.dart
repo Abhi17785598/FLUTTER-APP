@@ -79,6 +79,34 @@ class ArticleService {
     }
   }
 
+  /// Published, approved articles for the Home "Latest Articles" rail.
+  ///
+  /// Mirrors the portal's home-page query (`PublicHomePage.tsx` /
+  /// `AuthenticatedHomePage.tsx`, `queryKey: 'home-articles'`): same table,
+  /// same two-flag filter, same `published_at` descending order, same
+  /// default cap of 6. [ArticleModel] already carries every field a teaser
+  /// card needs (title, slug, brief, image, category, read time, published
+  /// date), so no separate display model is introduced.
+  Future<List<ArticleModel>> listPublished({int limit = 6}) async {
+    try {
+      final rows = await _supabase
+          .from('cms_posts')
+          .select('*')
+          .eq('status', 'published')
+          .eq('approval_status', 'approved')
+          .order('published_at', ascending: false)
+          .limit(limit);
+
+      return List<Map<String, dynamic>>.from(rows as List)
+          .map((r) => ArticleModel.fromSupabase(r))
+          .where((a) => a.id.isNotEmpty && a.title.isNotEmpty)
+          .toList();
+    } catch (e) {
+      debugPrint('ArticleService.listPublished failed: $e');
+      rethrow;
+    }
+  }
+
   /// The column set shared by every insert and update.
   ///
   /// Mirrors the `payload` object in ArticleWriteForm.tsx exactly, including
