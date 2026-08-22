@@ -9,15 +9,20 @@ import '../../../core/widgets/scale_tap.dart';
 /// "Add Video" tile appears when [onAddVideo] is supplied — mirrors the
 /// portal's `CreateContent.tsx`, which only widens this grid to
 /// `grid-cols-3` for `userType === 'influencer'` (lines 379-390).
+///
+/// [onAddArticle] is likewise nullable: a builder has no article-writing
+/// surface anywhere else in the app (`builder_projects` is their whole
+/// content model), so passing null there drops the tile instead of pointing
+/// at a feature the role doesn't have.
 class CreateContentGrid extends StatelessWidget {
   final VoidCallback onAddProperty;
-  final VoidCallback onAddArticle;
+  final VoidCallback? onAddArticle;
   final VoidCallback? onAddVideo;
 
   const CreateContentGrid({
     super.key,
     required this.onAddProperty,
-    required this.onAddArticle,
+    this.onAddArticle,
     this.onAddVideo,
   });
 
@@ -34,6 +39,7 @@ class CreateContentGrid extends StatelessWidget {
     // the prototype's `1fr 1fr` grid. Same pattern already used by
     // ProfileStatsRow in this scroll view. Two shallow tiles, so the extra
     // measuring pass costs nothing meaningful.
+    final addArticle = onAddArticle;
     final addVideo = onAddVideo;
     return IntrinsicHeight(
       child: Row(
@@ -46,14 +52,16 @@ class CreateContentGrid extends StatelessWidget {
               onTap: onAddProperty,
             ),
           ),
-          const SizedBox(width: 10),
-          Expanded(
-            child: _ContentTile(
-              icon: Icons.article_outlined,
-              label: 'Add Article',
-              onTap: onAddArticle,
+          if (addArticle != null) ...[
+            const SizedBox(width: 10),
+            Expanded(
+              child: _ContentTile(
+                icon: Icons.article_outlined,
+                label: 'Add Article',
+                onTap: addArticle,
+              ),
             ),
-          ),
+          ],
           if (addVideo != null) ...[
             const SizedBox(width: 10),
             Expanded(

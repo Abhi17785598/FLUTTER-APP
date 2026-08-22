@@ -340,7 +340,7 @@ class _ProfileViewState extends State<_ProfileView> {
                         context,
                         AppConstants.postPropertyScreen,
                       ),
-                      onAddArticle: _openArticleEditor,
+                      onAddArticle: isBuilder ? null : _openArticleEditor,
                       onAddVideo: isInfluencer
                           ? () => Navigator.pushNamed(
                                 context,

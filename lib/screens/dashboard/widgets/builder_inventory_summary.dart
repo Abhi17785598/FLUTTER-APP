@@ -26,16 +26,16 @@
 // `ProjectInventoryService.countsByProject`). No query, no service change, no new
 // model.
 //
-// The portal lays these out as six equal cards in a row, which at 320 dp would be
-// 53 dp each. Here they are a horizontally scrollable strip of compact tiles — the
-// same treatment the broker leads strip uses — so every figure keeps a readable
-// number and its own label.
+// Rendered with the same [MetricCard]/[MetricCardGrid] every other dashboard's
+// KPI grid uses (Analytics/Audience, blueprint §16.5), rather than a bespoke
+// tinted-strip look — one shared card shape across the app instead of a
+// one-off here.
 import 'package:flutter/material.dart';
 
 import '../../../core/theme/app_colors.dart';
-import '../../../core/theme/app_text_styles.dart';
 import '../../../models/builder_section_models.dart';
 import '../../../models/project_model.dart';
+import '../../../widgets/shared/stat_kpi_card.dart';
 
 class BuilderInventorySummary extends StatelessWidget {
   const BuilderInventorySummary({
@@ -62,66 +62,46 @@ class BuilderInventorySummary extends StatelessWidget {
     // spinner, so a second one here would be two spinners for one load.
     if (projects.isEmpty) return const SizedBox.shrink();
 
-    final tiles = <_Tile>[
-      _Tile('Total Projects', '${projects.length}', AppColors.primary),
-      _Tile('Active', '${_withStatus('active')}', AppColors.success),
-      _Tile(
-        'Under Construction',
-        '${_withStatus('under_construction')}',
-        AppColors.statusNewLaunch,
+    return MetricCardGrid(cards: [
+      MetricCard(
+        icon: Icons.apartment_rounded,
+        value: '${projects.length}',
+        label: 'Total Projects',
+        accent: AppColors.primary,
       ),
-      _Tile('Completed', '${_withStatus('completed')}', AppColors.primary),
+      MetricCard(
+        icon: Icons.check_circle_rounded,
+        value: '${_withStatus('active')}',
+        label: 'Active',
+        accent: AppColors.success,
+      ),
+      MetricCard(
+        icon: Icons.construction_rounded,
+        value: '${_withStatus('under_construction')}',
+        label: 'Under Construction',
+        accent: AppColors.warning,
+      ),
+      MetricCard(
+        icon: Icons.task_alt_rounded,
+        value: '${_withStatus('completed')}',
+        label: 'Completed',
+        accent: AppColors.statusNewLaunch,
+      ),
       // Unconditional, matching the portal — see the file header. `0` here
       // means "no inventory added yet", which is worth showing directly
       // rather than making the whole card disappear.
-      _Tile('Total Units', '$_totalUnits', AppColors.textSecondary),
-      _Tile('Units Sold', '$_soldUnits', AppColors.warning),
-    ];
-
-    return SingleChildScrollView(
-      scrollDirection: Axis.horizontal,
-      physics: const ClampingScrollPhysics(),
-      child: Row(
-        children: [
-          for (final tile in tiles)
-            Container(
-              margin: const EdgeInsets.only(right: 8),
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
-              constraints: const BoxConstraints(minWidth: 78),
-              decoration: BoxDecoration(
-                color: tile.tint.withValues(alpha: 0.07),
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: tile.tint.withValues(alpha: 0.14)),
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    tile.value,
-                    style: AppTextStyles.body.copyWith(
-                      fontSize: 17,
-                      fontWeight: FontWeight.w700,
-                      color: tile.tint,
-                    ),
-                  ),
-                  const SizedBox(height: 1),
-                  Text(
-                    tile.label,
-                    style: AppTextStyles.caption.copyWith(fontSize: 10.5),
-                  ),
-                ],
-              ),
-            ),
-        ],
+      MetricCard(
+        icon: Icons.grid_view_rounded,
+        value: '$_totalUnits',
+        label: 'Total Units',
+        accent: AppColors.statusLoanAvailableText,
       ),
-    );
+      MetricCard(
+        icon: Icons.sell_rounded,
+        value: '$_soldUnits',
+        label: 'Units Sold',
+        accent: AppColors.statusSold,
+      ),
+    ]);
   }
-}
-
-class _Tile {
-  const _Tile(this.label, this.value, this.tint);
-
-  final String label;
-  final String value;
-  final Color tint;
 }

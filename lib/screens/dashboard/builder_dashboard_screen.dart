@@ -13,7 +13,6 @@ import '../../models/project_model.dart';
 import '../../services/builder_dashboard_service.dart';
 import '../../services/builder_sections_service.dart';
 import '../../services/project_service.dart';
-import '../widgets/builder_quick_actions_widget.dart';
 import '../../widgets/shared/section_header_back_button.dart';
 import '../../core/widgets/segmented_tab_pill.dart';
 import 'widgets/builder_listings_block.dart';
@@ -404,10 +403,6 @@ class _BuilderDashboardViewState extends State<_BuilderDashboardView> {
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const DashboardSectionLabel('Quick Actions'),
-            const SizedBox(height: 10),
-            const DashboardCard(child: BuilderQuickActionsWidget()),
-            const SizedBox(height: 22),
             const DashboardSectionLabel('Projects & Inventory'),
             const SizedBox(height: 10),
             // The portal's six summary cards (`BuilderInventoryManager.tsx:327-400`),
