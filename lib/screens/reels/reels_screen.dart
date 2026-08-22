@@ -450,12 +450,22 @@ class _ReelsScreenState extends State<ReelsScreen> {
 
   /// Opens the reel uploader's own public profile — `reel.builderUserId`
   /// (`influencer_videos.user_id`), never the signed-in viewer's id.
-  void _openUploaderProfile(String userId) {
-    Navigator.pushNamed(
+  ///
+  /// This pushes a new route on top of Reels rather than replacing it, so
+  /// `ReelsScreen`'s State (and its `_manager`) stays alive underneath —
+  /// `dispose()` never runs, and without an explicit pause the active
+  /// video's audio kept playing behind the profile screen. `pauseAll()` /
+  /// `resumeWindow()` already existed on [ReelControllerManager] for exactly
+  /// this "leaving the viewport" case; this was the one navigation path that
+  /// never called them.
+  Future<void> _openUploaderProfile(String userId) async {
+    _manager.pauseAll();
+    await Navigator.pushNamed(
       context,
       AppConstants.publicProfileScreen,
       arguments: {'userId': userId},
     );
+    if (mounted) _manager.resumeWindow();
   }
 
   Widget _buildBuilderOverlay(ReelsProvider provider) {
