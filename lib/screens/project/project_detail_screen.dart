@@ -215,12 +215,23 @@ class _ProjectDetailScreenState extends State<ProjectDetailScreen> {
     final project = _project!;
     final projectsProvider = context.watch<ProjectsProvider>();
 
+    // The hero gallery is for the project's own photos only. `galleryImages`
+    // also folds in `mapImages` (master-plan/floor-plan diagrams), which
+    // already get their own dedicated "Master plan" strip further down this
+    // page (see `project.mapImages.isNotEmpty` below) — including them here
+    // too made a project with a single real photo show "1/2" in the header,
+    // with the second "photo" actually being a floor-plan image duplicated
+    // from that later section.
+    final heroImages = project.galleryImages
+        .where((url) => !project.mapImages.contains(url))
+        .toList();
+
     return Scaffold(
       backgroundColor: AppColors.background,
       body: CustomScrollView(
         slivers: [
           _GalleryHeader(
-            images: project.galleryImages,
+            images: heroImages,
             onBack: () => Navigator.of(context).maybePop(),
             isLiked: projectsProvider.isLiked(project.id),
             isSaved: projectsProvider.isSaved(project.id),
