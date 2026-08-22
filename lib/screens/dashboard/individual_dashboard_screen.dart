@@ -11,9 +11,11 @@ import '../../providers/individual_dashboard_provider.dart';
 import '../../services/property_service.dart';
 import '../post_property/post_property_screen.dart';
 import '../../widgets/shared/section_header_back_button.dart';
+import 'widgets/broker_leads_section.dart';
+import 'widgets/broker_visit_bookings_section.dart';
 import 'widgets/dashboard_primitives.dart';
 import 'widgets/dashboard_tab_bodies.dart';
-import 'widgets/dashboard_tab_selector.dart';
+import '../../core/widgets/segmented_tab_pill.dart';
 import '../../widgets/shared/stat_kpi_card.dart';
 
 class _BrandGradient {
@@ -21,6 +23,56 @@ class _BrandGradient {
   // gradient header; DashboardHeaderBar replaced it.
   static const Color c2 = Color(0xFF3424C8);
   static const Color c4 = Color(0xFF6657FF);
+}
+
+/// The Individual dashboard's five sections.
+///
+/// `IndividualDashboardManage.tsx` — Analytics · Content · Leads · Visits ·
+/// Audience: the same Leads/Visits pair every other role's manage dashboard
+/// already has (`property_inquiries`/`property_visit_bookings`, scoped to
+/// this person's own listings exactly like Broker's — neither table has a
+/// role column, so "my properties" already is the correct scope regardless
+/// of user type).
+///
+/// Its own enum, like Broker/Builder/Influencer, so the shared
+/// `DashboardTab`/`DashboardTabSelector` (which has no room for a fourth or
+/// fifth tab) is left untouched — nothing else still uses it for rendering.
+enum IndividualSection { analytics, content, leads, visits, audience }
+
+/// Five labels over the app's existing segmented pill.
+class IndividualSectionSelector extends StatelessWidget {
+  const IndividualSectionSelector({
+    super.key,
+    required this.selected,
+    required this.onChanged,
+  });
+
+  final IndividualSection selected;
+  final ValueChanged<IndividualSection> onChanged;
+
+  static const _labels = <IndividualSection, String>{
+    IndividualSection.analytics: 'Analytics',
+    // Preserved verbatim from the shared DashboardTabSelector this replaces
+    // — not shortened to "Content" like Broker/Influencer's own tabs, so
+    // this doesn't change what a returning Individual user already sees.
+    IndividualSection.content: 'Content Manager',
+    IndividualSection.leads: 'Leads',
+    IndividualSection.visits: 'Visits',
+    IndividualSection.audience: 'Audience',
+  };
+
+  @override
+  Widget build(BuildContext context) {
+    return SegmentedTabPill(
+      labels: IndividualSection.values.map((s) => _labels[s]!).toList(),
+      selectedIndex: IndividualSection.values.indexOf(selected),
+      onChanged: (i) => onChanged(IndividualSection.values[i]),
+      labelFontSize: 11,
+      // "Content Manager" wraps at this width, same as the selector this
+      // replaces.
+      maxLines: 2,
+    );
+  }
 }
 
 // Entry point — provides the provider and delegates to the stateful view.
@@ -66,7 +118,7 @@ class _IndividualDashboardView extends StatefulWidget {
 }
 
 class _IndividualDashboardViewState extends State<_IndividualDashboardView> {
-  DashboardTab _tab = DashboardTab.analytics;
+  IndividualSection _tab = IndividualSection.analytics;
   String? _loadedUserId;
 
   @override
@@ -103,7 +155,7 @@ class _IndividualDashboardViewState extends State<_IndividualDashboardView> {
       // Design places an icon-only square FAB on the Content tab only. Its
       // action is the same PostPropertyScreen push `_CreatePropertyButton`
       // already performs — reachable two ways on that tab, as in the design.
-      floatingActionButton: _tab == DashboardTab.content
+      floatingActionButton: _tab == IndividualSection.content
           // Design insets the FAB 20 dp from the right edge; Scaffold's
           // endFloat location defaults to 16.
           ? Padding(
@@ -135,7 +187,7 @@ class _IndividualDashboardViewState extends State<_IndividualDashboardView> {
                         subtitle: 'Manage your content and track performance',
                       ),
                       const SizedBox(height: 18),
-                      DashboardTabSelector(
+                      IndividualSectionSelector(
                         selected: _tab,
                         onChanged: (t) => setState(() => _tab = t),
                       ),
@@ -183,7 +235,7 @@ class _IndividualDashboardViewState extends State<_IndividualDashboardView> {
     final analytics = context.watch<DashboardAnalyticsProvider>();
 
     switch (_tab) {
-      case DashboardTab.analytics:
+      case IndividualSection.analytics:
         return DashboardAnalyticsBody(
           analytics: analytics.analytics,
           loading: analytics.analyticsLoading,
@@ -195,7 +247,7 @@ class _IndividualDashboardViewState extends State<_IndividualDashboardView> {
           showSavedProperties: analytics.includeSavedProperties,
         );
 
-      case DashboardTab.content:
+      case IndividualSection.content:
         return DashboardContentBody(
           createLabel: 'Add Property',
           emptyActionLabel: 'Add Your First Property',
@@ -221,7 +273,31 @@ class _IndividualDashboardViewState extends State<_IndividualDashboardView> {
           ],
         );
 
-      case DashboardTab.audience:
+      // ── Leads — same `property_inquiries` + `property_visit_bookings`
+      // unification Broker's own Leads tab already uses, scoped to this
+      // person's own properties via IndividualDashboardProvider (already
+      // loaded for the Content tab above — no second fetch).
+      case IndividualSection.leads:
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const DashboardSectionLabel('Leads'),
+            const SizedBox(height: 10),
+            BrokerLeadsSection(properties: provider.myProperties),
+          ],
+        );
+
+      case IndividualSection.visits:
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const DashboardSectionLabel('Visit Bookings'),
+            const SizedBox(height: 10),
+            BrokerVisitBookingsSection(properties: provider.myProperties),
+          ],
+        );
+
+      case IndividualSection.audience:
         return DashboardAudienceBody(
           audience: analytics.audience,
           loading: analytics.audienceLoading,

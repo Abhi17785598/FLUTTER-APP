@@ -8,11 +8,15 @@ import '../../providers/dashboard_analytics_provider.dart';
 import '../../widgets/bottom_nav_bar.dart';
 import '../../providers/auth_provider.dart';
 import '../../models/influencer_dashboard_model.dart';
+import '../../models/property_model.dart';
 import '../../services/influencer_dashboard_service.dart';
+import '../../services/property_service.dart';
 import '../widgets/influencer_stats_widget.dart';
 import '../widgets/influencer_quick_actions_widget.dart';
 import 'my_listings_section.dart';
 import '../../widgets/shared/section_header_back_button.dart';
+import 'widgets/broker_leads_section.dart';
+import 'widgets/broker_visit_bookings_section.dart';
 import 'widgets/dashboard_primitives.dart';
 import 'widgets/dashboard_tab_bodies.dart';
 import '../../core/widgets/segmented_tab_pill.dart';
@@ -33,17 +37,20 @@ class _BrandGradient {
   static const Color c4 = Color(0xFF6657FF); // accent only — icons/glows
 }
 
-/// The Influencer dashboard's four sections.
+/// The Influencer dashboard's six sections.
 ///
-/// `InfluencerDashboardManage.tsx:95-110` — Analytics · Content · Audience ·
-/// **Collaboration**. The fourth is the one Flutter's shared three-tab selector had
-/// no room for.
+/// `InfluencerDashboardManage.tsx` — Analytics · Content · **Leads** ·
+/// **Visits** · Audience · Collaboration. Leads/Visits are the same
+/// `property_inquiries`/`property_visit_bookings` pair every other role's
+/// manage dashboard has — an influencer lists properties too
+/// (`MyListingsSection` below, per `CreateContent.tsx:379-402`), so the same
+/// scope-by-my-properties logic applies unchanged.
 ///
 /// Its own enum, like the builder's and the broker's, so the shared
 /// `DashboardTabSelector` keeps serving Individual unchanged.
-enum InfluencerSection { analytics, content, audience, collaboration }
+enum InfluencerSection { analytics, content, leads, visits, audience, collaboration }
 
-/// Four labels over the app's existing segmented pill.
+/// Six labels over the app's existing segmented pill.
 class InfluencerSectionSelector extends StatelessWidget {
   const InfluencerSectionSelector({
     super.key,
@@ -57,6 +64,8 @@ class InfluencerSectionSelector extends StatelessWidget {
   static const _labels = <InfluencerSection, String>{
     InfluencerSection.analytics: 'Analytics',
     InfluencerSection.content: 'Content',
+    InfluencerSection.leads: 'Leads',
+    InfluencerSection.visits: 'Visits',
     InfluencerSection.audience: 'Audience',
     InfluencerSection.collaboration: 'Collabs',
   };
@@ -108,11 +117,32 @@ class _InfluencerDashboardViewState extends State<_InfluencerDashboardView> {
   InfluencerSection _section = InfluencerSection.analytics;
   String? _loadedUserId;
 
+  /// The scope for the Leads/Visits tabs — same reasoning as
+  /// `BrokerDashboardScreen._properties`: neither `property_inquiries` nor
+  /// `property_visit_bookings` has a role column, so "my own properties" is
+  /// the whole scope regardless of user type.
+  List<PropertyModel> _properties = const [];
+
+  Future<void> _loadProperties() async {
+    final userId = context.read<AuthProvider>().userId;
+    if (userId == null) return;
+    try {
+      final rows = await PropertyService().getPropertiesByUser(userId);
+      if (!mounted) return;
+      setState(() => _properties = rows);
+    } catch (e) {
+      debugPrint('InfluencerDashboard property scope failed: $e');
+    }
+  }
+
   @override
   void initState() {
     super.initState();
     _dashboardFuture = _loadDashboard();
-    WidgetsBinding.instance.addPostFrameCallback((_) => _loadAnalytics());
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _loadAnalytics();
+      _loadProperties();
+    });
   }
 
   Future<InfluencerDashboardModel> _loadDashboard() {
@@ -278,6 +308,29 @@ class _InfluencerDashboardViewState extends State<_InfluencerDashboardView> {
             const DashboardSectionLabel('My Listings'),
             const SizedBox(height: 10),
             MyListingsSection(userId: auth.userId!),
+          ],
+        );
+
+      // ── Leads / Visits — same unified property_inquiries +
+      // property_visit_bookings pair Broker's dashboard already has,
+      // scoped to this influencer's own listings via `_properties`.
+      case InfluencerSection.leads:
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const DashboardSectionLabel('Leads'),
+            const SizedBox(height: 10),
+            BrokerLeadsSection(properties: _properties),
+          ],
+        );
+
+      case InfluencerSection.visits:
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const DashboardSectionLabel('Visit Bookings'),
+            const SizedBox(height: 10),
+            BrokerVisitBookingsSection(properties: _properties),
           ],
         );
 

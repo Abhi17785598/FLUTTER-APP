@@ -20,16 +20,20 @@ import 'widgets/builder_listings_block.dart';
 import 'widgets/builder_inventory_summary.dart';
 import 'widgets/builder_overview_body.dart';
 import 'widgets/builder_offers_section.dart';
+import 'widgets/builder_leads_section.dart';
 import 'widgets/builder_site_visits_section.dart';
 import 'widgets/builder_team_section.dart';
 import 'widgets/my_projects_section.dart';
 import 'widgets/dashboard_primitives.dart';
 import 'widgets/dashboard_tab_bodies.dart';
 
-/// The Builder dashboard's own four sections.
+/// The Builder dashboard's own six sections.
 ///
-/// The portal's `BuilderTopNav.tsx:5-8` — Overview · Inventory · Marketed Offers ·
-/// Team. It has no Analytics or Audience tab at all.
+/// The portal's `BuilderTopNav.tsx` — Overview · Inventory · Marketed Offers ·
+/// Team · Leads · Visits (it also has a seventh, Negotiation, which is out of
+/// scope here — no Flutter surface reads `builder_project_negotiation_keys`
+/// yet, and adding a first one is a separate feature, not a tab move). It has
+/// no Analytics or Audience tab at all.
 ///
 /// WHY NOT `DashboardTab`
 /// ---------------------
@@ -41,12 +45,9 @@ import 'widgets/dashboard_tab_bodies.dart';
 ///
 /// The Analytics and Audience bodies are not lost: their content is folded into
 /// Overview, which is where the portal puts performance.
-enum BuilderSection { overview, inventory, offers, team }
+enum BuilderSection { overview, inventory, offers, team, leads, visits }
 
-/// Four labels over the app's existing segmented pill.
-///
-/// Two rows of two rather than four across: "Marketed Offers" cannot share a 320 dp
-/// row with three siblings without truncating to "Market…".
+/// Six labels over the app's existing segmented pill.
 class BuilderSectionSelector extends StatelessWidget {
   const BuilderSectionSelector({
     super.key,
@@ -62,17 +63,22 @@ class BuilderSectionSelector extends StatelessWidget {
     BuilderSection.inventory: 'Inventory',
     BuilderSection.offers: 'Offers',
     BuilderSection.team: 'Team',
+    BuilderSection.leads: 'Leads',
+    BuilderSection.visits: 'Visits',
   };
 
   @override
   Widget build(BuildContext context) {
     // "Marketed Offers" shortened to "Offers" for the pill only — the section's own
-    // heading inside the tab keeps the portal's full wording.
+    // heading inside the tab keeps the portal's full wording. Six segments need the
+    // two-line allowance Individual/Influencer's own five/six-tab selectors already
+    // use, or "Overview"/"Inventory" would ellipsise at this width.
     return SegmentedTabPill(
       labels: BuilderSection.values.map((s) => _labels[s]!).toList(),
       selectedIndex: BuilderSection.values.indexOf(selected),
       onChanged: (i) => onChanged(BuilderSection.values[i]),
-      labelFontSize: 11.5,
+      labelFontSize: 11,
+      maxLines: 2,
     );
   }
 }
@@ -432,12 +438,32 @@ class _BuilderDashboardViewState extends State<_BuilderDashboardView> {
               builderId: auth.userId!,
               projects: _projects,
             ),
-            const SizedBox(height: 22),
+          ],
+        );
+
+      // ── Leads — `IncomingLeadsManager` ──────────────────────────────────
+      case BuilderSection.leads:
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const DashboardSectionLabel('Leads'),
+            const SizedBox(height: 10),
+            BuilderLeadsSection(
+              projectIds: _projects.map((p) => p.id).toList(growable: false),
+              projectTitles: {
+                for (final project in _projects) project.id: project.title,
+              },
+            ),
+          ],
+        );
+
+      // ── Visits — `SiteVisitBookingsManager` ─────────────────────────────
+      case BuilderSection.visits:
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
             const DashboardSectionLabel('Site Visits'),
             const SizedBox(height: 10),
-            // Grouped with Offers rather than given a fifth pill: both are outbound
-            // demand, the portal has no Site Visits tab at all (Spec H recorded it as
-            // the one inference), and a fifth label will not fit two rows of two.
             BuilderSiteVisitsSection(
               projectIds: _projects.map((p) => p.id).toList(growable: false),
               projectTitles: {
