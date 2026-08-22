@@ -38,6 +38,16 @@ class SegmentedTabPill extends StatelessWidget {
   /// onto two; every other track is single-line.
   final int maxLines;
 
+  /// Shrinks a label to fit one line instead of letting [maxLines] wrap it.
+  ///
+  /// Wrapping only helps a label with a space to break at ("Content
+  /// Manager" → "Content" / "Manager"). A single long word ("Overview",
+  /// "Inventory") has no such point, so `maxLines: 2` breaks it mid-letter —
+  /// "Overvie" / "w" — instead. Builder's six-tab track is the one place
+  /// that happens, so it opts into this; every other caller keeps the
+  /// existing wrap-or-ellipsis behaviour untouched.
+  final bool fitSingleLine;
+
   const SegmentedTabPill({
     super.key,
     required this.labels,
@@ -46,6 +56,7 @@ class SegmentedTabPill extends StatelessWidget {
     this.labelFontSize = 12,
     this.itemVerticalPadding = 9,
     this.maxLines = 1,
+    this.fitSingleLine = false,
   }) : assert(labels.length > 0, 'SegmentedTabPill needs at least one tab');
 
   @override
@@ -94,19 +105,35 @@ class SegmentedTabPill extends StatelessWidget {
                 vertical: itemVerticalPadding,
                 horizontal: AppConstants.spacingXS,
               ),
-              child: Text(
-                labels[index],
-                textAlign: TextAlign.center,
-                maxLines: maxLines,
-                overflow: TextOverflow.ellipsis,
-                style: AppTextStyles.caption.copyWith(
-                  fontSize: labelFontSize,
-                  fontWeight: FontWeight.w600,
-                  color: isSelected
-                      ? AppColors.primary
-                      : AppColors.textSecondary,
-                ),
-              ),
+              child: fitSingleLine
+                  ? FittedBox(
+                      fit: BoxFit.scaleDown,
+                      child: Text(
+                        labels[index],
+                        maxLines: 1,
+                        softWrap: false,
+                        style: AppTextStyles.caption.copyWith(
+                          fontSize: labelFontSize,
+                          fontWeight: FontWeight.w600,
+                          color: isSelected
+                              ? AppColors.primary
+                              : AppColors.textSecondary,
+                        ),
+                      ),
+                    )
+                  : Text(
+                      labels[index],
+                      textAlign: TextAlign.center,
+                      maxLines: maxLines,
+                      overflow: TextOverflow.ellipsis,
+                      style: AppTextStyles.caption.copyWith(
+                        fontSize: labelFontSize,
+                        fontWeight: FontWeight.w600,
+                        color: isSelected
+                            ? AppColors.primary
+                            : AppColors.textSecondary,
+                      ),
+                    ),
             ),
           ),
         ),

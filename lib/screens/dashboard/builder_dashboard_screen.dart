@@ -70,15 +70,17 @@ class BuilderSectionSelector extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     // "Marketed Offers" shortened to "Offers" for the pill only — the section's own
-    // heading inside the tab keeps the portal's full wording. Six segments need the
-    // two-line allowance Individual/Influencer's own five/six-tab selectors already
-    // use, or "Overview"/"Inventory" would ellipsise at this width.
+    // heading inside the tab keeps the portal's full wording. "Overview" and
+    // "Inventory" are single words with no space to wrap at, so the usual
+    // two-line allowance (Individual/Influencer's own multi-tab selectors) would
+    // break them mid-letter instead — "Overvie" / "w" — at six segments' width.
+    // Shrinking to fit one line avoids that regardless of device width.
     return SegmentedTabPill(
       labels: BuilderSection.values.map((s) => _labels[s]!).toList(),
       selectedIndex: BuilderSection.values.indexOf(selected),
       onChanged: (i) => onChanged(BuilderSection.values[i]),
       labelFontSize: 11,
-      maxLines: 2,
+      fitSingleLine: true,
     );
   }
 }
