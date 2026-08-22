@@ -44,3 +44,11 @@ app.*.map.json
 /android/app/profile
 /android/app/release
 .env
+
+# Android signing (never commit keystores/credentials)
+android/key.properties
+*.jks
+*.keystore
+
+# Windows
+Thumbs.db

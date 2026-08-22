@@ -38,6 +38,7 @@ class _AuthScreenState extends State<AuthScreen> with TickerProviderStateMixin {
   final _phoneCtrl = TextEditingController();
 
   bool _isLoading = false;
+  bool _googleOAuthStarting = false;
 
   @override
   void initState() {
@@ -142,6 +143,24 @@ class _AuthScreenState extends State<AuthScreen> with TickerProviderStateMixin {
   }
 
   // ─── Handlers ─────────────────────────────────────────────
+
+  Future<void> _handleGoogleSignIn() async {
+    // Stops double taps and simultaneous authentication actions.
+    if (_isLoading || _googleOAuthStarting) return;
+
+    setState(() => _googleOAuthStarting = true);
+    debugPrint('[GOOGLE_OAUTH] Google sign-in requested');
+
+    final error = await context.read<AuthProvider>().signInWithGoogle();
+
+    if (!mounted) return;
+
+    setState(() => _googleOAuthStarting = false);
+
+    if (error != null) {
+      _showSnackBar(error, isError: true);
+    }
+  }
 
   Future<void> _handleLogin() async {
     final validationError = _validateLogin();
@@ -688,27 +707,26 @@ class _AuthScreenState extends State<AuthScreen> with TickerProviderStateMixin {
       width: double.infinity,
       height: 52,
       child: OutlinedButton.icon(
-        onPressed: () async {
-          final error = await context.read<AuthProvider>().signInWithGoogle();
-          if (error != null && mounted) {
-            _showSnackBar(error, isError: true);
-          }
-          // Browser opened on success. The session arrives later via the
-          // auth state stream — AuthProvider is the sole owner of what
-          // happens next; this screen does not track a "pending" flag or
-          // navigate itself.
-        },
-        icon: const Text(
-          'G',
-          style: TextStyle(
-            fontSize: 18,
-            fontWeight: FontWeight.w700,
-            color: Color(0xFF4285F4),
-          ),
-        ),
-        label: const Text(
-          'Continue with Google',
-          style: TextStyle(
+        onPressed: (_isLoading || _googleOAuthStarting)
+            ? null
+            : _handleGoogleSignIn,
+        icon: _googleOAuthStarting
+            ? const SizedBox(
+                width: 18,
+                height: 18,
+                child: CircularProgressIndicator(strokeWidth: 2),
+              )
+            : const Text(
+                'G',
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.w700,
+                  color: Color(0xFF4285F4),
+                ),
+              ),
+        label: Text(
+          _googleOAuthStarting ? 'Opening Google…' : 'Continue with Google',
+          style: const TextStyle(
             fontSize: 14,
             fontWeight: FontWeight.w500,
             color: AppColors.textPrimary,
@@ -720,6 +738,7 @@ class _AuthScreenState extends State<AuthScreen> with TickerProviderStateMixin {
           ),
           side: BorderSide(color: Colors.grey.shade300),
           backgroundColor: Colors.white,
+          disabledBackgroundColor: Colors.grey.shade100,
         ),
       ),
     );

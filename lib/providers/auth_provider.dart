@@ -102,6 +102,7 @@ class AuthProvider extends ChangeNotifier {
   /// and both paths must collapse into one sign-out and one navigation, not
   /// two.
   bool _handlingBlockedAccount = false;
+  bool _googleOAuthLaunchInFlight = false;
 
   /// Guards the `passwordRecovery` navigation the same way — a second
   /// `passwordRecovery` event before the reset screen has changed anything
@@ -793,12 +794,34 @@ class AuthProvider extends ChangeNotifier {
   /// The actual session arrives later via the auth state stream, which this
   /// provider's own listener reacts to — the caller does not navigate.
   Future<String?> signInWithGoogle() async {
+    // Never restart OAuth when the user is already authenticated.
+    if (_authService.currentUser != null) {
+      debugPrint('[GOOGLE_OAUTH] Ignored: session already exists');
+      return null;
+    }
+
+    // Prevent two Google browser/account-chooser launches at the same time.
+    if (_googleOAuthLaunchInFlight) {
+      debugPrint('[GOOGLE_OAUTH] Ignored: launch already in progress');
+      return null;
+    }
+
+    _googleOAuthLaunchInFlight = true;
+
     try {
+      debugPrint('[GOOGLE_OAUTH] Launching Google OAuth');
+
       final success = await _authService.signInWithGoogle();
-      if (!success) return 'Could not open Google Sign In. Please try again.';
+
+      if (!success) {
+        return 'Could not open Google Sign In. Please try again.';
+      }
+
       return null;
     } catch (e) {
       return e.toString();
+    } finally {
+      _googleOAuthLaunchInFlight = false;
     }
   }
 
