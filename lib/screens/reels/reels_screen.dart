@@ -117,8 +117,9 @@ class _ReelsScreenState extends State<ReelsScreen> {
     _initializedFeed = true;
 
     final requestedId = widget.initialReelId;
-    final matchedIndex =
-        requestedId == null ? -1 : reels.indexWhere((r) => r.id == requestedId);
+    final matchedIndex = requestedId == null
+        ? -1
+        : reels.indexWhere((r) => r.id == requestedId);
     final startIndex = matchedIndex == -1 ? 0 : matchedIndex;
 
     _currentIndex = startIndex;
@@ -146,7 +147,10 @@ class _ReelsScreenState extends State<ReelsScreen> {
     // thread at the exact moment of the swipe. Starting it only once that
     // frame has been drawn keeps the fling/settle smooth.
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted) return;
+      if (!mounted || index != _currentIndex) return;
+
+      // Ignore callbacks queued for a Reel that is no longer active.
+      // ignore: unawaited_futures
       _manager.onActiveIndexChanged(index);
     });
   }
@@ -184,7 +188,9 @@ class _ReelsScreenState extends State<ReelsScreen> {
     final phone = reel.builderPhone;
     if (phone == null || phone.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('No contact number available for this builder')),
+        const SnackBar(
+          content: Text('No contact number available for this builder'),
+        ),
       );
       return;
     }
@@ -192,15 +198,15 @@ class _ReelsScreenState extends State<ReelsScreen> {
     try {
       final launched = await launchUrl(uri);
       if (!launched && mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Could not start a call')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('Could not start a call')));
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Could not start a call')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('Could not start a call')));
       }
     }
   }
@@ -425,8 +431,10 @@ class _ReelsScreenState extends State<ReelsScreen> {
           padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
           child: Align(
             alignment: Alignment.centerLeft,
-            child: _circleIcon(Icons.arrow_back_ios_new_rounded,
-                onTap: () => Navigator.maybePop(context)),
+            child: _circleIcon(
+              Icons.arrow_back_ios_new_rounded,
+              onTap: () => Navigator.maybePop(context),
+            ),
           ),
         ),
       ),
@@ -497,7 +505,11 @@ class _ReelsScreenState extends State<ReelsScreen> {
         color: Colors.white,
         borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
         boxShadow: [
-          BoxShadow(color: Colors.black12, blurRadius: 16, offset: Offset(0, -4)),
+          BoxShadow(
+            color: Colors.black12,
+            blurRadius: 16,
+            offset: Offset(0, -4),
+          ),
         ],
       ),
       child: SafeArea(
@@ -552,8 +564,11 @@ class _ReelsScreenState extends State<ReelsScreen> {
               ),
             ),
             const SizedBox(width: 2),
-            const Icon(Icons.chevron_right_rounded,
-                color: AppColors.primary, size: 16),
+            const Icon(
+              Icons.chevron_right_rounded,
+              color: AppColors.primary,
+              size: 16,
+            ),
           ],
         ),
       ),
@@ -663,7 +678,8 @@ class _ReelPageSurfaceState extends State<_ReelPageSurface> {
       oldWidget.manager.removeListener(_onManagerChanged);
       widget.manager.addListener(_onManagerChanged);
     }
-    if (oldWidget.manager != widget.manager || oldWidget.index != widget.index) {
+    if (oldWidget.manager != widget.manager ||
+        oldWidget.index != widget.index) {
       _sync();
     }
   }
@@ -684,7 +700,9 @@ class _ReelPageSurfaceState extends State<_ReelPageSurface> {
     final controller = widget.manager.controllerAt(widget.index);
     final ready = controller?.value.isInitialized ?? false;
     final hasFailed = widget.manager.hasFailed(widget.index);
-    if (controller == _controller && ready == _ready && hasFailed == _hasFailed) {
+    if (controller == _controller &&
+        ready == _ready &&
+        hasFailed == _hasFailed) {
       return;
     }
     setState(() {
@@ -752,8 +770,10 @@ class _PropertyDetailsSheet extends StatelessWidget {
                   ),
                   IconButton(
                     onPressed: () => Navigator.pop(context),
-                    icon: const Icon(Icons.close_rounded,
-                        color: AppColors.textSecondary),
+                    icon: const Icon(
+                      Icons.close_rounded,
+                      color: AppColors.textSecondary,
+                    ),
                     style: IconButton.styleFrom(
                       backgroundColor: AppColors.cardBackground,
                       padding: const EdgeInsets.all(6),
@@ -798,14 +818,16 @@ class _PropertyDetailsSheet extends StatelessWidget {
                     child: DecoratedBox(
                       decoration: BoxDecoration(
                         gradient: AppColors.primaryGradient,
-                        borderRadius:
-                            BorderRadius.circular(AppConstants.buttonRadius),
+                        borderRadius: BorderRadius.circular(
+                          AppConstants.buttonRadius,
+                        ),
                       ),
                       child: Material(
                         color: Colors.transparent,
                         child: InkWell(
-                          borderRadius:
-                              BorderRadius.circular(AppConstants.buttonRadius),
+                          borderRadius: BorderRadius.circular(
+                            AppConstants.buttonRadius,
+                          ),
                           onTap: () {
                             Navigator.pop(context);
                             onContactBuilder();
@@ -877,8 +899,10 @@ class _ReelsEmptyState extends StatelessWidget {
               child: Padding(
                 padding: const EdgeInsets.all(12),
                 child: IconButton(
-                  icon: const Icon(Icons.arrow_back_ios_new_rounded,
-                      color: Colors.white),
+                  icon: const Icon(
+                    Icons.arrow_back_ios_new_rounded,
+                    color: Colors.white,
+                  ),
                   onPressed: () => Navigator.maybePop(context),
                 ),
               ),
@@ -920,8 +944,10 @@ class _ReelsEmptyState extends StatelessWidget {
                     const SizedBox(height: 20),
                     OutlinedButton.icon(
                       onPressed: onRetry,
-                      icon: const Icon(Icons.refresh_rounded,
-                          color: Colors.white),
+                      icon: const Icon(
+                        Icons.refresh_rounded,
+                        color: Colors.white,
+                      ),
                       label: Text(
                         'Retry',
                         style: AppTextStyles.button.copyWith(
@@ -929,7 +955,9 @@ class _ReelsEmptyState extends StatelessWidget {
                         ),
                       ),
                       style: OutlinedButton.styleFrom(
-                        side: BorderSide(color: Colors.white.withValues(alpha: 0.4)),
+                        side: BorderSide(
+                          color: Colors.white.withValues(alpha: 0.4),
+                        ),
                       ),
                     ),
                   ],
@@ -1000,9 +1028,9 @@ class _CommentsSheetState extends State<_CommentsSheet> {
 
     final userId = Supabase.instance.client.auth.currentUser?.id;
     if (userId == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Sign in to comment')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Sign in to comment')));
       return;
     }
 
@@ -1022,9 +1050,9 @@ class _CommentsSheetState extends State<_CommentsSheet> {
     } catch (e) {
       debugPrint('[Reels] submitComment failed: $e');
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text("Couldn't post comment")),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text("Couldn't post comment")));
       }
     } finally {
       if (mounted) setState(() => _submitting = false);
@@ -1059,9 +1087,10 @@ class _CommentsSheetState extends State<_CommentsSheet> {
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
               child: Row(
                 children: [
-                  Text('Comments',
-                      style: AppTextStyles.heading3
-                          .copyWith(color: Colors.white)),
+                  Text(
+                    'Comments',
+                    style: AppTextStyles.heading3.copyWith(color: Colors.white),
+                  ),
                   const Spacer(),
                   IconButton(
                     icon: const Icon(Icons.close, color: Colors.white),
@@ -1085,12 +1114,18 @@ class _CommentsSheetState extends State<_CommentsSheet> {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(Icons.wifi_off_rounded,
-                size: 48, color: Colors.white.withValues(alpha: 0.3)),
+            Icon(
+              Icons.wifi_off_rounded,
+              size: 48,
+              color: Colors.white.withValues(alpha: 0.3),
+            ),
             const SizedBox(height: 12),
-            Text('Could not load comments',
-                style: AppTextStyles.body
-                    .copyWith(color: Colors.white.withValues(alpha: 0.6))),
+            Text(
+              'Could not load comments',
+              style: AppTextStyles.body.copyWith(
+                color: Colors.white.withValues(alpha: 0.6),
+              ),
+            ),
             const SizedBox(height: 8),
             TextButton(onPressed: _load, child: const Text('Retry')),
           ],
@@ -1110,13 +1145,17 @@ class _CommentsSheetState extends State<_CommentsSheet> {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(Icons.mode_comment_outlined,
-                size: 56, color: Colors.white.withValues(alpha: 0.25)),
+            Icon(
+              Icons.mode_comment_outlined,
+              size: 56,
+              color: Colors.white.withValues(alpha: 0.25),
+            ),
             const SizedBox(height: 12),
             Text(
               'No comments yet',
-              style: AppTextStyles.body
-                  .copyWith(color: Colors.white.withValues(alpha: 0.6)),
+              style: AppTextStyles.body.copyWith(
+                color: Colors.white.withValues(alpha: 0.6),
+              ),
             ),
           ],
         ),
@@ -1146,26 +1185,32 @@ class _CommentsSheetState extends State<_CommentsSheet> {
               : null,
           child: (comment.authorAvatarUrl?.isNotEmpty ?? false)
               ? null
-              : Text(name[0].toUpperCase(),
-                  style: const TextStyle(color: Colors.white, fontSize: 12)),
+              : Text(
+                  name[0].toUpperCase(),
+                  style: const TextStyle(color: Colors.white, fontSize: 12),
+                ),
         ),
         const SizedBox(width: 10),
         Expanded(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(name,
-                  style: AppTextStyles.body.copyWith(
-                    color: Colors.white,
-                    fontWeight: FontWeight.w600,
-                    fontSize: 13,
-                  )),
+              Text(
+                name,
+                style: AppTextStyles.body.copyWith(
+                  color: Colors.white,
+                  fontWeight: FontWeight.w600,
+                  fontSize: 13,
+                ),
+              ),
               const SizedBox(height: 2),
-              Text(comment.content,
-                  style: AppTextStyles.body.copyWith(
-                    color: Colors.white.withValues(alpha: 0.85),
-                    fontSize: 13,
-                  )),
+              Text(
+                comment.content,
+                style: AppTextStyles.body.copyWith(
+                  color: Colors.white.withValues(alpha: 0.85),
+                  fontSize: 13,
+                ),
+              ),
             ],
           ),
         ),
@@ -1186,12 +1231,15 @@ class _CommentsSheetState extends State<_CommentsSheet> {
                 style: const TextStyle(color: Colors.white),
                 decoration: InputDecoration(
                   hintText: 'Add a comment...',
-                  hintStyle:
-                      TextStyle(color: Colors.white.withValues(alpha: 0.4)),
+                  hintStyle: TextStyle(
+                    color: Colors.white.withValues(alpha: 0.4),
+                  ),
                   filled: true,
                   fillColor: Colors.white.withValues(alpha: 0.08),
                   contentPadding: const EdgeInsets.symmetric(
-                      horizontal: 14, vertical: 10),
+                    horizontal: 14,
+                    vertical: 10,
+                  ),
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(24),
                     borderSide: BorderSide.none,
@@ -1208,7 +1256,9 @@ class _CommentsSheetState extends State<_CommentsSheet> {
                       width: 18,
                       height: 18,
                       child: CircularProgressIndicator(
-                          color: Colors.white70, strokeWidth: 2),
+                        color: Colors.white70,
+                        strokeWidth: 2,
+                      ),
                     )
                   : const Icon(Icons.send_rounded, color: AppColors.primary),
             ),
@@ -1226,8 +1276,9 @@ class _CommentsSheetState extends State<_CommentsSheet> {
         child: Text(
           'Comments are turned off for this creator',
           textAlign: TextAlign.center,
-          style: AppTextStyles.caption
-              .copyWith(color: Colors.white.withValues(alpha: 0.5)),
+          style: AppTextStyles.caption.copyWith(
+            color: Colors.white.withValues(alpha: 0.5),
+          ),
         ),
       ),
     );

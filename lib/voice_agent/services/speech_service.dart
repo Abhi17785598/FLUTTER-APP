@@ -33,6 +33,7 @@ class SpeechService {
   DateTime? _recordingStartedAt;
   DateTime? _silenceSince;
   StreamSubscription<RecordingDisposition>? _progressSub;
+  Timer? _maxDurationTimer;
   void Function(String)? _onResult;
   void Function(String)? _onError;
 
@@ -106,6 +107,8 @@ class SpeechService {
     required void Function(String error) onError,
   }) async {
     if (_isListening) return;
+    _maxDurationTimer?.cancel();
+    _maxDurationTimer = null;
 
     _onResult = onResult;
     _onError = onError;
@@ -154,38 +157,87 @@ class SpeechService {
     }
 
     // Hard-cap: auto-stop after _kMaxDurationMs.
-    Future.delayed(const Duration(milliseconds: _kMaxDurationMs), () {
-      if (_isListening) unawaited(stopRecording());
-    });
+    if (_isListening) {
+      _maxDurationTimer?.cancel();
+      _maxDurationTimer = Timer(
+        const Duration(milliseconds: _kMaxDurationMs),
+        () {
+          if (_isListening) {
+            unawaited(stopRecording());
+          }
+        },
+      );
+    }
   }
 
   /// Stops recording and sends the captured audio to Whisper for transcription.
   /// [_onResult] is called with the transcript, or [_onError] on failure.
   Future<void> stopRecording() async {
-    debugPrint('[STT-A] stopRecording() called  _isListening=$_isListening');
+    debugPrint('[STT-A] stopRecording() called _isListening=$_isListening');
+
     if (!_isListening) {
       debugPrint('[STT-A] stopRecording() early-exit: not listening');
       return;
     }
+
     _isListening = false;
+
+    _maxDurationTimer?.cancel();
+    _maxDurationTimer = null;
+
     final elapsedMs = _recordingStartedAt != null
         ? DateTime.now().difference(_recordingStartedAt!).inMilliseconds
         : -1;
-    debugPrint('[STT-B] elapsed=${elapsedMs}ms  _onResult=${_onResult != null}');
+
+    debugPrint('[STT-B] elapsed=${elapsedMs}ms _onResult=${_onResult != null}');
 
     await _progressSub?.cancel();
     _progressSub = null;
 
-    debugPrint('[STT-C] calling _recorder.stopRecorder()');
-    final path = await _recorder.stopRecorder();
-    debugPrint('[STT-D] stopRecorder() returned path=$path  _onResult=${_onResult != null}');
+    String? path;
 
-    if (path == null) {
-      debugPrint('[STT-D] early-exit: path is null');
+    try {
+      debugPrint('[STT-C] calling _recorder.stopRecorder()');
+      path = await _recorder.stopRecorder();
+
+      debugPrint(
+        '[STT-D] stopRecorder() returned path=$path '
+        '_onResult=${_onResult != null}',
+      );
+    } catch (e, st) {
+      debugPrint('[STT-ERR] stopRecorder() exception: $e');
+      debugPrint('[STT-ERR] stack: $st');
+
+      final errorCb = _onError;
+      _onResult = null;
+      _onError = null;
+
+      errorCb?.call(
+        'Could not finish the microphone recording. Please try again.',
+      );
       return;
     }
+
+    if (path == null) {
+      debugPrint('[STT-D] recorder returned a null path');
+
+      final errorCb = _onError;
+      _onResult = null;
+      _onError = null;
+
+      errorCb?.call(
+        'The microphone did not produce a recording. Please try again.',
+      );
+      return;
+    }
+
     if (_onResult == null) {
-      debugPrint('[STT-D] early-exit: _onResult is null');
+      debugPrint('[STT-D] result callback is unavailable');
+
+      final errorCb = _onError;
+      _onError = null;
+
+      errorCb?.call('The recording could not be processed. Please try again.');
       return;
     }
 
@@ -195,6 +247,9 @@ class SpeechService {
   /// Stops recording and discards the audio without transcribing.
   /// Use this when the user manually cancels input.
   Future<void> cancelRecording() async {
+    _maxDurationTimer?.cancel();
+    _maxDurationTimer = null;
+
     _onResult = null;
     _onError = null;
     if (!_isListening) return;
@@ -248,38 +303,48 @@ class SpeechService {
       final sizeBytes = exists ? file.lengthSync() : 0;
       debugPrint('[STT-F] file.exists=$exists  size=${sizeBytes}B');
       if (!exists) {
-        debugPrint('[STT-F] early-exit: file does not exist');
+        debugPrint('[STT-F] recorded file does not exist');
+        errorCb?.call('The microphone did not produce an audio file.');
+        return;
+      }
+
+      if (sizeBytes <= 44) {
+        debugPrint('[STT-F] WAV file contains no audio data');
+        errorCb?.call(
+          'No audio was captured. Please check the microphone and try again.',
+        );
         return;
       }
       final bytes = await file.readAsBytes();
-      debugPrint('[STT-G] uploading ${bytes.length}B as audio/wav to ${OpenAiProxy.proxyUrl('/audio/transcriptions')}');
+      debugPrint(
+        '[STT-G] uploading ${bytes.length}B as audio/wav to ${OpenAiProxy.proxyUrl('/audio/transcriptions')}',
+      );
 
       final request = http.MultipartRequest(
-  'POST',
-  Uri.parse(OpenAiProxy.proxyUrl('/audio/transcriptions')),
-);
+        'POST',
+        Uri.parse(OpenAiProxy.proxyUrl('/audio/transcriptions')),
+      );
 
-request.headers.addAll(OpenAiProxy.rawHeaders());
+      request.headers.addAll(OpenAiProxy.rawHeaders());
 
-request.files.add(
-  await http.MultipartFile.fromPath(
-    'file',
-    filePath,
-    filename: 'audio.wav',
-    contentType: MediaType('audio', 'wav'),
-  ),
-);
-
-request.fields['language'] = 'en';
+      request.files.add(
+        await http.MultipartFile.fromPath(
+          'file',
+          filePath,
+          filename: 'audio.wav',
+          contentType: MediaType('audio', 'wav'),
+        ),
+      );
 
       debugPrint('[STT-H] sending MultipartRequest...');
       final streamed = await request.send();
       final body = await streamed.stream.bytesToString();
-      debugPrint('[STT-I] status=${streamed.statusCode}  body=${body.length > 300 ? body.substring(0, 300) : body}');
+      debugPrint(
+        '[STT-I] status=${streamed.statusCode}  body=${body.length > 300 ? body.substring(0, 300) : body}',
+      );
 
       if (streamed.statusCode == 401) {
-        errorCb?.call(
-            'AI service authorization failed. Please sign in again.');
+        errorCb?.call('AI service authorization failed. Please sign in again.');
         return;
       }
       if (streamed.statusCode == 429) {
@@ -288,30 +353,38 @@ request.fields['language'] = 'en';
       }
       if (streamed.statusCode < 200 || streamed.statusCode >= 300) {
         final snippet = body.length > 200 ? body.substring(0, 200) : body;
-        errorCb?.call(
-            'Transcription error (${streamed.statusCode}): $snippet');
+        errorCb?.call('Transcription error (${streamed.statusCode}): $snippet');
         return;
       }
 
       final decoded = jsonDecode(body) as Map<String, dynamic>;
       final text = (decoded['text'] as String? ?? '').trim();
-      debugPrint('[STT-J] transcript="${text.length > 80 ? text.substring(0, 80) : text}"  empty=${text.isEmpty}');
-      if (text.isEmpty) return;
+      debugPrint(
+        '[STT-J] transcript="${text.length > 80 ? text.substring(0, 80) : text}"  empty=${text.isEmpty}',
+      );
+      if (text.isEmpty) {
+        errorCb?.call(
+          'No speech was detected. Please speak clearly and try again.',
+        );
+        return;
+      }
       debugPrint('[STT-K] calling resultCb  resultCb=${resultCb != null}');
       resultCb?.call(text);
-   } catch (e) {
-  debugPrint('[STT-ERR] _transcribe error: $e');
-  errorCb?.call('Transcription error: $e');
-} finally {
-  try {
-    File(filePath).copySync('/storage/emulated/0/Download/va_recording.wav');
-    debugPrint('Copied recording to Download folder');
-    // File(filePath).deleteSync();
-  } catch (e) {
-    debugPrint('Copy failed: $e');
-  }
-}   // <-- closes finally
-}   // <-- closes _transcribe()
+    } catch (e) {
+      debugPrint('[STT-ERR] _transcribe error: $e');
+      errorCb?.call('Transcription error: $e');
+    } finally {
+      try {
+        final temporaryFile = File(filePath);
+
+        if (await temporaryFile.exists()) {
+          await temporaryFile.delete();
+        }
+      } catch (e) {
+        debugPrint('[STT] Temporary-file cleanup failed: $e');
+      }
+    } // <-- closes finally
+  } // <-- closes _transcribe()
 
   void _resolvePlay() {
     if (_playCompleter != null && !_playCompleter!.isCompleted) {
@@ -320,9 +393,13 @@ request.fields['language'] = 'en';
   }
 
   void dispose() {
+    _maxDurationTimer?.cancel();
+    _maxDurationTimer = null;
+
     cancelSpeech();
     _progressSub?.cancel();
     _player.dispose();
+
     if (_recorderOpen) {
       _recorder.closeRecorder();
       _recorderOpen = false;

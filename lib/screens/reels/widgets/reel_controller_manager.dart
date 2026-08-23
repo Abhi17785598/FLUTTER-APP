@@ -70,9 +70,12 @@ class ReelControllerManager extends ChangeNotifier {
   final Duration initTimeout;
 
   final Map<int, VideoPlayerController> _controllers = {};
+  final Map<int, Future<void>> _initializationFutures = {};
   final Set<int> _failedIndices = {};
+
   List<ReelModel> _reels = const [];
   int _activeIndex = 0;
+  int _activationGeneration = 0;
   bool _disposed = false;
 
   /// Global sound preference — persists across swipes rather than resetting
@@ -95,39 +98,52 @@ class ReelControllerManager extends ChangeNotifier {
   /// mutes + pauses the rest, and disposes controllers that fell outside the
   /// window.
   Future<void> onActiveIndexChanged(int index) async {
+    if (_disposed || _reels.isEmpty || index < 0 || index >= _reels.length) {
+      return;
+    }
+
+    final generation = ++_activationGeneration;
     _activeIndex = index;
-    if (_reels.isEmpty) return;
 
     final int lower = (index - windowRadius).clamp(0, _reels.length - 1);
     final int upper = (index + windowRadius).clamp(0, _reels.length - 1);
 
-    // Dispose anything outside the window.
-    final toRemove =
-        _controllers.keys.where((i) => i < lower || i > upper).toList();
+    final toRemove = _controllers.keys
+        .where((i) => i < lower || i > upper)
+        .toList();
+
     for (final i in toRemove) {
       await _disposeAt(i);
+
+      if (!_isCurrentActivation(generation, index)) {
+        return;
+      }
     }
 
-    // Initialize the active reel first and wait for it to complete. This
-    // guarantees the active controller gets the first hardware MediaCodec
-    // decoder allocation. Concurrent initialization of all three controllers
-    // previously caused the third request to fall back to a software decoder
-    // (wrong pixel stride) or to share a slot with a neighbour — producing
-    // the green-block / diagonal-artifact corruption.
     await _ensureInitialized(index);
 
-    // Active decoder is now allocated. Apply playback state so the video
-    // starts as soon as possible rather than waiting for the neighbours.
-    _applyPlaybackState(index);
+    if (!_isCurrentActivation(generation, index)) {
+      return;
+    }
 
-    // Kick off neighbour preloads in the background. They notify the UI
-    // independently as each one finishes so the swipe-to-next transition
-    // remains instant, but they no longer race for the decoder slot.
+    _applyPlaybackState(_activeIndex);
+
     for (int i = lower; i <= upper; i++) {
+      if (!_isCurrentActivation(generation, index)) {
+        return;
+      }
+
       if (i == index) continue;
+      // Neighbour initialization intentionally runs in the background.
       // ignore: unawaited_futures
       _ensureInitialized(i);
     }
+  }
+
+  bool _isCurrentActivation(int generation, int index) {
+    return !_disposed &&
+        generation == _activationGeneration &&
+        index == _activeIndex;
   }
 
   void _applyPlaybackState(int activeIndex) {
@@ -162,7 +178,36 @@ class ReelControllerManager extends ChangeNotifier {
     }
   }
 
-  Future<void> _ensureInitialized(int index) async {
+  Future<void> _ensureInitialized(int index) {
+    if (_disposed || index < 0 || index >= _reels.length) {
+      return Future<void>.value();
+    }
+
+    final controller = _controllers[index];
+
+    if (controller != null && controller.value.isInitialized) {
+      return Future<void>.value();
+    }
+
+    final existingFuture = _initializationFutures[index];
+
+    if (existingFuture != null) {
+      return existingFuture;
+    }
+
+    late final Future<void> initializationFuture;
+
+    initializationFuture = _initializeController(index).whenComplete(() {
+      if (identical(_initializationFutures[index], initializationFuture)) {
+        _initializationFutures.remove(index);
+      }
+    });
+
+    _initializationFutures[index] = initializationFuture;
+    return initializationFuture;
+  }
+
+  Future<void> _initializeController(int index) async {
     if (_controllers.containsKey(index)) return;
     if (index < 0 || index >= _reels.length) return;
 
@@ -219,9 +264,7 @@ class ReelControllerManager extends ChangeNotifier {
 
       await controller.setLooping(true);
       await controller.setVolume(
-        previewMode
-            ? 0.0
-            : (index == _activeIndex && !_muted ? 1.0 : 0.0),
+        previewMode ? 0.0 : (index == _activeIndex && !_muted ? 1.0 : 0.0),
       );
 
       if (_controllers[index] != controller) return;
@@ -241,7 +284,14 @@ class ReelControllerManager extends ChangeNotifier {
       // Only mark as failed if this controller is still the tracked one for
       // this index (i.e. wasn't already disposed/replaced during the await).
       if (_controllers[index] == controller) {
+        _controllers.remove(index);
         _failedIndices.add(index);
+
+        try {
+          await controller.dispose();
+        } catch (_) {
+          // Controller may already be partially disposed after a timeout.
+        }
       }
     } finally {
       // Notify regardless of outcome: either the controller is now ready and
@@ -251,17 +301,24 @@ class ReelControllerManager extends ChangeNotifier {
     }
   }
 
-
   Future<void> _disposeAt(int index) async {
-    final c = _controllers.remove(index);
+    _initializationFutures.remove(index);
+
+    final controller = _controllers.remove(index);
     _failedIndices.remove(index);
-    if (c != null) {
-      try {
-        await c.pause();
-      } catch (_) {
-        // Already disposed or in a bad state — safe to ignore during cleanup.
-      }
-      await c.dispose();
+
+    if (controller == null) return;
+
+    try {
+      await controller.pause();
+    } catch (_) {
+      // Controller may already be paused or partially disposed.
+    }
+
+    try {
+      await controller.dispose();
+    } catch (_) {
+      // Cleanup must not prevent the latest Reel from initializing.
     }
   }
 
@@ -308,9 +365,13 @@ class ReelControllerManager extends ChangeNotifier {
   /// Deliberately heavier than [pauseAll]: pausing keeps the surface, which is
   /// right for a moment's scroll and wrong when another player needs it.
   Future<void> releaseAll() async {
+    ++_activationGeneration;
+    _initializationFutures.clear();
+
     for (final index in _controllers.keys.toList()) {
       await _disposeAt(index);
     }
+
     _safeNotify();
   }
 
@@ -319,17 +380,31 @@ class ReelControllerManager extends ChangeNotifier {
   }
 
   Future<void> disposeAll() async {
+    if (_disposed) return;
+
     _disposed = true;
-    for (final c in _controllers.values) {
-      try {
-        await c.pause();
-      } catch (_) {
-        // Ignore — controller may already be in a torn-down state.
-      }
-      await c.dispose();
-    }
+    ++_activationGeneration;
+    _initializationFutures.clear();
+
+    final controllers = _controllers.values.toList();
+
     _controllers.clear();
     _failedIndices.clear();
+
+    for (final controller in controllers) {
+      try {
+        await controller.pause();
+      } catch (_) {
+        // Controller may already be paused or tearing down.
+      }
+
+      try {
+        await controller.dispose();
+      } catch (_) {
+        // Continue disposing the remaining controllers.
+      }
+    }
+
     super.dispose();
   }
 }

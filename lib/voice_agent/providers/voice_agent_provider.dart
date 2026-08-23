@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'package:flutter/material.dart' hide Intent;
+import 'package:permission_handler/permission_handler.dart';
 import '../../app_navigator.dart';
 import '../../providers/auth_provider.dart';
 import '../config/ai_config.dart';
@@ -293,7 +294,47 @@ class VoiceAgentProvider extends ChangeNotifier {
 
   // ─── Voice input ───────────────────────────────────────────────────────────
 
-  void startListening(BuildContext context) {
+  // ─── Voice input ───────────────────────────────────────────────────────────
+
+  Future<bool> _ensureAiMicPermission(BuildContext context) async {
+    var status = await Permission.microphone.status;
+
+    debugPrint('[AI-MIC] Initial permission status: $status');
+
+    if (status.isDenied) {
+      status = await Permission.microphone.request();
+      debugPrint('[AI-MIC] Permission after request: $status');
+    }
+
+    if (status.isGranted) return true;
+
+    if (!context.mounted) return false;
+
+    final requiresSettings = status.isPermanentlyDenied || status.isRestricted;
+
+    ScaffoldMessenger.maybeOf(context)?.showSnackBar(
+      SnackBar(
+        content: Text(
+          requiresSettings
+              ? 'Microphone access is disabled. Enable it from App Settings.'
+              : 'Microphone permission is required to use the AI Assistant.',
+        ),
+        action: requiresSettings
+            ? SnackBarAction(label: 'Open Settings', onPressed: openAppSettings)
+            : null,
+      ),
+    );
+
+    return false;
+  }
+
+  Future<void> startListening(BuildContext context) async {
+    if (_state.agentState != VoiceAgentStateEnum.idle) return;
+
+    final permissionGranted = await _ensureAiMicPermission(context);
+    if (!permissionGranted) return;
+
+    // State may have changed while the permission dialog was open.
     if (_state.agentState != VoiceAgentStateEnum.idle) return;
 
     _state = _state.copyWith(
@@ -302,40 +343,67 @@ class VoiceAgentProvider extends ChangeNotifier {
     );
     notifyListeners();
 
-    unawaited(
-      speechService.startRecording(
-        onResult: (text) {
-          // Transcription arrived from Whisper — show it briefly then process.
-          _state = _state.copyWith(liveTranscript: text);
-          notifyListeners();
-          processText(text, context);
-        },
-        onError: (error) {
+    await speechService.startRecording(
+      onResult: (text) {
+        final transcript = text.trim();
+
+        if (transcript.isEmpty) {
           _state = _state.copyWith(
             agentState: VoiceAgentStateEnum.error,
             liveTranscript: '',
           );
           notifyListeners();
-          Future.delayed(const Duration(seconds: 3), () {
-            if (_state.agentState == VoiceAgentStateEnum.error) {
-              _state = _state.copyWith(agentState: VoiceAgentStateEnum.idle);
-              notifyListeners();
-            }
-          });
-        },
-      ),
+
+          if (context.mounted) {
+            ScaffoldMessenger.maybeOf(context)?.showSnackBar(
+              const SnackBar(
+                content: Text('No speech was detected. Please try again.'),
+              ),
+            );
+          }
+          return;
+        }
+
+        _state = _state.copyWith(liveTranscript: transcript);
+        notifyListeners();
+
+        unawaited(processText(transcript, context));
+      },
+      onError: (error) {
+        debugPrint('[AI-MIC] Recording error: $error');
+
+        _state = _state.copyWith(
+          agentState: VoiceAgentStateEnum.error,
+          liveTranscript: '',
+        );
+        notifyListeners();
+
+        if (context.mounted) {
+          ScaffoldMessenger.maybeOf(
+            context,
+          )?.showSnackBar(SnackBar(content: Text(error)));
+        }
+
+        Future.delayed(const Duration(seconds: 3), () {
+          if (_state.agentState == VoiceAgentStateEnum.error) {
+            _state = _state.copyWith(agentState: VoiceAgentStateEnum.idle);
+            notifyListeners();
+          }
+        });
+      },
     );
   }
 
-  void stopListening() {
-    // Stop and transcribe — the user tapped the stop button to submit their speech.
-    // stopRecording() → _transcribe() → onResult() → processText()
-    unawaited(speechService.stopRecording());
+  Future<void> stopListening() async {
+    if (_state.agentState != VoiceAgentStateEnum.listening) return;
+
     _state = _state.copyWith(
       agentState: VoiceAgentStateEnum.processing,
       liveTranscript: '',
     );
     notifyListeners();
+
+    await speechService.stopRecording();
   }
 
   // ─── Workflow control ──────────────────────────────────────────────────────
