@@ -19,6 +19,7 @@ class ReelVideoView extends StatelessWidget {
     required this.onTogglePlayPause,
     this.isPaused = false,
     this.hasFailed = false,
+    this.showLoadingIndicator = true,
   });
 
   final ReelModel reel;
@@ -31,6 +32,7 @@ class ReelVideoView extends StatelessWidget {
   /// error fallback so a broken reel shows a clear state instead of an
   /// infinite spinner.
   final bool hasFailed;
+  final bool showLoadingIndicator;
 
   bool get _ready => controller != null && controller!.value.isInitialized;
   bool get _errored =>
@@ -48,8 +50,11 @@ class ReelVideoView extends StatelessWidget {
           _buildGradientOverlays(),
           if (isPaused && _ready)
             const Center(
-              child: Icon(Icons.play_arrow_rounded,
-                  color: Colors.white70, size: 72),
+              child: Icon(
+                Icons.play_arrow_rounded,
+                color: Colors.white70,
+                size: 72,
+              ),
             ),
         ],
       ),
@@ -66,7 +71,8 @@ class ReelVideoView extends StatelessWidget {
       // 4000px wide) gets decoded at full size for every reel the sliding
       // window builds, which is real, avoidable jank during fast scrolling.
       final int cacheWidth =
-          (MediaQuery.sizeOf(context).width * MediaQuery.devicePixelRatioOf(context))
+          (MediaQuery.sizeOf(context).width *
+                  MediaQuery.devicePixelRatioOf(context))
               .round();
       return Stack(
         fit: StackFit.expand,
@@ -80,16 +86,17 @@ class ReelVideoView extends StatelessWidget {
             )
           else
             Container(color: Colors.black),
-          const Center(
-            child: SizedBox(
-              width: 28,
-              height: 28,
-              child: CircularProgressIndicator(
-                color: Colors.white70,
-                strokeWidth: 2,
+          if (showLoadingIndicator)
+            const Center(
+              child: SizedBox(
+                width: 28,
+                height: 28,
+                child: CircularProgressIndicator(
+                  color: Colors.white70,
+                  strokeWidth: 2,
+                ),
               ),
             ),
-          ),
         ],
       );
     }
@@ -111,8 +118,11 @@ class ReelVideoView extends StatelessWidget {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(Icons.home_work_rounded,
-              size: 96, color: Colors.white.withValues(alpha: 0.35)),
+          Icon(
+            Icons.home_work_rounded,
+            size: 96,
+            color: Colors.white.withValues(alpha: 0.35),
+          ),
           const SizedBox(height: 12),
           Text(
             reel.title.isNotEmpty ? reel.title : 'Property preview',
@@ -142,5 +152,4 @@ class ReelVideoView extends StatelessWidget {
       ),
     );
   }
-
 }

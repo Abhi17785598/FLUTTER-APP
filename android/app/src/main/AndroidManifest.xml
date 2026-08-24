@@ -10,16 +10,21 @@
     <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE"
                  android:maxSdkVersion="29" />
 
-    <application
-        android:label="propcid_app"
-        android:name="${applicationName}"
-        android:icon="@mipmap/ic_launcher"
-        android:requestLegacyExternalStorage="true">
+   <application
+    android:label="propcid_app"
+    android:name="${applicationName}"
+    android:icon="@mipmap/ic_launcher"
+    android:requestLegacyExternalStorage="true">
 
-          <meta-data
+    <!-- Use Skia because Impeller causes video texture corruption
+         on some Vivo/MediaTek Android devices. -->
+    <meta-data
+        android:name="io.flutter.embedding.android.EnableImpeller"
+        android:value="false" />
+
+    <meta-data
         android:name="com.google.android.geo.API_KEY"
         android:value="AIzaSyDEWPGxpf3Tb_xoUVu34qfhscsZjTX5oGo"/>
-
 
         <activity
             android:name=".MainActivity"

@@ -73,7 +73,7 @@ class _ReelsScreenState extends State<ReelsScreen> {
   /// stay on the texture path.
   final ReelControllerManager _manager = ReelControllerManager(
     windowRadius: 1,
-    viewType: VideoViewType.platformView,
+  viewType: VideoViewType.textureView,
   );
 
   int _currentIndex = 0;
@@ -290,6 +290,7 @@ class _ReelsScreenState extends State<ReelsScreen> {
                   manager: _manager,
                   index: index,
                   reel: provider.reels[index],
+                  isActive: index == _currentIndex,
                   isPaused: index == _currentIndex && _isPaused,
                   onTogglePlayPause: _togglePlayPause,
                 ),
@@ -645,6 +646,7 @@ class _ReelPageSurface extends StatefulWidget {
     required this.manager,
     required this.index,
     required this.reel,
+    required this.isActive,
     required this.isPaused,
     required this.onTogglePlayPause,
   });
@@ -652,6 +654,7 @@ class _ReelPageSurface extends StatefulWidget {
   final ReelControllerManager manager;
   final int index;
   final ReelModel reel;
+  final bool isActive;
   final bool isPaused;
   final VoidCallback onTogglePlayPause;
 
@@ -716,8 +719,12 @@ class _ReelPageSurfaceState extends State<_ReelPageSurface> {
   Widget build(BuildContext context) {
     return ReelVideoView(
       reel: widget.reel,
-      controller: _controller,
-      hasFailed: _hasFailed,
+
+      // Keep neighbouring controllers initialized, but don't attach additional
+      // native SurfaceViews while PageView is scrolling.
+      controller: widget.isActive ? _controller : null,
+      hasFailed: widget.isActive && _hasFailed,
+      showLoadingIndicator: widget.isActive,
       isPaused: widget.isPaused,
       onTogglePlayPause: widget.onTogglePlayPause,
     );
