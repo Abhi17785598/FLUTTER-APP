@@ -22,7 +22,7 @@ List<String> _dbArray(List<String>? value) {
 /// Service responsible for reading and writing user profile data
 /// to the `profiles` table in Supabase.
 class ProfileService {
- final AuthService _authService = AuthService();
+  final AuthService _authService = AuthService();
 
   /// Saves a Builder profile for the currently authenticated user.
   ///
@@ -121,7 +121,9 @@ class ProfileService {
           .from('profiles')
           .upsert(payload, onConflict: 'user_id');
     } on PostgrestException catch (e) {
-      throw Exception('Database error while saving builder profile: ${e.message}');
+      throw Exception(
+        'Database error while saving builder profile: ${e.message}',
+      );
     } on AuthException catch (e) {
       throw Exception('Authentication error: ${e.message}');
     } catch (e) {
@@ -254,7 +256,9 @@ class ProfileService {
         'is_active': true,
       }, onConflict: 'user_id');
     } on PostgrestException catch (e) {
-      throw Exception('Database error while saving broker profile: ${e.message}');
+      throw Exception(
+        'Database error while saving broker profile: ${e.message}',
+      );
     } on AuthException catch (e) {
       throw Exception('Authentication error: ${e.message}');
     } catch (e) {
@@ -352,7 +356,9 @@ class ProfileService {
           'telegram_channel_link': _dbText(str('telegramChannelLink')),
           'whatsapp_number': _dbText(str('whatsappNumber')),
           'content_types': _dbArray(list('contentTypes')),
-          'preferred_promotion_types': _dbArray(list('preferredPromotionTypes')),
+          'preferred_promotion_types': _dbArray(
+            list('preferredPromotionTypes'),
+          ),
           'portfolio_links': const <String>[],
           'previous_brand_collaborations': const <String>[],
           'aadhaar_card_url': _dbText(str('aadhaarCardUrl')),
@@ -360,7 +366,9 @@ class ProfileService {
         },
       }, onConflict: 'user_id');
     } on PostgrestException catch (e) {
-      throw Exception('Database error while saving influencer profile: ${e.message}');
+      throw Exception(
+        'Database error while saving influencer profile: ${e.message}',
+      );
     } on AuthException catch (e) {
       throw Exception('Authentication error: ${e.message}');
     } catch (e) {

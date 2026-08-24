@@ -56,9 +56,9 @@ class BuilderQuickActionsWidget extends StatelessWidget {
                 Text(
                   title,
                   textAlign: TextAlign.center,
-                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    fontWeight: FontWeight.w600,
-                  ),
+                  style: Theme.of(
+                    context,
+                  ).textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w600),
                 ),
               ],
             ),
@@ -77,17 +77,41 @@ class BuilderQuickActionsWidget extends StatelessWidget {
       children: [
         Row(
           children: [
-            actionButton(context, Icons.add_business_rounded, "Add Project", scheme.primary, () {}),
+            actionButton(
+              context,
+              Icons.add_business_rounded,
+              "Add Project",
+              scheme.primary,
+              () {},
+            ),
             const SizedBox(width: 12),
-            actionButton(context, Icons.analytics_rounded, "Analytics", Colors.teal, () {}),
+            actionButton(
+              context,
+              Icons.analytics_rounded,
+              "Analytics",
+              Colors.teal,
+              () {},
+            ),
           ],
         ),
         const SizedBox(height: 12),
         Row(
           children: [
-            actionButton(context, Icons.people_rounded, "Network", Colors.indigo, () {}),
+            actionButton(
+              context,
+              Icons.people_rounded,
+              "Network",
+              Colors.indigo,
+              () {},
+            ),
             const SizedBox(width: 12),
-            actionButton(context, Icons.question_answer_rounded, "Enquiries", Colors.deepOrange, () {}),
+            actionButton(
+              context,
+              Icons.question_answer_rounded,
+              "Enquiries",
+              Colors.deepOrange,
+              () {},
+            ),
           ],
         ),
       ],

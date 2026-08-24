@@ -113,7 +113,9 @@ class ProfileViewService {
       final rows = List<Map<String, dynamic>>.from(
         await _supabase
             .from('profile_views')
-            .select('id, viewer_id, view_count, first_viewed_at, last_viewed_at')
+            .select(
+              'id, viewer_id, view_count, first_viewed_at, last_viewed_at',
+            )
             .eq('profile_user_id', userId)
             .order('last_viewed_at', ascending: false)
             .limit(200),
@@ -128,10 +130,12 @@ class ProfileViewService {
       final profiles = await UserProfileService().fetchProfilesByIds(viewerIds);
 
       return rows
-          .map((row) => ProfileViewer.fromRow(
-                row,
-                profile: profiles[row['viewer_id']?.toString()],
-              ))
+          .map(
+            (row) => ProfileViewer.fromRow(
+              row,
+              profile: profiles[row['viewer_id']?.toString()],
+            ),
+          )
           .toList(growable: false);
     } catch (e) {
       debugPrint('ProfileViewService.fetchViewers($userId) failed: $e');

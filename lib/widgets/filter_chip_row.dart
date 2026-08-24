@@ -26,7 +26,7 @@ class FilterChipRow extends StatelessWidget {
         itemBuilder: (context, index) {
           final chip = chips[index];
           final isSelected = selected == chip;
-          
+
           return Padding(
             padding: const EdgeInsets.only(right: 8),
             child: AnimatedContainer(
@@ -34,10 +34,14 @@ class FilterChipRow extends StatelessWidget {
               height: AppConstants.filterChipHeight,
               padding: const EdgeInsets.symmetric(horizontal: 14),
               decoration: BoxDecoration(
-                color: isSelected ? AppColors.primaryLight : AppColors.cardBackground,
+                color: isSelected
+                    ? AppColors.primaryLight
+                    : AppColors.cardBackground,
                 borderRadius: BorderRadius.circular(20),
                 border: Border.all(
-                  color: isSelected ? AppColors.primary : AppColors.textHint.withOpacity(0.3),
+                  color: isSelected
+                      ? AppColors.primary
+                      : AppColors.textHint.withOpacity(0.3),
                   width: 1,
                 ),
               ),
@@ -48,8 +52,12 @@ class FilterChipRow extends StatelessWidget {
                   child: Text(
                     chip,
                     style: AppTextStyles.chip.copyWith(
-                      color: isSelected ? AppColors.primary : AppColors.textPrimary,
-                      fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
+                      color: isSelected
+                          ? AppColors.primary
+                          : AppColors.textPrimary,
+                      fontWeight: isSelected
+                          ? FontWeight.w600
+                          : FontWeight.w400,
                     ),
                   ),
                 ),

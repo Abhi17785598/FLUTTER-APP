@@ -15,10 +15,7 @@ class NearbyPlace {
     required this.longitude,
   });
 
-  factory NearbyPlace.fromJson(
-    Map<String, dynamic> json,
-    String placeType,
-  ) {
+  factory NearbyPlace.fromJson(Map<String, dynamic> json, String placeType) {
     return NearbyPlace(
       name: json["name"] ?? "",
       type: placeType,

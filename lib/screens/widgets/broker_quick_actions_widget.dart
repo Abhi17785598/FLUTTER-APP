@@ -3,20 +3,13 @@ import 'package:flutter/material.dart';
 class BrokerQuickActionsWidget extends StatelessWidget {
   const BrokerQuickActionsWidget({super.key});
 
-  Widget _action(
-    IconData icon,
-    String title,
-    Color color,
-    VoidCallback onTap,
-  ) {
+  Widget _action(IconData icon, String title, Color color, VoidCallback onTap) {
     return Expanded(
       child: InkWell(
         borderRadius: BorderRadius.circular(18),
         onTap: onTap,
         child: Container(
-          padding: const EdgeInsets.symmetric(
-            vertical: 22,
-          ),
+          padding: const EdgeInsets.symmetric(vertical: 22),
           decoration: BoxDecoration(
             color: Colors.white,
             borderRadius: BorderRadius.circular(18),
@@ -30,14 +23,10 @@ class BrokerQuickActionsWidget extends StatelessWidget {
           ),
           child: Column(
             children: [
-
               CircleAvatar(
                 radius: 24,
                 backgroundColor: color.withOpacity(.12),
-                child: Icon(
-                  icon,
-                  color: color,
-                ),
+                child: Icon(icon, color: color),
               ),
 
               const SizedBox(height: 12),
@@ -45,9 +34,7 @@ class BrokerQuickActionsWidget extends StatelessWidget {
               Text(
                 title,
                 textAlign: TextAlign.center,
-                style: const TextStyle(
-                  fontWeight: FontWeight.w600,
-                ),
+                style: const TextStyle(fontWeight: FontWeight.w600),
               ),
             ],
           ),
@@ -63,7 +50,6 @@ class BrokerQuickActionsWidget extends StatelessWidget {
       children: [
         Row(
           children: [
-
             _action(
               Icons.add_home_work_rounded,
               "Add Property",
@@ -73,12 +59,7 @@ class BrokerQuickActionsWidget extends StatelessWidget {
 
             const SizedBox(width: 14),
 
-            _action(
-              Icons.analytics_rounded,
-              "Analytics",
-              Colors.blue,
-              () {},
-            ),
+            _action(Icons.analytics_rounded, "Analytics", Colors.blue, () {}),
           ],
         ),
 
@@ -86,22 +67,11 @@ class BrokerQuickActionsWidget extends StatelessWidget {
 
         Row(
           children: [
-
-            _action(
-              Icons.people_alt_rounded,
-              "Clients",
-              Colors.green,
-              () {},
-            ),
+            _action(Icons.people_alt_rounded, "Clients", Colors.green, () {}),
 
             const SizedBox(width: 14),
 
-            _action(
-              Icons.chat_rounded,
-              "Enquiries",
-              Colors.orange,
-              () {},
-            ),
+            _action(Icons.chat_rounded, "Enquiries", Colors.orange, () {}),
           ],
         ),
       ],

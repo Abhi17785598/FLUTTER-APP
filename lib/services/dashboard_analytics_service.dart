@@ -76,8 +76,9 @@ class DashboardAnalyticsService {
 
       final totalViews = _sum(content, 'views');
       final totalLikes = _sum(content, 'likes');
-      final avgEngagement =
-          totalViews > 0 ? (totalLikes / totalViews) * 100 : 0.0;
+      final avgEngagement = totalViews > 0
+          ? (totalLikes / totalViews) * 100
+          : 0.0;
 
       var totalSaved = 0;
       if (includeSavedProperties) {
@@ -123,8 +124,7 @@ class DashboardAnalyticsService {
 
       if (includeListingMetrics) {
         // Status counts are safe on any source — all three declare `status`.
-        activeCount =
-            content.where((r) => r['status'] == 'active').length;
+        activeCount = content.where((r) => r['status'] == 'active').length;
         soldCount = content.where((r) => r['status'] == 'sold').length;
 
         // The money metrics are guarded on the column existing, not on the caller
@@ -137,7 +137,8 @@ class DashboardAnalyticsService {
           totalValue = _sumPrices(content, 'active');
           // "assuming 2% commission rate" — the portal's own constant (`:104`).
           commissionRate = 2;
-          totalCommission = _sumPrices(content, 'sold') * (commissionRate / 100);
+          totalCommission =
+              _sumPrices(content, 'sold') * (commissionRate / 100);
         }
 
         totalInquiries = await _countInquiries(
@@ -263,8 +264,7 @@ class DashboardAnalyticsService {
         totalFollowers: totalFollowers,
         followersGrowth: followersGrowth,
         totalViews: totalViews,
-        avgViewsPerPost:
-            content.isNotEmpty ? totalViews / content.length : 0.0,
+        avgViewsPerPost: content.isNotEmpty ? totalViews / content.length : 0.0,
         engagementRate: totalViews > 0 ? (totalLikes / totalViews) * 100 : 0.0,
         followerGrowth: _cumulativeFollowerSeries(
           followers: followers,
@@ -330,7 +330,7 @@ class DashboardAnalyticsService {
 
   /// The three broker lead metrics (`BrokerAudienceInsights.tsx:88-101`).
   Future<({int total, double conversionRate, double responseRate})>
-      _fetchLeadMetrics(List<String> propertyIds) async {
+  _fetchLeadMetrics(List<String> propertyIds) async {
     if (propertyIds.isEmpty) {
       return (total: 0, conversionRate: 0.0, responseRate: 0.0);
     }
@@ -349,8 +349,13 @@ class DashboardAnalyticsService {
     final closed = inquiries.where((i) => i['status'] == 'closed').length;
     // Three statuses count as "responded", not one (`:99`).
     final contacted = inquiries
-        .where((i) =>
-            const {'contacted', 'scheduled', 'approved'}.contains(i['status']))
+        .where(
+          (i) => const {
+            'contacted',
+            'scheduled',
+            'approved',
+          }.contains(i['status']),
+        )
         .length;
 
     return (

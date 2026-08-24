@@ -99,7 +99,9 @@ class _CityRoiRow extends StatelessWidget {
       child: Row(
         children: [
           ClipRRect(
-            borderRadius: BorderRadius.circular(AppConstants.imageThumbnailRadius),
+            borderRadius: BorderRadius.circular(
+              AppConstants.imageThumbnailRadius,
+            ),
             child: city.featuredImageUrl != null
                 ? CachedNetworkImage(
                     imageUrl: city.featuredImageUrl!,
@@ -146,10 +148,7 @@ class _CityRoiRow extends StatelessWidget {
                   color: AppColors.success,
                 ),
               ),
-              Text(
-                'ROI',
-                style: AppTextStyles.caption.copyWith(fontSize: 10),
-              ),
+              Text('ROI', style: AppTextStyles.caption.copyWith(fontSize: 10)),
             ],
           ),
         ],
@@ -158,14 +157,14 @@ class _CityRoiRow extends StatelessWidget {
   }
 
   Widget _thumbPlaceholder() => Container(
-        width: 52,
-        height: 52,
-        color: AppColors.primaryLight,
-        alignment: Alignment.center,
-        child: const Icon(
-          Icons.location_city_rounded,
-          size: 22,
-          color: AppColors.primary,
-        ),
-      );
+    width: 52,
+    height: 52,
+    color: AppColors.primaryLight,
+    alignment: Alignment.center,
+    child: const Icon(
+      Icons.location_city_rounded,
+      size: 22,
+      color: AppColors.primary,
+    ),
+  );
 }

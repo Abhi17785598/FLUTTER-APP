@@ -10,13 +10,25 @@ import '../../services/social_service.dart';
 /// conversion rate — a direct port of `CreateCampaignDialog.tsx`'s
 /// `CUR_MIN`/`CUR_DEFAULT`/`INR_PER` tables.
 const Map<String, double> _curMin = {
-  'USD': 2, 'INR': 120, 'AED': 8, 'GBP': 2, 'EUR': 2,
+  'USD': 2,
+  'INR': 120,
+  'AED': 8,
+  'GBP': 2,
+  'EUR': 2,
 };
 const Map<String, double> _curDefault = {
-  'USD': 5, 'INR': 400, 'AED': 20, 'GBP': 5, 'EUR': 5,
+  'USD': 5,
+  'INR': 400,
+  'AED': 20,
+  'GBP': 5,
+  'EUR': 5,
 };
 const Map<String, double> _inrPer = {
-  'USD': 83, 'AED': 22.6, 'GBP': 105, 'EUR': 90, 'INR': 1,
+  'USD': 83,
+  'AED': 22.6,
+  'GBP': 105,
+  'EUR': 90,
+  'INR': 1,
 };
 
 const GeoSearchResult _india = GeoSearchResult(
@@ -104,11 +116,11 @@ Future<void> offerBoostDialog(
       content: Text(
         title != null && title.isNotEmpty
             ? 'Run a paid ad for "$title" on Facebook & Instagram to reach '
-                'more people. You can always do this later from Social ▸ '
-                'Campaigns.'
+                  'more people. You can always do this later from Social ▸ '
+                  'Campaigns.'
             : 'Run a paid ad for this post on Facebook & Instagram to reach '
-                'more people. You can always do this later from Social ▸ '
-                'Campaigns.',
+                  'more people. You can always do this later from Social ▸ '
+                  'Campaigns.',
       ),
       actions: [
         TextButton(
@@ -184,7 +196,9 @@ class _CreateCampaignDialogState extends State<CreateCampaignDialog> {
   @override
   void initState() {
     super.initState();
-    _budgetController = TextEditingController(text: _numText(_curDefault['USD']!));
+    _budgetController = TextEditingController(
+      text: _numText(_curDefault['USD']!),
+    );
     _headlineController = TextEditingController(text: widget.title ?? '');
     _useVideo = widget.contentType == 'video' || widget.contentType == 'reel';
     _load();
@@ -236,8 +250,9 @@ class _CreateCampaignDialogState extends State<CreateCampaignDialog> {
       );
       if (!mounted) return;
       final caption = '${res['caption'] ?? ''}';
-      final hashtags =
-          (res['hashtags'] as List? ?? const []).map((h) => '$h').toList();
+      final hashtags = (res['hashtags'] as List? ?? const [])
+          .map((h) => '$h')
+          .toList();
       final cta = res['cta'] as String?;
       final composed = composeCaption(caption, hashtags, cta);
       if (_messageController.text.isEmpty && composed.isNotEmpty) {
@@ -283,8 +298,9 @@ class _CreateCampaignDialogState extends State<CreateCampaignDialog> {
 
   void _removeLocation(GeoSearchResult r) {
     setState(() {
-      _locations =
-          _locations.where((l) => !(l.key == r.key && l.type == r.type)).toList();
+      _locations = _locations
+          .where((l) => !(l.key == r.key && l.type == r.type))
+          .toList();
     });
   }
 
@@ -294,7 +310,9 @@ class _CreateCampaignDialogState extends State<CreateCampaignDialog> {
     final cities = <Map<String, dynamic>>[];
     for (final l in _locations) {
       if (l.type == 'country') {
-        countries.add((l.countryCode?.isNotEmpty ?? false) ? l.countryCode! : l.key);
+        countries.add(
+          (l.countryCode?.isNotEmpty ?? false) ? l.countryCode! : l.key,
+        );
       } else if (l.type == 'region') {
         regions.add({'key': l.key});
       } else {
@@ -323,7 +341,8 @@ class _CreateCampaignDialogState extends State<CreateCampaignDialog> {
 
   double get _accountMajor => _enterInInr ? _budgetInput / _rate : _budgetInput;
 
-  double get _inrEquivalent => _enterInInr ? _budgetInput : _budgetInput * _rate;
+  double get _inrEquivalent =>
+      _enterInInr ? _budgetInput : _budgetInput * _rate;
 
   int get _durationDays =>
       (int.tryParse(_durationController.text) ?? 7).clamp(1, 3650);
@@ -337,8 +356,9 @@ class _CreateCampaignDialogState extends State<CreateCampaignDialog> {
 
   void _showError(String message) {
     if (!mounted) return;
-    ScaffoldMessenger.of(context)
-        .showSnackBar(SnackBar(content: Text(message)));
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text(message)));
   }
 
   Future<void> _handleCreate() async {
@@ -473,7 +493,10 @@ class _CreateCampaignDialogState extends State<CreateCampaignDialog> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         // ── Objective ──────────────────────────────────────────────────
-        const Text('Campaign goal', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 12.5)),
+        const Text(
+          'Campaign goal',
+          style: TextStyle(fontWeight: FontWeight.w600, fontSize: 12.5),
+        ),
         const SizedBox(height: 6),
         DropdownButtonFormField<String>(
           initialValue: _objective,
@@ -507,7 +530,10 @@ class _CreateCampaignDialogState extends State<CreateCampaignDialog> {
         const SizedBox(height: 16),
 
         // ── Locations ──────────────────────────────────────────────────
-        const Text('Where to run the ad', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 12.5)),
+        const Text(
+          'Where to run the ad',
+          style: TextStyle(fontWeight: FontWeight.w600, fontSize: 12.5),
+        ),
         const SizedBox(height: 6),
         Wrap(
           spacing: 6,
@@ -516,7 +542,10 @@ class _CreateCampaignDialogState extends State<CreateCampaignDialog> {
             for (final l in _locations)
               Chip(
                 visualDensity: VisualDensity.compact,
-                label: Text('${l.name} · ${l.type}', style: const TextStyle(fontSize: 11.5)),
+                label: Text(
+                  '${l.name} · ${l.type}',
+                  style: const TextStyle(fontSize: 11.5),
+                ),
                 onDeleted: () => _removeLocation(l),
               ),
             if (_locations.isEmpty)
@@ -568,8 +597,17 @@ class _CreateCampaignDialogState extends State<CreateCampaignDialog> {
                       final r = _locResults[i];
                       return ListTile(
                         dense: true,
-                        title: Text(r.displayLabel, style: const TextStyle(fontSize: 12.5)),
-                        trailing: Text(r.type, style: const TextStyle(fontSize: 11, color: Colors.black45)),
+                        title: Text(
+                          r.displayLabel,
+                          style: const TextStyle(fontSize: 12.5),
+                        ),
+                        trailing: Text(
+                          r.type,
+                          style: const TextStyle(
+                            fontSize: 11,
+                            color: Colors.black45,
+                          ),
+                        ),
                         onTap: () => _addLocation(r),
                       );
                     },
@@ -593,10 +631,16 @@ class _CreateCampaignDialogState extends State<CreateCampaignDialog> {
             Expanded(
               child: Text(
                 'Daily budget (${_enterInInr ? '₹' : _currency})',
-                style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 12.5),
+                style: const TextStyle(
+                  fontWeight: FontWeight.w600,
+                  fontSize: 12.5,
+                ),
               ),
             ),
-            const Text('Enter in ₹', style: TextStyle(fontSize: 11.5, color: Colors.black54)),
+            const Text(
+              'Enter in ₹',
+              style: TextStyle(fontSize: 11.5, color: Colors.black54),
+            ),
             Switch(
               value: _enterInInr,
               onChanged: (v) => setState(() => _enterInInr = v),
@@ -609,9 +653,14 @@ class _CreateCampaignDialogState extends State<CreateCampaignDialog> {
             Expanded(
               child: TextField(
                 controller: _budgetController,
-                keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                keyboardType: const TextInputType.numberWithOptions(
+                  decimal: true,
+                ),
                 onChanged: (_) => setState(() {}),
-                decoration: const InputDecoration(border: OutlineInputBorder(), isDense: true),
+                decoration: const InputDecoration(
+                  border: OutlineInputBorder(),
+                  isDense: true,
+                ),
               ),
             ),
             const SizedBox(width: 10),
@@ -643,17 +692,26 @@ class _CreateCampaignDialogState extends State<CreateCampaignDialog> {
         const SizedBox(height: 16),
 
         // ── Creative ───────────────────────────────────────────────────
-        const Text('Headline', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 12.5)),
+        const Text(
+          'Headline',
+          style: TextStyle(fontWeight: FontWeight.w600, fontSize: 12.5),
+        ),
         const SizedBox(height: 6),
         TextField(
           controller: _headlineController,
           maxLength: 240,
-          decoration: const InputDecoration(border: OutlineInputBorder(), isDense: true),
+          decoration: const InputDecoration(
+            border: OutlineInputBorder(),
+            isDense: true,
+          ),
         ),
         Row(
           children: [
             const Expanded(
-              child: Text('Primary text', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 12.5)),
+              child: Text(
+                'Primary text',
+                style: TextStyle(fontWeight: FontWeight.w600, fontSize: 12.5),
+              ),
             ),
             TextButton.icon(
               onPressed: _generating ? null : _draftMessage,
@@ -679,7 +737,10 @@ class _CreateCampaignDialogState extends State<CreateCampaignDialog> {
         ),
         const SizedBox(height: 10),
         if (!_isLeads) ...[
-          const Text('Button', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 12.5)),
+          const Text(
+            'Button',
+            style: TextStyle(fontWeight: FontWeight.w600, fontSize: 12.5),
+          ),
           const SizedBox(height: 6),
           DropdownButtonFormField<String>(
             initialValue: _ctaType,
@@ -693,7 +754,10 @@ class _CreateCampaignDialogState extends State<CreateCampaignDialog> {
               for (final c in _ctaOptions)
                 DropdownMenuItem(
                   value: c,
-                  child: Text(c.replaceAll('_', ' '), style: const TextStyle(fontSize: 12.5)),
+                  child: Text(
+                    c.replaceAll('_', ' '),
+                    style: const TextStyle(fontSize: 12.5),
+                  ),
                 ),
             ],
             onChanged: (v) => setState(() => _ctaType = v ?? _ctaType),
@@ -702,7 +766,10 @@ class _CreateCampaignDialogState extends State<CreateCampaignDialog> {
         ],
         Row(
           children: [
-            Switch(value: _useVideo, onChanged: (v) => setState(() => _useVideo = v)),
+            Switch(
+              value: _useVideo,
+              onChanged: (v) => setState(() => _useVideo = v),
+            ),
             const Expanded(
               child: Text(
                 "Use the post's video if it has one (otherwise an image is used)",
@@ -735,15 +802,22 @@ class _CreateCampaignDialogState extends State<CreateCampaignDialog> {
               Expanded(
                 child: Text.rich(
                   TextSpan(
-                    style: const TextStyle(fontSize: 11, color: Color(0xFFB45309)),
+                    style: const TextStyle(
+                      fontSize: 11,
+                      color: Color(0xFFB45309),
+                    ),
                     children: [
-                      const TextSpan(text: 'To actually go live you need a payment method on '),
+                      const TextSpan(
+                        text:
+                            'To actually go live you need a payment method on ',
+                      ),
                       TextSpan(
                         text: _account?.adAccountName ?? 'your ad account',
                         style: const TextStyle(fontWeight: FontWeight.w700),
                       ),
                       const TextSpan(
-                        text: ' in Meta Ads Manager (Billing → Payment Settings). Without it '
+                        text:
+                            ' in Meta Ads Manager (Billing → Payment Settings). Without it '
                             "the campaign stays paused and won't deliver.",
                       ),
                     ],
@@ -782,7 +856,8 @@ class _CreateCampaignDialogState extends State<CreateCampaignDialog> {
                           style: TextStyle(fontWeight: FontWeight.w700),
                         ),
                         TextSpan(
-                          text: ' campaign on my Meta ad account and I\'m responsible '
+                          text:
+                              ' campaign on my Meta ad account and I\'m responsible '
                               'for the ad spend once I launch it.',
                         ),
                       ],
@@ -809,7 +884,8 @@ class _NotReadyPanel extends StatelessWidget {
     if (account?.connected != true) {
       message = 'Connect your Facebook Page to run ads.';
     } else if (account?.adsCapable != true) {
-      message = 'Reconnect to enable Ads & Leads (extra Meta permissions needed).';
+      message =
+          'Reconnect to enable Ads & Leads (extra Meta permissions needed).';
     } else {
       message = 'Choose an ad account before creating campaigns.';
     }

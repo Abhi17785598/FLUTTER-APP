@@ -12,7 +12,7 @@ import '../models/investor_opportunity.dart';
 
 class InvestorsCornerService {
   InvestorsCornerService({SupabaseClient? client})
-      : _supabase = client ?? Supabase.instance.client;
+    : _supabase = client ?? Supabase.instance.client;
 
   final SupabaseClient _supabase;
 
@@ -33,8 +33,11 @@ class InvestorsCornerService {
           .limit(limit);
 
       return rows
-          .map((row) =>
-              InvestorOpportunity.fromSupabase(Map<String, dynamic>.from(row)))
+          .map(
+            (row) => InvestorOpportunity.fromSupabase(
+              Map<String, dynamic>.from(row),
+            ),
+          )
           .where((item) => item.id.isNotEmpty && item.title.isNotEmpty)
           .toList(growable: false);
     } catch (e) {

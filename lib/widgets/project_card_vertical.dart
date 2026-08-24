@@ -79,17 +79,24 @@ class ProjectCardVertical extends StatelessWidget {
                     top: 8,
                     right: 8,
                     child: Container(
-                      padding:
-                          const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 4,
+                      ),
                       decoration: BoxDecoration(
                         color: AppColors.verifiedBadge,
-                        borderRadius: BorderRadius.circular(AppConstants.chipRadius),
+                        borderRadius: BorderRadius.circular(
+                          AppConstants.chipRadius,
+                        ),
                       ),
                       child: Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          const Icon(Icons.verified_rounded,
-                              size: 12, color: Colors.white),
+                          const Icon(
+                            Icons.verified_rounded,
+                            size: 12,
+                            color: Colors.white,
+                          ),
                           const SizedBox(width: 4),
                           Text(
                             'RERA',
@@ -162,8 +169,11 @@ class ProjectCardVertical extends StatelessWidget {
                   if (project.totalUnits > 0)
                     Row(
                       children: [
-                        const Icon(Icons.apartment_rounded,
-                            size: 14, color: AppColors.textSecondary),
+                        const Icon(
+                          Icons.apartment_rounded,
+                          size: 14,
+                          color: AppColors.textSecondary,
+                        ),
                         const SizedBox(width: 4),
                         Text(
                           '${project.availableUnits}/${project.totalUnits} units',
@@ -219,14 +229,14 @@ class ProjectCardVertical extends StatelessWidget {
   }
 
   Widget _placeholder() => Container(
-        width: width,
-        height: imageHeight,
-        color: AppColors.primaryLight,
-        alignment: Alignment.center,
-        child: const Icon(
-          Icons.apartment_rounded,
-          size: 28,
-          color: AppColors.primary,
-        ),
-      );
+    width: width,
+    height: imageHeight,
+    color: AppColors.primaryLight,
+    alignment: Alignment.center,
+    child: const Icon(
+      Icons.apartment_rounded,
+      size: 28,
+      color: AppColors.primary,
+    ),
+  );
 }

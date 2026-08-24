@@ -191,9 +191,7 @@ class ReelsProvider with ChangeNotifier {
   }
 
   void toggleFollow(String id) {
-    _followedIds.contains(id)
-        ? _followedIds.remove(id)
-        : _followedIds.add(id);
+    _followedIds.contains(id) ? _followedIds.remove(id) : _followedIds.add(id);
     notifyListeners();
   }
 

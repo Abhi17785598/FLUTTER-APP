@@ -8,7 +8,8 @@ class InfluencerProfileScreen extends StatefulWidget {
   const InfluencerProfileScreen({super.key});
 
   @override
-  State<InfluencerProfileScreen> createState() => _InfluencerProfileScreenState();
+  State<InfluencerProfileScreen> createState() =>
+      _InfluencerProfileScreenState();
 }
 
 class _InfluencerProfileScreenState extends State<InfluencerProfileScreen> {
@@ -49,7 +50,7 @@ class _InfluencerProfileScreenState extends State<InfluencerProfileScreen> {
 
     try {
       final user = _authService.currentUser;
-      
+
       if (user == null) {
         setState(() {
           _errorMessage = 'User not logged in';
@@ -181,7 +182,8 @@ class _InfluencerProfileScreenState extends State<InfluencerProfileScreen> {
                 controller: _socialMediaController,
                 decoration: const InputDecoration(
                   labelText: 'Social Media Links',
-                  hintText: 'Instagram, YouTube, Twitter URLs (comma separated)',
+                  hintText:
+                      'Instagram, YouTube, Twitter URLs (comma separated)',
                   prefixIcon: Icon(Icons.share),
                   border: OutlineInputBorder(),
                 ),
@@ -241,12 +243,17 @@ class _InfluencerProfileScreenState extends State<InfluencerProfileScreen> {
                           width: 20,
                           child: CircularProgressIndicator(
                             strokeWidth: 2,
-                            valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                            valueColor: AlwaysStoppedAnimation<Color>(
+                              Colors.white,
+                            ),
                           ),
                         )
                       : const Text(
                           'Complete Profile',
-                          style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                          style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                          ),
                         ),
                 ),
               ),

@@ -97,7 +97,9 @@ class _CreateChannelSheetState extends State<_CreateChannelSheet> {
                   height: 4,
                   decoration: BoxDecoration(
                     color: const Color(0xFFEDEDF2),
-                    borderRadius: BorderRadius.circular(AppConstants.pillRadius),
+                    borderRadius: BorderRadius.circular(
+                      AppConstants.pillRadius,
+                    ),
                   ),
                 ),
               ),
@@ -116,12 +118,19 @@ class _CreateChannelSheetState extends State<_CreateChannelSheet> {
               const SizedBox(height: 14),
               _label('Description (optional)'),
               const SizedBox(height: 6),
-              _field(_descriptionController, 'What is this channel about?', maxLines: 3),
+              _field(
+                _descriptionController,
+                'What is this channel about?',
+                maxLines: 3,
+              ),
               if (_error != null) ...[
                 const SizedBox(height: 10),
                 Text(
                   _error!,
-                  style: AppTextStyles.caption.copyWith(color: Colors.red, fontSize: 12),
+                  style: AppTextStyles.caption.copyWith(
+                    color: Colors.red,
+                    fontSize: 12,
+                  ),
                 ),
               ],
               const SizedBox(height: 18),
@@ -154,15 +163,19 @@ class _CreateChannelSheetState extends State<_CreateChannelSheet> {
   }
 
   Widget _label(String text) => Text(
-        text,
-        style: AppTextStyles.caption.copyWith(
-          fontSize: 12,
-          fontWeight: FontWeight.w600,
-          color: AppColors.textSecondary,
-        ),
-      );
+    text,
+    style: AppTextStyles.caption.copyWith(
+      fontSize: 12,
+      fontWeight: FontWeight.w600,
+      color: AppColors.textSecondary,
+    ),
+  );
 
-  Widget _field(TextEditingController controller, String hint, {int maxLines = 1}) {
+  Widget _field(
+    TextEditingController controller,
+    String hint, {
+    int maxLines = 1,
+  }) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 14),
       decoration: BoxDecoration(
@@ -180,7 +193,10 @@ class _CreateChannelSheetState extends State<_CreateChannelSheet> {
           focusedBorder: InputBorder.none,
           contentPadding: const EdgeInsets.symmetric(vertical: 12),
           hintText: hint,
-          hintStyle: AppTextStyles.body.copyWith(fontSize: 13.5, color: AppColors.textHint),
+          hintStyle: AppTextStyles.body.copyWith(
+            fontSize: 13.5,
+            color: AppColors.textHint,
+          ),
         ),
       ),
     );

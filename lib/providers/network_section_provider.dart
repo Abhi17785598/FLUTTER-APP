@@ -16,7 +16,8 @@ class NetworkSection<T> extends AsyncSection<T> {
 }
 
 /// My Networks — the caller's connections from either side.
-class NetworkMembershipsSection extends NetworkSection<List<NetworkMembership>> {
+class NetworkMembershipsSection
+    extends NetworkSection<List<NetworkMembership>> {
   NetworkMembershipsSection() : super(const []);
 
   Future<void> loadFor(String userId) =>
@@ -28,8 +29,8 @@ class NetworkLeadsSection extends NetworkSection<List<NetworkLead>> {
   NetworkLeadsSection() : super(const []);
 
   Future<void> loadFor(String userId, {required bool isBuilder}) => load(
-        () => NetworkSection.service.listLeads(userId, isBuilder: isBuilder),
-      );
+    () => NetworkSection.service.listLeads(userId, isBuilder: isBuilder),
+  );
 
   LeadStatusCounts get counts => LeadStatusCounts.fromLeads(value);
 }
@@ -40,9 +41,9 @@ class NetworkReferralsSection extends NetworkSection<ReferralBundle> {
   NetworkReferralsSection() : super(ReferralBundle.empty);
 
   Future<void> loadFor(String userId, {required bool isBuilder}) => load(
-        () => NetworkSection.service
-            .getReferralBundle(userId, isBuilder: isBuilder),
-      );
+    () =>
+        NetworkSection.service.getReferralBundle(userId, isBuilder: isBuilder),
+  );
 }
 
 /// Communication — the network's channels.

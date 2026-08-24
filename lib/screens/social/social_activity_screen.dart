@@ -58,8 +58,9 @@ class _ActivityViewState extends State<_ActivityView>
       reloadSection();
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text('$e')));
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('$e')));
       }
     } finally {
       if (mounted) setState(() => _busy = false);
@@ -165,7 +166,8 @@ class SocialActivityBody extends StatelessWidget {
               else if (items.isEmpty)
                 const EmptyStateView(
                   icon: Icons.schedule,
-                  message: 'Nothing published yet. Create a property or '
+                  message:
+                      'Nothing published yet. Create a property or '
                       'project and use "Publish Everywhere".',
                   iconCircleSize: 52,
                   padding: EdgeInsets.symmetric(vertical: 4),
@@ -218,12 +220,7 @@ const Map<String, _StatusMeta> _statusMeta = {
     Colors.white,
     Icons.check_circle,
   ),
-  'failed': _StatusMeta(
-    'Failed',
-    AppColors.error,
-    Colors.white,
-    Icons.cancel,
-  ),
+  'failed': _StatusMeta('Failed', AppColors.error, Colors.white, Icons.cancel),
   'canceled': _StatusMeta(
     'Canceled',
     AppColors.background,
@@ -237,11 +234,7 @@ class _LogRow extends StatelessWidget {
   final bool busy;
   final VoidCallback onRetry;
 
-  const _LogRow({
-    required this.item,
-    required this.onRetry,
-    this.busy = false,
-  });
+  const _LogRow({required this.item, required this.onRetry, this.busy = false});
 
   @override
   Widget build(BuildContext context) {
@@ -266,8 +259,10 @@ class _LogRow extends StatelessWidget {
                 icon: const Icon(Icons.replay, size: 15),
                 label: const Text('Retry', style: TextStyle(fontSize: 12)),
                 style: TextButton.styleFrom(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 8,
+                    vertical: 4,
+                  ),
                   minimumSize: Size.zero,
                   tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                 ),
@@ -288,16 +283,23 @@ class _LogRowContent extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final meta = _statusMeta[item.status] ?? _statusMeta['queued']!;
-    final subtitle = [
-      item.relativeTime,
-      if (item.error?.isNotEmpty ?? false) item.error!,
-    ].join(item.relativeTime.isNotEmpty && (item.error?.isNotEmpty ?? false) ? ' — ' : '');
+    final subtitle =
+        [
+          item.relativeTime,
+          if (item.error?.isNotEmpty ?? false) item.error!,
+        ].join(
+          item.relativeTime.isNotEmpty && (item.error?.isNotEmpty ?? false)
+              ? ' — '
+              : '',
+        );
 
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Icon(
-          item.platform == 'instagram' ? Icons.camera_alt_outlined : Icons.facebook,
+          item.platform == 'instagram'
+              ? Icons.camera_alt_outlined
+              : Icons.facebook,
           size: 18,
           color: item.platform == 'instagram'
               ? const Color(0xFFE4405F)
@@ -313,8 +315,8 @@ class _LogRowContent extends StatelessWidget {
                 item.contentType.isEmpty
                     ? 'Post'
                     : (item.targets.isNotEmpty
-                        ? '${item.contentType} · ${item.targets.join(', ')}'
-                        : item.contentType),
+                          ? '${item.contentType} · ${item.targets.join(', ')}'
+                          : item.contentType),
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 style: AppTextStyles.body.copyWith(

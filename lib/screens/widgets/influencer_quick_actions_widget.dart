@@ -5,12 +5,7 @@ import '../../core/constants/app_constants.dart';
 class InfluencerQuickActionsWidget extends StatelessWidget {
   const InfluencerQuickActionsWidget({super.key});
 
-  Widget _action(
-    IconData icon,
-    String title,
-    Color color,
-    VoidCallback onTap,
-  ) {
+  Widget _action(IconData icon, String title, Color color, VoidCallback onTap) {
     return Expanded(
       child: InkWell(
         onTap: onTap,
@@ -39,9 +34,7 @@ class InfluencerQuickActionsWidget extends StatelessWidget {
               Text(
                 title,
                 textAlign: TextAlign.center,
-                style: const TextStyle(
-                  fontWeight: FontWeight.w600,
-                ),
+                style: const TextStyle(fontWeight: FontWeight.w600),
               ),
             ],
           ),
@@ -72,12 +65,7 @@ class InfluencerQuickActionsWidget extends StatelessWidget {
               ),
             ),
             const SizedBox(width: 14),
-            _action(
-              Icons.analytics_rounded,
-              "Analytics",
-              Colors.blue,
-              () {},
-            ),
+            _action(Icons.analytics_rounded, "Analytics", Colors.blue, () {}),
           ],
         ),
 
@@ -85,19 +73,9 @@ class InfluencerQuickActionsWidget extends StatelessWidget {
 
         Row(
           children: [
-            _action(
-              Icons.campaign_rounded,
-              "Campaigns",
-              Colors.green,
-              () {},
-            ),
+            _action(Icons.campaign_rounded, "Campaigns", Colors.green, () {}),
             const SizedBox(width: 14),
-            _action(
-              Icons.payments_rounded,
-              "Earnings",
-              Colors.orange,
-              () {},
-            ),
+            _action(Icons.payments_rounded, "Earnings", Colors.orange, () {}),
           ],
         ),
       ],

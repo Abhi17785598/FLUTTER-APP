@@ -63,6 +63,31 @@ class PropertyModel {
   // have no dedicated typed column/field above.
   final Map<String, dynamic> metadata;
 
+  // NEW: category-specific fields for the Compare screen (Flutter Compare —
+  // Portal Parity work). Sourced from the SAME `properties_residential` /
+  // `properties_commercial` / `properties_land` joins `fromSupabase` already
+  // receives (see the `beds`/`baths`/`parking` extraction above) — this only
+  // adds client-side exposure of columns that were already arriving over the
+  // wire and being discarded. No new query, no schema change.
+  final int? floorNumber;
+  final int? totalFloors;
+  final String? facingDirection;
+  final int? ageOfProperty;
+  final int? balconies;
+  final bool? furnished;
+  final double? builtUpAreaSqft;
+  final double? carpetAreaSqft;
+  // Commercial-only.
+  final double? powerLoadKw;
+  final bool? hasCafeteria;
+  final int? conferenceRooms;
+  // Land-only.
+  final bool? boundaryWall;
+  final String? waterSource;
+  final double? roadWidthFt;
+  final String? soilType;
+  final double? slopePercentage;
+
   PropertyModel({
     required this.id,
     required this.title,
@@ -115,6 +140,22 @@ class PropertyModel {
     this.views,
     this.createdAt,
     this.metadata = const {},
+    this.floorNumber,
+    this.totalFloors,
+    this.facingDirection,
+    this.ageOfProperty,
+    this.balconies,
+    this.furnished,
+    this.builtUpAreaSqft,
+    this.carpetAreaSqft,
+    this.powerLoadKw,
+    this.hasCafeteria,
+    this.conferenceRooms,
+    this.boundaryWall,
+    this.waterSource,
+    this.roadWidthFt,
+    this.soilType,
+    this.slopePercentage,
   });
 
   /// Parses a `properties.media_urls` (text[]) value into usable URLs.
@@ -124,10 +165,9 @@ class PropertyModel {
   /// reading a joined `properties` row parses it the same way this model does
   /// — [ReelModel] uses it for the reel card's cover image, in the same spirit
   /// as [parseAmenities].
-  static List<String> parseMediaUrls(dynamic value) =>
-      List<String>.from(value ?? const [])
-          .where((url) => url.trim().isNotEmpty)
-          .toList();
+  static List<String> parseMediaUrls(dynamic value) => List<String>.from(
+    value ?? const [],
+  ).where((url) => url.trim().isNotEmpty).toList();
 
   /// NEW: the list the UI should actually iterate over.
   /// Falls back to the single [imageUrl] when [imageUrls] wasn't
@@ -167,7 +207,8 @@ class PropertyModel {
       imageUrl: singleImage,
       // Accept an explicit 'imageUrls' array if present; otherwise fall
       // back to wrapping the single 'imageUrl' so old JSON blobs still work.
-      imageUrls: (json['imageUrls'] as List<dynamic>?)?.cast<String>() ??
+      imageUrls:
+          (json['imageUrls'] as List<dynamic>?)?.cast<String>() ??
           (singleImage.isNotEmpty ? [singleImage] : const []),
       builderName: json['builderName'] as String,
       propertyType: json['propertyType'] as String?,
@@ -203,7 +244,8 @@ class PropertyModel {
     // 'residentialDetails' (property_service.dart), so both keys are checked
     // — otherwise a PropertyModel built from search results always shows
     // beds/baths as 0 even though the row was fetched.
-    final residential = json['properties_residential'] as Map<String, dynamic>? ??
+    final residential =
+        json['properties_residential'] as Map<String, dynamic>? ??
         json['residentialDetails'] as Map<String, dynamic>?;
     final commercial = json['properties_commercial'] as Map<String, dynamic>?;
     final land = json['properties_land'] as Map<String, dynamic>?;
@@ -218,20 +260,56 @@ class PropertyModel {
     int baths = 0;
     int parking = 0;
 
+    // Category-specific Compare fields — see the field doc comments above.
+    int? floorNumber;
+    int? totalFloors;
+    String? facingDirection;
+    int? ageOfProperty;
+    int? balconies;
+    bool? furnished;
+    double? builtUpAreaSqft;
+    double? carpetAreaSqft;
+    double? powerLoadKw;
+    bool? hasCafeteria;
+    int? conferenceRooms;
+    bool? boundaryWall;
+    String? waterSource;
+    double? roadWidthFt;
+    String? soilType;
+    double? slopePercentage;
+
     if (residential != null) {
-      beds    = residential['bedrooms']       as int? ?? 0;
-      baths   = residential['bathrooms']      as int? ?? 0;
+      beds = residential['bedrooms'] as int? ?? 0;
+      baths = residential['bathrooms'] as int? ?? 0;
       parking = residential['parking_spaces'] as int? ?? 0;
+      floorNumber = residential['floor_number'] as int?;
+      totalFloors = residential['total_floors'] as int?;
+      facingDirection = residential['facing_direction']?.toString();
+      ageOfProperty = residential['age_of_property'] as int?;
+      balconies = residential['balconies'] as int?;
+      furnished = residential['furnished'] as bool?;
+      builtUpAreaSqft = (residential['built_up_area_sqft'] as num?)?.toDouble();
+      carpetAreaSqft = (residential['carpet_area_sqft'] as num?)?.toDouble();
     } else if (commercial != null) {
-      beds    = commercial['washrooms']       as int? ?? 0;
-      baths   = commercial['washrooms']       as int? ?? 0;
-      parking = commercial['parking_spaces']  as int? ?? 0;
+      beds = commercial['washrooms'] as int? ?? 0;
+      baths = commercial['washrooms'] as int? ?? 0;
+      parking = commercial['parking_spaces'] as int? ?? 0;
+      floorNumber = commercial['floor_number'] as int?;
+      totalFloors = commercial['total_floors'] as int?;
+      furnished = commercial['furnished'] as bool?;
+      builtUpAreaSqft = (commercial['built_up_area_sqft'] as num?)?.toDouble();
+      carpetAreaSqft = (commercial['carpet_area_sqft'] as num?)?.toDouble();
+      powerLoadKw = (commercial['power_load_kw'] as num?)?.toDouble();
+      hasCafeteria = commercial['cafeteria'] as bool?;
+      conferenceRooms = commercial['conference_rooms'] as int?;
     } else if (land != null) {
-      // Land listings have no bedroom/bathroom/parking concept —
-      // properties_land only tracks area_sqft/boundary_wall/water_source/
-      // road_width_ft/soil_type/slope_percentage, none of which map to a
-      // PropertyModel field yet. Left at 0 intentionally, not an oversight;
-      // a fuller land-specific field set is a follow-on, not this phase.
+      // Land listings have no bedroom/bathroom/parking concept — the
+      // sqft-only fields below come straight off properties_land.
+      boundaryWall = land['boundary_wall'] as bool?;
+      waterSource = land['water_source']?.toString();
+      roadWidthFt = (land['road_width_ft'] as num?)?.toDouble();
+      soilType = land['soil_type']?.toString();
+      slopePercentage = (land['slope_percentage'] as num?)?.toDouble();
     }
 
     // Extract metadata
@@ -241,39 +319,40 @@ class PropertyModel {
     final isTrending = (json['views'] as int? ?? 0) >= 20;
 
     return PropertyModel(
-      id:              json['id']?.toString() ?? '',
-      title:           json['title'] ?? '',
-      locality:        json['location'] ?? '',
-      city:            metadata['city']?.toString() ?? json['city']?.toString() ?? '',
-      price:           double.tryParse(json['price']?.toString() ?? '0') ?? 0,
-      priceDisplay:    formatIndianPrice(json['price']),
-      pricePerSqft:    metadata['pricePerSqFt']?.toString() ?? '',
-      beds:            beds,
-      baths:           baths,
+      id: json['id']?.toString() ?? '',
+      title: json['title'] ?? '',
+      locality: json['location'] ?? '',
+      city: metadata['city']?.toString() ?? json['city']?.toString() ?? '',
+      price: double.tryParse(json['price']?.toString() ?? '0') ?? 0,
+      priceDisplay: formatIndianPrice(json['price']),
+      pricePerSqft: metadata['pricePerSqFt']?.toString() ?? '',
+      beds: beds,
+      baths: baths,
       // `area` is stored as text and can hold a decimal (e.g. "1200.5");
       // int.tryParse rejects the decimal point and silently returns null,
       // which showed as "0 sqft" for any such row.
-      sqft:            double.tryParse(json['area']?.toString() ?? '0')?.round() ?? 0,
-      parking:         parking,
+      sqft: double.tryParse(json['area']?.toString() ?? '0')?.round() ?? 0,
+      parking: parking,
       // NEW: `properties` has no `is_verified` column at all — the key is
       // always absent, so this must not silently default to true.
-      isVerified:      json['is_verified'] as bool? ?? false,
-      isFeatured:      isFeatured,
-      isShortlisted:   false,
-      photoCount:      mediaUrls.length,
-      statusTags:      List<String>.from(json['hashtags'] ?? []),
+      isVerified: json['is_verified'] as bool? ?? false,
+      isFeatured: isFeatured,
+      isShortlisted: false,
+      photoCount: mediaUrls.length,
+      statusTags: List<String>.from(json['hashtags'] ?? []),
       amenities: parseAmenities(json['amenities']),
-      nearbyPlaces:    [],
-      description:     json['description'] ?? '',
-      imageUrl:        mediaUrls.isNotEmpty ? mediaUrls.first : '',
+      nearbyPlaces: [],
+      description: json['description'] ?? '',
+      imageUrl: mediaUrls.isNotEmpty ? mediaUrls.first : '',
       // NEW: full gallery, straight off the DB array.
-      imageUrls:       mediaUrls,
+      imageUrls: mediaUrls,
       // NEW: `properties` has no `builder_name` column — do not fall back
       // to `category`, that mislabels every property's category as its
       // builder name.
-      builderName:     json['builder_name']?.toString() ?? '',
+      builderName: json['builder_name']?.toString() ?? '',
       propertyType: json['property_type']?.toString(),
-      possessionStatus: metadata['propertyCondition']?.toString() ??
+      possessionStatus:
+          metadata['propertyCondition']?.toString() ??
           json['possession_status']?.toString(),
       latitude: (json['latitude'] as num?)?.toDouble(),
       longitude: (json['longitude'] as num?)?.toDouble(),
@@ -299,6 +378,22 @@ class PropertyModel {
           ? DateTime.tryParse(json['created_at'].toString())
           : null,
       metadata: metadata,
+      floorNumber: floorNumber,
+      totalFloors: totalFloors,
+      facingDirection: facingDirection,
+      ageOfProperty: ageOfProperty,
+      balconies: balconies,
+      furnished: furnished,
+      builtUpAreaSqft: builtUpAreaSqft,
+      carpetAreaSqft: carpetAreaSqft,
+      powerLoadKw: powerLoadKw,
+      hasCafeteria: hasCafeteria,
+      conferenceRooms: conferenceRooms,
+      boundaryWall: boundaryWall,
+      waterSource: waterSource,
+      roadWidthFt: roadWidthFt,
+      soilType: soilType,
+      slopePercentage: slopePercentage,
     );
   }
 
@@ -450,6 +545,22 @@ class PropertyModel {
     int? views,
     DateTime? createdAt,
     Map<String, dynamic>? metadata,
+    int? floorNumber,
+    int? totalFloors,
+    String? facingDirection,
+    int? ageOfProperty,
+    int? balconies,
+    bool? furnished,
+    double? builtUpAreaSqft,
+    double? carpetAreaSqft,
+    double? powerLoadKw,
+    bool? hasCafeteria,
+    int? conferenceRooms,
+    bool? boundaryWall,
+    String? waterSource,
+    double? roadWidthFt,
+    String? soilType,
+    double? slopePercentage,
   }) {
     return PropertyModel(
       id: id ?? this.id,
@@ -500,6 +611,22 @@ class PropertyModel {
       views: views ?? this.views,
       createdAt: createdAt ?? this.createdAt,
       metadata: metadata ?? this.metadata,
+      floorNumber: floorNumber ?? this.floorNumber,
+      totalFloors: totalFloors ?? this.totalFloors,
+      facingDirection: facingDirection ?? this.facingDirection,
+      ageOfProperty: ageOfProperty ?? this.ageOfProperty,
+      balconies: balconies ?? this.balconies,
+      furnished: furnished ?? this.furnished,
+      builtUpAreaSqft: builtUpAreaSqft ?? this.builtUpAreaSqft,
+      carpetAreaSqft: carpetAreaSqft ?? this.carpetAreaSqft,
+      powerLoadKw: powerLoadKw ?? this.powerLoadKw,
+      hasCafeteria: hasCafeteria ?? this.hasCafeteria,
+      conferenceRooms: conferenceRooms ?? this.conferenceRooms,
+      boundaryWall: boundaryWall ?? this.boundaryWall,
+      waterSource: waterSource ?? this.waterSource,
+      roadWidthFt: roadWidthFt ?? this.roadWidthFt,
+      soilType: soilType ?? this.soilType,
+      slopePercentage: slopePercentage ?? this.slopePercentage,
     );
   }
 

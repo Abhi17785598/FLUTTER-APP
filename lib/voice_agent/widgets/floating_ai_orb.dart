@@ -126,7 +126,10 @@ class _FloatingAiOrbState extends State<FloatingAiOrb>
       // state, just rendered off-canvas, which looks exactly like it
       // vanished with no error or role-based cause to point to.
       _position = Offset(
-        _position!.dx.clamp(_edgeMargin, screenSize.width - _size - _edgeMargin),
+        _position!.dx.clamp(
+          _edgeMargin,
+          screenSize.width - _size - _edgeMargin,
+        ),
         _position!.dy.clamp(40, screenSize.height - _size - 40),
       );
     }

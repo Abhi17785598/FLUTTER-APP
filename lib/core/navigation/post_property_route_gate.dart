@@ -60,9 +60,9 @@ class _ResolvingRole extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => const Scaffold(
-        backgroundColor: AppColors.background,
-        body: Center(child: CircularProgressIndicator()),
-      );
+    backgroundColor: AppColors.background,
+    body: Center(child: CircularProgressIndicator()),
+  );
 }
 
 /// `/post-property` — the property listing wizard.

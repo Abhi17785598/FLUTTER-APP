@@ -37,13 +37,14 @@ class GeocodedAddress {
 
 class GeocodingService {
   GeocodingService({http.Client? client})
-      : _apiKey = dotenv.env['GOOGLE_MAPS_API_KEY'] ?? '',
-        _client = client ?? http.Client();
+    : _apiKey = dotenv.env['GOOGLE_MAPS_API_KEY'] ?? '',
+      _client = client ?? http.Client();
 
   final String _apiKey;
   final http.Client _client;
 
-  static const String _endpoint = 'https://maps.googleapis.com/maps/api/geocode/json';
+  static const String _endpoint =
+      'https://maps.googleapis.com/maps/api/geocode/json';
   static const Duration _timeout = Duration(seconds: 10);
 
   /// Reverse-geocodes [lat]/[lng]. Returns null on any failure (missing key,
@@ -57,14 +58,15 @@ class GeocodingService {
     }
 
     try {
-      final uri = Uri.parse(_endpoint).replace(queryParameters: {
-        'latlng': '$lat,$lng',
-        'key': _apiKey,
-      });
+      final uri = Uri.parse(
+        _endpoint,
+      ).replace(queryParameters: {'latlng': '$lat,$lng', 'key': _apiKey});
 
       final response = await _client.get(uri).timeout(_timeout);
       if (response.statusCode != 200) {
-        debugPrint('GeocodingService: request failed (${response.statusCode}).');
+        debugPrint(
+          'GeocodingService: request failed (${response.statusCode}).',
+        );
         return null;
       }
 
@@ -77,7 +79,8 @@ class GeocodingService {
       if (results == null || results.isEmpty) return null;
 
       final result = results.first as Map<String, dynamic>;
-      final components = (result['address_components'] as List<dynamic>?) ?? const [];
+      final components =
+          (result['address_components'] as List<dynamic>?) ?? const [];
 
       String? locality;
       String? adminArea2;
@@ -105,15 +108,20 @@ class GeocodingService {
           state = longName;
         } else if (types.contains('postal_code')) {
           pincode = longName;
-        } else if (types.contains('point_of_interest') || types.contains('establishment')) {
+        } else if (types.contains('point_of_interest') ||
+            types.contains('establishment')) {
           landmark = longName;
         } else if (types.contains('route') || types.contains('street_number')) {
-          addressLine1 = addressLine1 == null ? longName : '$addressLine1 $longName';
+          addressLine1 = addressLine1 == null
+              ? longName
+              : '$addressLine1 $longName';
         }
       }
 
       final city = locality ?? postalTown ?? adminArea3 ?? adminArea2;
-      addressLine1 ??= (result['formatted_address'] as String?)?.split(',').first;
+      addressLine1 ??= (result['formatted_address'] as String?)
+          ?.split(',')
+          .first;
 
       return GeocodedAddress(
         addressLine1: addressLine1,

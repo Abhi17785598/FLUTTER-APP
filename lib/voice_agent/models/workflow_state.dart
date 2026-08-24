@@ -26,7 +26,9 @@ class WorkflowState {
     bool clearActiveIntent = false,
   }) {
     return WorkflowState(
-      activeIntent: clearActiveIntent ? null : (activeIntent ?? this.activeIntent),
+      activeIntent: clearActiveIntent
+          ? null
+          : (activeIntent ?? this.activeIntent),
       collectedParams: collectedParams ?? this.collectedParams,
       missingFields: missingFields ?? this.missingFields,
       pendingConfirmation: pendingConfirmation ?? this.pendingConfirmation,

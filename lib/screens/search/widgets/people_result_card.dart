@@ -65,7 +65,8 @@ class PeopleResultCard extends StatelessWidget {
     // the company name — right for a profile header, wrong for a people search
     // result, where the portal's cards lead with the person and put the company
     // underneath (BrokersList.tsx:156-162, SearchModal.tsx:492-500).
-    final name = _firstNonEmpty([profile.displayName, profile.companyName]) ??
+    final name =
+        _firstNonEmpty([profile.displayName, profile.companyName]) ??
         'PropCid Member';
     final company = _firstNonEmpty([profile.companyName, profile.agencyName]);
     // Suppressed when it is the heading already, which happens for a profile
@@ -79,8 +80,7 @@ class PeopleResultCard extends StatelessWidget {
     final rera = _firstNonEmpty([profile.effectiveRera]);
 
     final metaChips = <Widget>[
-      if (city != null)
-        _MetaBit(icon: Icons.location_on_outlined, label: city),
+      if (city != null) _MetaBit(icon: Icons.location_on_outlined, label: city),
       if (experience != null && experience > 0)
         _MetaBit(
           icon: Icons.work_outline_rounded,
@@ -245,8 +245,10 @@ class PeopleResultCard extends StatelessWidget {
       parts.add('$experience years experience');
     }
     if (rating != null) {
-      parts.add('rated ${formatRating(rating.average)} from ${rating.count} '
-          '${rating.count == 1 ? 'review' : 'reviews'}');
+      parts.add(
+        'rated ${formatRating(rating.average)} from ${rating.count} '
+        '${rating.count == 1 ? 'review' : 'reviews'}',
+      );
     }
     return parts.join(', ');
   }
@@ -485,11 +487,11 @@ class _SkeletonBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Container(
-        width: width,
-        height: height,
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(4),
-        ),
-      );
+    width: width,
+    height: height,
+    decoration: BoxDecoration(
+      color: Colors.white,
+      borderRadius: BorderRadius.circular(4),
+    ),
+  );
 }

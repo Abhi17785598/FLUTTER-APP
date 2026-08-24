@@ -155,9 +155,7 @@ class _MyProjectsSectionState extends State<MyProjectsSection> {
   /// `project_id`.
   void _manageInventory(ProjectModel project) {
     Navigator.of(context).push(
-      MaterialPageRoute(
-        builder: (_) => ManageUnitsScreen(project: project),
-      ),
+      MaterialPageRoute(builder: (_) => ManageUnitsScreen(project: project)),
     );
   }
 
@@ -205,10 +203,7 @@ class _MyProjectsSectionState extends State<MyProjectsSection> {
 
     setState(() => _busyProjectId = project.id);
     try {
-      await _projects.delete(
-        projectId: project.id,
-        builderId: widget.userId,
-      );
+      await _projects.delete(projectId: project.id, builderId: widget.userId);
       if (!mounted) return;
       // Pruned locally rather than re-fetched, so the row disappears without a
       // spinner over the whole list.
@@ -277,10 +272,10 @@ class _MyProjectsSectionState extends State<MyProjectsSection> {
         result.dropped > 0
             // Never present a partial fan-out as a complete one.
             ? 'Notified ${result.notified} $plural. '
-                '${result.dropped} more were not notified — '
-                'share again to reach them.'
+                  '${result.dropped} more were not notified — '
+                  'share again to reach them.'
             : 'Notified ${result.notified} $plural about '
-                '"${project.title}".',
+                  '"${project.title}".',
       );
     } catch (e) {
       _toast('Could not share that project. Please try again.', isError: true);
@@ -457,16 +452,16 @@ class _Cover extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     Widget placeholder() => Container(
-          width: _kThumbSize,
-          height: _kThumbSize,
-          color: AppColors.primaryLight,
-          alignment: Alignment.center,
-          child: const Icon(
-            Icons.apartment_rounded,
-            size: 24,
-            color: AppColors.primary,
-          ),
-        );
+      width: _kThumbSize,
+      height: _kThumbSize,
+      color: AppColors.primaryLight,
+      alignment: Alignment.center,
+      child: const Icon(
+        Icons.apartment_rounded,
+        size: 24,
+        color: AppColors.primary,
+      ),
+    );
 
     return ClipRRect(
       borderRadius: BorderRadius.circular(AppConstants.imageThumbnailRadius),
@@ -485,11 +480,7 @@ class _Cover extends StatelessWidget {
 }
 
 class _Summary extends StatelessWidget {
-  const _Summary({
-    required this.project,
-    this.units,
-    this.onStatusChanged,
-  });
+  const _Summary({required this.project, this.units, this.onStatusChanged});
 
   final ProjectModel project;
   final InventoryCounts? units;
@@ -497,7 +488,8 @@ class _Summary extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final isOwnerViewing = context.read<AuthProvider>().userId == project.builderId;
+    final isOwnerViewing =
+        context.read<AuthProvider>().userId == project.builderId;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -549,7 +541,8 @@ class _Summary extends StatelessWidget {
               if (project.totalUnits > 0) ...[
                 const SizedBox(width: 6),
                 _Pill(
-                  label: '${project.availableUnits}/${project.totalUnits} units',
+                  label:
+                      '${project.availableUnits}/${project.totalUnits} units',
                   tint: AppColors.textSecondary,
                 ),
               ],
@@ -581,17 +574,27 @@ class _Summary extends StatelessWidget {
         const SizedBox(height: 5),
         Row(
           children: [
-            const Icon(Icons.visibility_outlined, size: 12,
-                color: AppColors.textHint),
+            const Icon(
+              Icons.visibility_outlined,
+              size: 12,
+              color: AppColors.textHint,
+            ),
             const SizedBox(width: 3),
-            Text('${project.views}',
-                style: AppTextStyles.caption.copyWith(fontSize: 10.5)),
+            Text(
+              '${project.views}',
+              style: AppTextStyles.caption.copyWith(fontSize: 10.5),
+            ),
             const SizedBox(width: 10),
-            const Icon(Icons.favorite_outline_rounded, size: 12,
-                color: AppColors.textHint),
+            const Icon(
+              Icons.favorite_outline_rounded,
+              size: 12,
+              color: AppColors.textHint,
+            ),
             const SizedBox(width: 3),
-            Text('${project.likes}',
-                style: AppTextStyles.caption.copyWith(fontSize: 10.5)),
+            Text(
+              '${project.likes}',
+              style: AppTextStyles.caption.copyWith(fontSize: 10.5),
+            ),
           ],
         ),
       ],

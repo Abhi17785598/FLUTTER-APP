@@ -96,8 +96,9 @@ class SegmentedTabPill extends StatelessWidget {
           child: DecoratedBox(
             decoration: BoxDecoration(
               color: isSelected ? AppColors.cardBackground : Colors.transparent,
-              borderRadius:
-                  BorderRadius.circular(AppConstants.segmentedTabItemRadius),
+              borderRadius: BorderRadius.circular(
+                AppConstants.segmentedTabItemRadius,
+              ),
               boxShadow: isSelected ? AppColors.raisedPillShadow : null,
             ),
             child: Padding(

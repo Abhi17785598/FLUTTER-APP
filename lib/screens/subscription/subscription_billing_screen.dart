@@ -115,7 +115,8 @@ class _SubscriptionBillingViewState extends State<_SubscriptionBillingView> {
   Future<void> _cancel() async {
     final confirmed = await _confirm(
       title: 'Cancel subscription?',
-      message: 'Your plan stays active until the end of the current billing '
+      message:
+          'Your plan stays active until the end of the current billing '
           'period. After that the account moves to the Free plan.',
       confirmLabel: 'Cancel subscription',
       destructive: true,
@@ -124,7 +125,8 @@ class _SubscriptionBillingViewState extends State<_SubscriptionBillingView> {
 
     await _run(
       () => _payments.cancelSubscription(),
-      success: 'Your subscription will end at the close of this billing period.',
+      success:
+          'Your subscription will end at the close of this billing period.',
       failure: 'Could not cancel your subscription.',
     );
   }
@@ -176,8 +178,14 @@ class _SubscriptionBillingViewState extends State<_SubscriptionBillingView> {
     final result = await showDialog<bool>(
       context: context,
       builder: (dialogContext) => AlertDialog(
-        title: Text(title, style: AppTextStyles.heading3.copyWith(fontSize: 16)),
-        content: Text(message, style: AppTextStyles.body.copyWith(fontSize: 13)),
+        title: Text(
+          title,
+          style: AppTextStyles.heading3.copyWith(fontSize: 16),
+        ),
+        content: Text(
+          message,
+          style: AppTextStyles.body.copyWith(fontSize: 13),
+        ),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(dialogContext).pop(false),
@@ -277,9 +285,9 @@ class _SubscriptionBillingBodyState extends State<SubscriptionBillingBody> {
   }
 
   void _openPolicies() {
-    Navigator.of(context).push(
-      PremiumPageRoute(builder: (_) => const BillingPoliciesScreen()),
-    );
+    Navigator.of(
+      context,
+    ).push(PremiumPageRoute(builder: (_) => const BillingPoliciesScreen()));
   }
 
   void _selectTab(SubscriptionTab tab) {
@@ -335,11 +343,14 @@ class _SubscriptionBillingBodyState extends State<SubscriptionBillingBody> {
         return BillingTab(
           data: data,
           onUpgrade: _openUpgrade,
-          onCancel: widget.onCancelSubscription ??
+          onCancel:
+              widget.onCancelSubscription ??
               () => openSectionPlaceholder(context, 'Cancel Subscription'),
-          onResume: widget.onResumeSubscription ??
+          onResume:
+              widget.onResumeSubscription ??
               () => openSectionPlaceholder(context, 'Resume Subscription'),
-          onSaveDetails: () => openSectionPlaceholder(context, 'Edit Billing Details'),
+          onSaveDetails: () =>
+              openSectionPlaceholder(context, 'Edit Billing Details'),
         );
       case SubscriptionTab.payments:
         return PaymentsTab(data: data);
@@ -348,7 +359,8 @@ class _SubscriptionBillingBodyState extends State<SubscriptionBillingBody> {
       case SubscriptionTab.invoices:
         return InvoicesTab(
           data: data,
-          onDownload: (_) => openSectionPlaceholder(context, 'Download Invoice'),
+          onDownload: (_) =>
+              openSectionPlaceholder(context, 'Download Invoice'),
         );
       case SubscriptionTab.usage:
         return UsageTab(data: data);
@@ -358,16 +370,20 @@ class _SubscriptionBillingBodyState extends State<SubscriptionBillingBody> {
           onUpgrade: _openUpgrade,
           onComparePlans: _openUpgrade,
           onPolicies: _openPolicies,
-          onContactSupport: () => openSectionPlaceholder(context, 'Contact Support'),
-          onManagePaymentMethod: () => openSectionPlaceholder(context, 'Payment Methods'),
+          onContactSupport: () =>
+              openSectionPlaceholder(context, 'Contact Support'),
+          onManagePaymentMethod: () =>
+              openSectionPlaceholder(context, 'Payment Methods'),
         );
       case SubscriptionTab.refunds:
         return RefundsTab(data: data, onViewPlans: _openUpgrade);
       case SubscriptionTab.help:
         return HelpTab(
           onPolicies: _openPolicies,
-          onContactSupport: () => openSectionPlaceholder(context, 'Contact Support'),
-          onRaiseTicket: () => openSectionPlaceholder(context, 'Raise a Ticket'),
+          onContactSupport: () =>
+              openSectionPlaceholder(context, 'Contact Support'),
+          onRaiseTicket: () =>
+              openSectionPlaceholder(context, 'Raise a Ticket'),
         );
       case SubscriptionTab.policies:
         // Never selected — _selectTab navigates instead. Kept exhaustive so a
@@ -438,13 +454,9 @@ class _CurrentPlanCard extends StatelessWidget {
                     Row(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Expanded(
-                          child: _priceBlock(CrossAxisAlignment.start),
-                        ),
+                        Expanded(child: _priceBlock(CrossAxisAlignment.start)),
                         const SizedBox(width: AppConstants.spacingS),
-                        Expanded(
-                          child: _renewalBlock(CrossAxisAlignment.end),
-                        ),
+                        Expanded(child: _renewalBlock(CrossAxisAlignment.end)),
                       ],
                     ),
                   ],
@@ -536,9 +548,7 @@ class _CurrentPlanCard extends StatelessWidget {
             children: [
               _StatusChip(sub.status, solid: true),
               _StatusChip(sub.billingCycle),
-              _StatusChip(
-                sub.autoRenew ? 'Auto-renew on' : 'Auto-renew off',
-              ),
+              _StatusChip(sub.autoRenew ? 'Auto-renew on' : 'Auto-renew off'),
             ],
           ),
         ],

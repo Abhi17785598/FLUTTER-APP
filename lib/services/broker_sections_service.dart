@@ -52,7 +52,7 @@ class BrokerSectionException implements Exception {
 /// lead metrics from the same table.
 class BrokerLeadService {
   BrokerLeadService({SupabaseClient? client})
-      : _supabase = client ?? Supabase.instance.client;
+    : _supabase = client ?? Supabase.instance.client;
 
   final SupabaseClient _supabase;
 
@@ -84,10 +84,12 @@ class BrokerLeadService {
         .order('created_at', ascending: false);
 
     return List<Map<String, dynamic>>.from(rows)
-        .map((row) => BrokerLead.fromSupabase(
-              row,
-              propertyTitle: titles[row['property_id']?.toString()],
-            ))
+        .map(
+          (row) => BrokerLead.fromSupabase(
+            row,
+            propertyTitle: titles[row['property_id']?.toString()],
+          ),
+        )
         .toList();
   }
 
@@ -212,10 +214,13 @@ class BrokerLeadService {
       );
     }
 
-    await _supabase.from(table).update({
-      'status': dbValue,
-      'updated_at': DateTime.now().toUtc().toIso8601String(),
-    }).eq('id', leadId);
+    await _supabase
+        .from(table)
+        .update({
+          'status': dbValue,
+          'updated_at': DateTime.now().toUtc().toIso8601String(),
+        })
+        .eq('id', leadId);
   }
 }
 
@@ -230,7 +235,7 @@ class BrokerLeadService {
 /// adds it to the `supabase_realtime` publication, in an applied migration.
 class PropertyVisitBookingService {
   PropertyVisitBookingService({SupabaseClient? client})
-      : _supabase = client ?? Supabase.instance.client;
+    : _supabase = client ?? Supabase.instance.client;
 
   final SupabaseClient _supabase;
 
@@ -260,10 +265,12 @@ class PropertyVisitBookingService {
         .order('preferred_date', ascending: true);
 
     return List<Map<String, dynamic>>.from(rows)
-        .map((row) => PropertyVisitBooking.fromSupabase(
-              row,
-              propertyTitle: titles[row['property_id']?.toString()],
-            ))
+        .map(
+          (row) => PropertyVisitBooking.fromSupabase(
+            row,
+            propertyTitle: titles[row['property_id']?.toString()],
+          ),
+        )
         .toList();
   }
 
@@ -321,13 +328,18 @@ class PropertyVisitBookingService {
       throw const BrokerSectionException('Choose a status.');
     }
 
-    await _supabase.from(table).update({
-      // A DATE column — the day only, never an instant.
-      'preferred_date': _dateOnly(preferredDate),
-      'preferred_time': (preferredTime?.isEmpty ?? true) ? null : preferredTime,
-      'status': status,
-      'updated_at': DateTime.now().toUtc().toIso8601String(),
-    }).eq('id', booking.id);
+    await _supabase
+        .from(table)
+        .update({
+          // A DATE column — the day only, never an instant.
+          'preferred_date': _dateOnly(preferredDate),
+          'preferred_time': (preferredTime?.isEmpty ?? true)
+              ? null
+              : preferredTime,
+          'status': status,
+          'updated_at': DateTime.now().toUtc().toIso8601String(),
+        })
+        .eq('id', booking.id);
 
     if (_notifyingStatuses.contains(status)) {
       await _notifyVisitor(
@@ -365,7 +377,9 @@ class PropertyVisitBookingService {
     if (_notifyingStatuses.contains(status) && userId != null) {
       final rowList = List<Map<String, dynamic>>.from(rows);
       final row = rowList.isEmpty ? null : rowList.first;
-      final date = row != null ? DateTime.tryParse(row['preferred_date']?.toString() ?? '') : null;
+      final date = row != null
+          ? DateTime.tryParse(row['preferred_date']?.toString() ?? '')
+          : null;
       if (date != null) {
         await _notifyVisitor(
           userId: userId,
@@ -401,7 +415,7 @@ class PropertyVisitBookingService {
     final slot = status == 'cancelled'
         ? ''
         : ' New slot: ${_dateOnly(date)}'
-            '${time != null && time.isNotEmpty ? ' at $time' : ''}';
+              '${time != null && time.isNotEmpty ? ' at $time' : ''}';
 
     try {
       await _supabase.from('notifications').insert({
@@ -423,12 +437,12 @@ class PropertyVisitBookingService {
   }
 
   static String _actionLabel(String status) => switch (status) {
-        'confirmed' => 'Confirmed',
-        'cancelled' => 'Cancelled',
-        'rescheduled' => 'Rescheduled',
-        'completed' => 'Completed',
-        _ => status,
-      };
+    'confirmed' => 'Confirmed',
+    'cancelled' => 'Cancelled',
+    'rescheduled' => 'Rescheduled',
+    'completed' => 'Completed',
+    _ => status,
+  };
 
   static String _dateOnly(DateTime value) {
     final month = value.month.toString().padLeft(2, '0');
@@ -442,7 +456,7 @@ class PropertyVisitBookingService {
 /// The caller's own `broker_profiles` row.
 class BrokerProfileService {
   BrokerProfileService({SupabaseClient? client})
-      : _supabase = client ?? Supabase.instance.client;
+    : _supabase = client ?? Supabase.instance.client;
 
   final SupabaseClient _supabase;
 
@@ -507,16 +521,16 @@ class BrokerProfileService {
     final existingId = profile.id;
     final row = existingId == null
         ? await _supabase
-            .from(table)
-            .insert(payload)
-            .select(BrokerProfile.columns)
-            .single()
+              .from(table)
+              .insert(payload)
+              .select(BrokerProfile.columns)
+              .single()
         : await _supabase
-            .from(table)
-            .update(payload)
-            .eq('id', existingId)
-            .select(BrokerProfile.columns)
-            .single();
+              .from(table)
+              .update(payload)
+              .eq('id', existingId)
+              .select(BrokerProfile.columns)
+              .single();
 
     return BrokerProfile.fromSupabase(row);
   }

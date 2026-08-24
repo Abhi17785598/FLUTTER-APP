@@ -27,7 +27,7 @@ import '../models/project_model.dart';
 
 class ProjectService {
   ProjectService({SupabaseClient? client})
-      : _supabase = client ?? Supabase.instance.client;
+    : _supabase = client ?? Supabase.instance.client;
 
   final SupabaseClient _supabase;
 
@@ -48,7 +48,9 @@ class ProjectService {
           .order('created_at', ascending: false);
 
       return rows
-          .map((row) => ProjectModel.fromSupabase(Map<String, dynamic>.from(row)))
+          .map(
+            (row) => ProjectModel.fromSupabase(Map<String, dynamic>.from(row)),
+          )
           .where((project) => project.id.isNotEmpty)
           .toList(growable: false);
     } catch (e) {
@@ -76,7 +78,9 @@ class ProjectService {
           .limit(limit);
 
       return rows
-          .map((row) => ProjectModel.fromSupabase(Map<String, dynamic>.from(row)))
+          .map(
+            (row) => ProjectModel.fromSupabase(Map<String, dynamic>.from(row)),
+          )
           .where((project) => project.id.isNotEmpty)
           .toList(growable: false);
     } catch (e) {
@@ -119,7 +123,9 @@ class ProjectService {
           .inFilter('id', projectIds);
 
       return rows
-          .map((row) => ProjectModel.fromSupabase(Map<String, dynamic>.from(row)))
+          .map(
+            (row) => ProjectModel.fromSupabase(Map<String, dynamic>.from(row)),
+          )
           .where((project) => project.id.isNotEmpty)
           .toList(growable: false);
     } catch (e) {
@@ -423,37 +429,35 @@ class ProjectDraft {
 
   /// The draft as a plain map, for the wizard's saved draft.
   Map<String, dynamic> toJson() => {
-        'title': title,
-        'description': description,
-        'project_type': projectType,
-        'location': location,
-        'total_units': totalUnits,
-        'available_units': availableUnits,
-        'price_range_min': priceRangeMin,
-        'price_range_max': priceRangeMax,
-        'area_sqft_min': areaSqftMin,
-        'area_sqft_max': areaSqftMax,
-        'completion_date': completionDate,
-        'possession_date': possessionDate,
-        'rera_number': reraNumber,
-        'website_url': websiteUrl,
-        'contact_number': contactNumber,
-        'logo_url': logoUrl,
-        'brochure_url': brochureUrl,
-        'map_images': mapImages,
-        'other_images': otherImages,
-        'videos_urls': videosUrls,
-        'amenities': amenities,
-      };
+    'title': title,
+    'description': description,
+    'project_type': projectType,
+    'location': location,
+    'total_units': totalUnits,
+    'available_units': availableUnits,
+    'price_range_min': priceRangeMin,
+    'price_range_max': priceRangeMax,
+    'area_sqft_min': areaSqftMin,
+    'area_sqft_max': areaSqftMax,
+    'completion_date': completionDate,
+    'possession_date': possessionDate,
+    'rera_number': reraNumber,
+    'website_url': websiteUrl,
+    'contact_number': contactNumber,
+    'logo_url': logoUrl,
+    'brochure_url': brochureUrl,
+    'map_images': mapImages,
+    'other_images': otherImages,
+    'videos_urls': videosUrls,
+    'amenities': amenities,
+  };
 
   /// Restores a saved draft. Unknown and malformed keys are ignored rather than
   /// throwing, so a draft written by an older build still opens.
   factory ProjectDraft.fromJson(Map<String, dynamic> json) {
     List<String> list(Object? value) => dbArray(value);
-    int? intOrNull(Object? value) =>
-        value == null ? null : dbInt(value);
-    double? numOrNull(Object? value) =>
-        value == null ? null : dbNum(value);
+    int? intOrNull(Object? value) => value == null ? null : dbInt(value);
+    double? numOrNull(Object? value) => value == null ? null : dbNum(value);
 
     return ProjectDraft(
       title: json['title']?.toString() ?? '',

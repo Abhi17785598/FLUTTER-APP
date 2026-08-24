@@ -86,7 +86,8 @@ class PublicProfileSkeleton extends StatelessWidget {
         ),
 
         SizedBox(
-          height: kProfileSkeletonBottomSpace +
+          height:
+              kProfileSkeletonBottomSpace +
               MediaQuery.paddingOf(context).bottom,
         ),
       ],
@@ -109,14 +110,14 @@ class PublicProfileAvatarSkeleton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Container(
-        width: kPublicAvatarSize,
-        height: kPublicAvatarSize,
-        decoration: BoxDecoration(
-          color: AppColors.hairline,
-          shape: BoxShape.circle,
-          border: Border.all(color: AppColors.background, width: 4),
-        ),
-      );
+    width: kPublicAvatarSize,
+    height: kPublicAvatarSize,
+    decoration: BoxDecoration(
+      color: AppColors.hairline,
+      shape: BoxShape.circle,
+      border: Border.all(color: AppColors.background, width: 4),
+    ),
+  );
 }
 
 class _ChipRowSkeleton extends StatelessWidget {
@@ -137,18 +138,18 @@ class _ChipRowSkeleton extends StatelessWidget {
       physics: NeverScrollableScrollPhysics(),
       child: Row(
         children: [
-        ProfileShimmerBox(
-          height: 28,
-          width: 92,
-          radius: AppConstants.pillRadius,
-        ),
-        SizedBox(width: AppConstants.spacingS),
-        ProfileShimmerBox(
-          height: 28,
-          width: 120,
-          radius: AppConstants.pillRadius,
-        ),
-        SizedBox(width: AppConstants.spacingS),
+          ProfileShimmerBox(
+            height: 28,
+            width: 92,
+            radius: AppConstants.pillRadius,
+          ),
+          SizedBox(width: AppConstants.spacingS),
+          ProfileShimmerBox(
+            height: 28,
+            width: 120,
+            radius: AppConstants.pillRadius,
+          ),
+          SizedBox(width: AppConstants.spacingS),
           ProfileShimmerBox(
             height: 28,
             width: 80,

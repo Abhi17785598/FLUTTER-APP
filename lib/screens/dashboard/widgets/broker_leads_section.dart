@@ -29,7 +29,8 @@ import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_text_styles.dart';
 import '../../../models/broker_section_models.dart';
 import '../../../models/property_model.dart';
-import '../../../services/broker_sections_service.dart' show BrokerSectionException;
+import '../../../services/broker_sections_service.dart'
+    show BrokerSectionException;
 import '../../../services/unified_leads_service.dart';
 import '../../../widgets/shared/stat_kpi_card.dart';
 import 'builder_section_kit.dart';
@@ -61,7 +62,8 @@ class BrokerLeadsSection extends StatefulWidget {
 }
 
 class _BrokerLeadsSectionState extends State<BrokerLeadsSection> {
-  late final UnifiedLeadsService _leads = widget.service ?? UnifiedLeadsService();
+  late final UnifiedLeadsService _leads =
+      widget.service ?? UnifiedLeadsService();
 
   List<UnifiedLead>? _items;
   BrokerLeadStats _stats = BrokerLeadStats.empty;
@@ -205,11 +207,11 @@ class _BrokerLeadsSectionState extends State<BrokerLeadsSection> {
                       // No leads at all, unfiltered — the portal's
                       // `leads.length === 0` copy.
                       ? (widget.properties.isEmpty
-                          ? 'Leads appear here once you publish a listing.'
-                          : 'No leads yet.')
+                            ? 'Leads appear here once you publish a listing.'
+                            : 'No leads yet.')
                       // Leads exist, but none match the selected filter.
                       : 'No ${brokerLeadStatusLabel(_statusFilter).toLowerCase()} '
-                          'leads.',
+                            'leads.',
                   textAlign: TextAlign.center,
                   style: AppTextStyles.caption,
                 ),
@@ -369,21 +371,27 @@ class _LeadCard extends StatelessWidget {
   final ValueChanged<String> onStatusChanged;
 
   static Color _tint(String status) => switch (status) {
-        'new' => AppColors.warning,
-        'contacted' => AppColors.statusNewLaunch,
-        'viewing_scheduled' => AppColors.primary,
-        'negotiation' => AppColors.amenityIndigo,
-        'closed' => AppColors.success,
-        _ => AppColors.textHint,
-      };
+    'new' => AppColors.warning,
+    'contacted' => AppColors.statusNewLaunch,
+    'viewing_scheduled' => AppColors.primary,
+    'negotiation' => AppColors.amenityIndigo,
+    'closed' => AppColors.success,
+    _ => AppColors.textHint,
+  };
 
   /// `sourceBadge` — `IncomingLeadsManager.tsx:388-397` — collapsed to the
   /// two sources this app has (`visit`/`project_visit` share one label
   /// there; only `visit` is reachable here).
   static ({IconData icon, String label}) _source(UnifiedLeadSource source) =>
       switch (source) {
-        UnifiedLeadSource.inquiry => (icon: Icons.forum_outlined, label: 'Inquiry'),
-        UnifiedLeadSource.visit => (icon: Icons.event_available_outlined, label: 'Visit Request'),
+        UnifiedLeadSource.inquiry => (
+          icon: Icons.forum_outlined,
+          label: 'Inquiry',
+        ),
+        UnifiedLeadSource.visit => (
+          icon: Icons.event_available_outlined,
+          label: 'Visit Request',
+        ),
       };
 
   @override
@@ -455,8 +463,11 @@ class _LeadCard extends StatelessWidget {
             const SizedBox(height: 6),
             Row(
               children: [
-                const Icon(Icons.schedule_outlined,
-                    size: 13, color: AppColors.textHint),
+                const Icon(
+                  Icons.schedule_outlined,
+                  size: 13,
+                  color: AppColors.textHint,
+                ),
                 const SizedBox(width: 4),
                 Expanded(
                   child: Text(
@@ -473,8 +484,11 @@ class _LeadCard extends StatelessWidget {
             const SizedBox(height: 6),
             Row(
               children: [
-                const Icon(Icons.calendar_today_outlined,
-                    size: 13, color: AppColors.textHint),
+                const Icon(
+                  Icons.calendar_today_outlined,
+                  size: 13,
+                  color: AppColors.textHint,
+                ),
                 const SizedBox(width: 4),
                 Expanded(
                   child: Text(
@@ -525,8 +539,18 @@ class _LeadCard extends StatelessWidget {
 
   static String _formatDate(DateTime date) {
     const months = [
-      'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
-      'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
+      'Jan',
+      'Feb',
+      'Mar',
+      'Apr',
+      'May',
+      'Jun',
+      'Jul',
+      'Aug',
+      'Sep',
+      'Oct',
+      'Nov',
+      'Dec',
     ];
     return '${date.day} ${months[date.month - 1]} ${date.year}';
   }

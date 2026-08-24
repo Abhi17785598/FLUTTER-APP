@@ -12,7 +12,6 @@ class OnboardingScreen extends StatefulWidget {
 }
 
 class _OnboardingScreenState extends State<OnboardingScreen> {
-
   final PageController _pageController = PageController();
 
   int currentIndex = 0;
@@ -20,56 +19,48 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   final List<Map<String, dynamic>> slides = [
     {
       "title": "Find Your Dream Home",
-      "subtitle":
-          "Browse thousands of verified properties across India",
+      "subtitle": "Browse thousands of verified properties across India",
       "icon": Icons.home_work_outlined,
       "color": const Color(0xFF5B50E8),
     },
     {
       "title": "Post Property Easily",
-      "subtitle":
-          "Upload photos, details and connect with buyers instantly",
+      "subtitle": "Upload photos, details and connect with buyers instantly",
       "icon": Icons.add_business_outlined,
       "color": const Color(0xFF10B981),
     },
     {
       "title": "Schedule Site Visits",
-      "subtitle":
-          "Connect with owners and visit your future property",
+      "subtitle": "Connect with owners and visit your future property",
       "icon": Icons.calendar_month_outlined,
       "color": const Color(0xFFF97316),
     },
   ];
 
-Future<void> finishOnboarding() async {
-  final prefs = await SharedPreferences.getInstance();
-  await prefs.setBool('onboarding_done', true);
+  Future<void> finishOnboarding() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool('onboarding_done', true);
 
-  if (!mounted) return;
+    if (!mounted) return;
 
-  context.read<AuthProvider>().enableNavigation();
-}
+    context.read<AuthProvider>().enableNavigation();
+  }
 
   @override
   Widget build(BuildContext context) {
-
     return Scaffold(
       backgroundColor: Colors.white,
 
       body: SafeArea(
         child: Column(
           children: [
-
             Align(
               alignment: Alignment.topRight,
               child: TextButton(
                 onPressed: finishOnboarding,
                 child: const Text(
                   "Skip",
-                  style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w600,
-                  ),
+                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
                 ),
               ),
             ),
@@ -86,7 +77,6 @@ Future<void> finishOnboarding() async {
                 },
 
                 itemBuilder: (context, index) {
-
                   final slide = slides[index];
 
                   return Padding(
@@ -95,7 +85,6 @@ Future<void> finishOnboarding() async {
                     child: Column(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-
                         Container(
                           height: 180,
                           width: 180,
@@ -146,30 +135,26 @@ Future<void> finishOnboarding() async {
             Row(
               mainAxisAlignment: MainAxisAlignment.center,
 
-              children: List.generate(
-                slides.length,
-                (index) {
+              children: List.generate(slides.length, (index) {
+                final bool isActive = currentIndex == index;
 
-                  final bool isActive = currentIndex == index;
+                return AnimatedContainer(
+                  duration: const Duration(milliseconds: 300),
 
-                  return AnimatedContainer(
-                    duration: const Duration(milliseconds: 300),
+                  margin: const EdgeInsets.symmetric(horizontal: 4),
 
-                    margin: const EdgeInsets.symmetric(horizontal: 4),
+                  height: 8,
+                  width: isActive ? 28 : 8,
 
-                    height: 8,
-                    width: isActive ? 28 : 8,
+                  decoration: BoxDecoration(
+                    color: isActive
+                        ? const Color(0xFF5B50E8)
+                        : Colors.grey.shade300,
 
-                    decoration: BoxDecoration(
-                      color: isActive
-                          ? const Color(0xFF5B50E8)
-                          : Colors.grey.shade300,
-
-                      borderRadius: BorderRadius.circular(20),
-                    ),
-                  );
-                },
-              ),
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                );
+              }),
             ),
 
             const SizedBox(height: 40),
@@ -182,7 +167,6 @@ Future<void> finishOnboarding() async {
                 height: 56,
 
                 child: ElevatedButton(
-
                   style: ElevatedButton.styleFrom(
                     backgroundColor: const Color(0xFF5B50E8),
                     shape: RoundedRectangleBorder(
@@ -191,13 +175,9 @@ Future<void> finishOnboarding() async {
                   ),
 
                   onPressed: () {
-
                     if (currentIndex == slides.length - 1) {
-
                       finishOnboarding();
-
                     } else {
-
                       _pageController.nextPage(
                         duration: const Duration(milliseconds: 300),
                         curve: Curves.easeInOut,
@@ -206,9 +186,7 @@ Future<void> finishOnboarding() async {
                   },
 
                   child: Text(
-                    currentIndex == slides.length - 1
-                        ? "Get Started"
-                        : "Next",
+                    currentIndex == slides.length - 1 ? "Get Started" : "Next",
 
                     style: const TextStyle(
                       fontSize: 16,

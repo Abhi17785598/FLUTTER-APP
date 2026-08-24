@@ -64,12 +64,15 @@ class ArticleModel {
       slug: (json['slug'] as String?) ?? '',
       brief: (json['brief'] as String?) ?? (json['excerpt'] as String?) ?? '',
       contentHtml:
-          (json['content_html'] as String?) ?? (json['content'] as String?) ?? '',
+          (json['content_html'] as String?) ??
+          (json['content'] as String?) ??
+          '',
       category: json['category'] as String?,
       tags: rawTags is List
           ? rawTags.map((t) => t.toString()).toList()
           : const <String>[],
-      imageUrl: (json['featured_image_url'] as String?) ??
+      imageUrl:
+          (json['featured_image_url'] as String?) ??
           (json['cover_image'] as String?),
       readTime: (json['read_time'] as num?)?.toInt() ?? 5,
       status: json['status'] as String?,
@@ -88,7 +91,8 @@ class ArticleModel {
   /// `approval_status = 'pending'`, so an approved or rejected article cannot
   /// be edited by its author — the update would match zero rows and report
   /// success. The editor checks this up front instead (blueprint §16.9).
-  bool get isEditable => (approvalStatus ?? 'pending').toLowerCase() == 'pending';
+  bool get isEditable =>
+      (approvalStatus ?? 'pending').toLowerCase() == 'pending';
 
   /// Human-readable moderation state for the editor's status banner.
   String get statusLabel {

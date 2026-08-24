@@ -36,7 +36,8 @@ class _TopBuildersSectionState extends State<TopBuildersSection> {
       future: _future,
       builder: (context, snapshot) {
         final builders = snapshot.data;
-        if (builders == null || builders.isEmpty) return const SizedBox.shrink();
+        if (builders == null || builders.isEmpty)
+          return const SizedBox.shrink();
 
         return Padding(
           padding: const EdgeInsets.only(bottom: 24),
@@ -53,7 +54,9 @@ class _TopBuildersSectionState extends State<TopBuildersSection> {
                   ),
                   itemCount: builders.length,
                   itemBuilder: (context, i) => Padding(
-                    padding: const EdgeInsets.only(right: AppConstants.spacingM),
+                    padding: const EdgeInsets.only(
+                      right: AppConstants.spacingM,
+                    ),
                     child: ScaleTap(
                       onTap: () => Navigator.pushNamed(
                         context,

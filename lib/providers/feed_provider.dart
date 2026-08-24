@@ -21,8 +21,9 @@ class FeedProvider extends ChangeNotifier {
   /// cached, since the source list only changes on [load] and the filter
   /// only changes on [setFilter], both of which already call
   /// [notifyListeners].
-  List<FeedItem> get visibleItems =>
-      _items.where((item) => item.matchesFilter(_filter, _currentUserId)).toList();
+  List<FeedItem> get visibleItems => _items
+      .where((item) => item.matchesFilter(_filter, _currentUserId))
+      .toList();
 
   Future<void> load(String? currentUserId) async {
     _currentUserId = currentUserId;

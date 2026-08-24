@@ -88,8 +88,9 @@ class _ProjectBasicInfoStepState extends State<ProjectBasicInfoStep> {
 
         if (provider.stepIssues.isNotEmpty) ...[
           PortalValidationSummary(
-            messages:
-                provider.stepIssues.map((issue) => issue.message).toList(),
+            messages: provider.stepIssues
+                .map((issue) => issue.message)
+                .toList(),
           ),
           const SizedBox(height: 16),
         ],
@@ -130,7 +131,8 @@ class _ProjectBasicInfoStepState extends State<ProjectBasicInfoStep> {
                 label: 'City',
                 required: true,
                 icon: 'map-pin',
-                helper: 'Tap the map or search an address to auto-fill the city.',
+                helper:
+                    'Tap the map or search an address to auto-fill the city.',
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
@@ -172,8 +174,10 @@ class _ProjectBasicInfoStepState extends State<ProjectBasicInfoStep> {
                         ),
                         focusedBorder: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(6),
-                          borderSide:
-                              const BorderSide(color: AppColors.primary, width: 1.5),
+                          borderSide: const BorderSide(
+                            color: AppColors.primary,
+                            width: 1.5,
+                          ),
                         ),
                       ),
                       onPlaceSelected: (address, lat, lng) =>
@@ -188,7 +192,8 @@ class _ProjectBasicInfoStepState extends State<ProjectBasicInfoStep> {
                 label: 'Description',
                 required: true,
                 icon: 'file-text',
-                helper: 'Describe the project, its location advantages and what '
+                helper:
+                    'Describe the project, its location advantages and what '
                     'makes it worth a visit.',
                 child: PortalTextField(
                   controller: _description,

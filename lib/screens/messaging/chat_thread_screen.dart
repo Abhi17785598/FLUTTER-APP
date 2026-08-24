@@ -89,8 +89,9 @@ class ChatThreadScreen extends StatelessWidget {
 
     // Never treat "yourself" as a blockable/tappable participant; a channel
     // passes null already.
-    final resolvedParticipantId =
-        participantUserId == userId ? null : participantUserId;
+    final resolvedParticipantId = participantUserId == userId
+        ? null
+        : participantUserId;
 
     return ChangeNotifierProvider(
       create: (_) => ChatThreadProvider(
@@ -311,14 +312,18 @@ class _ChatThreadViewState extends State<_ChatThreadView> {
     if (confirmed != true || !mounted) return;
     final error = await thread.blockParticipant();
     if (error != null && mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(error)));
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(error)));
     }
   }
 
   Future<void> _unblockParticipant(ChatThreadProvider thread) async {
     final error = await thread.unblockParticipant();
     if (error != null && mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(error)));
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(error)));
     }
   }
 
@@ -339,20 +344,30 @@ class _ChatThreadViewState extends State<_ChatThreadView> {
           ),
           TextButton(
             onPressed: () => Navigator.of(dialogContext).pop(true),
-            child: Text(confirmLabel, style: const TextStyle(color: Colors.red)),
+            child: Text(
+              confirmLabel,
+              style: const TextStyle(color: Colors.red),
+            ),
           ),
         ],
       ),
     );
   }
 
-  Future<void> _showEditDialog(ChatThreadProvider thread, ChatMessage message) async {
+  Future<void> _showEditDialog(
+    ChatThreadProvider thread,
+    ChatMessage message,
+  ) async {
     final controller = TextEditingController(text: message.content);
     final newText = await showDialog<String>(
       context: context,
       builder: (dialogContext) => AlertDialog(
         title: const Text('Edit message'),
-        content: TextField(controller: controller, autofocus: true, maxLines: 4),
+        content: TextField(
+          controller: controller,
+          autofocus: true,
+          maxLines: 4,
+        ),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(dialogContext).pop(),
@@ -368,7 +383,9 @@ class _ChatThreadViewState extends State<_ChatThreadView> {
     if (newText == null || newText.trim().isEmpty || !mounted) return;
     final error = await thread.editMessage(message.id, newText);
     if (error != null && mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(error)));
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(error)));
     }
   }
 
@@ -381,7 +398,9 @@ class _ChatThreadViewState extends State<_ChatThreadView> {
     if (ok != true) return;
     final error = await thread.deleteForMe(id);
     if (error != null && mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(error)));
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(error)));
     }
   }
 
@@ -397,7 +416,9 @@ class _ChatThreadViewState extends State<_ChatThreadView> {
     if (ok != true) return;
     final error = await thread.deleteForEveryone(id);
     if (error != null && mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(error)));
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(error)));
     }
   }
 
@@ -454,7 +475,9 @@ class _ChatThreadViewState extends State<_ChatThreadView> {
     final thread = context.read<ChatThreadProvider>();
     final error = await thread.sendImage(bytes, ext);
     if (error != null && mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(error)));
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(error)));
     }
   }
 
@@ -465,12 +488,17 @@ class _ChatThreadViewState extends State<_ChatThreadView> {
     final thread = context.read<ChatThreadProvider>();
     final error = await thread.sharePropertyFromPicker(property);
     if (error != null && mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(error)));
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(error)));
     }
   }
 
   Future<void> _forwardMessage(ChatMessage message) async {
-    final targetId = await showForwardMessageSheet(context, widget.currentUserId);
+    final targetId = await showForwardMessageSheet(
+      context,
+      widget.currentUserId,
+    );
     if (targetId == null || !mounted) return;
 
     try {
@@ -480,9 +508,9 @@ class _ChatThreadViewState extends State<_ChatThreadView> {
         message: message,
       );
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Message forwarded.')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('Message forwarded.')));
       }
     } catch (_) {
       if (mounted) {
@@ -524,9 +552,7 @@ class _ChatThreadViewState extends State<_ChatThreadView> {
     if (status.isPermanentlyDenied || status.isRestricted) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: const Text(
-            'Microphone access is turned off for this app.',
-          ),
+          content: const Text('Microphone access is turned off for this app.'),
           action: SnackBarAction(
             label: 'Open Settings',
             onPressed: openAppSettings,
@@ -536,7 +562,9 @@ class _ChatThreadViewState extends State<_ChatThreadView> {
     } else {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Microphone permission is required to record a voice message.'),
+          content: Text(
+            'Microphone permission is required to record a voice message.',
+          ),
         ),
       );
     }
@@ -609,7 +637,9 @@ class _ChatThreadViewState extends State<_ChatThreadView> {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
-              content: Text("That recording didn't capture any audio. Please try again."),
+              content: Text(
+                "That recording didn't capture any audio. Please try again.",
+              ),
             ),
           );
         }
@@ -621,7 +651,9 @@ class _ChatThreadViewState extends State<_ChatThreadView> {
       if (error != null) {
         debugPrint('[Voice] upload/send failed: $error');
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(error)));
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(SnackBar(content: Text(error)));
         }
       } else {
         debugPrint('[Voice] upload/send succeeded');
@@ -643,7 +675,15 @@ class _ChatThreadViewState extends State<_ChatThreadView> {
   }
 
   Future<void> _reportMessage(ChatMessage message, String surface) async {
-    const reasons = ['spam', 'harassment', 'nudity', 'scam', 'hate', 'violence', 'other'];
+    const reasons = [
+      'spam',
+      'harassment',
+      'nudity',
+      'scam',
+      'hate',
+      'violence',
+      'other',
+    ];
     final reason = await showModalBottomSheet<String>(
       context: context,
       builder: (sheetContext) => SafeArea(
@@ -669,9 +709,9 @@ class _ChatThreadViewState extends State<_ChatThreadView> {
         reason: reason,
       );
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Report submitted.')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('Report submitted.')));
       }
     } catch (_) {
       if (mounted) {
@@ -706,8 +746,9 @@ class _ChatThreadViewState extends State<_ChatThreadView> {
             onUnblock: widget.participantUserId == null
                 ? null
                 : () => _unblockParticipant(thread),
-            onOpenChannelSettings:
-                thread.isChannel ? () => _openChannelSettings(thread) : null,
+            onOpenChannelSettings: thread.isChannel
+                ? () => _openChannelSettings(thread)
+                : null,
             onToggleSearch: () => _toggleSearch(thread),
             searching: _searching,
           ),
@@ -728,7 +769,9 @@ class _ChatThreadViewState extends State<_ChatThreadView> {
                   ],
                 ),
               ),
-              child: _searching ? _buildSearchResults() : _buildBody(context, thread),
+              child: _searching
+                  ? _buildSearchResults()
+                  : _buildBody(context, thread),
             ),
           ),
           if (_isPendingRequest)
@@ -752,14 +795,18 @@ class _ChatThreadViewState extends State<_ChatThreadView> {
               replyingToSenderName: thread.replyingTo == null
                   ? null
                   : (thread.replyingTo!.senderId == widget.currentUserId
-                      ? 'yourself'
-                      : (thread.isChannel
-                          ? thread.senderFor(thread.replyingTo!.senderId)?.displayName
-                          : widget.title)),
+                        ? 'yourself'
+                        : (thread.isChannel
+                              ? thread
+                                    .senderFor(thread.replyingTo!.senderId)
+                                    ?.displayName
+                              : widget.title)),
               onCancelReply: () => thread.setReplyTo(null),
               onTyping: thread.notifyTyping,
               onAttach: thread.uploadingMedia ? null : _openAttachMenu,
-              onRecordVoice: thread.uploadingMedia ? null : _toggleVoiceRecording,
+              onRecordVoice: thread.uploadingMedia
+                  ? null
+                  : _toggleVoiceRecording,
               isRecordingVoice: _isRecording,
             ),
         ],
@@ -791,7 +838,10 @@ class _ChatThreadViewState extends State<_ChatThreadView> {
                   isCollapsed: true,
                   border: InputBorder.none,
                   hintText: 'Search in this conversation…',
-                  hintStyle: AppTextStyles.body.copyWith(fontSize: 13, color: AppColors.textHint),
+                  hintStyle: AppTextStyles.body.copyWith(
+                    fontSize: 13,
+                    color: AppColors.textHint,
+                  ),
                 ),
               ),
             ),
@@ -844,7 +894,10 @@ class _ChatThreadViewState extends State<_ChatThreadView> {
               const SizedBox(height: 3),
               Text(
                 formatClockTime(message.createdAt),
-                style: AppTextStyles.caption.copyWith(fontSize: 11, color: AppColors.textHint),
+                style: AppTextStyles.caption.copyWith(
+                  fontSize: 11,
+                  color: AppColors.textHint,
+                ),
               ),
             ],
           ),
@@ -921,28 +974,31 @@ class _ChatThreadViewState extends State<_ChatThreadView> {
           repliedSenderName: replied == null
               ? null
               : (replied.senderId == widget.currentUserId
-                  ? 'You'
-                  : (thread.isChannel
-                      ? thread.senderFor(replied.senderId)?.displayName
-                      : widget.title)),
+                    ? 'You'
+                    : (thread.isChannel
+                          ? thread.senderFor(replied.senderId)?.displayName
+                          : widget.title)),
           reactions: thread.reactionsFor(message.id),
           sharedProperty: thread.sharedPropertyFor(message.propertyId),
-          onForward: !message.isDeleted &&
+          onForward:
+              !message.isDeleted &&
                   (message.messageType == 'text' || message.isPropertyShare)
               ? () => _forwardMessage(message)
               : null,
           onReact: (emoji) async {
             final error = await thread.toggleReaction(message.id, emoji);
             if (error != null && mounted) {
-              ScaffoldMessenger.of(context)
-                  .showSnackBar(SnackBar(content: Text(error)));
+              ScaffoldMessenger.of(
+                context,
+              ).showSnackBar(SnackBar(content: Text(error)));
             }
           },
           onReply: () => thread.setReplyTo(message),
           onEdit: isMine ? () => _showEditDialog(thread, message) : null,
           onDeleteForMe: () => _confirmDeleteForMe(thread, message.id),
-          onDeleteForEveryone:
-              isMine ? () => _confirmDeleteForEveryone(thread, message.id) : null,
+          onDeleteForEveryone: isMine
+              ? () => _confirmDeleteForEveryone(thread, message.id)
+              : null,
           onReport: isMine ? null : () => _reportMessage(message, surface),
         );
       },
@@ -1206,9 +1262,12 @@ class _Header extends StatelessWidget {
                           overflow: TextOverflow.ellipsis,
                           style: AppTextStyles.caption.copyWith(
                             fontSize: 11.5,
-                            fontStyle: isTyping ? FontStyle.italic : FontStyle.normal,
-                            fontWeight:
-                                isTyping ? FontWeight.w600 : FontWeight.normal,
+                            fontStyle: isTyping
+                                ? FontStyle.italic
+                                : FontStyle.normal,
+                            fontWeight: isTyping
+                                ? FontWeight.w600
+                                : FontWeight.normal,
                             color: isTyping
                                 ? AppColors.primary
                                 : AppColors.textHint,
@@ -1221,7 +1280,9 @@ class _Header extends StatelessWidget {
               ),
               if (onToggleSearch != null)
                 Semantics(
-                  label: searching ? 'Close search' : 'Search this conversation',
+                  label: searching
+                      ? 'Close search'
+                      : 'Search this conversation',
                   button: true,
                   child: IconButton(
                     onPressed: onToggleSearch,
@@ -1237,14 +1298,20 @@ class _Header extends StatelessWidget {
                   if (value == 'mute') onToggleMute();
                   if (value == 'block') onBlock?.call();
                   if (value == 'unblock') onUnblock?.call();
-                  if (value == 'channel_settings') onOpenChannelSettings?.call();
+                  if (value == 'channel_settings')
+                    onOpenChannelSettings?.call();
                 },
                 itemBuilder: (context) => [
                   PopupMenuItem(
                     value: 'mute',
                     child: Row(
                       children: [
-                        Icon(isMuted ? Icons.notifications_off : Icons.notifications_none, size: 18),
+                        Icon(
+                          isMuted
+                              ? Icons.notifications_off
+                              : Icons.notifications_none,
+                          size: 18,
+                        ),
                         const SizedBox(width: 8),
                         Text(isMuted ? 'Unmute' : 'Mute'),
                       ],
@@ -1279,7 +1346,10 @@ class _Header extends StatelessWidget {
                         children: [
                           Icon(Icons.block, size: 18, color: Colors.red),
                           SizedBox(width: 8),
-                          Text('Block user', style: TextStyle(color: Colors.red)),
+                          Text(
+                            'Block user',
+                            style: TextStyle(color: Colors.red),
+                          ),
                         ],
                       ),
                     ),

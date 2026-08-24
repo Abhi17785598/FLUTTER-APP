@@ -70,16 +70,16 @@ class _DraftUnit {
   /// A throwaway [InventoryUnit] so this draft can go through the exact same
   /// form sheet a saved unit edits, rather than a second form just for drafts.
   InventoryUnit asInventoryUnit(String projectId) => InventoryUnit(
-        id: tempId,
-        projectId: projectId,
-        unitType: unitType,
-        status: status,
-        unitNumber: unitNumber,
-        floorNumber: (payload['floor_number'] as num?)?.toInt(),
-        areaSqft: areaSqft,
-        price: price,
-        facingDirection: payload['facing_direction']?.toString(),
-      );
+    id: tempId,
+    projectId: projectId,
+    unitType: unitType,
+    status: status,
+    unitNumber: unitNumber,
+    floorNumber: (payload['floor_number'] as num?)?.toInt(),
+    areaSqft: areaSqft,
+    price: price,
+    facingDirection: payload['facing_direction']?.toString(),
+  );
 }
 
 /// How many draft rows one "Pre-fill from Listing" tap may generate.
@@ -142,12 +142,16 @@ class _ManageUnitsScreenState extends State<ManageUnitsScreen> {
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
-      builder: (context) => _UnitFormSheet(projectType: widget.project.projectType),
+      builder: (context) =>
+          _UnitFormSheet(projectType: widget.project.projectType),
     );
     if (payload == null || !mounted) return;
 
     try {
-      await _inventory.createUnit(projectId: widget.project.id, payload: payload);
+      await _inventory.createUnit(
+        projectId: widget.project.id,
+        payload: payload,
+      );
       if (!mounted) return;
       _toast('Unit added.');
       await _load();
@@ -250,36 +254,40 @@ class _ManageUnitsScreenState extends State<ManageUnitsScreen> {
 
     setState(() {
       for (var i = 0; i < toGenerate; i++) {
-        _drafts.add(_DraftUnit(
-          tempId: 'draft-${_nextTempId++}',
-          payload: {
-            'unit_type': unitType,
-            'unit_number': '${startNumber + i}',
-            'floor_number': null,
-            'area_sqft': area,
-            'price': price,
-            'status': 'available',
-            'facing_direction': null,
-          },
-        ));
+        _drafts.add(
+          _DraftUnit(
+            tempId: 'draft-${_nextTempId++}',
+            payload: {
+              'unit_type': unitType,
+              'unit_number': '${startNumber + i}',
+              'floor_number': null,
+              'area_sqft': area,
+              'price': price,
+              'status': 'available',
+              'facing_direction': null,
+            },
+          ),
+        );
       }
     });
   }
 
   void _addBlankDraft() {
     setState(() {
-      _drafts.add(_DraftUnit(
-        tempId: 'draft-${_nextTempId++}',
-        payload: {
-          'unit_type': '',
-          'unit_number': null,
-          'floor_number': null,
-          'area_sqft': 0.0,
-          'price': 0.0,
-          'status': 'available',
-          'facing_direction': null,
-        },
-      ));
+      _drafts.add(
+        _DraftUnit(
+          tempId: 'draft-${_nextTempId++}',
+          payload: {
+            'unit_type': '',
+            'unit_number': null,
+            'floor_number': null,
+            'area_sqft': 0.0,
+            'price': 0.0,
+            'status': 'available',
+            'facing_direction': null,
+          },
+        ),
+      );
     });
   }
 
@@ -462,7 +470,8 @@ class _ManageUnitsScreenState extends State<ManageUnitsScreen> {
           88,
         ),
         itemCount: _drafts.length + _units.length,
-        separatorBuilder: (_, _) => const SizedBox(height: AppConstants.spacingM),
+        separatorBuilder: (_, _) =>
+            const SizedBox(height: AppConstants.spacingM),
         itemBuilder: (context, index) {
           if (index < _drafts.length) {
             final draft = _drafts[index];
@@ -502,17 +511,14 @@ class _TallyRow extends StatelessWidget {
     final sold = units.where((u) => u.status == 'sold').length;
 
     Widget stat(String label, int value) => Expanded(
-          child: Column(
-            children: [
-              Text(
-                '$value',
-                style: AppTextStyles.heading2.copyWith(fontSize: 18),
-              ),
-              const SizedBox(height: 2),
-              Text(label, style: AppTextStyles.caption),
-            ],
-          ),
-        );
+      child: Column(
+        children: [
+          Text('$value', style: AppTextStyles.heading2.copyWith(fontSize: 18)),
+          const SizedBox(height: 2),
+          Text(label, style: AppTextStyles.caption),
+        ],
+      ),
+    );
 
     return Container(
       padding: const EdgeInsets.symmetric(vertical: AppConstants.spacingM),
@@ -538,8 +544,10 @@ class _TallyDivider extends StatelessWidget {
   const _TallyDivider();
 
   @override
-  Widget build(BuildContext context) =>
-      const SizedBox(height: 28, child: VerticalDivider(color: AppColors.hairline));
+  Widget build(BuildContext context) => const SizedBox(
+    height: 28,
+    child: VerticalDivider(color: AppColors.hairline),
+  );
 }
 
 class _UnitCard extends StatelessWidget {
@@ -579,7 +587,10 @@ class _UnitCard extends StatelessWidget {
                 ),
               ),
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 4,
+                ),
                 decoration: BoxDecoration(
                   color: AppColors.primaryLight,
                   borderRadius: BorderRadius.circular(999),
@@ -691,12 +702,13 @@ class _DraftCard extends StatelessWidget {
                           draft.unitType.isEmpty
                               ? 'Tap to fill in this unit'
                               : (draft.unitNumber?.isNotEmpty == true
-                                  ? '${draft.unitType} · ${draft.unitNumber}'
-                                  : draft.unitType),
+                                    ? '${draft.unitType} · ${draft.unitNumber}'
+                                    : draft.unitType),
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
-                          style: AppTextStyles.body
-                              .copyWith(fontWeight: FontWeight.w700),
+                          style: AppTextStyles.body.copyWith(
+                            fontWeight: FontWeight.w700,
+                          ),
                         ),
                       ),
                     ],
@@ -768,15 +780,18 @@ class _UnitFormSheetState extends State<_UnitFormSheet> {
     final existing = widget.existing;
     _unitType = TextEditingController(text: existing?.unitType ?? '');
     _unitNumber = TextEditingController(text: existing?.unitNumber ?? '');
-    _floorNumber =
-        TextEditingController(text: existing?.floorNumber?.toString() ?? '');
+    _floorNumber = TextEditingController(
+      text: existing?.floorNumber?.toString() ?? '',
+    );
     _areaSqft = TextEditingController(
       text: existing != null && existing.areaSqft > 0
           ? existing.areaSqft.toString()
           : '',
     );
     _price = TextEditingController(
-      text: existing != null && existing.price > 0 ? existing.price.toString() : '',
+      text: existing != null && existing.price > 0
+          ? existing.price.toString()
+          : '',
     );
     _status = existing?.status ?? 'available';
     _facing = existing?.facingDirection;
@@ -801,8 +816,9 @@ class _UnitFormSheetState extends State<_UnitFormSheet> {
 
     Navigator.of(context).pop(<String, dynamic>{
       'unit_type': _unitType.text.trim(),
-      'unit_number':
-          _unitNumber.text.trim().isEmpty ? null : _unitNumber.text.trim(),
+      'unit_number': _unitNumber.text.trim().isEmpty
+          ? null
+          : _unitNumber.text.trim(),
       'floor_number': !_showsFloor || _floorNumber.text.trim().isEmpty
           ? null
           : int.tryParse(_floorNumber.text.trim()),
@@ -879,33 +895,41 @@ class _UnitFormSheetState extends State<_UnitFormSheet> {
                   const SizedBox(height: AppConstants.spacingM),
                   TextFormField(
                     controller: _unitNumber,
-                    decoration:
-                        const InputDecoration(labelText: 'Unit number (optional)'),
+                    decoration: const InputDecoration(
+                      labelText: 'Unit number (optional)',
+                    ),
                   ),
                   if (_showsFloor) ...[
                     const SizedBox(height: AppConstants.spacingM),
                     TextFormField(
                       controller: _floorNumber,
                       keyboardType: TextInputType.number,
-                      decoration:
-                          const InputDecoration(labelText: 'Floor (optional)'),
+                      decoration: const InputDecoration(
+                        labelText: 'Floor (optional)',
+                      ),
                     ),
                   ],
                   const SizedBox(height: AppConstants.spacingM),
                   TextFormField(
                     controller: _areaSqft,
-                    keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                    keyboardType: const TextInputType.numberWithOptions(
+                      decimal: true,
+                    ),
                     decoration: const InputDecoration(labelText: 'Area (sqft)'),
-                    validator: (v) => (double.tryParse(v?.trim() ?? '') ?? 0) > 0
+                    validator: (v) =>
+                        (double.tryParse(v?.trim() ?? '') ?? 0) > 0
                         ? null
                         : 'Enter a valid area',
                   ),
                   const SizedBox(height: AppConstants.spacingM),
                   TextFormField(
                     controller: _price,
-                    keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                    keyboardType: const TextInputType.numberWithOptions(
+                      decimal: true,
+                    ),
                     decoration: const InputDecoration(labelText: 'Price'),
-                    validator: (v) => (double.tryParse(v?.trim() ?? '') ?? 0) > 0
+                    validator: (v) =>
+                        (double.tryParse(v?.trim() ?? '') ?? 0) > 0
                         ? null
                         : 'Enter a valid price',
                   ),
@@ -926,8 +950,9 @@ class _UnitFormSheetState extends State<_UnitFormSheet> {
                   const SizedBox(height: AppConstants.spacingM),
                   DropdownButtonFormField<String?>(
                     initialValue: _facing,
-                    decoration:
-                        const InputDecoration(labelText: 'Facing (optional)'),
+                    decoration: const InputDecoration(
+                      labelText: 'Facing (optional)',
+                    ),
                     items: [
                       const DropdownMenuItem<String?>(
                         value: null,

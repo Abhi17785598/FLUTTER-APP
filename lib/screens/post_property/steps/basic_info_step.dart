@@ -86,13 +86,13 @@ class _BasicInfoStepState extends State<BasicInfoStep> {
 
   /// `formData.propertyType` as the portal spells it.
   static String _portalType(PropertyCategory? c) => switch (c) {
-        PropertyCategory.land => 'land',
-        PropertyCategory.residential => 'residential',
-        PropertyCategory.commercial => 'commercial',
-        PropertyCategory.pg => 'pg/Co-living',
-        PropertyCategory.other => 'others',
-        null => '',
-      };
+    PropertyCategory.land => 'land',
+    PropertyCategory.residential => 'residential',
+    PropertyCategory.commercial => 'commercial',
+    PropertyCategory.pg => 'pg/Co-living',
+    PropertyCategory.other => 'others',
+    null => '',
+  };
 
   @override
   Widget build(BuildContext context) {
@@ -146,8 +146,8 @@ class _BasicInfoStepState extends State<BasicInfoStep> {
               ] else if (provider.category == PropertyCategory.pg) ...[
                 ..._pgFields(provider),
               ],
-              // 'others' adds nothing between Headline and Description.
 
+              // 'others' adds nothing between Headline and Description.
               _descriptionBlock(provider),
 
               // LocationDetails carries `mt-4` in the portal.
@@ -211,7 +211,10 @@ class _BasicInfoStepState extends State<BasicInfoStep> {
         controller: _description,
         hint: placeholder,
         maxLines: 2, // rows={2}
-        prefix: const PortalIconTint('align-left', color: PortalTheme.iconPrimary),
+        prefix: const PortalIconTint(
+          'align-left',
+          color: PortalTheme.iconPrimary,
+        ),
         onChanged: (v) => _p.setDescription(v),
       ),
     );
@@ -271,17 +274,15 @@ class _BasicInfoStepState extends State<BasicInfoStep> {
   // ── Residential ─────────────────────────────────────────────────────────
 
   Widget _residentialSubType(PostPropertyProvider p) => PortalLabelledSelect(
-        label: 'Property Type',
-        required: true,
-        icon: 'home',
-        iconColor: PortalTheme.iconGreen, // text-green-500
-        value: p.residentialSubType,
-        placeholder: 'Select property type',
-        groups: [
-          for (final g in kResidentialSubTypeGroups) (g.label, g.options),
-        ],
-        onChanged: (v) => _p.setResidentialSubType(v),
-      );
+    label: 'Property Type',
+    required: true,
+    icon: 'home',
+    iconColor: PortalTheme.iconGreen, // text-green-500
+    value: p.residentialSubType,
+    placeholder: 'Select property type',
+    groups: [for (final g in kResidentialSubTypeGroups) (g.label, g.options)],
+    onChanged: (v) => _p.setResidentialSubType(v),
+  );
 
   // ── Commercial ──────────────────────────────────────────────────────────
 
@@ -304,81 +305,81 @@ class _BasicInfoStepState extends State<BasicInfoStep> {
   ];
 
   Widget _commercialSubType(PostPropertyProvider p) => PortalLabelledSelect(
-        label: 'Commercial Property Type',
-        required: true,
-        icon: 'building-2',
-        iconColor: PortalTheme.iconIndigo, // text-indigo-500
-        value: p.text('commercialSubType'),
-        placeholder: 'Select property type',
-        options: _commercialSubTypes,
-        onChanged: (v) {
-          // The portal writes BOTH keys from this one select.
-          _p.setText('commercialSubType', v);
-          _p.setText('commercialType', v);
-        },
-      );
+    label: 'Commercial Property Type',
+    required: true,
+    icon: 'building-2',
+    iconColor: PortalTheme.iconIndigo, // text-indigo-500
+    value: p.text('commercialSubType'),
+    placeholder: 'Select property type',
+    options: _commercialSubTypes,
+    onChanged: (v) {
+      // The portal writes BOTH keys from this one select.
+      _p.setText('commercialSubType', v);
+      _p.setText('commercialType', v);
+    },
+  );
 
   Widget _furnishingType(PostPropertyProvider p) => PortalLabelledSelect(
-        label: 'Furnishing Type',
-        required: true,
-        icon: 'home',
-        iconColor: PortalTheme.success, // text-emerald-500
-        value: p.furnishingType,
-        placeholder: 'Select furnishing type',
-        options: const ['Raw', 'Semi-Furnished', 'Fully-Furnished'],
-        onChanged: (v) => _p.setFurnishingType(v),
-      );
+    label: 'Furnishing Type',
+    required: true,
+    icon: 'home',
+    iconColor: PortalTheme.success, // text-emerald-500
+    value: p.furnishingType,
+    placeholder: 'Select furnishing type',
+    options: const ['Raw', 'Semi-Furnished', 'Fully-Furnished'],
+    onChanged: (v) => _p.setFurnishingType(v),
+  );
 
   // ── PG ──────────────────────────────────────────────────────────────────
 
   List<Widget> _pgFields(PostPropertyProvider p) => [
-        PortalLabelledSelect(
-          label: 'Property Type',
-          required: true,
-          icon: 'bed-double',
-          iconColor: PortalTheme.iconRed, // text-pink-500
-          value: p.text('pgPropertyType'),
-          placeholder: 'Select property type',
-          options: kPgPropertyTypes,
-          onChanged: (v) => _p.setText('pgPropertyType', v),
-        ),
-        const SizedBox(height: 16),
-        PortalLabelledSelect(
-          label: 'Building Type',
-          required: true,
-          icon: 'building',
-          iconColor: PortalTheme.iconTeal, // text-teal-500
-          value: p.text('buildingType'),
-          placeholder: 'Select building type',
-          options: kBuildingTypeOptions,
-          onChanged: (v) => _p.setText('buildingType', v),
-        ),
-        const SizedBox(height: 16),
-        PortalField(
-          label: 'PG / Property Name',
-          required: true,
-          child: PortalTextField(
-            controller: _pgPropertyName,
-            hint: 'e.g., Zolo Stays, Stanza Living...',
-            inputFormatters: [
-              FilteringTextInputFormatter.allow(RegExp(r'[a-zA-Z\s]')),
-            ],
-            onChanged: (v) => _p.setText('pgPropertyName', v),
-          ),
-        ),
-        const SizedBox(height: 16),
-        PortalLabelledSelect(
-          label: 'Property Status',
-          required: true,
-          icon: 'circle-dot',
-          iconColor: PortalTheme.iconTeal, // text-cyan-500
-          value: p.text('propertyStatus'),
-          placeholder: 'Select status',
-          options: const ['Available', 'Occupied', 'Immediate Move-In'],
-          onChanged: (v) => _p.setText('propertyStatus', v),
-        ),
-        const SizedBox(height: 16),
-      ];
+    PortalLabelledSelect(
+      label: 'Property Type',
+      required: true,
+      icon: 'bed-double',
+      iconColor: PortalTheme.iconRed, // text-pink-500
+      value: p.text('pgPropertyType'),
+      placeholder: 'Select property type',
+      options: kPgPropertyTypes,
+      onChanged: (v) => _p.setText('pgPropertyType', v),
+    ),
+    const SizedBox(height: 16),
+    PortalLabelledSelect(
+      label: 'Building Type',
+      required: true,
+      icon: 'building',
+      iconColor: PortalTheme.iconTeal, // text-teal-500
+      value: p.text('buildingType'),
+      placeholder: 'Select building type',
+      options: kBuildingTypeOptions,
+      onChanged: (v) => _p.setText('buildingType', v),
+    ),
+    const SizedBox(height: 16),
+    PortalField(
+      label: 'PG / Property Name',
+      required: true,
+      child: PortalTextField(
+        controller: _pgPropertyName,
+        hint: 'e.g., Zolo Stays, Stanza Living...',
+        inputFormatters: [
+          FilteringTextInputFormatter.allow(RegExp(r'[a-zA-Z\s]')),
+        ],
+        onChanged: (v) => _p.setText('pgPropertyName', v),
+      ),
+    ),
+    const SizedBox(height: 16),
+    PortalLabelledSelect(
+      label: 'Property Status',
+      required: true,
+      icon: 'circle-dot',
+      iconColor: PortalTheme.iconTeal, // text-cyan-500
+      value: p.text('propertyStatus'),
+      placeholder: 'Select status',
+      options: const ['Available', 'Occupied', 'Immediate Move-In'],
+      onChanged: (v) => _p.setText('propertyStatus', v),
+    ),
+    const SizedBox(height: 16),
+  ];
 
   // ── Location Details ────────────────────────────────────────────────────
 
@@ -410,121 +411,123 @@ class _BasicInfoStepState extends State<BasicInfoStep> {
   }
 
   Widget _locationDetails() => Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const PortalSectionDivider(
-            icon: 'map-pin',
-            title: 'Location Details',
-            iconBg: PortalTheme.accentSurface, // bg-blue-100
-            iconColor: PortalTheme.iconBlue, // text-blue-600
-          ),
-          // Reproduction of the portal's Google Maps picker — tap to drop a
-          // pin, reverse-geocoded into the fields below.
-          ClipRRect(
-            borderRadius: BorderRadius.circular(12),
-            child: LocationPickerMap(
-              initialLat: _p.latitude,
-              initialLng: _p.longitude,
-              onLocationSelected: _onLocationSelected,
+    crossAxisAlignment: CrossAxisAlignment.start,
+    children: [
+      const PortalSectionDivider(
+        icon: 'map-pin',
+        title: 'Location Details',
+        iconBg: PortalTheme.accentSurface, // bg-blue-100
+        iconColor: PortalTheme.iconBlue, // text-blue-600
+      ),
+      // Reproduction of the portal's Google Maps picker — tap to drop a
+      // pin, reverse-geocoded into the fields below.
+      ClipRRect(
+        borderRadius: BorderRadius.circular(12),
+        child: LocationPickerMap(
+          initialLat: _p.latitude,
+          initialLng: _p.longitude,
+          onLocationSelected: _onLocationSelected,
+        ),
+      ),
+      const SizedBox(height: 16),
+      PortalField(
+        label: 'Property Address',
+        required: true,
+        child: AddressAutocompleteField(
+          controller: _address,
+          decoration: InputDecoration(
+            isDense: true,
+            filled: true,
+            fillColor: PortalTheme.cardSurface,
+            contentPadding: const EdgeInsets.symmetric(
+              horizontal: 10,
+              vertical: 8,
+            ),
+            hintText:
+                'Type to search property address (Google Maps auto-complete)...',
+            hintStyle: PortalTheme.inputText.copyWith(
+              color: AppColors.textHint,
+            ),
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(6),
+              borderSide: BorderSide(color: PortalTheme.cardBorder),
+            ),
+            enabledBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(6),
+              borderSide: BorderSide(color: PortalTheme.cardBorder),
+            ),
+            focusedBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(6),
+              borderSide: BorderSide(color: AppColors.primary, width: 1.5),
             ),
           ),
-          const SizedBox(height: 16),
-          PortalField(
-            label: 'Property Address',
-            required: true,
-            child: AddressAutocompleteField(
-              controller: _address,
-              decoration: InputDecoration(
-                isDense: true,
-                filled: true,
-                fillColor: PortalTheme.cardSurface,
-                contentPadding:
-                    const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-                hintText:
-                    'Type to search property address (Google Maps auto-complete)...',
-                hintStyle: PortalTheme.inputText.copyWith(
-                  color: AppColors.textHint,
-                ),
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(6),
-                  borderSide: BorderSide(color: PortalTheme.cardBorder),
-                ),
-                enabledBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(6),
-                  borderSide: BorderSide(color: PortalTheme.cardBorder),
-                ),
-                focusedBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(6),
-                  borderSide: BorderSide(color: AppColors.primary, width: 1.5),
-                ),
-              ),
-              maxLines: 2,
-              onPlaceSelected: (address, lat, lng) =>
-                  _onLocationSelected(lat, lng, address),
-            ),
-          ),
-          const SizedBox(height: 16),
-          PortalLabelledField(
-            label: 'City',
-            required: true,
-            icon: 'map',
-            iconColor: PortalTheme.success, // text-emerald-500
-            child: PortalTextField(
-              controller: _city,
-              hint: 'Type city name',
-              onChanged: (v) => _p.setCity(v),
-            ),
-          ),
-          const SizedBox(height: 16),
-          PortalLabelledField(
-            label: 'State',
-            required: true,
-            icon: 'globe',
-            iconColor: PortalTheme.iconBlue, // text-blue-500
-            child: PortalTextField(
-              controller: _stateField,
-              hint: 'State',
-              onChanged: (v) => _p.setState(v),
-            ),
-          ),
-          const SizedBox(height: 16),
-          PortalLabelledField(
-            label: 'Pincode',
-            required: true,
-            icon: 'hash',
-            iconColor: PortalTheme.iconMuted, // text-slate-500
-            child: PortalTextField(
-              controller: _pincode,
-              hint: 'Pincode',
-              keyboardType: TextInputType.number,
-              onChanged: (v) => _p.setPincode(v),
-            ),
-          ),
-          const SizedBox(height: 16),
-          PortalLabelledField(
-            label: 'Landmark',
-            required: true,
-            icon: 'landmark',
-            iconColor: PortalTheme.iconRed, // text-rose-500
-            child: PortalTextField(
-              controller: _landmark,
-              hint: 'Famous landmark nearby',
-              onChanged: (v) => _p.setLandmark(v),
-            ),
-          ),
-        ],
-      );
+          maxLines: 2,
+          onPlaceSelected: (address, lat, lng) =>
+              _onLocationSelected(lat, lng, address),
+        ),
+      ),
+      const SizedBox(height: 16),
+      PortalLabelledField(
+        label: 'City',
+        required: true,
+        icon: 'map',
+        iconColor: PortalTheme.success, // text-emerald-500
+        child: PortalTextField(
+          controller: _city,
+          hint: 'Type city name',
+          onChanged: (v) => _p.setCity(v),
+        ),
+      ),
+      const SizedBox(height: 16),
+      PortalLabelledField(
+        label: 'State',
+        required: true,
+        icon: 'globe',
+        iconColor: PortalTheme.iconBlue, // text-blue-500
+        child: PortalTextField(
+          controller: _stateField,
+          hint: 'State',
+          onChanged: (v) => _p.setState(v),
+        ),
+      ),
+      const SizedBox(height: 16),
+      PortalLabelledField(
+        label: 'Pincode',
+        required: true,
+        icon: 'hash',
+        iconColor: PortalTheme.iconMuted, // text-slate-500
+        child: PortalTextField(
+          controller: _pincode,
+          hint: 'Pincode',
+          keyboardType: TextInputType.number,
+          onChanged: (v) => _p.setPincode(v),
+        ),
+      ),
+      const SizedBox(height: 16),
+      PortalLabelledField(
+        label: 'Landmark',
+        required: true,
+        icon: 'landmark',
+        iconColor: PortalTheme.iconRed, // text-rose-500
+        child: PortalTextField(
+          controller: _landmark,
+          hint: 'Famous landmark nearby',
+          onChanged: (v) => _p.setLandmark(v),
+        ),
+      ),
+    ],
+  );
 
   // ── Builder Project tag ─────────────────────────────────────────────────
 
   Widget _projectTag() => const Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          PortalSectionDivider(
-            icon: 'building-2',
-            title: 'Builder Project (Optional)',
-          ),
-          ProjectTagSelector(),
-        ],
-      );
+    crossAxisAlignment: CrossAxisAlignment.start,
+    children: [
+      PortalSectionDivider(
+        icon: 'building-2',
+        title: 'Builder Project (Optional)',
+      ),
+      ProjectTagSelector(),
+    ],
+  );
 }

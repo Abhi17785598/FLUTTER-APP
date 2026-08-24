@@ -51,50 +51,38 @@ enum ProjectStep { basic, details, media, amenities, review }
 
 /// `STEPS[i].key` — the string the reference keys its rule table by.
 String projectStepKey(ProjectStep step) => switch (step) {
-      ProjectStep.basic => 'basic',
-      ProjectStep.details => 'details',
-      ProjectStep.media => 'media',
-      ProjectStep.amenities => 'amenities',
-      ProjectStep.review => 'review',
-    };
+  ProjectStep.basic => 'basic',
+  ProjectStep.details => 'details',
+  ProjectStep.media => 'media',
+  ProjectStep.amenities => 'amenities',
+  ProjectStep.review => 'review',
+};
 
 /// `STEPS[i].title`.
 String projectStepTitle(ProjectStep step) => switch (step) {
-      ProjectStep.basic => 'Basic Info',
-      ProjectStep.details => 'Project Details',
-      ProjectStep.media => 'Contact & Media',
-      ProjectStep.amenities => 'Amenities',
-      ProjectStep.review => 'Review & Submit',
-    };
+  ProjectStep.basic => 'Basic Info',
+  ProjectStep.details => 'Project Details',
+  ProjectStep.media => 'Contact & Media',
+  ProjectStep.amenities => 'Amenities',
+  ProjectStep.review => 'Review & Submit',
+};
 
 /// The lucide glyph per step, from the reference's `icon` on each `STEPS` entry:
 /// Building, MapPin, Phone, Sparkles, ShieldCheck.
 String projectStepIcon(ProjectStep step) => switch (step) {
-      ProjectStep.basic => 'building',
-      ProjectStep.details => 'map-pin',
-      ProjectStep.media => 'phone',
-      ProjectStep.amenities => 'sparkles',
-      ProjectStep.review => 'shield-check',
-    };
+  ProjectStep.basic => 'building',
+  ProjectStep.details => 'map-pin',
+  ProjectStep.media => 'phone',
+  ProjectStep.amenities => 'sparkles',
+  ProjectStep.review => 'shield-check',
+};
 
 /// `basicRules` — projectRules.ts:44-49.
 const List<ProjectRule> _basicRules = [
-  ProjectRule(
-    field: kProjectTitle,
-    label: 'Project title',
-    get: _readTitle,
-  ),
-  ProjectRule(
-    field: kProjectType,
-    label: 'Project type',
-    get: _readType,
-  ),
+  ProjectRule(field: kProjectTitle, label: 'Project title', get: _readTitle),
+  ProjectRule(field: kProjectType, label: 'Project type', get: _readType),
   // The reference labels `location` "City", not "Location".
-  ProjectRule(
-    field: kProjectLocation,
-    label: 'City',
-    get: _readLocation,
-  ),
+  ProjectRule(field: kProjectLocation, label: 'City', get: _readLocation),
   ProjectRule(
     field: kProjectDescription,
     label: 'Description',
@@ -214,12 +202,12 @@ const List<ProjectRule> _amenityRules = [
 /// `PROJECT_STEP_RULES` — projectRules.ts:76-82. Review has no rules of its own;
 /// it re-runs every earlier step.
 Map<ProjectStep, List<ProjectRule>> get projectStepRules => {
-      ProjectStep.basic: _basicRules,
-      ProjectStep.details: _detailRules,
-      ProjectStep.media: _mediaRules,
-      ProjectStep.amenities: _amenityRules,
-      ProjectStep.review: const [],
-    };
+  ProjectStep.basic: _basicRules,
+  ProjectStep.details: _detailRules,
+  ProjectStep.media: _mediaRules,
+  ProjectStep.amenities: _amenityRules,
+  ProjectStep.review: const [],
+};
 
 /// Unmet requirements for one step. `validateProjectStep` — projectRules.ts:84.
 ///
@@ -232,11 +220,9 @@ List<ListingIssue> validateProjectStep(ProjectStep step, ProjectDraft draft) {
     final value = rule.get(draft);
 
     if (isBlank(value)) {
-      issues.add(ListingIssue(
-        rule.field,
-        rule.label,
-        '${rule.label} is required.',
-      ));
+      issues.add(
+        ListingIssue(rule.field, rule.label, '${rule.label} is required.'),
+      );
       continue;
     }
 

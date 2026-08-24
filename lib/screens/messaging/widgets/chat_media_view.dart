@@ -79,7 +79,10 @@ class _ChatMediaViewState extends State<ChatMediaView> {
     if (path == null || _loadingUrl) return;
     setState(() => _loadingUrl = true);
     try {
-      final url = await _service.getSignedUrl(path: path, surface: widget.surface);
+      final url = await _service.getSignedUrl(
+        path: path,
+        surface: widget.surface,
+      );
       if (mounted) setState(() => _signedUrl = url);
     } catch (_) {
       // Left null — the placeholder below covers this case too.
@@ -171,15 +174,18 @@ class _ChatMediaViewState extends State<ChatMediaView> {
           height: 150,
           child: Center(child: CircularProgressIndicator(strokeWidth: 2)),
         ),
-        errorWidget: (_, _, _) =>
-            _placeholder(icon: Icons.broken_image_outlined, label: "Couldn't load image"),
+        errorWidget: (_, _, _) => _placeholder(
+          icon: Icons.broken_image_outlined,
+          label: "Couldn't load image",
+        ),
       ),
     );
   }
 
   Widget _audioPlayer() {
     return _VoiceMessagePlayer(
-      resolveUrl: () => _service.getSignedUrl(path: _path ?? '', surface: widget.surface),
+      resolveUrl: () =>
+          _service.getSignedUrl(path: _path ?? '', surface: widget.surface),
       isMine: widget.isMine,
     );
   }
@@ -189,13 +195,19 @@ class _ChatMediaViewState extends State<ChatMediaView> {
       width: 200,
       height: 120,
       decoration: BoxDecoration(
-        color: (widget.isMine ? Colors.white : AppColors.textHint).withValues(alpha: 0.12),
+        color: (widget.isMine ? Colors.white : AppColors.textHint).withValues(
+          alpha: 0.12,
+        ),
         borderRadius: BorderRadius.circular(10),
       ),
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(icon, size: 22, color: widget.isMine ? Colors.white : AppColors.textHint),
+          Icon(
+            icon,
+            size: 22,
+            color: widget.isMine ? Colors.white : AppColors.textHint,
+          ),
           const SizedBox(height: 6),
           Text(
             label,
@@ -275,10 +287,15 @@ class _VoiceMessagePlayerState extends State<_VoiceMessagePlayer> {
                 ? SizedBox(
                     width: 28,
                     height: 28,
-                    child: CircularProgressIndicator(strokeWidth: 2, color: color),
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      color: color,
+                    ),
                   )
                 : Icon(
-                    _playing ? Icons.pause_circle_filled : Icons.play_circle_filled,
+                    _playing
+                        ? Icons.pause_circle_filled
+                        : Icons.play_circle_filled,
                     size: 28,
                     color: color,
                   ),

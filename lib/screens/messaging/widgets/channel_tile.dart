@@ -18,11 +18,7 @@ class ChannelTile extends StatelessWidget {
   final ChannelSummary channel;
   final VoidCallback onTap;
 
-  const ChannelTile({
-    super.key,
-    required this.channel,
-    required this.onTap,
-  });
+  const ChannelTile({super.key, required this.channel, required this.onTap});
 
   @override
   Widget build(BuildContext context) {
@@ -43,9 +39,7 @@ class ChannelTile extends StatelessWidget {
           child: Container(
             padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 4),
             decoration: const BoxDecoration(
-              border: Border(
-                bottom: BorderSide(color: Color(0xFFEDEDF2)),
-              ),
+              border: Border(bottom: BorderSide(color: Color(0xFFEDEDF2))),
             ),
             child: Row(
               children: [

@@ -10,6 +10,11 @@ class PropertyCardCompact extends StatelessWidget {
   final VoidCallback? onTap;
   final VoidCallback? onFavoriteToggle;
 
+  /// Opt-in, same convention as [onEdit]/[onDelete]: only rendered when a
+  /// caller supplies it.
+  final VoidCallback? onCompareToggle;
+  final bool isInCompare;
+
   /// Shown only when the caller supplies it — this card is reused for
   /// browsing (Shortlist, public profiles), where the viewer never owns the
   /// listing, so the edit affordance stays opt-in rather than conditioned on
@@ -25,6 +30,8 @@ class PropertyCardCompact extends StatelessWidget {
     required this.property,
     this.onTap,
     this.onFavoriteToggle,
+    this.onCompareToggle,
+    this.isInCompare = false,
     this.onEdit,
     this.onDelete,
   });
@@ -38,10 +45,7 @@ class PropertyCardCompact extends StatelessWidget {
         decoration: const BoxDecoration(
           color: AppColors.cardBackground,
           border: Border(
-            bottom: BorderSide(
-              color: AppColors.textHint,
-              width: 0.5,
-            ),
+            bottom: BorderSide(color: AppColors.textHint, width: 0.5),
           ),
         ),
         child: Row(
@@ -50,7 +54,9 @@ class PropertyCardCompact extends StatelessWidget {
             Stack(
               children: [
                 ClipRRect(
-                  borderRadius: BorderRadius.circular(AppConstants.imageThumbnailRadius),
+                  borderRadius: BorderRadius.circular(
+                    AppConstants.imageThumbnailRadius,
+                  ),
                   child: CachedNetworkImage(
                     imageUrl: property.imageUrl,
                     width: AppConstants.propertyCompactImageWidth,
@@ -58,9 +64,7 @@ class PropertyCardCompact extends StatelessWidget {
                     fit: BoxFit.cover,
                     placeholder: (context, url) => Container(
                       color: AppColors.textHint.withOpacity(0.1),
-                      child: const Center(
-                        child: CircularProgressIndicator(),
-                      ),
+                      child: const Center(child: CircularProgressIndicator()),
                     ),
                     errorWidget: (context, url, error) => Container(
                       color: AppColors.textHint.withOpacity(0.1),
@@ -73,7 +77,10 @@ class PropertyCardCompact extends StatelessWidget {
                     top: 4,
                     left: 4,
                     child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 6,
+                        vertical: 2,
+                      ),
                       decoration: BoxDecoration(
                         color: AppColors.verifiedBadge,
                         borderRadius: BorderRadius.circular(4),
@@ -92,7 +99,10 @@ class PropertyCardCompact extends StatelessWidget {
                   bottom: 4,
                   left: 4,
                   child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 6,
+                      vertical: 2,
+                    ),
                     decoration: BoxDecoration(
                       color: Colors.black.withOpacity(0.6),
                       borderRadius: BorderRadius.circular(4),
@@ -194,13 +204,25 @@ class PropertyCardCompact extends StatelessWidget {
                   ),
                 ),
               ),
+            if (onCompareToggle != null)
+              GestureDetector(
+                onTap: onCompareToggle,
+                child: Padding(
+                  padding: const EdgeInsets.only(bottom: 8, left: 8),
+                  child: Icon(
+                    isInCompare
+                        ? Icons.check_circle
+                        : Icons.compare_arrows_rounded,
+                    color: isInCompare
+                        ? AppColors.primary
+                        : AppColors.textSecondary,
+                    size: 22,
+                  ),
+                ),
+              ),
             GestureDetector(
               onTap: onFavoriteToggle,
-              child: Icon(
-                Icons.favorite,
-                color: Colors.red,
-                size: 24,
-              ),
+              child: Icon(Icons.favorite, color: Colors.red, size: 24),
             ),
           ],
         ),

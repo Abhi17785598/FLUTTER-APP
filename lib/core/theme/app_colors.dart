@@ -7,11 +7,11 @@ class AppColors {
   static const Color primaryLight = Color(0xFFEEEDFE);
   static const Color accentPurple = Color(0xFF5B50E8);
   static const Color priceColor = Color(0xFF5B50E8);
-  
+
   static const Color background = Color(0xFFF4F4F8);
   static const Color cardBackground = Color(0xFFFFFFFF);
   static const Color surface = Color(0xFFFFFFFF);
-  
+
   static const Color textPrimary = Color(0xFF1A1A2E);
   static const Color textSecondary = Color(0xFF6B7280);
   static const Color textHint = Color(0xFF9CA3AF);
@@ -35,17 +35,17 @@ class AppColors {
 
   /// Border for the destructive outline button ("Cancel Subscription").
   static const Color errorBorder = Color(0xFFFCA5A5);
-  
+
   static const Color verifiedBadge = Color(0xFF10B981);
   static const Color verifiedBadgeText = Color(0xFFFFFFFF);
-  
+
   // Status Chip Colors
   static const Color statusAvailable = Color(0xFF22C55E);
   static const Color statusBooked = Color(0xFFF97316);
   static const Color statusSold = Color(0xFFEF4444);
   static const Color statusPending = Color(0xFFEAB308);
   static const Color statusNewLaunch = Color(0xFF3B82F6);
-  
+
   // Additional Status Colors
   static const Color success = Color(0xFF22C55E);
   static const Color warning = Color(0xFFF97316);
@@ -78,30 +78,18 @@ class AppColors {
 
   /// `0 2px 10px rgba(26,26,46,0.05)` — standard card/tile surface.
   static const List<BoxShadow> surfaceCardShadow = [
-    BoxShadow(
-      color: Color(0x0D1A1A2E),
-      blurRadius: 10,
-      offset: Offset(0, 2),
-    ),
+    BoxShadow(color: Color(0x0D1A1A2E), blurRadius: 10, offset: Offset(0, 2)),
   ];
 
   /// `0 2px 6px rgba(26,26,46,0.1)` — the raised, selected pill inside a
   /// segmented tab track.
   static const List<BoxShadow> raisedPillShadow = [
-    BoxShadow(
-      color: Color(0x1A1A1A2E),
-      blurRadius: 6,
-      offset: Offset(0, 2),
-    ),
+    BoxShadow(color: Color(0x1A1A1A2E), blurRadius: 6, offset: Offset(0, 2)),
   ];
 
   /// `0 4px 12px rgba(91,80,232,0.28)` — solid primary CTA.
   static const List<BoxShadow> primaryActionShadow = [
-    BoxShadow(
-      color: Color(0x475B50E8),
-      blurRadius: 12,
-      offset: Offset(0, 4),
-    ),
+    BoxShadow(color: Color(0x475B50E8), blurRadius: 12, offset: Offset(0, 4)),
   ];
 
   // Premium card shadow
@@ -126,14 +114,14 @@ class AppColors {
       spreadRadius: -2,
     ),
   ];
-  
+
   // Category icon backgrounds
   static const Color categoryBuyBg = Color(0xFFEEEDFE);
   static const Color categoryRentBg = Color(0xFFE6F1FB);
   static const Color categoryPlotBg = Color(0xFFEAF3DE);
   static const Color categoryCommercialBg = Color(0xFFFFF3E0);
   static const Color categoryPgBg = Color(0xFFFCE4EC);
-  
+
   // Amenity icon backgrounds
   static const Color amenityIndigo = Color(0xFF6366F1);
   static const Color amenityBlue = Color(0xFF3B82F6);
@@ -164,7 +152,7 @@ class AppColors {
         return primaryLight;
     }
   }
-  
+
   static Color getStatusChipText(String label) {
     switch (label) {
       case 'Ready to Move':

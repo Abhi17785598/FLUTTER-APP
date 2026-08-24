@@ -56,11 +56,18 @@ class PropertyCardSearchRow extends StatelessWidget {
   final VoidCallback? onTap;
   final VoidCallback? onFavoriteToggle;
 
+  /// Opt-in, same convention as [onFavoriteToggle]: only rendered when a
+  /// caller supplies it.
+  final VoidCallback? onCompareToggle;
+  final bool isInCompare;
+
   const PropertyCardSearchRow({
     super.key,
     required this.property,
     this.onTap,
     this.onFavoriteToggle,
+    this.onCompareToggle,
+    this.isInCompare = false,
   });
 
   @override
@@ -105,9 +112,8 @@ class PropertyCardSearchRow extends StatelessWidget {
         CachedNetworkImage(
           imageUrl: property.imageUrl,
           fit: BoxFit.cover,
-          placeholder: (context, url) => ColoredBox(
-            color: AppColors.textHint.withValues(alpha: 0.1),
-          ),
+          placeholder: (context, url) =>
+              ColoredBox(color: AppColors.textHint.withValues(alpha: 0.1)),
           errorWidget: (context, url, error) => ColoredBox(
             color: AppColors.textHint.withValues(alpha: 0.1),
             child: const Icon(Icons.broken_image, size: 20),
@@ -128,7 +134,37 @@ class PropertyCardSearchRow extends StatelessWidget {
             right: AppConstants.spacingS,
             child: _buildFavouriteButton(),
           ),
+        if (onCompareToggle != null)
+          Positioned(
+            top: onFavoriteToggle != null ? 40 : AppConstants.spacingS,
+            right: AppConstants.spacingS,
+            child: _buildCompareButton(),
+          ),
       ],
+    );
+  }
+
+  Widget _buildCompareButton() {
+    return Semantics(
+      label: isInCompare ? 'Remove from compare' : 'Add to compare',
+      button: true,
+      child: GestureDetector(
+        onTap: onCompareToggle,
+        behavior: HitTestBehavior.opaque,
+        child: Container(
+          width: 26,
+          height: 26,
+          decoration: BoxDecoration(
+            color: Colors.white.withValues(alpha: 0.9),
+            borderRadius: BorderRadius.circular(AppConstants.pillRadius),
+          ),
+          child: Icon(
+            isInCompare ? Icons.check_circle : Icons.compare_arrows_rounded,
+            size: 15,
+            color: isInCompare ? AppColors.primary : AppColors.textSecondary,
+          ),
+        ),
+      ),
     );
   }
 
@@ -159,8 +195,8 @@ class PropertyCardSearchRow extends StatelessWidget {
   }
 
   Widget _buildContent() {
-    return Padding
-      (padding: const EdgeInsets.all(AppConstants.spacingM),
+    return Padding(
+      padding: const EdgeInsets.all(AppConstants.spacingM),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisSize: MainAxisSize.min,

@@ -61,7 +61,7 @@ class _BuilderProfileScreenState extends State<BuilderProfileScreen> {
 
     try {
       final user = _authService.currentUser;
-      
+
       if (user == null) {
         setState(() {
           _errorMessage = 'User not logged in';
@@ -175,7 +175,8 @@ class _BuilderProfileScreenState extends State<BuilderProfileScreen> {
               SwitchListTile(
                 title: const Text('RERA Registered'),
                 subtitle: const Text(
-                    'Does your company have RERA registration?'),
+                  'Does your company have RERA registration?',
+                ),
                 value: _reraRegistered,
                 onChanged: (val) => setState(() => _reraRegistered = val),
                 contentPadding: EdgeInsets.zero,
@@ -184,8 +185,7 @@ class _BuilderProfileScreenState extends State<BuilderProfileScreen> {
               TextFormField(
                 controller: _reraNumberController,
                 decoration: InputDecoration(
-                  labelText:
-                      _reraRegistered ? 'RERA Number *' : 'RERA Number',
+                  labelText: _reraRegistered ? 'RERA Number *' : 'RERA Number',
                   hintText: 'Enter RERA registration number',
                   prefixIcon: const Icon(Icons.verified),
                   border: const OutlineInputBorder(),
@@ -342,12 +342,17 @@ class _BuilderProfileScreenState extends State<BuilderProfileScreen> {
                           width: 20,
                           child: CircularProgressIndicator(
                             strokeWidth: 2,
-                            valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                            valueColor: AlwaysStoppedAnimation<Color>(
+                              Colors.white,
+                            ),
                           ),
                         )
                       : const Text(
                           'Complete Profile',
-                          style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                          style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                          ),
                         ),
                 ),
               ),

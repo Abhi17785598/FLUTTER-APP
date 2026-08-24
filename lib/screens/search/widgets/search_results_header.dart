@@ -101,10 +101,12 @@ class SearchResultsHeader extends StatelessWidget {
               // than disappearing for two phases.
               _buildIconButton(
                 icon: nearMeEnabled ? Icons.near_me : Icons.near_me_outlined,
-                iconColor:
-                    nearMeEnabled ? AppColors.primary : AppColors.textPrimary,
-                semanticLabel:
-                    nearMeEnabled ? 'Turn off Near Me' : 'Search near me',
+                iconColor: nearMeEnabled
+                    ? AppColors.primary
+                    : AppColors.textPrimary,
+                semanticLabel: nearMeEnabled
+                    ? 'Turn off Near Me'
+                    : 'Search near me',
                 onTap: onNearMeTap,
               ),
               const SizedBox(width: AppConstants.spacingS),
@@ -204,8 +206,9 @@ class SearchResultsHeader extends StatelessWidget {
               height: _kPillHeight,
               decoration: BoxDecoration(
                 color: AppColors.cardBackground,
-                borderRadius:
-                    BorderRadius.circular(AppConstants.searchBarRadius),
+                borderRadius: BorderRadius.circular(
+                  AppConstants.searchBarRadius,
+                ),
                 boxShadow: AppColors.surfaceCardShadow,
               ),
               child: const Icon(
@@ -274,7 +277,9 @@ class SearchResultsHeader extends StatelessWidget {
         behavior: HitTestBehavior.opaque,
         child: Container(
           height: _kChipHeight,
-          padding: const EdgeInsets.symmetric(horizontal: AppConstants.spacingM),
+          padding: const EdgeInsets.symmetric(
+            horizontal: AppConstants.spacingM,
+          ),
           decoration: BoxDecoration(
             color: AppColors.cardBackground,
             borderRadius: BorderRadius.circular(AppConstants.pillRadius),

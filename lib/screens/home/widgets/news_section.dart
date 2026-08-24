@@ -87,7 +87,9 @@ class _NewsSectionState extends State<NewsSection> {
                   ),
                   itemCount: items.length,
                   itemBuilder: (context, i) => Padding(
-                    padding: const EdgeInsets.only(right: AppConstants.spacingM),
+                    padding: const EdgeInsets.only(
+                      right: AppConstants.spacingM,
+                    ),
                     child: ScaleTap(
                       onTap: () => showNewsDetailSheet(context, items[i]),
                       child: _NewsCard(item: items[i]),
@@ -247,16 +249,16 @@ class NewsThumbnail extends StatelessWidget {
   }
 
   Widget _placeholder() => Container(
-        height: height,
-        width: width,
-        color: AppColors.primaryLight,
-        alignment: Alignment.center,
-        child: const Icon(
-          Icons.newspaper_rounded,
-          size: 26,
-          color: AppColors.primary,
-        ),
-      );
+    height: height,
+    width: width,
+    color: AppColors.primaryLight,
+    alignment: Alignment.center,
+    child: const Icon(
+      Icons.newspaper_rounded,
+      size: 26,
+      color: AppColors.primary,
+    ),
+  );
 }
 
 /// Opens the full story.
@@ -366,9 +368,11 @@ class _NewsDetailSheetState extends State<_NewsDetailSheet> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     ClipRRect(
-                      borderRadius:
-                          BorderRadius.circular(AppConstants.cardRadius),
-                      child: controller != null && controller.value.isInitialized
+                      borderRadius: BorderRadius.circular(
+                        AppConstants.cardRadius,
+                      ),
+                      child:
+                          controller != null && controller.value.isInitialized
                           ? AspectRatio(
                               aspectRatio: controller.value.aspectRatio,
                               child: VideoPlayer(controller),

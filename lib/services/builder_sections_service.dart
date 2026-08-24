@@ -54,7 +54,7 @@ class BuilderSectionException implements Exception {
 /// feature neither platform has.
 class ProjectInventoryService {
   ProjectInventoryService({SupabaseClient? client})
-      : _supabase = client ?? Supabase.instance.client;
+    : _supabase = client ?? Supabase.instance.client;
 
   final SupabaseClient _supabase;
 
@@ -115,9 +115,9 @@ class ProjectInventoryService {
         .eq('project_id', projectId)
         .order('price', ascending: true);
 
-    return List<Map<String, dynamic>>.from(rows)
-        .map(InventoryUnit.fromSupabase)
-        .toList();
+    return List<Map<String, dynamic>>.from(
+      rows,
+    ).map(InventoryUnit.fromSupabase).toList();
   }
 
   /// Adds one unit to [projectId].
@@ -164,9 +164,9 @@ class ProjectInventoryService {
         ])
         .select(InventoryUnit.columns);
 
-    return List<Map<String, dynamic>>.from(rows)
-        .map(InventoryUnit.fromSupabase)
-        .toList();
+    return List<Map<String, dynamic>>.from(
+      rows,
+    ).map(InventoryUnit.fromSupabase).toList();
   }
 
   /// Updates one unit's editable fields.
@@ -174,13 +174,16 @@ class ProjectInventoryService {
     required String unitId,
     required Map<String, dynamic> payload,
   }) async {
-    await _supabase.from(table).update(<String, dynamic>{
-      ...payload,
-      // No touch trigger on this table (`20250905144708:92-106`), so without
-      // this the column would keep the insert time — the same reasoning
-      // `BuilderOfferService.update` already documents for the same gap.
-      'updated_at': DateTime.now().toUtc().toIso8601String(),
-    }).eq('id', unitId);
+    await _supabase
+        .from(table)
+        .update(<String, dynamic>{
+          ...payload,
+          // No touch trigger on this table (`20250905144708:92-106`), so without
+          // this the column would keep the insert time — the same reasoning
+          // `BuilderOfferService.update` already documents for the same gap.
+          'updated_at': DateTime.now().toUtc().toIso8601String(),
+        })
+        .eq('id', unitId);
   }
 
   /// Removes one unit.
@@ -197,7 +200,7 @@ class ProjectInventoryService {
 /// `builder_project_offers` for one builder.
 class BuilderOfferService {
   BuilderOfferService({SupabaseClient? client})
-      : _supabase = client ?? Supabase.instance.client;
+    : _supabase = client ?? Supabase.instance.client;
 
   final SupabaseClient _supabase;
 
@@ -218,9 +221,9 @@ class BuilderOfferService {
         .eq('builder_id', builderId)
         .order('created_at', ascending: false);
 
-    return List<Map<String, dynamic>>.from(rows)
-        .map(BuilderOffer.fromSupabase)
-        .toList();
+    return List<Map<String, dynamic>>.from(
+      rows,
+    ).map(BuilderOffer.fromSupabase).toList();
   }
 
   /// Creates an offer for [projectId].
@@ -258,12 +261,15 @@ class BuilderOfferService {
     required String offerId,
     required Map<String, dynamic> payload,
   }) async {
-    await _supabase.from(table).update({
-      ...payload,
-      // The table has no touch trigger, so without this `updated_at` keeps the
-      // insert time — `:158` sends it for the same reason.
-      'updated_at': DateTime.now().toUtc().toIso8601String(),
-    }).eq('id', offerId);
+    await _supabase
+        .from(table)
+        .update({
+          ...payload,
+          // The table has no touch trigger, so without this `updated_at` keeps the
+          // insert time — `:158` sends it for the same reason.
+          'updated_at': DateTime.now().toUtc().toIso8601String(),
+        })
+        .eq('id', offerId);
   }
 
   /// Hard-deletes an offer.
@@ -285,7 +291,7 @@ class BuilderOfferService {
 /// One builder's team: members, outstanding invitations, and the invite call.
 class BuilderTeamService {
   BuilderTeamService({SupabaseClient? client})
-      : _supabase = client ?? Supabase.instance.client;
+    : _supabase = client ?? Supabase.instance.client;
 
   final SupabaseClient _supabase;
 
@@ -316,9 +322,9 @@ class BuilderTeamService {
         .eq('builder_id', builderId)
         .order('created_at', ascending: false);
 
-    return List<Map<String, dynamic>>.from(rows)
-        .map(BuilderTeamMember.fromSupabase)
-        .toList();
+    return List<Map<String, dynamic>>.from(
+      rows,
+    ).map(BuilderTeamMember.fromSupabase).toList();
   }
 
   /// Invitations, newest first.
@@ -329,9 +335,9 @@ class BuilderTeamService {
         .eq('builder_id', builderId)
         .order('created_at', ascending: false);
 
-    return List<Map<String, dynamic>>.from(rows)
-        .map(BuilderTeamInvitation.fromSupabase)
-        .toList();
+    return List<Map<String, dynamic>>.from(
+      rows,
+    ).map(BuilderTeamInvitation.fromSupabase).toList();
   }
 
   /// This person's own pending invitations, across every builder that has
@@ -341,9 +347,7 @@ class BuilderTeamService {
   /// invited them until this returns. Mirrors the fallback lookup in
   /// `AcceptInvite.tsx:57-69` and the redirect check in `TeamInviteGate.tsx`,
   /// which query the same table the same way.
-  Future<List<BuilderTeamInvitation>> myPendingInvitations(
-    String email,
-  ) async {
+  Future<List<BuilderTeamInvitation>> myPendingInvitations(String email) async {
     final rows = await _supabase
         .from(invitationsTable)
         .select(BuilderTeamInvitation.columns)
@@ -351,9 +355,9 @@ class BuilderTeamService {
         .eq('status', 'pending')
         .order('created_at', ascending: false);
 
-    return List<Map<String, dynamic>>.from(rows)
-        .map(BuilderTeamInvitation.fromSupabase)
-        .toList();
+    return List<Map<String, dynamic>>.from(
+      rows,
+    ).map(BuilderTeamInvitation.fromSupabase).toList();
   }
 
   /// This person's own active memberships, across every builder they've
@@ -369,9 +373,9 @@ class BuilderTeamService {
         .eq('status', 'active')
         .order('created_at', ascending: false);
 
-    return List<Map<String, dynamic>>.from(rows)
-        .map(BuilderTeamMember.fromSupabase)
-        .toList();
+    return List<Map<String, dynamic>>.from(
+      rows,
+    ).map(BuilderTeamMember.fromSupabase).toList();
   }
 
   /// Sends an invite through the Edge Function.
@@ -398,9 +402,7 @@ class BuilderTeamService {
   }) async {
     final trimmed = email.trim();
     if (trimmed.isEmpty) {
-      throw const BuilderSectionException(
-        "Enter the person's email address.",
-      );
+      throw const BuilderSectionException("Enter the person's email address.");
     }
     if (modules.isEmpty) {
       // Also a database rule: builder_team_invitations CHECKs
@@ -491,10 +493,7 @@ class BuilderTeamService {
     try {
       final response = await _supabase.functions.invoke(
         acceptFunction,
-        body: <String, dynamic>{
-          'invitationId': invitationId,
-          'token': ?token,
-        },
+        body: <String, dynamic>{'invitationId': invitationId, 'token': ?token},
       );
       final data = response.data;
       map = data is Map<String, dynamic> ? data : const {};
@@ -608,7 +607,7 @@ class BuilderTeamAcceptResult {
 /// permissions, not a new permission.
 class SiteVisitService {
   SiteVisitService({SupabaseClient? client})
-      : _supabase = client ?? Supabase.instance.client;
+    : _supabase = client ?? Supabase.instance.client;
 
   final SupabaseClient _supabase;
 
@@ -637,9 +636,9 @@ class SiteVisitService {
         .inFilter('project_id', projectIds)
         .order('preferred_date', ascending: true);
 
-    return List<Map<String, dynamic>>.from(rows)
-        .map(SiteVisitBooking.fromSupabase)
-        .toList();
+    return List<Map<String, dynamic>>.from(
+      rows,
+    ).map(SiteVisitBooking.fromSupabase).toList();
   }
 
   /// Updates a booking's slot and status, then notifies the visitor if the new
@@ -664,14 +663,19 @@ class SiteVisitService {
       throw const BuilderSectionException('Choose a status.');
     }
 
-    await _supabase.from(table).update({
-      // A DATE column: send the day only, never an instant, or the value is
-      // truncated in whatever timezone the server is in.
-      'preferred_date': _dateOnly(preferredDate),
-      'preferred_time': (preferredTime?.isEmpty ?? true) ? null : preferredTime,
-      'status': status,
-      'updated_at': DateTime.now().toUtc().toIso8601String(),
-    }).eq('id', booking.id);
+    await _supabase
+        .from(table)
+        .update({
+          // A DATE column: send the day only, never an instant, or the value is
+          // truncated in whatever timezone the server is in.
+          'preferred_date': _dateOnly(preferredDate),
+          'preferred_time': (preferredTime?.isEmpty ?? true)
+              ? null
+              : preferredTime,
+          'status': status,
+          'updated_at': DateTime.now().toUtc().toIso8601String(),
+        })
+        .eq('id', booking.id);
 
     if (kNotifyingSiteVisitStatuses.contains(status)) {
       await _notifyVisitor(

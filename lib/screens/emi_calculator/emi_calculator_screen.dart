@@ -22,7 +22,9 @@ class EmiCalculatorScreen extends StatelessWidget {
               child: SingleChildScrollView(
                 physics: const BouncingScrollPhysics(),
                 padding: const EdgeInsets.all(16),
-                child: EmiCalculatorWidget(initialLoanAmount: initialLoanAmount),
+                child: EmiCalculatorWidget(
+                  initialLoanAmount: initialLoanAmount,
+                ),
               ),
             ),
           ],
@@ -46,8 +48,11 @@ class EmiCalculatorScreen extends StatelessWidget {
                 borderRadius: BorderRadius.circular(10),
                 boxShadow: AppColors.cardShadow,
               ),
-              child: const Icon(Icons.arrow_back_ios_new,
-                  size: 16, color: AppColors.textPrimary),
+              child: const Icon(
+                Icons.arrow_back_ios_new,
+                size: 16,
+                color: AppColors.textPrimary,
+              ),
             ),
           ),
           const SizedBox(width: 12),
@@ -56,8 +61,10 @@ class EmiCalculatorScreen extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text('EMI Calculator', style: AppTextStyles.heading2),
-                Text('Plan your home loan easily',
-                    style: AppTextStyles.caption),
+                Text(
+                  'Plan your home loan easily',
+                  style: AppTextStyles.caption,
+                ),
               ],
             ),
           ),
@@ -70,14 +77,20 @@ class EmiCalculatorScreen extends StatelessWidget {
             ),
             child: Row(
               children: [
-                const Icon(Icons.calculate_outlined,
-                    size: 14, color: Colors.white),
+                const Icon(
+                  Icons.calculate_outlined,
+                  size: 14,
+                  color: Colors.white,
+                ),
                 const SizedBox(width: 4),
-                Text('Home Loan',
-                    style: const TextStyle(
-                        fontSize: 11,
-                        fontWeight: FontWeight.w600,
-                        color: Colors.white)),
+                Text(
+                  'Home Loan',
+                  style: const TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w600,
+                    color: Colors.white,
+                  ),
+                ),
               ],
             ),
           ),

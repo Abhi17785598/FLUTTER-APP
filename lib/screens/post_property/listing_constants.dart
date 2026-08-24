@@ -38,7 +38,6 @@ class ListingOptionGroup {
   final List<String> options;
 }
 
-
 // ==========================================================================
 // Step 1 — Category & listing type
 // ==========================================================================
@@ -73,11 +72,7 @@ const List<ListingOption> kPropertyTypeDescriptions = [
 
 /// Written to the properties.property_type column (NOT the category).
 /// Source: TypeSelectionStep.tsx getAvailableListingTypes()
-const List<String> kListingTypeIds = [
-  'rent',
-  'sell',
-  'lease',
-];
+const List<String> kListingTypeIds = ['rent', 'sell', 'lease'];
 
 // ==========================================================================
 // Residential subtypes
@@ -125,10 +120,7 @@ const List<String> kHouseSubtypes = [
 // ==========================================================================
 
 /// Source: BasicInfoStep.tsx:263
-const List<String> kLandSubtypes = [
-  'land',
-  'plot',
-];
+const List<String> kLandSubtypes = ['land', 'plot'];
 
 /// Source: components/PropertyWizard/steps/BasicInfoStep.tsx:23
 const List<String> kLandTypeOptions = [
@@ -140,10 +132,7 @@ const List<String> kLandTypeOptions = [
 ];
 
 /// Source: components/PropertyWizard/steps/BasicInfoStep.tsx:31
-const List<String> kPlotTypeOptions = [
-  'Residential Plot',
-  'Commercial Plot',
-];
+const List<String> kPlotTypeOptions = ['Residential Plot', 'Commercial Plot'];
 
 /// Required only when listingType == rent (propertyListingRules.ts).
 /// Source: components/PropertyWizard/steps/PropertyDimensionsStep.tsx:195
@@ -500,13 +489,7 @@ const List<ListingOption> kCommercialOtherParking = [
 // ==========================================================================
 
 /// Source: PropertyDimensionsStep.tsx:567
-const List<String> kBhkTypes = [
-  '1 RK',
-  '1 BHK',
-  '2 BHK',
-  '3 BHK',
-  '4+ BHK',
-];
+const List<String> kBhkTypes = ['1 RK', '1 BHK', '2 BHK', '3 BHK', '4+ BHK'];
 
 /// Also used for projectStatus / ownership in the same control.
 /// Source: ConditionStep.tsx:28
@@ -533,26 +516,14 @@ const List<String> kLockInPeriods = [
 
 /// Commercial plot area — a SUBSET of kAreaUnitLabels keys.
 /// Source: PropertyDimensionsStep.tsx:1714
-const List<String> kPlotAreaUnits = [
-  'sq_ft',
-  'sq_yd',
-  'sq_mtr',
-  'acres',
-];
+const List<String> kPlotAreaUnits = ['sq_ft', 'sq_yd', 'sq_mtr', 'acres'];
 
 /// Source: PropertyDimensionsStep.tsx:460
-const List<String> kHeightRestrictionUnits = [
-  'ft',
-  'm',
-];
+const List<String> kHeightRestrictionUnits = ['ft', 'm'];
 
 /// Units for the front/back/right/left land dimensions. Three options, unlike kHeightRestrictionUnits which has two.
 /// Source: PropertyDimensionsStep.tsx land side-dimension map
-const List<String> kLandSideDimensionUnits = [
-  'ft',
-  'm',
-  'yards',
-];
+const List<String> kLandSideDimensionUnits = ['ft', 'm', 'yards'];
 
 // ==========================================================================
 // Media categories
@@ -630,18 +601,8 @@ const Map<String, List<String>> kAreaUnitsByPropertyType = {
     'ground',
     'cent',
   ],
-  'commercial': [
-    'sq_ft',
-    'sq_mtr',
-    'sq_yards',
-    'acres',
-    'guntha',
-    'kanal',
-  ],
-  'pg/Co-living': [
-    'sq_ft',
-    'sq_mtr',
-  ],
+  'commercial': ['sq_ft', 'sq_mtr', 'sq_yards', 'acres', 'guntha', 'kanal'],
+  'pg/Co-living': ['sq_ft', 'sq_mtr'],
   'others': [
     'sq_ft',
     'sq_mtr',

@@ -19,11 +19,8 @@ class BrokerPropertyModel {
     required this.price,
   });
 
-  factory BrokerPropertyModel.fromSupabase(
-      Map<String, dynamic> json) {
-    final images = List<String>.from(
-      json['media_urls'] ?? [],
-    );
+  factory BrokerPropertyModel.fromSupabase(Map<String, dynamic> json) {
+    final images = List<String>.from(json['media_urls'] ?? []);
 
     return BrokerPropertyModel(
       id: json['id'] ?? '',

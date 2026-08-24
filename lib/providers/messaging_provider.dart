@@ -16,7 +16,7 @@ import '../services/presence_service.dart';
 /// useConversationUnreadCounts.ts and useUnreadMessages.ts do.
 class MessagingProvider extends ChangeNotifier {
   MessagingProvider({MessagingService? service})
-      : _service = service ?? MessagingService();
+    : _service = service ?? MessagingService();
 
   final MessagingService _service;
   final SupabaseClient _supabase = Supabase.instance.client;
@@ -151,9 +151,11 @@ class MessagingProvider extends ChangeNotifier {
     try {
       await _service.acceptConversationRequest(conversationId);
       _conversations = _conversations
-          .map((c) => c.id == conversationId
-              ? c.copyWith(requestStatus: 'accepted')
-              : c)
+          .map(
+            (c) => c.id == conversationId
+                ? c.copyWith(requestStatus: 'accepted')
+                : c,
+          )
           .toList();
       _safeNotify();
       return null;
@@ -168,7 +170,9 @@ class MessagingProvider extends ChangeNotifier {
   Future<String?> declineRequest(String conversationId) async {
     try {
       await _service.hideConversation(conversationId);
-      _conversations = _conversations.where((c) => c.id != conversationId).toList();
+      _conversations = _conversations
+          .where((c) => c.id != conversationId)
+          .toList();
       _safeNotify();
       return null;
     } catch (e) {
@@ -177,7 +181,10 @@ class MessagingProvider extends ChangeNotifier {
     }
   }
 
-  Future<String?> setConversationMuted(String conversationId, bool muted) async {
+  Future<String?> setConversationMuted(
+    String conversationId,
+    bool muted,
+  ) async {
     try {
       await _service.setConversationMuted(conversationId, muted);
       _conversations = _conversations

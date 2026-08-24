@@ -26,14 +26,30 @@ class PropertyEditBundle {
 /// Free-text search stopwords — exact port of Search.tsx's list. Words
 /// shorter than 2 characters are dropped regardless of this set.
 const Set<String> _searchStopwords = {
-  'in', 'at', 'for', 'the', 'properties', 'property', 'show', 'list',
-  'find', 'search', 'a', 'an', 'of', 'with',
+  'in',
+  'at',
+  'for',
+  'the',
+  'properties',
+  'property',
+  'show',
+  'list',
+  'find',
+  'search',
+  'a',
+  'an',
+  'of',
+  'with',
 };
 
 /// The 5 columns Search.tsx OR-ILIKE-matches every remaining search word
 /// against.
 const List<String> _searchColumns = [
-  'title', 'search_text', 'location', 'area', 'upid',
+  'title',
+  'search_text',
+  'location',
+  'area',
+  'upid',
 ];
 
 /// `metadata.pgHouseRules` sub-key -> the `PropertyFormData` flag React reads
@@ -65,10 +81,39 @@ class PropertyService {
   Future<List<Map<String, dynamic>>> getProperties() async {
     final data = await _supabase
         .from('properties')
-      .select('*,properties_residential(*),properties_commercial(*),properties_land(*)')
+        .select(
+          '*,properties_residential(*),properties_commercial(*),properties_land(*)',
+        )
         .eq('status', 'active')
         .eq('approval_status', 'approved')
         .order('created_at', ascending: false);
+
+    return List<Map<String, dynamic>>.from(data);
+  }
+
+  /// Fetches specific properties by id for the Compare screen — same
+  /// active/approved filter and sub-table joins as [getProperties], via the
+  /// same safe `inFilter` PostgREST helper every other multi-id lookup in
+  /// this codebase uses (e.g. `reels_service.dart`, `messaging_service.dart`)
+  /// rather than a raw interpolated `NOT IN (...)` string.
+  ///
+  /// Used when a persisted/deep-linked compare selection contains an id that
+  /// is not already sitting in [PropertyProvider]'s in-memory cache. A
+  /// deleted, deactivated or unapproved property simply does not come back —
+  /// callers must treat a missing id as "drop this slot", never substitute a
+  /// different property.
+  Future<List<Map<String, dynamic>>> getPropertiesByIds(
+    List<String> ids,
+  ) async {
+    if (ids.isEmpty) return [];
+    final data = await _supabase
+        .from('properties')
+        .select(
+          '*,properties_residential(*),properties_commercial(*),properties_land(*)',
+        )
+        .inFilter('id', ids)
+        .eq('status', 'active')
+        .eq('approval_status', 'approved');
 
     return List<Map<String, dynamic>>.from(data);
   }
@@ -84,13 +129,15 @@ class PropertyService {
   Future<List<PropertyModel>> getPropertiesByUser(String userId) async {
     final rows = await _supabase
         .from('properties')
-        .select('*,properties_residential(*),properties_commercial(*),properties_land(*)')
+        .select(
+          '*,properties_residential(*),properties_commercial(*),properties_land(*)',
+        )
         .eq('user_id', userId)
         .order('created_at', ascending: false);
 
-    return List<Map<String, dynamic>>.from(rows)
-        .map((r) => PropertyModel.fromSupabase(r))
-        .toList();
+    return List<Map<String, dynamic>>.from(
+      rows,
+    ).map((r) => PropertyModel.fromSupabase(r)).toList();
   }
 
   /// Ports Search.tsx's buildSupabaseQuery/performSearch exactly — same
@@ -152,7 +199,9 @@ class PropertyService {
       final sanitized = searchText.replaceAll(RegExp(r'[,()\\]'), '');
       final words = sanitized
           .split(RegExp(r'\s+'))
-          .where((w) => w.length >= 2 && !_searchStopwords.contains(w.toLowerCase()));
+          .where(
+            (w) => w.length >= 2 && !_searchStopwords.contains(w.toLowerCase()),
+          );
       final clauses = <String>[
         for (final word in words)
           for (final col in _searchColumns) '$col.ilike.%$word%',
@@ -197,7 +246,9 @@ class PropertyService {
         .order('id', ascending: true);
 
     final PostgrestResponse<PostgrestList> response = includeRange
-        ? await sortedQuery.range(offset, offset + limit - 1).count(CountOption.exact)
+        ? await sortedQuery
+              .range(offset, offset + limit - 1)
+              .count(CountOption.exact)
         : await sortedQuery.limit(limit).count(CountOption.exact);
 
     return PropertySearchPage(
@@ -253,8 +304,9 @@ class PropertyService {
 
     return PropertyDetailBundle(
       property: PropertyModel.fromSupabase(mergedRow),
-      ownerProfile:
-          profileRow != null ? PropertyOwnerProfile.fromSupabase(profileRow) : null,
+      ownerProfile: profileRow != null
+          ? PropertyOwnerProfile.fromSupabase(profileRow)
+          : null,
     );
   }
 
@@ -273,27 +325,31 @@ class PropertyService {
         'id, title, location, price, media_urls, category, property_type, area, area_unit, status, metadata';
     final cityToken = location.split(',').first.trim().toLowerCase();
 
-    final primaryRows = List<Map<String, dynamic>>.from(await _supabase
-        .from('properties')
-        .select(columns)
-        .eq('approval_status', 'approved')
-        .eq('property_type', propertyType)
-        .eq('category', category)
-        .neq('id', propertyId)
-        .ilike('location', '%$cityToken%')
-        .limit(10));
-
-    List<Map<String, dynamic>> rows = primaryRows;
-
-    if (rows.length < 4) {
-      final fallbackRows = List<Map<String, dynamic>>.from(await _supabase
+    final primaryRows = List<Map<String, dynamic>>.from(
+      await _supabase
           .from('properties')
           .select(columns)
           .eq('approval_status', 'approved')
           .eq('property_type', propertyType)
           .eq('category', category)
           .neq('id', propertyId)
-          .limit(10));
+          .ilike('location', '%$cityToken%')
+          .limit(10),
+    );
+
+    List<Map<String, dynamic>> rows = primaryRows;
+
+    if (rows.length < 4) {
+      final fallbackRows = List<Map<String, dynamic>>.from(
+        await _supabase
+            .from('properties')
+            .select(columns)
+            .eq('approval_status', 'approved')
+            .eq('property_type', propertyType)
+            .eq('category', category)
+            .neq('id', propertyId)
+            .limit(10),
+      );
 
       final seenIds = {for (final r in rows) r['id'].toString()};
       for (final r in fallbackRows) {
@@ -302,7 +358,9 @@ class PropertyService {
           rows.add(r);
         }
       }
-      rows = rows.where((r) => (r['title'] as String? ?? '').isNotEmpty).toList();
+      rows = rows
+          .where((r) => (r['title'] as String? ?? '').isNotEmpty)
+          .toList();
       if (rows.length > 6) {
         rows = rows.sublist(0, 6);
       }
@@ -320,13 +378,16 @@ class PropertyService {
     required int viewDurationSeconds,
     required int viewPercentage,
   }) async {
-    final result = await _supabase.rpc('track_property_view', params: {
-      'property_uuid': propertyId,
-      'viewer_user_id': viewerUserId,
-      'viewer_session_id': viewerSessionId,
-      'view_duration': viewDurationSeconds,
-      'view_percentage': viewPercentage,
-    });
+    final result = await _supabase.rpc(
+      'track_property_view',
+      params: {
+        'property_uuid': propertyId,
+        'viewer_user_id': viewerUserId,
+        'viewer_session_id': viewerSessionId,
+        'view_duration': viewDurationSeconds,
+        'view_percentage': viewPercentage,
+      },
+    );
     return result as bool? ?? false;
   }
 
@@ -382,21 +443,22 @@ class PropertyService {
         .eq('is_active', true)
         .order('display_order');
 
-    return List<Map<String, dynamic>>.from(rows)
-        .map((r) => AvailableLocation.fromSupabase(r))
-        .toList();
+    return List<Map<String, dynamic>>.from(
+      rows,
+    ).map((r) => AvailableLocation.fromSupabase(r)).toList();
   }
 
   /// Calls the `global_search` RPC used for the debounced autocomplete
   /// dropdown. See GlobalSearchSuggestion.fromSupabase for why the id field
   /// is read defensively.
   Future<List<GlobalSearchSuggestion>> globalSearch(String term) async {
-    final result = await _supabase.rpc('global_search', params: {
-      'search_term': term,
-    });
-    return List<Map<String, dynamic>>.from(result as List<dynamic>)
-        .map((r) => GlobalSearchSuggestion.fromSupabase(r))
-        .toList();
+    final result = await _supabase.rpc(
+      'global_search',
+      params: {'search_term': term},
+    );
+    return List<Map<String, dynamic>>.from(
+      result as List<dynamic>,
+    ).map((r) => GlobalSearchSuggestion.fromSupabase(r)).toList();
   }
 
   /// Fetches raw property, sub-table, and contact rows for pre-filling the
@@ -418,10 +480,10 @@ class PropertyService {
 
     final Map<String, dynamic>? subtableRow = subtableTable != null
         ? await _supabase
-            .from(subtableTable)
-            .select('*')
-            .eq('property_id', propertyId)
-            .maybeSingle()
+              .from(subtableTable)
+              .select('*')
+              .eq('property_id', propertyId)
+              .maybeSingle()
         : null;
 
     final Map<String, dynamic>? contactRow = await _supabase
@@ -494,8 +556,9 @@ class PropertyService {
     // the app. Nested objects are deliberately preserved here rather than
     // hydrated into the provider; full editing support for them lands with
     // the category parity phases.
-    final Map<String, dynamic> existingMetadata =
-        await _fetchExistingMetadata(propertyId);
+    final Map<String, dynamic> existingMetadata = await _fetchExistingMetadata(
+      propertyId,
+    );
     final Map<String, dynamic> metadata = _fillTypedEmpties(
       _applyProjectTag(<String, dynamic>{
         ...existingMetadata,
@@ -503,41 +566,48 @@ class PropertyService {
       }, provider),
     );
 
-    await _supabase.from('properties').update({
-      'title': provider.title,
-      'description': provider.description,
-      'location': provider.location,
-      'latitude': provider.latitude,
-      'longitude': provider.longitude,
-      'price': _headlinePrice(provider),
-      'area': provider.area.isEmpty ? '0' : provider.area,
-      'area_unit': provider.areaUnit.isEmpty
-          ? 'sq_ft'
-          : canonicalAreaUnit(provider.areaUnit),
-      'rate_per_area': double.tryParse(provider.ratePerArea),
-      'available_from': _availableFrom(provider),
-      'hashtags': _parseHashtags(provider.hashtags),
-      'amenities': provider.listVal('amenities'),
-      'media_urls': allUrls,
-      'main_display_media_url': _mainDisplayUrl(provider, allUrls),
-      'property_type': (provider.listingIntent ??
-              (throw StateError('Listing intent must be selected.')))
-          .name,
-      'category': _categoryToDb(provider.category ??
-          (throw StateError('Property category must be selected.'))),
-      // React writes this key unconditionally, using '' for every non-
-      // residential category (PropertyWizard.tsx:1784). Omitting it left the
-      // nullable column NULL, which breaks the dbSafe rule that nothing
-      // reaches Postgres as NULL except dates and FKs — and any web reader
-      // doing `.trim()` on it would throw.
-      'residential_subtype': provider.category == PropertyCategory.residential
-          ? canonicalResidentialSubtype(provider.residentialSubType ?? '')
-          : '',
-      // null, never '' — the column is a uuid FK to builder_projects, so a
-      // placeholder would fail the constraint (React uses dbUuid for this).
-      'project_id': provider.projectId.isEmpty ? null : provider.projectId,
-      'metadata': metadata,
-    }).eq('id', propertyId);
+    await _supabase
+        .from('properties')
+        .update({
+          'title': provider.title,
+          'description': provider.description,
+          'location': provider.location,
+          'latitude': provider.latitude,
+          'longitude': provider.longitude,
+          'price': _headlinePrice(provider),
+          'area': provider.area.isEmpty ? '0' : provider.area,
+          'area_unit': provider.areaUnit.isEmpty
+              ? 'sq_ft'
+              : canonicalAreaUnit(provider.areaUnit),
+          'rate_per_area': double.tryParse(provider.ratePerArea),
+          'available_from': _availableFrom(provider),
+          'hashtags': _parseHashtags(provider.hashtags),
+          'amenities': provider.listVal('amenities'),
+          'media_urls': allUrls,
+          'main_display_media_url': _mainDisplayUrl(provider, allUrls),
+          'property_type':
+              (provider.listingIntent ??
+                      (throw StateError('Listing intent must be selected.')))
+                  .name,
+          'category': _categoryToDb(
+            provider.category ??
+                (throw StateError('Property category must be selected.')),
+          ),
+          // React writes this key unconditionally, using '' for every non-
+          // residential category (PropertyWizard.tsx:1784). Omitting it left the
+          // nullable column NULL, which breaks the dbSafe rule that nothing
+          // reaches Postgres as NULL except dates and FKs — and any web reader
+          // doing `.trim()` on it would throw.
+          'residential_subtype':
+              provider.category == PropertyCategory.residential
+              ? canonicalResidentialSubtype(provider.residentialSubType ?? '')
+              : '',
+          // null, never '' — the column is a uuid FK to builder_projects, so a
+          // placeholder would fail the constraint (React uses dbUuid for this).
+          'project_id': provider.projectId.isEmpty ? null : provider.projectId,
+          'metadata': metadata,
+        })
+        .eq('id', propertyId);
 
     await _upsertCategoryData(propertyId, provider);
     await _upsertContactDetails(propertyId, provider);
@@ -556,7 +626,10 @@ class PropertyService {
   Future<List<TaggedProject>> _withBuilderNames(
     List<TaggedProject> projects,
   ) async {
-    final ids = projects.map((p) => p.builderId).where((id) => id.isNotEmpty).toSet();
+    final ids = projects
+        .map((p) => p.builderId)
+        .where((id) => id.isNotEmpty)
+        .toSet();
     if (ids.isEmpty) return projects;
 
     final rows = await _supabase
@@ -566,7 +639,8 @@ class PropertyService {
 
     final nameById = <String, String>{
       for (final r in List<Map<String, dynamic>>.from(rows))
-        r['user_id'].toString(): (r['company_name']?.toString().isNotEmpty ?? false)
+        r['user_id']
+            .toString(): (r['company_name']?.toString().isNotEmpty ?? false)
             ? r['company_name'].toString()
             : (r['display_name']?.toString() ?? ''),
     };
@@ -605,13 +679,12 @@ class PropertyService {
       request = request.ilike('location', '%$city%');
     }
 
-    final rows =
-        await request.order('created_at', ascending: false).limit(12);
+    final rows = await request.order('created_at', ascending: false).limit(12);
 
     return _withBuilderNames(
-      List<Map<String, dynamic>>.from(rows)
-          .map(TaggedProject.fromSupabase)
-          .toList(),
+      List<Map<String, dynamic>>.from(
+        rows,
+      ).map(TaggedProject.fromSupabase).toList(),
     );
   }
 
@@ -720,8 +793,12 @@ class PropertyService {
     final Map<String, dynamic> metadata = _fillTypedEmpties(
       _applyProjectTag(_buildMetadata(provider), provider),
     );
-    final String propertyId =
-        await _insertProperty(provider, userId, uploadedUrls, metadata);
+    final String propertyId = await _insertProperty(
+      provider,
+      userId,
+      uploadedUrls,
+      metadata,
+    );
     await _insertCategoryData(propertyId, provider);
     await _insertContactDetails(propertyId, provider);
     return propertyId;
@@ -756,11 +833,18 @@ class PropertyService {
       'hashtags': _parseHashtags(provider.hashtags),
       'media_urls': uploadedUrls,
       'main_display_media_url': _mainDisplayUrl(provider, uploadedUrls),
-      'property_type': (provider.listingIntent ??
-              (throw StateError('Listing intent must be selected before publishing.')))
-          .name,
-      'category': _categoryToDb(provider.category ??
-          (throw StateError('Property category must be selected before publishing.'))),
+      'property_type':
+          (provider.listingIntent ??
+                  (throw StateError(
+                    'Listing intent must be selected before publishing.',
+                  )))
+              .name,
+      'category': _categoryToDb(
+        provider.category ??
+            (throw StateError(
+              'Property category must be selected before publishing.',
+            )),
+      ),
       // React writes this key unconditionally, using '' for every non-
       // residential category (PropertyWizard.tsx:1784). Omitting it left the
       // nullable column NULL, which breaks the dbSafe rule that nothing
@@ -819,12 +903,13 @@ class PropertyService {
       // both Semi- and Fully-Furnished count. The previous check for the
       // literal 'Furnished' never matched anything the dropdown can actually
       // produce, and omitted 'Fully-Furnished' entirely.
-      'furnished': provider.furnishingType == 'Semi-Furnished' ||
+      'furnished':
+          provider.furnishingType == 'Semi-Furnished' ||
           provider.furnishingType == 'Fully-Furnished',
       'parking_spaces': int.tryParse(provider.coveredParking),
       'floor_number': int.tryParse(provider.floorNo),
       'total_floors': int.tryParse(provider.totalFloors),
-      'age_of_property': null,    // no provider field; React also sends null
+      'age_of_property': null, // no provider field; React also sends null
       'facing_direction': provider.facing,
     });
   }
@@ -849,7 +934,8 @@ class PropertyService {
       // both Semi- and Fully-Furnished count. The previous check for the
       // literal 'Furnished' never matched anything the dropdown can actually
       // produce, and omitted 'Fully-Furnished' entirely.
-      'furnished': provider.furnishingType == 'Semi-Furnished' ||
+      'furnished':
+          provider.furnishingType == 'Semi-Furnished' ||
           provider.furnishingType == 'Fully-Furnished',
       // React maps guardRoom → cafeteria; defaults to false if not set in commercial UI
       'cafeteria': provider.guardRoom,
@@ -892,7 +978,9 @@ class PropertyService {
     String propertyId,
     PostPropertyProvider provider,
   ) async {
-    await _supabase.from('properties_land').insert(_landRow(propertyId, provider));
+    await _supabase
+        .from('properties_land')
+        .insert(_landRow(propertyId, provider));
   }
 
   /// INSERT into `property_contact_details`.
@@ -927,13 +1015,15 @@ class PropertyService {
       final bytes = await item.file.readAsBytes();
       final ext = item.file.name.split('.').last.toLowerCase();
       final contentType = item.file.mimeType ?? _mimeFromExt(ext);
-      final path =
-          '$userId/${DateTime.now().millisecondsSinceEpoch}-$i.$ext';
+      final path = '$userId/${DateTime.now().millisecondsSinceEpoch}-$i.$ext';
       await _supabase.storage
           .from('property-media')
-          .uploadBinary(path, bytes, fileOptions: FileOptions(contentType: contentType));
-      final url =
-          _supabase.storage.from('property-media').getPublicUrl(path);
+          .uploadBinary(
+            path,
+            bytes,
+            fileOptions: FileOptions(contentType: contentType),
+          );
+      final url = _supabase.storage.from('property-media').getPublicUrl(path);
       urls.add(url);
     }
     return urls;
@@ -941,12 +1031,12 @@ class PropertyService {
 
   static String _mimeFromExt(String ext) => switch (ext) {
     'jpg' || 'jpeg' => 'image/jpeg',
-    'png'           => 'image/png',
-    'webp'          => 'image/webp',
-    'heic'          => 'image/heic',
-    'mp4'           => 'video/mp4',
-    'mov'           => 'video/quicktime',
-    _               => 'application/octet-stream',
+    'png' => 'image/png',
+    'webp' => 'image/webp',
+    'heic' => 'image/heic',
+    'mp4' => 'video/mp4',
+    'mov' => 'video/quicktime',
+    _ => 'application/octet-stream',
   };
 
   /// Converts the Flutter [PropertyCategory] enum to the DB category string.
@@ -1059,7 +1149,8 @@ class PropertyService {
 
     // ── Step 6: Legal ─────────────────────────────────────────────────────
     meta['reraRegistered'] = provider.reraRegistered;
-    if (provider.reraNumber.isNotEmpty) meta['reraNumber'] = provider.reraNumber;
+    if (provider.reraNumber.isNotEmpty)
+      meta['reraNumber'] = provider.reraNumber;
     meta['saleDeed'] = provider.saleDeed;
     meta['registryCopy'] = provider.registryCopy;
     meta['nocAvailable'] = provider.nocAvailable;
@@ -1088,7 +1179,8 @@ class PropertyService {
     if (provider.bookingAmount.isNotEmpty) {
       meta['tokenAmount'] = provider.bookingAmount;
     }
-    if (provider.lockInPeriod != null) meta['lockInPeriod'] = provider.lockInPeriod;
+    if (provider.lockInPeriod != null)
+      meta['lockInPeriod'] = provider.lockInPeriod;
     meta['priceNegotiable'] = provider.priceNegotiable;
     // React's canonical key is 'allInclusivePriceToggle'. The previous
     // 'allInclusivePrice' appears nowhere in the React source (0 occurrences
@@ -1099,7 +1191,8 @@ class PropertyService {
     if (provider.brokerage.isNotEmpty) meta['brokerage'] = provider.brokerage;
 
     // ── Step 8: Contact overflow ──────────────────────────────────────────
-    if (provider.contactName.isNotEmpty) meta['contactName'] = provider.contactName;
+    if (provider.contactName.isNotEmpty)
+      meta['contactName'] = provider.contactName;
     if (provider.whatsappNumber.isNotEmpty) {
       meta['whatsappNumber'] = provider.whatsappNumber;
     }
@@ -1240,7 +1333,7 @@ class PropertyService {
     return meta;
   }
 
-  /// Dispatches to the correct category sub-table UPSERT for edit mode.
+  /// Dispatches to the correct category sub-table write for edit mode.
   Future<void> _upsertCategoryData(
     String propertyId,
     PostPropertyProvider provider,
@@ -1258,11 +1351,32 @@ class PropertyService {
     }
   }
 
+  /// True if [table] already has a `property_id` row for [propertyId].
+  ///
+  /// None of the category sub-tables (`properties_residential`,
+  /// `properties_commercial`, `properties_land`, `property_contact_details`)
+  /// carry a UNIQUE constraint on `property_id` — `.upsert(onConflict:
+  /// 'property_id')` against them fails with Postgres 42P10 ("no unique or
+  /// exclusion constraint matching the ON CONFLICT specification") the moment
+  /// an edit tries to write a row that already exists. The React portal never
+  /// upserts these tables either; it does exactly this select-first check
+  /// before choosing `.update()` or `.insert()` (`PropertyWizard.tsx:1944-
+  /// 2073`). Reproduced here rather than adding a constraint the backend was
+  /// never given.
+  Future<bool> _rowExists(String table, String propertyId) async {
+    final existing = await _supabase
+        .from(table)
+        .select('id')
+        .eq('property_id', propertyId)
+        .maybeSingle();
+    return existing != null;
+  }
+
   Future<void> _upsertResidential(
     String propertyId,
     PostPropertyProvider provider,
   ) async {
-    await _supabase.from('properties_residential').upsert({
+    final data = {
       'property_id': propertyId,
       'bedrooms': int.tryParse(provider.bedrooms),
       'bathrooms': int.tryParse(provider.bathrooms),
@@ -1273,21 +1387,30 @@ class PropertyService {
       // both Semi- and Fully-Furnished count. The previous check for the
       // literal 'Furnished' never matched anything the dropdown can actually
       // produce, and omitted 'Fully-Furnished' entirely.
-      'furnished': provider.furnishingType == 'Semi-Furnished' ||
+      'furnished':
+          provider.furnishingType == 'Semi-Furnished' ||
           provider.furnishingType == 'Fully-Furnished',
       'parking_spaces': int.tryParse(provider.coveredParking),
       'floor_number': int.tryParse(provider.floorNo),
       'total_floors': int.tryParse(provider.totalFloors),
       'age_of_property': null,
       'facing_direction': provider.facing,
-    }, onConflict: 'property_id');
+    };
+    if (await _rowExists('properties_residential', propertyId)) {
+      await _supabase
+          .from('properties_residential')
+          .update(data)
+          .eq('property_id', propertyId);
+    } else {
+      await _supabase.from('properties_residential').insert(data);
+    }
   }
 
   Future<void> _upsertCommercial(
     String propertyId,
     PostPropertyProvider provider,
   ) async {
-    await _supabase.from('properties_commercial').upsert({
+    final data = {
       'property_id': propertyId,
       'built_up_area_sqft': double.tryParse(provider.area),
       'carpet_area_sqft': double.tryParse(provider.carpetArea),
@@ -1299,22 +1422,37 @@ class PropertyService {
       // both Semi- and Fully-Furnished count. The previous check for the
       // literal 'Furnished' never matched anything the dropdown can actually
       // produce, and omitted 'Fully-Furnished' entirely.
-      'furnished': provider.furnishingType == 'Semi-Furnished' ||
+      'furnished':
+          provider.furnishingType == 'Semi-Furnished' ||
           provider.furnishingType == 'Fully-Furnished',
       'cafeteria': provider.guardRoom,
-    }, onConflict: 'property_id');
+    };
+    if (await _rowExists('properties_commercial', propertyId)) {
+      await _supabase
+          .from('properties_commercial')
+          .update(data)
+          .eq('property_id', propertyId);
+    } else {
+      await _supabase.from('properties_commercial').insert(data);
+    }
   }
 
   Future<void> _upsertLand(
     String propertyId,
     PostPropertyProvider provider,
   ) async {
-    await _supabase
-        .from('properties_land')
-        .upsert(_landRow(propertyId, provider), onConflict: 'property_id');
+    final data = _landRow(propertyId, provider);
+    if (await _rowExists('properties_land', propertyId)) {
+      await _supabase
+          .from('properties_land')
+          .update(data)
+          .eq('property_id', propertyId);
+    } else {
+      await _supabase.from('properties_land').insert(data);
+    }
   }
 
-  /// UPSERT into `property_contact_details`. Used in edit mode.
+  /// Updates or inserts `property_contact_details`. Used in edit mode.
   Future<void> _upsertContactDetails(
     String propertyId,
     PostPropertyProvider provider,
@@ -1323,11 +1461,19 @@ class PropertyService {
     final email = provider.contactEmail.trim();
     if (phone.isEmpty && email.isEmpty) return;
 
-    await _supabase.from('property_contact_details').upsert({
+    final data = {
       'property_id': propertyId,
       'contact_phone': phone.isNotEmpty ? phone : null,
       'contact_email': email.isNotEmpty ? email : null,
-    }, onConflict: 'property_id');
+    };
+    if (await _rowExists('property_contact_details', propertyId)) {
+      await _supabase
+          .from('property_contact_details')
+          .update(data)
+          .eq('property_id', propertyId);
+    } else {
+      await _supabase.from('property_contact_details').insert(data);
+    }
   }
 
   /// Mirrors the React PropertyWizard approval check (lines 1431-1466).

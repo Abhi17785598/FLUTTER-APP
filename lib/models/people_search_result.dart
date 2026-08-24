@@ -67,8 +67,10 @@ class PeopleSearchPage {
 
   const PeopleSearchPage({required this.rows, this.totalCount});
 
-  static const PeopleSearchPage empty =
-      PeopleSearchPage(rows: <UserProfile>[], totalCount: 0);
+  static const PeopleSearchPage empty = PeopleSearchPage(
+    rows: <UserProfile>[],
+    totalCount: 0,
+  );
 }
 
 /// A profile paired with the rating aggregate for its card, if one arrived.

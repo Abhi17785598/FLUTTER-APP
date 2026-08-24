@@ -34,11 +34,7 @@ class PropertyCardSearchGrid extends StatelessWidget {
   final PropertyModel property;
   final VoidCallback? onTap;
 
-  const PropertyCardSearchGrid({
-    super.key,
-    required this.property,
-    this.onTap,
-  });
+  const PropertyCardSearchGrid({super.key, required this.property, this.onTap});
 
   @override
   Widget build(BuildContext context) {
@@ -70,9 +66,8 @@ class PropertyCardSearchGrid extends StatelessWidget {
         CachedNetworkImage(
           imageUrl: property.imageUrl,
           fit: BoxFit.cover,
-          placeholder: (context, url) => ColoredBox(
-            color: AppColors.textHint.withValues(alpha: 0.1),
-          ),
+          placeholder: (context, url) =>
+              ColoredBox(color: AppColors.textHint.withValues(alpha: 0.1)),
           errorWidget: (context, url, error) => ColoredBox(
             color: AppColors.textHint.withValues(alpha: 0.1),
             child: const Icon(Icons.broken_image, size: 20),

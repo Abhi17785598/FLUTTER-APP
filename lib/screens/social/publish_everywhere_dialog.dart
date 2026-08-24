@@ -198,8 +198,7 @@ class _PublishEverywhereDialogState extends State<PublishEverywhereDialog> {
       );
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context)
-          .showSnackBar(SnackBar(content: Text('$e')));
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('$e')));
     } finally {
       if (mounted) setState(() => _publishing = false);
     }
@@ -223,9 +222,9 @@ class _PublishEverywhereDialogState extends State<PublishEverywhereDialog> {
             Text(
               widget.title != null && widget.title!.isNotEmpty
                   ? '"${widget.title}" is live on PropCID. Choose where to '
-                      'share it and pick the destinations.'
+                        'share it and pick the destinations.'
                   : 'Your content is live on PropCID. Choose where to share '
-                      'it and pick the destinations.',
+                        'it and pick the destinations.',
               style: const TextStyle(fontSize: 12.5, color: Colors.black54),
             ),
             const SizedBox(height: 12),
@@ -320,12 +319,12 @@ class _PublishEverywhereDialogState extends State<PublishEverywhereDialog> {
               Text(
                 widget.mediaUrls.isNotEmpty
                     ? '${widget.mediaUrls.length} image'
-                        '${widget.mediaUrls.length == 1 ? '' : 's'} will be '
-                        'attached'
-                        '${widget.mediaUrls.length > 1 ? ' as a carousel (Feed)' : ''}. '
-                        'Stories use the first image.'
+                          '${widget.mediaUrls.length == 1 ? '' : 's'} will be '
+                          'attached'
+                          '${widget.mediaUrls.length > 1 ? ' as a carousel (Feed)' : ''}. '
+                          'Stories use the first image.'
                     : 'No images found — Facebook Feed will post text only; '
-                        'Instagram and Stories require at least one image.',
+                          'Instagram and Stories require at least one image.',
                 style: const TextStyle(fontSize: 11.5, color: Colors.black54),
               ),
             ],
@@ -338,7 +337,8 @@ class _PublishEverywhereDialogState extends State<PublishEverywhereDialog> {
           child: const Text('Skip'),
         ),
         ElevatedButton.icon(
-          onPressed: (_publishing || notConnected || nothingSelected || _loadFailed)
+          onPressed:
+              (_publishing || notConnected || nothingSelected || _loadFailed)
               ? null
               : _publish,
           icon: _publishing
@@ -476,8 +476,7 @@ class _PlatformBlock extends StatelessWidget {
               children: [
                 Checkbox(
                   value: enabled,
-                  onChanged:
-                      disabled ? null : (v) => onToggle(v ?? false),
+                  onChanged: disabled ? null : (v) => onToggle(v ?? false),
                 ),
                 Icon(icon, size: 18, color: iconColor),
                 const SizedBox(width: 8),
@@ -486,20 +485,25 @@ class _PlatformBlock extends StatelessWidget {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      Text(label,
-                          style: const TextStyle(fontWeight: FontWeight.w600)),
+                      Text(
+                        label,
+                        style: const TextStyle(fontWeight: FontWeight.w600),
+                      ),
                       if (subtitle != null && subtitle!.isNotEmpty)
                         Text(
                           subtitle!,
                           style: const TextStyle(
-                              fontSize: 11, color: Colors.black54),
+                            fontSize: 11,
+                            color: Colors.black54,
+                          ),
                         ),
                     ],
                   ),
                 ),
                 TextButton.icon(
-                  onPressed:
-                      (disabled || generating || !enabled) ? null : onGenerate,
+                  onPressed: (disabled || generating || !enabled)
+                      ? null
+                      : onGenerate,
                   icon: generating
                       ? const SizedBox(
                           width: 12,

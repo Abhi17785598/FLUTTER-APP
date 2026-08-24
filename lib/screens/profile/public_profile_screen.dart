@@ -163,8 +163,7 @@ class _PublicProfileViewState extends State<_PublicProfileView> {
     // The travel available before the bar is fully pinned. Measured against the
     // header's full reserved height (cover + avatar overhang), not the cover
     // alone, or collapse would hit 1.0 while 42 dp of the bar is still expanded.
-    final value =
-        (_scroll.offset / kPublicHeaderCollapseRange).clamp(0.0, 1.0);
+    final value = (_scroll.offset / kPublicHeaderCollapseRange).clamp(0.0, 1.0);
     if ((value - _collapse.value).abs() > 0.001) {
       _collapse.value = value;
     }
@@ -228,20 +227,28 @@ class _PublicProfileViewState extends State<_PublicProfileView> {
               ),
               const SizedBox(height: AppConstants.spacingS),
               ListTile(
-                leading: const Icon(Icons.link_rounded,
-                    color: AppColors.textSecondary),
-                title: Text('Copy profile link',
-                    style: AppTextStyles.body.copyWith(fontSize: 14)),
+                leading: const Icon(
+                  Icons.link_rounded,
+                  color: AppColors.textSecondary,
+                ),
+                title: Text(
+                  'Copy profile link',
+                  style: AppTextStyles.body.copyWith(fontSize: 14),
+                ),
                 onTap: () {
                   Navigator.of(sheetContext).pop();
                   copyProfileLink(context, shareUrl);
                 },
               ),
               ListTile(
-                leading: const Icon(Icons.qr_code_2_rounded,
-                    color: AppColors.textSecondary),
-                title: Text('Show QR code',
-                    style: AppTextStyles.body.copyWith(fontSize: 14)),
+                leading: const Icon(
+                  Icons.qr_code_2_rounded,
+                  color: AppColors.textSecondary,
+                ),
+                title: Text(
+                  'Show QR code',
+                  style: AppTextStyles.body.copyWith(fontSize: 14),
+                ),
                 onTap: () {
                   Navigator.of(sheetContext).pop();
                   showProfileQrSheet(
@@ -275,15 +282,16 @@ class _PublicProfileViewState extends State<_PublicProfileView> {
     try {
       // Messaging someone from their public profile carries no property/lead
       // context either — gated the same as a cold "New Chat" pick.
-      final conversationId = await MessagingService()
-          .startConversation(profile.userId, skipRequestGate: false);
+      final conversationId = await MessagingService().startConversation(
+        profile.userId,
+        skipRequestGate: false,
+      );
 
       if (!mounted) return;
 
       await navigator.push(
         MaterialPageRoute(
-          settings:
-              const RouteSettings(name: AppConstants.chatThreadScreen),
+          settings: const RouteSettings(name: AppConstants.chatThreadScreen),
           builder: (_) => ChatThreadScreen(
             kind: ChatThreadKind.conversation,
             threadId: conversationId,
@@ -366,9 +374,7 @@ class _PublicProfileViewState extends State<_PublicProfileView> {
         context: context,
         builder: (dialogContext) => AlertDialog(
           title: const Text('Cancel request?'),
-          content: const Text(
-            'Your connection request will be withdrawn.',
-          ),
+          content: const Text('Your connection request will be withdrawn.'),
           actions: [
             TextButton(
               onPressed: () => Navigator.of(dialogContext).pop(false),
@@ -498,8 +504,8 @@ class _PublicProfileViewState extends State<_PublicProfileView> {
                       heroTag: widget.avatarHeroTag,
                     )
                   : provider.isInitialLoad
-                      ? const PublicProfileAvatarSkeleton()
-                      : null,
+                  ? const PublicProfileAvatarSkeleton()
+                  : null,
             ),
             ..._buildBody(provider, profile),
           ],
@@ -508,21 +514,21 @@ class _PublicProfileViewState extends State<_PublicProfileView> {
       bottomNavigationBar: profile == null
           ? null
           : ProfileStickyActionBar(
-              isSelf: provider.isSelf,
-              viewerSignedIn: provider.viewerSignedIn,
-              connectionStatus: provider.connectionStatus,
-              statusLoading:
-                  provider.connectionLoading || provider.connectionBusy,
-              onShare: () => _share(profile),
-              onConnect: provider.canActOnConnection
-                  ? () => _connect(provider)
-                  : null,
-              onMessage: _messaging ? null : () => _message(profile),
-              onSignIn: () => Navigator.pushNamed(context, '/auth'),
-            )
-              .animate()
-              .fadeIn(duration: 300.ms)
-              .slideY(begin: 0.3, end: 0, curve: Curves.easeOutCubic),
+                  isSelf: provider.isSelf,
+                  viewerSignedIn: provider.viewerSignedIn,
+                  connectionStatus: provider.connectionStatus,
+                  statusLoading:
+                      provider.connectionLoading || provider.connectionBusy,
+                  onShare: () => _share(profile),
+                  onConnect: provider.canActOnConnection
+                      ? () => _connect(provider)
+                      : null,
+                  onMessage: _messaging ? null : () => _message(profile),
+                  onSignIn: () => Navigator.pushNamed(context, '/auth'),
+                )
+                .animate()
+                .fadeIn(duration: 300.ms)
+                .slideY(begin: 0.3, end: 0, curve: Curves.easeOutCubic),
     );
   }
 
@@ -807,7 +813,10 @@ class _PublicProfileViewState extends State<_PublicProfileView> {
     if (_scroll.hasClients && _scroll.offset > 0) return child;
     return child
         .animate()
-        .fadeIn(duration: 400.ms, delay: Duration(milliseconds: delayMs))
+        .fadeIn(
+          duration: 400.ms,
+          delay: Duration(milliseconds: delayMs),
+        )
         .slideY(begin: 0.04, end: 0, curve: Curves.easeOutCubic);
   }
 
@@ -822,104 +831,115 @@ class _PublicProfileViewState extends State<_PublicProfileView> {
     final groups = <ProfileDetailGroup>[];
 
     if (!profile.isIndividual) {
-      groups.add(ProfileDetailGroup(
-        title: 'Business',
-        rows: [
-          ProfileDetailRow(
-            label: 'Experience',
-            value: profile.hasExperienceField
-                ? '${profile.effectiveExperience ?? 0} yrs'
-                : null,
-          ),
-          ProfileDetailRow(
-            label: 'Specialisation',
-            chips: profile.specialization,
-          ),
-          ProfileDetailRow(
-            label: 'Areas of operation',
-            value: profile.effectiveCity,
-          ),
-          ProfileDetailRow(label: 'RERA', value: profile.effectiveRera),
-          ProfileDetailRow(
-            label: 'Website',
-            value: profile.effectiveWebsite == null ? null : 'Visit site',
-            linkUrl: profile.effectiveWebsite,
-          ),
-        ],
-      ));
+      groups.add(
+        ProfileDetailGroup(
+          title: 'Business',
+          rows: [
+            ProfileDetailRow(
+              label: 'Experience',
+              value: profile.hasExperienceField
+                  ? '${profile.effectiveExperience ?? 0} yrs'
+                  : null,
+            ),
+            ProfileDetailRow(
+              label: 'Specialisation',
+              chips: profile.specialization,
+            ),
+            ProfileDetailRow(
+              label: 'Areas of operation',
+              value: profile.effectiveCity,
+            ),
+            ProfileDetailRow(label: 'RERA', value: profile.effectiveRera),
+            ProfileDetailRow(
+              label: 'Website',
+              value: profile.effectiveWebsite == null ? null : 'Visit site',
+              linkUrl: profile.effectiveWebsite,
+            ),
+          ],
+        ),
+      );
     }
 
     if (profile.isBuilder) {
-      groups.add(ProfileDetailGroup(
-        title: 'Builder profile',
-        rows: [
-          ProfileDetailRow(label: 'Project types', chips: sm.projectTypes),
-          ProfileDetailRow(
-            label: 'Areas of expertise',
-            chips: sm.areasOfExpertise,
-          ),
-          ProfileDetailRow(label: 'Company type', value: sm.companyType),
-        ],
-      ));
+      groups.add(
+        ProfileDetailGroup(
+          title: 'Builder profile',
+          rows: [
+            ProfileDetailRow(label: 'Project types', chips: sm.projectTypes),
+            ProfileDetailRow(
+              label: 'Areas of expertise',
+              chips: sm.areasOfExpertise,
+            ),
+            ProfileDetailRow(label: 'Company type', value: sm.companyType),
+          ],
+        ),
+      );
     }
 
     if (profile.isBroker) {
-      groups.add(ProfileDetailGroup(
-        title: 'Broker insights',
-        rows: [
-          ProfileDetailRow(label: 'Type', value: sm.brokerType),
-          ProfileDetailRow(label: 'Commission', value: sm.commissionDetails),
-          ProfileDetailRow(label: 'Price range', value: _priceRange(profile)),
-          ProfileDetailRow(label: 'Languages', chips: sm.languagesKnown),
-        ],
-      ));
+      groups.add(
+        ProfileDetailGroup(
+          title: 'Broker insights',
+          rows: [
+            ProfileDetailRow(label: 'Type', value: sm.brokerType),
+            ProfileDetailRow(label: 'Commission', value: sm.commissionDetails),
+            ProfileDetailRow(label: 'Price range', value: _priceRange(profile)),
+            ProfileDetailRow(label: 'Languages', chips: sm.languagesKnown),
+          ],
+        ),
+      );
     }
 
     if (profile.isInfluencer) {
-      groups.add(ProfileDetailGroup(
-        title: 'Influencer',
-        rows: [
-          ProfileDetailRow(label: 'Platform', value: sm.primaryPlatform),
-          ProfileDetailRow(label: 'Category', value: sm.category),
-          ProfileDetailRow(label: 'Audience', value: sm.audienceType),
-          ProfileDetailRow(
-            label: 'Instagram',
-            value: sm.instagramFollowers == null
-                ? null
-                : formatCompactCount(sm.instagramFollowers!),
-          ),
-          ProfileDetailRow(
-            label: 'YouTube',
-            value: sm.youtubeSubscribers == null
-                ? null
-                : formatCompactCount(sm.youtubeSubscribers!),
-          ),
-          ProfileDetailRow(
-            label: 'Shoutout from',
-            value: sm.basePricingShoutout == null
-                ? null
-                : '₹${sm.basePricingShoutout}',
-          ),
-          ProfileDetailRow(
-            label: 'Video from',
-            value:
-                sm.basePricingVideo == null ? null : '₹${sm.basePricingVideo}',
-          ),
-          ProfileDetailRow(label: 'Content', chips: sm.contentTypes),
-          ProfileDetailRow(label: 'Languages', chips: sm.languagesKnown),
-        ],
-      ));
+      groups.add(
+        ProfileDetailGroup(
+          title: 'Influencer',
+          rows: [
+            ProfileDetailRow(label: 'Platform', value: sm.primaryPlatform),
+            ProfileDetailRow(label: 'Category', value: sm.category),
+            ProfileDetailRow(label: 'Audience', value: sm.audienceType),
+            ProfileDetailRow(
+              label: 'Instagram',
+              value: sm.instagramFollowers == null
+                  ? null
+                  : formatCompactCount(sm.instagramFollowers!),
+            ),
+            ProfileDetailRow(
+              label: 'YouTube',
+              value: sm.youtubeSubscribers == null
+                  ? null
+                  : formatCompactCount(sm.youtubeSubscribers!),
+            ),
+            ProfileDetailRow(
+              label: 'Shoutout from',
+              value: sm.basePricingShoutout == null
+                  ? null
+                  : '₹${sm.basePricingShoutout}',
+            ),
+            ProfileDetailRow(
+              label: 'Video from',
+              value: sm.basePricingVideo == null
+                  ? null
+                  : '₹${sm.basePricingVideo}',
+            ),
+            ProfileDetailRow(label: 'Content', chips: sm.contentTypes),
+            ProfileDetailRow(label: 'Languages', chips: sm.languagesKnown),
+          ],
+        ),
+      );
     }
 
     // The portal shows Personal Details for everyone except builders.
     if (!profile.isBuilder) {
-      groups.add(ProfileDetailGroup(
-        title: 'Personal',
-        rows: [
-          ProfileDetailRow(label: 'Gender', value: sm.gender),
-          ProfileDetailRow(label: 'Date of birth', value: _formatDob(sm.dob)),
-        ],
-      ));
+      groups.add(
+        ProfileDetailGroup(
+          title: 'Personal',
+          rows: [
+            ProfileDetailRow(label: 'Gender', value: sm.gender),
+            ProfileDetailRow(label: 'Date of birth', value: _formatDob(sm.dob)),
+          ],
+        ),
+      );
     }
 
     return groups;
@@ -941,8 +961,18 @@ class _PublicProfileViewState extends State<_PublicProfileView> {
     final parsed = DateTime.tryParse(raw);
     if (parsed == null) return raw;
     const months = [
-      'January', 'February', 'March', 'April', 'May', 'June',
-      'July', 'August', 'September', 'October', 'November', 'December',
+      'January',
+      'February',
+      'March',
+      'April',
+      'May',
+      'June',
+      'July',
+      'August',
+      'September',
+      'October',
+      'November',
+      'December',
     ];
     return '${months[parsed.month - 1]} ${parsed.day}, ${parsed.year}';
   }

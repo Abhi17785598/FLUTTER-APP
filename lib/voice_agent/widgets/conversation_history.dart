@@ -42,9 +42,9 @@ class _ConversationHistoryState extends State<ConversationHistory> {
           return Center(
             child: Text(
               'Ask me anything about properties…',
-              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    color: Colors.grey.shade500,
-                  ),
+              style: Theme.of(
+                context,
+              ).textTheme.bodyMedium?.copyWith(color: Colors.grey.shade500),
               textAlign: TextAlign.center,
             ),
           );
@@ -54,8 +54,7 @@ class _ConversationHistoryState extends State<ConversationHistory> {
           controller: _scroll,
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
           itemCount: turns.length,
-          itemBuilder: (context, index) =>
-              _TurnBubble(turn: turns[index]),
+          itemBuilder: (context, index) => _TurnBubble(turn: turns[index]),
         );
       },
     );
@@ -81,12 +80,12 @@ class _TurnBubble extends StatelessWidget {
         ),
         margin: const EdgeInsets.symmetric(vertical: 4),
         child: Column(
-          crossAxisAlignment:
-              isUser ? CrossAxisAlignment.end : CrossAxisAlignment.start,
+          crossAxisAlignment: isUser
+              ? CrossAxisAlignment.end
+              : CrossAxisAlignment.start,
           children: [
             Container(
-              padding:
-                  const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
               decoration: BoxDecoration(
                 color: isUser
                     ? colorScheme.primary
@@ -101,9 +100,7 @@ class _TurnBubble extends StatelessWidget {
               child: Text(
                 turn.text,
                 style: theme.textTheme.bodyMedium?.copyWith(
-                  color: isUser
-                      ? colorScheme.onPrimary
-                      : colorScheme.onSurface,
+                  color: isUser ? colorScheme.onPrimary : colorScheme.onSurface,
                 ),
               ),
             ),

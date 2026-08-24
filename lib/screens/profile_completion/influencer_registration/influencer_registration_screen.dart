@@ -119,12 +119,17 @@ const List<String> _kPromotionTypeOptions = [
 /// `genderOpt === "Prefer not to say" ? "N/A" : genderOpt === "Non-Binary" ?
 /// "Other" : genderOpt` (InfluencerRegistration.tsx:1170) — the label shown
 /// differs from the value stored for two of the four options.
-const List<String> _kGenderValues = ['Male', 'Female', 'Non-Binary', 'Prefer not to say'];
+const List<String> _kGenderValues = [
+  'Male',
+  'Female',
+  'Non-Binary',
+  'Prefer not to say',
+];
 String _genderLabel(String value) => switch (value) {
-      'Prefer not to say' => 'N/A',
-      'Non-Binary' => 'Other',
-      _ => value,
-    };
+  'Prefer not to say' => 'N/A',
+  'Non-Binary' => 'Other',
+  _ => value,
+};
 
 bool _isBlank(String? v) => v == null || v.trim().isEmpty;
 
@@ -243,18 +248,21 @@ class _InfluencerRegistrationScreenState
     final rawEmail = authUser?.email;
     final rawPhone = authUser?.phone;
 
-    _isEmailUser = rawEmail != null &&
+    _isEmailUser =
+        rawEmail != null &&
         rawEmail.isNotEmpty &&
         !rawEmail.endsWith('@propcid.app');
-    _isPhoneUser = (rawPhone != null && rawPhone.isNotEmpty) ||
+    _isPhoneUser =
+        (rawPhone != null && rawPhone.isNotEmpty) ||
         (rawEmail != null && rawEmail.endsWith('@propcid.app'));
 
     if (_isEmailUser) _emailCtrl.text = rawEmail!;
     if (_isPhoneUser) {
       if (rawPhone != null && rawPhone.isNotEmpty) {
         final digits = rawPhone.replaceAll(RegExp(r'\D'), '');
-        _mobileCtrl.text =
-            digits.length > 10 ? digits.substring(digits.length - 10) : digits;
+        _mobileCtrl.text = digits.length > 10
+            ? digits.substring(digits.length - 10)
+            : digits;
       } else if (rawEmail != null) {
         final m = RegExp(r'u(\d+)@').firstMatch(rawEmail);
         if (m != null) _mobileCtrl.text = m.group(1)!;
@@ -283,12 +291,28 @@ class _InfluencerRegistrationScreenState
   // RegistrationDraftStore for the save/load/expiry mechanics.
   void _wireDraftAutoSave() {
     for (final c in [
-      _fullNameCtrl, _emailCtrl, _mobileCtrl, _altMobileCtrl, _dobCtrl,
-      _bioCtrl, _yearsOfExpCtrl,
-      _officeAddressCtrl, _cityCtrl, _stateCtrl, _pincodeCtrl, _landmarkCtrl,
-      _instagramUsernameCtrl, _instagramFollowersCtrl, _youtubeChannelCtrl,
-      _youtubeSubscribersCtrl, _facebookPageCtrl, _linkedinCtrl, _twitterCtrl,
-      _telegramCtrl, _websiteCtrl, _whatsappCtrl,
+      _fullNameCtrl,
+      _emailCtrl,
+      _mobileCtrl,
+      _altMobileCtrl,
+      _dobCtrl,
+      _bioCtrl,
+      _yearsOfExpCtrl,
+      _officeAddressCtrl,
+      _cityCtrl,
+      _stateCtrl,
+      _pincodeCtrl,
+      _landmarkCtrl,
+      _instagramUsernameCtrl,
+      _instagramFollowersCtrl,
+      _youtubeChannelCtrl,
+      _youtubeSubscribersCtrl,
+      _facebookPageCtrl,
+      _linkedinCtrl,
+      _twitterCtrl,
+      _telegramCtrl,
+      _websiteCtrl,
+      _whatsappCtrl,
       _usernameCtrl,
     ]) {
       c.addListener(_scheduleDraftSave);
@@ -298,59 +322,61 @@ class _InfluencerRegistrationScreenState
   void _scheduleDraftSave() => _draftStore.scheduleSave(_draftToJson);
 
   Map<String, dynamic> _draftToJson() => {
-        'currentStep': currentStep,
-        'fullName': _fullNameCtrl.text,
-        'email': _emailCtrl.text,
-        'mobileNumber': _mobileCtrl.text,
-        'countryCode': _countryCode,
-        'alternateMobileNumber': _altMobileCtrl.text,
-        'alternateCountryCode': _alternateCountryCode,
-        'gender': _gender ?? '',
-        'dob': _dobCtrl.text,
-        'avatarUrl': _avatarUrl ?? '',
-        'category': _category ?? '',
-        'bio': _bioCtrl.text,
-        'languagesKnown': _languagesKnown,
-        'yearsOfExperience': _yearsOfExpCtrl.text,
-        'audienceType': _audienceType ?? '',
-        'primaryContentPlatform': _primaryContentPlatform ?? '',
-        'officeAddress': _officeAddressCtrl.text,
-        'city': _cityCtrl.text,
-        'state': _stateCtrl.text,
-        'pincode': _pincodeCtrl.text,
-        'landmark': _landmarkCtrl.text,
-        'pickedLat': _pickedLat,
-        'pickedLng': _pickedLng,
-        'instagramUsername': _instagramUsernameCtrl.text,
-        'instagramFollowers': _instagramFollowersCtrl.text,
-        'youtubeChannelLink': _youtubeChannelCtrl.text,
-        'youtubeSubscribers': _youtubeSubscribersCtrl.text,
-        'facebookPageLink': _facebookPageCtrl.text,
-        'linkedinProfileUrl': _linkedinCtrl.text,
-        'twitterProfileUrl': _twitterCtrl.text,
-        'telegramChannelLink': _telegramCtrl.text,
-        'websiteUrl': _websiteCtrl.text,
-        'whatsappNumber': _whatsappCtrl.text,
-        'contentTypes': _contentTypes,
-        'preferredPromotionTypes': _preferredPromotionTypes,
-        'aadhaarCardUrl': _aadhaarCardUrl ?? '',
-        'panCardUrl': _panCardUrl ?? '',
-        'username': _usernameCtrl.text,
-        'termsAccepted': _termsAccepted,
-        'privacyAccepted': _privacyAccepted,
-        'promoAccepted': _promoAccepted,
-      };
+    'currentStep': currentStep,
+    'fullName': _fullNameCtrl.text,
+    'email': _emailCtrl.text,
+    'mobileNumber': _mobileCtrl.text,
+    'countryCode': _countryCode,
+    'alternateMobileNumber': _altMobileCtrl.text,
+    'alternateCountryCode': _alternateCountryCode,
+    'gender': _gender ?? '',
+    'dob': _dobCtrl.text,
+    'avatarUrl': _avatarUrl ?? '',
+    'category': _category ?? '',
+    'bio': _bioCtrl.text,
+    'languagesKnown': _languagesKnown,
+    'yearsOfExperience': _yearsOfExpCtrl.text,
+    'audienceType': _audienceType ?? '',
+    'primaryContentPlatform': _primaryContentPlatform ?? '',
+    'officeAddress': _officeAddressCtrl.text,
+    'city': _cityCtrl.text,
+    'state': _stateCtrl.text,
+    'pincode': _pincodeCtrl.text,
+    'landmark': _landmarkCtrl.text,
+    'pickedLat': _pickedLat,
+    'pickedLng': _pickedLng,
+    'instagramUsername': _instagramUsernameCtrl.text,
+    'instagramFollowers': _instagramFollowersCtrl.text,
+    'youtubeChannelLink': _youtubeChannelCtrl.text,
+    'youtubeSubscribers': _youtubeSubscribersCtrl.text,
+    'facebookPageLink': _facebookPageCtrl.text,
+    'linkedinProfileUrl': _linkedinCtrl.text,
+    'twitterProfileUrl': _twitterCtrl.text,
+    'telegramChannelLink': _telegramCtrl.text,
+    'websiteUrl': _websiteCtrl.text,
+    'whatsappNumber': _whatsappCtrl.text,
+    'contentTypes': _contentTypes,
+    'preferredPromotionTypes': _preferredPromotionTypes,
+    'aadhaarCardUrl': _aadhaarCardUrl ?? '',
+    'panCardUrl': _panCardUrl ?? '',
+    'username': _usernameCtrl.text,
+    'termsAccepted': _termsAccepted,
+    'privacyAccepted': _privacyAccepted,
+    'promoAccepted': _promoAccepted,
+  };
 
   Future<void> _restoreDraft() async {
     final data = await _draftStore.load();
     if (!mounted || data == null) return;
 
     String s(String key) => data[key] as String? ?? '';
-    List<String> l(String key) => (data[key] as List<dynamic>?)?.cast<String>() ?? const [];
+    List<String> l(String key) =>
+        (data[key] as List<dynamic>?)?.cast<String>() ?? const [];
 
     setState(() {
       final step = data['currentStep'] as int?;
-      if (step != null && step >= 0 && step < _stepTitles.length) currentStep = step;
+      if (step != null && step >= 0 && step < _stepTitles.length)
+        currentStep = step;
 
       if (s('fullName').isNotEmpty) _fullNameCtrl.text = s('fullName');
       if (s('email').isNotEmpty) _emailCtrl.text = s('email');
@@ -382,7 +408,8 @@ class _InfluencerRegistrationScreenState
         _primaryContentPlatform = s('primaryContentPlatform');
       }
 
-      if (s('officeAddress').isNotEmpty) _officeAddressCtrl.text = s('officeAddress');
+      if (s('officeAddress').isNotEmpty)
+        _officeAddressCtrl.text = s('officeAddress');
       if (s('city').isNotEmpty) _cityCtrl.text = s('city');
       if (s('state').isNotEmpty) _stateCtrl.text = s('state');
       if (s('pincode').isNotEmpty) _pincodeCtrl.text = s('pincode');
@@ -402,12 +429,17 @@ class _InfluencerRegistrationScreenState
       if (s('youtubeSubscribers').isNotEmpty) {
         _youtubeSubscribersCtrl.text = s('youtubeSubscribers');
       }
-      if (s('facebookPageLink').isNotEmpty) _facebookPageCtrl.text = s('facebookPageLink');
-      if (s('linkedinProfileUrl').isNotEmpty) _linkedinCtrl.text = s('linkedinProfileUrl');
-      if (s('twitterProfileUrl').isNotEmpty) _twitterCtrl.text = s('twitterProfileUrl');
-      if (s('telegramChannelLink').isNotEmpty) _telegramCtrl.text = s('telegramChannelLink');
+      if (s('facebookPageLink').isNotEmpty)
+        _facebookPageCtrl.text = s('facebookPageLink');
+      if (s('linkedinProfileUrl').isNotEmpty)
+        _linkedinCtrl.text = s('linkedinProfileUrl');
+      if (s('twitterProfileUrl').isNotEmpty)
+        _twitterCtrl.text = s('twitterProfileUrl');
+      if (s('telegramChannelLink').isNotEmpty)
+        _telegramCtrl.text = s('telegramChannelLink');
       if (s('websiteUrl').isNotEmpty) _websiteCtrl.text = s('websiteUrl');
-      if (s('whatsappNumber').isNotEmpty) _whatsappCtrl.text = s('whatsappNumber');
+      if (s('whatsappNumber').isNotEmpty)
+        _whatsappCtrl.text = s('whatsappNumber');
 
       final contentTypes = l('contentTypes');
       if (contentTypes.isNotEmpty) {
@@ -453,7 +485,9 @@ class _InfluencerRegistrationScreenState
     if (stepErrors.isNotEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Please fill out or fix the required fields to continue.'),
+          content: Text(
+            'Please fill out or fix the required fields to continue.',
+          ),
           backgroundColor: Colors.red,
         ),
       );
@@ -480,7 +514,8 @@ class _InfluencerRegistrationScreenState
   // InfluencerRegistration.tsx:781-843 ──────────────────────────────────────
   Map<String, String> _validateStep0() {
     final e = <String, String>{};
-    if ((_avatarUrl ?? '').isEmpty) e['avatarUrl'] = 'Profile photo is required.';
+    if ((_avatarUrl ?? '').isEmpty)
+      e['avatarUrl'] = 'Profile photo is required.';
     if (_isBlank(_fullNameCtrl.text)) e['fullName'] = 'Full name is required.';
     if (_isBlank(_emailCtrl.text)) {
       e['email'] = 'Email address is required.';
@@ -505,17 +540,20 @@ class _InfluencerRegistrationScreenState
               'Alternate number must be a valid 10-digit Indian mobile number.';
         }
       } else if (digits.length < 8 || digits.length > 12) {
-        e['alternateMobileNumber'] = 'Alternate number must be between 8 and 12 digits.';
+        e['alternateMobileNumber'] =
+            'Alternate number must be between 8 and 12 digits.';
       }
     }
-    if (_gender == null || _gender!.isEmpty) e['gender'] = 'Gender is required.';
+    if (_gender == null || _gender!.isEmpty)
+      e['gender'] = 'Gender is required.';
     if (_isBlank(_dobCtrl.text)) e['dob'] = 'Date of birth is required.';
     return e;
   }
 
   Map<String, String> _validateStep1() {
     final e = <String, String>{};
-    if (_category == null || _category!.isEmpty) e['category'] = 'Category is required.';
+    if (_category == null || _category!.isEmpty)
+      e['category'] = 'Category is required.';
     if (_primaryContentPlatform == null || _primaryContentPlatform!.isEmpty) {
       e['primaryContentPlatform'] = 'Primary content platform is required.';
     }
@@ -526,7 +564,8 @@ class _InfluencerRegistrationScreenState
       e['audienceType'] = 'Audience type is required.';
     }
     if (_isBlank(_bioCtrl.text)) e['bio'] = 'Bio is required.';
-    if (_languagesKnown.isEmpty) e['languagesKnown'] = 'Languages known is required.';
+    if (_languagesKnown.isEmpty)
+      e['languagesKnown'] = 'Languages known is required.';
     return e;
   }
 
@@ -600,7 +639,8 @@ class _InfluencerRegistrationScreenState
 
   Map<String, String> _validateStep5() {
     final e = <String, String>{};
-    if ((_aadhaarCardUrl ?? '').isEmpty) e['aadhaarCardUrl'] = 'Aadhaar card is required.';
+    if ((_aadhaarCardUrl ?? '').isEmpty)
+      e['aadhaarCardUrl'] = 'Aadhaar card is required.';
     if ((_panCardUrl ?? '').isEmpty) e['panCardUrl'] = 'PAN card is required.';
     return e;
   }
@@ -627,7 +667,8 @@ class _InfluencerRegistrationScreenState
     if (_passwordCtrl.text.length < 6) {
       return 'Password must be at least 6 characters.';
     }
-    if (_confirmPasswordCtrl.text.isEmpty) return 'Please confirm your password.';
+    if (_confirmPasswordCtrl.text.isEmpty)
+      return 'Please confirm your password.';
     if (_passwordCtrl.text != _confirmPasswordCtrl.text) {
       return 'Passwords do not match.';
     }
@@ -636,8 +677,9 @@ class _InfluencerRegistrationScreenState
 
   // ─── Username availability ────────────────────────────────────────────────
   void _onUsernameChanged(String value) {
-    final cleaned =
-        value.replaceAll(RegExp(r'[^a-zA-Z0-9_]'), '').toLowerCase();
+    final cleaned = value
+        .replaceAll(RegExp(r'[^a-zA-Z0-9_]'), '')
+        .toLowerCase();
     if (cleaned != value) {
       _usernameCtrl.value = TextEditingValue(
         text: cleaned,
@@ -654,8 +696,10 @@ class _InfluencerRegistrationScreenState
       });
       return;
     }
-    _usernameDebounce =
-        Timer(const Duration(milliseconds: 500), () => _checkUsername(cleaned));
+    _usernameDebounce = Timer(
+      const Duration(milliseconds: 500),
+      () => _checkUsername(cleaned),
+    );
     setState(() {});
   }
 
@@ -708,8 +752,11 @@ class _InfluencerRegistrationScreenState
     try {
       final file = await _mediaService.pickDocument();
       if (file == null) return;
-      final url =
-          await _mediaService.uploadDocument(userId: userId, kind: kind, file: file);
+      final url = await _mediaService.uploadDocument(
+        userId: userId,
+        kind: kind,
+        file: file,
+      );
       if (!mounted) return;
       setState(() {
         switch (fieldKey) {
@@ -786,7 +833,8 @@ class _InfluencerRegistrationScreenState
     );
     if (picked != null) {
       setState(() {
-        _dobCtrl.text = '${picked.year.toString().padLeft(4, '0')}-'
+        _dobCtrl.text =
+            '${picked.year.toString().padLeft(4, '0')}-'
             '${picked.month.toString().padLeft(2, '0')}-'
             '${picked.day.toString().padLeft(2, '0')}';
       });
@@ -817,8 +865,10 @@ class _InfluencerRegistrationScreenState
       }
       if ((address?.city ?? '').isNotEmpty) _cityCtrl.text = address!.city!;
       if ((address?.state ?? '').isNotEmpty) _stateCtrl.text = address!.state!;
-      if ((address?.pincode ?? '').isNotEmpty) _pincodeCtrl.text = address!.pincode!;
-      if ((address?.landmark ?? '').isNotEmpty) _landmarkCtrl.text = address!.landmark!;
+      if ((address?.pincode ?? '').isNotEmpty)
+        _pincodeCtrl.text = address!.pincode!;
+      if ((address?.landmark ?? '').isNotEmpty)
+        _landmarkCtrl.text = address!.landmark!;
       _errors.remove('officeAddress');
       _errors.remove('city');
       _errors.remove('state');
@@ -833,7 +883,9 @@ class _InfluencerRegistrationScreenState
     if (!_termsAccepted || !_privacyAccepted) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Please accept the Terms & Conditions and Privacy Policy.'),
+          content: Text(
+            'Please accept the Terms & Conditions and Privacy Policy.',
+          ),
           backgroundColor: Colors.red,
         ),
       );
@@ -936,9 +988,9 @@ class _InfluencerRegistrationScreenState
       child: Text(
         title,
         style: Theme.of(context).textTheme.titleMedium?.copyWith(
-              fontWeight: FontWeight.w600,
-              color: Theme.of(context).colorScheme.primary,
-            ),
+          fontWeight: FontWeight.w600,
+          color: Theme.of(context).colorScheme.primary,
+        ),
       ),
     );
   }
@@ -975,7 +1027,8 @@ class _InfluencerRegistrationScreenState
         ),
       ),
       contentPadding:
-          contentPadding ?? const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+          contentPadding ??
+          const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
     );
   }
 
@@ -990,7 +1043,10 @@ class _InfluencerRegistrationScreenState
           const Icon(Icons.error_outline, size: 14, color: Colors.red),
           const SizedBox(width: 4),
           Expanded(
-            child: Text(msg, style: const TextStyle(fontSize: 12, color: Colors.red)),
+            child: Text(
+              msg,
+              style: const TextStyle(fontSize: 12, color: Colors.red),
+            ),
           ),
         ],
       ),
@@ -1006,7 +1062,10 @@ class _InfluencerRegistrationScreenState
           style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13.5),
           children: [
             if (required)
-              const TextSpan(text: ' *', style: TextStyle(color: Colors.red)),
+              const TextSpan(
+                text: ' *',
+                style: TextStyle(color: Colors.red),
+              ),
           ],
         ),
       ),
@@ -1112,13 +1171,21 @@ class _InfluencerRegistrationScreenState
                   icon: const Icon(Icons.arrow_drop_down, size: 18),
                   decoration: _inputDecoration(
                     '',
-                    contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 14),
+                    contentPadding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 14,
+                    ),
                   ),
                   items: _kCountryCodes
-                      .map((c) => DropdownMenuItem(
-                            value: c['code'],
-                            child: Text(c['code']!, overflow: TextOverflow.ellipsis),
-                          ))
+                      .map(
+                        (c) => DropdownMenuItem(
+                          value: c['code'],
+                          child: Text(
+                            c['code']!,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                      )
                       .toList(),
                   onChanged: enabled
                       ? (v) {
@@ -1171,7 +1238,10 @@ class _InfluencerRegistrationScreenState
               padding: const EdgeInsets.only(bottom: 6),
               child: Text(
                 subtitle,
-                style: TextStyle(fontSize: 11.5, color: scheme.onSurfaceVariant),
+                style: TextStyle(
+                  fontSize: 11.5,
+                  color: scheme.onSurfaceVariant,
+                ),
               ),
             ),
           GestureDetector(
@@ -1184,7 +1254,9 @@ class _InfluencerRegistrationScreenState
                 border: Border.all(
                   color: _errors.containsKey(fieldKey)
                       ? scheme.error
-                      : (has ? scheme.primary : scheme.outline.withOpacity(0.4)),
+                      : (has
+                            ? scheme.primary
+                            : scheme.outline.withOpacity(0.4)),
                   width: has ? 2 : 1,
                 ),
                 borderRadius: BorderRadius.circular(12),
@@ -1204,32 +1276,45 @@ class _InfluencerRegistrationScreenState
                         ],
                       )
                     : has
-                        ? (isImagePreview
-                            ? ClipRRect(
-                                borderRadius: BorderRadius.circular(8),
-                                child: Image.network(
-                                  url!,
-                                  height: 64,
-                                  width: 64,
-                                  fit: BoxFit.cover,
+                    ? (isImagePreview
+                          ? ClipRRect(
+                              borderRadius: BorderRadius.circular(8),
+                              child: Image.network(
+                                url!,
+                                height: 64,
+                                width: 64,
+                                fit: BoxFit.cover,
+                              ),
+                            )
+                          : Column(
+                              mainAxisSize: MainAxisSize.min,
+                              children: const [
+                                Icon(
+                                  Icons.check_circle,
+                                  color: Colors.green,
+                                  size: 30,
                                 ),
-                              )
-                            : Column(
-                                mainAxisSize: MainAxisSize.min,
-                                children: const [
-                                  Icon(Icons.check_circle, color: Colors.green, size: 30),
-                                  SizedBox(height: 6),
-                                  Text('Uploaded', style: TextStyle(fontSize: 12)),
-                                ],
-                              ))
-                        : Column(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Icon(Icons.upload_file, color: scheme.onSurfaceVariant),
-                              const SizedBox(height: 6),
-                              const Text('Tap to upload', style: TextStyle(fontSize: 12)),
-                            ],
+                                SizedBox(height: 6),
+                                Text(
+                                  'Uploaded',
+                                  style: TextStyle(fontSize: 12),
+                                ),
+                              ],
+                            ))
+                    : Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(
+                            Icons.upload_file,
+                            color: scheme.onSurfaceVariant,
                           ),
+                          const SizedBox(height: 6),
+                          const Text(
+                            'Tap to upload',
+                            style: TextStyle(fontSize: 12),
+                          ),
+                        ],
+                      ),
               ),
             ),
           ),
@@ -1267,23 +1352,28 @@ class _InfluencerRegistrationScreenState
             child: selected.isEmpty
                 ? Text(
                     'Select from below or add a custom entry',
-                    style: TextStyle(fontSize: 12, color: scheme.onSurfaceVariant),
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: scheme.onSurfaceVariant,
+                    ),
                   )
                 : Wrap(
                     spacing: 6,
                     runSpacing: 6,
                     children: selected
-                        .map((s) => Chip(
-                              label: Text(
-                                s,
-                                style: const TextStyle(
-                                  fontSize: 12,
-                                  color: Colors.black87,
-                                ),
+                        .map(
+                          (s) => Chip(
+                            label: Text(
+                              s,
+                              style: const TextStyle(
+                                fontSize: 12,
+                                color: Colors.black87,
                               ),
-                              onDeleted: () => onRemove(s),
-                              deleteIcon: const Icon(Icons.close, size: 14),
-                            ))
+                            ),
+                            onDeleted: () => onRemove(s),
+                            deleteIcon: const Icon(Icons.close, size: 14),
+                          ),
+                        )
                         .toList(),
                   ),
           ),
@@ -1310,16 +1400,18 @@ class _InfluencerRegistrationScreenState
             runSpacing: 6,
             children: options
                 .where((o) => !selected.contains(o))
-                .map((o) => ActionChip(
-                      label: Text(
-                        '+ $o',
-                        style: const TextStyle(
-                          fontSize: 11,
-                          color: Colors.black87,
-                        ),
+                .map(
+                  (o) => ActionChip(
+                    label: Text(
+                      '+ $o',
+                      style: const TextStyle(
+                        fontSize: 11,
+                        color: Colors.black87,
                       ),
-                      onPressed: () => onToggle(o),
-                    ))
+                    ),
+                    onPressed: () => onToggle(o),
+                  ),
+                )
                 .toList(),
           ),
           _errorText(fieldKey),
@@ -1372,9 +1464,9 @@ class _InfluencerRegistrationScreenState
           children: [
             Text(
               _stepTitles[currentStep],
-              style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                    fontWeight: FontWeight.bold,
-                  ),
+              style: Theme.of(
+                context,
+              ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
             ),
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
@@ -1547,7 +1639,8 @@ class _InfluencerRegistrationScreenState
                 maxLines: 4,
                 decoration: _inputDecoration(
                   'Bio / About Me * (Minimum 10 words)',
-                  hint: 'Share your creator journey, previous successful property '
+                  hint:
+                      'Share your creator journey, previous successful property '
                       'walkthroughs, or review channels...',
                   hasError: _errors.containsKey('bio'),
                 ),
@@ -1608,8 +1701,18 @@ class _InfluencerRegistrationScreenState
             ],
           ),
         ),
-        _field(fieldKey: 'city', controller: _cityCtrl, label: 'Work City', required: true),
-        _field(fieldKey: 'state', controller: _stateCtrl, label: 'State', required: true),
+        _field(
+          fieldKey: 'city',
+          controller: _cityCtrl,
+          label: 'Work City',
+          required: true,
+        ),
+        _field(
+          fieldKey: 'state',
+          controller: _stateCtrl,
+          label: 'State',
+          required: true,
+        ),
         _field(
           fieldKey: 'pincode',
           controller: _pincodeCtrl,
@@ -1782,7 +1885,10 @@ class _InfluencerRegistrationScreenState
           fieldKey: 'aadhaarCardUrl',
           label: 'Aadhaar Card',
           url: _aadhaarCardUrl,
-          onTap: () => _pickAndUploadDocument('aadhaarCardUrl', ProfileDocumentKind.aadhaar),
+          onTap: () => _pickAndUploadDocument(
+            'aadhaarCardUrl',
+            ProfileDocumentKind.aadhaar,
+          ),
           required: true,
           subtitle: 'Government ID card details for verification.',
         ),
@@ -1790,7 +1896,8 @@ class _InfluencerRegistrationScreenState
           fieldKey: 'panCardUrl',
           label: 'PAN Card',
           url: _panCardUrl,
-          onTap: () => _pickAndUploadDocument('panCardUrl', ProfileDocumentKind.pan),
+          onTap: () =>
+              _pickAndUploadDocument('panCardUrl', ProfileDocumentKind.pan),
           required: true,
           subtitle: 'Primary PAN Card details.',
         ),
@@ -1814,16 +1921,19 @@ class _InfluencerRegistrationScreenState
           onChanged: _onUsernameChanged,
           suffixIcon: usernameLen >= 3
               ? (_usernameTaken
-                  ? const Icon(Icons.close, color: Colors.red)
-                  : (_usernameAvailable == true
-                      ? const Icon(Icons.check, color: Colors.green)
-                      : null))
+                    ? const Icon(Icons.close, color: Colors.red)
+                    : (_usernameAvailable == true
+                          ? const Icon(Icons.check, color: Colors.green)
+                          : null))
               : null,
         ),
         if (usernameLen >= 3 && !_usernameTaken && _usernameAvailable == true)
           const Padding(
             padding: EdgeInsets.only(bottom: 8),
-            child: Text('Username is available!', style: TextStyle(fontSize: 12, color: Colors.green)),
+            child: Text(
+              'Username is available!',
+              style: TextStyle(fontSize: 12, color: Colors.green),
+            ),
           )
         else if (usernameLen == 0)
           const Padding(
@@ -1841,8 +1951,11 @@ class _InfluencerRegistrationScreenState
           hint: 'Min. 6 characters',
           obscureText: !_passwordVisible,
           suffixIcon: IconButton(
-            icon: Icon(_passwordVisible ? Icons.visibility_off : Icons.visibility),
-            onPressed: () => setState(() => _passwordVisible = !_passwordVisible),
+            icon: Icon(
+              _passwordVisible ? Icons.visibility_off : Icons.visibility,
+            ),
+            onPressed: () =>
+                setState(() => _passwordVisible = !_passwordVisible),
           ),
         ),
         _field(
@@ -1853,9 +1966,12 @@ class _InfluencerRegistrationScreenState
           hint: 'Re-enter your password',
           obscureText: !_confirmPasswordVisible,
           suffixIcon: IconButton(
-            icon: Icon(_confirmPasswordVisible ? Icons.visibility_off : Icons.visibility),
-            onPressed: () =>
-                setState(() => _confirmPasswordVisible = !_confirmPasswordVisible),
+            icon: Icon(
+              _confirmPasswordVisible ? Icons.visibility_off : Icons.visibility,
+            ),
+            onPressed: () => setState(
+              () => _confirmPasswordVisible = !_confirmPasswordVisible,
+            ),
           ),
         ),
       ],
@@ -1903,7 +2019,10 @@ class _InfluencerRegistrationScreenState
         initiallyExpanded: initiallyExpanded,
         tilePadding: const EdgeInsets.symmetric(horizontal: 12),
         childrenPadding: const EdgeInsets.fromLTRB(12, 0, 12, 10),
-        title: Text(title, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+        title: Text(
+          title,
+          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+        ),
         children: rows.map((r) => _reviewRow(r.key, r.value)).toList(),
       ),
     );
@@ -1917,7 +2036,7 @@ class _InfluencerRegistrationScreenState
     final instagram = _instagramUsernameCtrl.text.trim().isEmpty
         ? '—'
         : '${_instagramUsernameCtrl.text.trim()} '
-            '(${_instagramFollowersCtrl.text.trim().isEmpty ? "0" : _instagramFollowersCtrl.text.trim()} followers)';
+              '(${_instagramFollowersCtrl.text.trim().isEmpty ? "0" : _instagramFollowersCtrl.text.trim()} followers)';
     final youtube = _youtubeChannelCtrl.text.trim().isEmpty
         ? '—'
         : 'Channel (${_youtubeSubscribersCtrl.text.trim().isEmpty ? "0" : _youtubeSubscribersCtrl.text.trim()} subscribers)';
@@ -1925,27 +2044,27 @@ class _InfluencerRegistrationScreenState
     return Container(
       margin: const EdgeInsets.only(bottom: 16),
       decoration: BoxDecoration(
-        border: Border.all(color: Theme.of(context).colorScheme.outline.withOpacity(0.3)),
+        border: Border.all(
+          color: Theme.of(context).colorScheme.outline.withOpacity(0.3),
+        ),
         borderRadius: BorderRadius.circular(12),
       ),
       clipBehavior: Clip.antiAlias,
       child: Column(
         children: [
-          _reviewSection(
-            'Personal Information',
-            [
-              MapEntry('Full Name', _fullNameCtrl.text),
-              MapEntry(
-                'Creator Username',
-                _usernameCtrl.text.trim().isEmpty ? '' : '@${_usernameCtrl.text.trim()}',
-              ),
-              MapEntry('Email', _emailCtrl.text),
-              MapEntry('Phone', '$_countryCode ${_mobileCtrl.text}'),
-              MapEntry('Gender', _gender ?? ''),
-              MapEntry('DOB', _dobCtrl.text),
-            ],
-            initiallyExpanded: true,
-          ),
+          _reviewSection('Personal Information', [
+            MapEntry('Full Name', _fullNameCtrl.text),
+            MapEntry(
+              'Creator Username',
+              _usernameCtrl.text.trim().isEmpty
+                  ? ''
+                  : '@${_usernameCtrl.text.trim()}',
+            ),
+            MapEntry('Email', _emailCtrl.text),
+            MapEntry('Phone', '$_countryCode ${_mobileCtrl.text}'),
+            MapEntry('Gender', _gender ?? ''),
+            MapEntry('DOB', _dobCtrl.text),
+          ], initiallyExpanded: true),
           divider,
           _reviewSection('Creator Profile', [
             MapEntry('Category', _category ?? ''),
@@ -2066,60 +2185,71 @@ class _InfluencerRegistrationScreenState
     return SafeArea(
       top: false,
       child: Container(
-      padding: const EdgeInsets.fromLTRB(20, 12, 20, 20),
-      decoration: BoxDecoration(
-        color: Theme.of(context).colorScheme.surface,
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.06),
-            blurRadius: 12,
-            offset: const Offset(0, -4),
-          ),
-        ],
-      ),
-      child: Row(
-        children: [
-          if (currentStep > 0)
+        padding: const EdgeInsets.fromLTRB(20, 12, 20, 20),
+        decoration: BoxDecoration(
+          color: Theme.of(context).colorScheme.surface,
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.06),
+              blurRadius: 12,
+              offset: const Offset(0, -4),
+            ),
+          ],
+        ),
+        child: Row(
+          children: [
+            if (currentStep > 0)
+              Expanded(
+                flex: 1,
+                child: OutlinedButton.icon(
+                  onPressed: _isSubmitting ? null : _previousStep,
+                  icon: const Icon(Icons.arrow_back, size: 18),
+                  label: const Text('Back'),
+                  style: OutlinedButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
+                ),
+              ),
+            if (currentStep > 0) const SizedBox(width: 12),
             Expanded(
-              flex: 1,
-              child: OutlinedButton.icon(
-                onPressed: _isSubmitting ? null : _previousStep,
-                icon: const Icon(Icons.arrow_back, size: 18),
-                label: const Text('Back'),
-                style: OutlinedButton.styleFrom(
+              flex: 2,
+              child: FilledButton.icon(
+                onPressed: _isSubmitting
+                    ? null
+                    : (isLastStep ? _onSubmit : _nextStep),
+                icon: _isSubmitting
+                    ? const SizedBox(
+                        width: 16,
+                        height: 16,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          color: Colors.white,
+                        ),
+                      )
+                    : Icon(
+                        isLastStep
+                            ? Icons.check_circle_outline
+                            : Icons.arrow_forward,
+                        size: 18,
+                      ),
+                label: Text(
+                  _isSubmitting
+                      ? 'Submitting...'
+                      : (isLastStep ? 'Submit Registration' : 'Continue'),
+                ),
+                style: FilledButton.styleFrom(
                   padding: const EdgeInsets.symmetric(vertical: 14),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
                 ),
               ),
             ),
-          if (currentStep > 0) const SizedBox(width: 12),
-          Expanded(
-            flex: 2,
-            child: FilledButton.icon(
-              onPressed: _isSubmitting ? null : (isLastStep ? _onSubmit : _nextStep),
-              icon: _isSubmitting
-                  ? const SizedBox(
-                      width: 16,
-                      height: 16,
-                      child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
-                    )
-                  : Icon(
-                      isLastStep ? Icons.check_circle_outline : Icons.arrow_forward,
-                      size: 18,
-                    ),
-              label: Text(
-                _isSubmitting
-                    ? 'Submitting...'
-                    : (isLastStep ? 'Submit Registration' : 'Continue'),
-              ),
-              style: FilledButton.styleFrom(
-                padding: const EdgeInsets.symmetric(vertical: 14),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-              ),
-            ),
-          ),
-        ],
-      ),
+          ],
+        ),
       ),
     );
   }

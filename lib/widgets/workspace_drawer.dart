@@ -193,8 +193,9 @@ class _DrawerHeader extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final auth = context.watch<AuthProvider>();
-    final initial =
-        auth.userName.isNotEmpty ? auth.userName[0].toUpperCase() : 'U';
+    final initial = auth.userName.isNotEmpty
+        ? auth.userName[0].toUpperCase()
+        : 'U';
 
     return Container(
       padding: const EdgeInsets.fromLTRB(18, 20, 18, 16),

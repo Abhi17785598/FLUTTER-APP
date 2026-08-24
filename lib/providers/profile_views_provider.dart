@@ -12,7 +12,7 @@ import '../services/profile_view_service.dart';
 
 class ProfileViewsProvider extends ChangeNotifier {
   ProfileViewsProvider({ProfileViewService? service})
-      : _service = service ?? ProfileViewService();
+    : _service = service ?? ProfileViewService();
 
   final ProfileViewService _service;
 
@@ -31,8 +31,7 @@ class ProfileViewsProvider extends ChangeNotifier {
 
   /// Total visits across everyone, which the header shows beside [uniqueViewers]
   /// so the smaller number is self-explanatory.
-  int get totalVisits =>
-      _viewers.fold<int>(0, (sum, v) => sum + v.viewCount);
+  int get totalVisits => _viewers.fold<int>(0, (sum, v) => sum + v.viewCount);
 
   bool get hasRepeatVisitors => totalVisits > uniqueViewers;
 

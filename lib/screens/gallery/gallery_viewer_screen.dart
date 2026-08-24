@@ -23,13 +23,10 @@ class GalleryViewerScreen extends StatefulWidget {
   });
 
   @override
-  State<GalleryViewerScreen> createState() =>
-      _GalleryViewerScreenState();
+  State<GalleryViewerScreen> createState() => _GalleryViewerScreenState();
 }
 
-class _GalleryViewerScreenState
-    extends State<GalleryViewerScreen> {
-
+class _GalleryViewerScreenState extends State<GalleryViewerScreen> {
   late PageController _pageController;
 
   late int currentIndex;
@@ -40,9 +37,7 @@ class _GalleryViewerScreenState
 
     currentIndex = widget.initialIndex;
 
-    _pageController = PageController(
-      initialPage: currentIndex,
-    );
+    _pageController = PageController(initialPage: currentIndex);
   }
 
   @override
@@ -53,13 +48,11 @@ class _GalleryViewerScreenState
 
   @override
   Widget build(BuildContext context) {
-
     return Scaffold(
       backgroundColor: Colors.black,
 
       body: Stack(
         children: [
-
           PhotoViewGallery.builder(
             pageController: _pageController,
 
@@ -72,12 +65,8 @@ class _GalleryViewerScreenState
             },
 
             builder: (context, index) {
-
               return PhotoViewGalleryPageOptions(
-                imageProvider:
-                    CachedNetworkImageProvider(
-                  widget.images[index],
-                ),
+                imageProvider: CachedNetworkImageProvider(widget.images[index]),
 
                 // NEW: enables the Hero flight from the detail screen's
                 // carousel page into the matching gallery page.
@@ -87,45 +76,33 @@ class _GalleryViewerScreenState
                       )
                     : null,
 
-                minScale:
-                    PhotoViewComputedScale.contained,
+                minScale: PhotoViewComputedScale.contained,
 
-                maxScale:
-                    PhotoViewComputedScale.covered * 3,
+                maxScale: PhotoViewComputedScale.covered * 3,
               );
             },
 
-            backgroundDecoration:
-                const BoxDecoration(
-              color: Colors.black,
-            ),
+            backgroundDecoration: const BoxDecoration(color: Colors.black),
           ),
 
           SafeArea(
             child: Padding(
-              padding: const EdgeInsets.symmetric(
-                horizontal: 16,
-                vertical: 12,
-              ),
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
 
               child: Row(
-                mainAxisAlignment:
-                    MainAxisAlignment.spaceBetween,
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
 
                 children: [
-
                   GestureDetector(
                     onTap: () {
                       Navigator.pop(context);
                     },
 
                     child: Container(
-                      padding:
-                          const EdgeInsets.all(10),
+                      padding: const EdgeInsets.all(10),
 
                       decoration: BoxDecoration(
-                        color:
-                            Colors.black.withOpacity(0.5),
+                        color: Colors.black.withOpacity(0.5),
                         shape: BoxShape.circle,
                       ),
 
@@ -138,17 +115,14 @@ class _GalleryViewerScreenState
                   ),
 
                   Container(
-                    padding:
-                        const EdgeInsets.symmetric(
+                    padding: const EdgeInsets.symmetric(
                       horizontal: 14,
                       vertical: 8,
                     ),
 
                     decoration: BoxDecoration(
-                      color:
-                          Colors.black.withOpacity(0.5),
-                      borderRadius:
-                          BorderRadius.circular(20),
+                      color: Colors.black.withOpacity(0.5),
+                      borderRadius: BorderRadius.circular(20),
                     ),
 
                     child: Text(

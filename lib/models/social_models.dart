@@ -224,10 +224,10 @@ class SocialPreferences {
 
   /// The design's "Auto-share rule" row shows prose, not the stored token.
   String get autoShareRuleLabel => switch (autoShareRule) {
-        'all' => 'Every item',
-        'manual' => 'Only when I choose',
-        final other => other,
-      };
+    'all' => 'Every item',
+    'manual' => 'Only when I choose',
+    final other => other,
+  };
 
   SocialPreferences copyWith({
     bool? autoShareProperty,
@@ -266,8 +266,9 @@ class SocialPreferences {
           ? this.defaultCaptionTemplate
           : defaultCaptionTemplate as String?,
       defaultHashtags: defaultHashtags ?? this.defaultHashtags,
-      defaultCta:
-          identical(defaultCta, _unset) ? this.defaultCta : defaultCta as String?,
+      defaultCta: identical(defaultCta, _unset)
+          ? this.defaultCta
+          : defaultCta as String?,
       autoShareRule: autoShareRule ?? this.autoShareRule,
     );
   }
@@ -391,8 +392,18 @@ class ShareQueueItem {
     if (delta.inDays < 7) return '${delta.inDays} days ago';
 
     const months = [
-      'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
-      'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
+      'Jan',
+      'Feb',
+      'Mar',
+      'Apr',
+      'May',
+      'Jun',
+      'Jul',
+      'Aug',
+      'Sep',
+      'Oct',
+      'Nov',
+      'Dec',
     ];
     return '${months[created.month - 1]} ${created.day}';
   }
@@ -548,7 +559,10 @@ class SocialAnalytics {
   /// A direct port: successes drive the totals and the windows, failures are
   /// counted across all rows, and `pending` comes from the queue rather than
   /// the logs, so it is passed in.
-  factory SocialAnalytics.fromLogs(List<ShareLog> logs, {required int pending}) {
+  factory SocialAnalytics.fromLogs(
+    List<ShareLog> logs, {
+    required int pending,
+  }) {
     final successRows = logs.where((l) => l.succeeded).toList();
     final now = DateTime.now();
 
@@ -656,15 +670,15 @@ class MetaAdAccount {
   bool get isActive => accountStatus == 1;
 
   String get statusLabel => switch (accountStatus) {
-        1 => 'Active',
-        2 => 'Disabled',
-        3 => 'Unsettled',
-        7 => 'Pending review',
-        9 => 'In grace period',
-        101 => 'Closed',
-        null => 'Unknown',
-        _ => 'Status $accountStatus',
-      };
+    1 => 'Active',
+    2 => 'Disabled',
+    3 => 'Unsettled',
+    7 => 'Pending review',
+    9 => 'In grace period',
+    101 => 'Closed',
+    null => 'Unknown',
+    _ => 'Status $accountStatus',
+  };
 }
 
 /// A location match from `meta-targeting-search` — feeds the campaign

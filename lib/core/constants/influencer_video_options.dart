@@ -93,11 +93,11 @@ String influencerApprovalLabel(String? approvalStatus) =>
 /// (InfluencerContentManager.tsx:100-113). The portal prints the raw value; these
 /// are its title-cased forms, since the app capitalises its badges everywhere else.
 String influencerVideoStatusLabel(String? status) => switch (status) {
-      'active' => 'Active',
-      'inactive' => 'Inactive',
-      'pending' => 'Pending',
-      _ => 'Draft',
-    };
+  'active' => 'Active',
+  'inactive' => 'Inactive',
+  'pending' => 'Pending',
+  _ => 'Draft',
+};
 
 /// Splits a comma-separated hashtag field the way the portal does.
 ///

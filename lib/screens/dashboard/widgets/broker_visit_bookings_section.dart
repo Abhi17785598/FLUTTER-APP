@@ -183,13 +183,15 @@ class _BrokerVisitBookingsSectionState
       // trip, and the subsequent refresh is idempotent.
       setState(() {
         _items = _items
-            ?.map((b) => b.id == booking.id
-                ? b.copyWith(
-                    preferredDate: result.date,
-                    preferredTime: result.time,
-                    status: result.status,
-                  )
-                : b)
+            ?.map(
+              (b) => b.id == booking.id
+                  ? b.copyWith(
+                      preferredDate: result.date,
+                      preferredTime: result.time,
+                      status: result.status,
+                    )
+                  : b,
+            )
             .toList();
       });
       _toast(
@@ -233,8 +235,11 @@ class _BrokerVisitBookingsSectionState
               padding: const EdgeInsets.only(bottom: 8),
               child: Row(
                 children: [
-                  const Icon(Icons.bolt_rounded,
-                      size: 13, color: AppColors.success),
+                  const Icon(
+                    Icons.bolt_rounded,
+                    size: 13,
+                    color: AppColors.success,
+                  ),
                   const SizedBox(width: 4),
                   Text(
                     'Updated live',
@@ -343,13 +348,13 @@ class _BookingCard extends StatelessWidget {
   final VoidCallback onEdit;
 
   static Color _tint(String status) => switch (status) {
-        'pending' => AppColors.warning,
-        'confirmed' => AppColors.success,
-        'completed' => AppColors.primary,
-        'cancelled' => AppColors.error,
-        'rescheduled' => AppColors.statusNewLaunch,
-        _ => AppColors.textHint,
-      };
+    'pending' => AppColors.warning,
+    'confirmed' => AppColors.success,
+    'completed' => AppColors.primary,
+    'cancelled' => AppColors.error,
+    'rescheduled' => AppColors.statusNewLaunch,
+    _ => AppColors.textHint,
+  };
 
   @override
   Widget build(BuildContext context) {
@@ -451,8 +456,18 @@ class _BookingCard extends StatelessWidget {
 
   static String _formatDate(DateTime dt) {
     const months = [
-      'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
-      'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
+      'Jan',
+      'Feb',
+      'Mar',
+      'Apr',
+      'May',
+      'Jun',
+      'Jul',
+      'Aug',
+      'Sep',
+      'Oct',
+      'Nov',
+      'Dec',
     ];
     return '${months[dt.month - 1]} ${dt.day}, ${dt.year}';
   }
@@ -491,10 +506,7 @@ class _BookingEdit {
 
 /// Date, time and status — `BrokerVisitBookingsManager.tsx:166-177`'s three fields.
 class _EditBookingSheet extends StatefulWidget {
-  const _EditBookingSheet({
-    required this.booking,
-    required this.propertyTitle,
-  });
+  const _EditBookingSheet({required this.booking, required this.propertyTitle});
 
   final PropertyVisitBooking booking;
   final String propertyTitle;
@@ -505,8 +517,9 @@ class _EditBookingSheet extends StatefulWidget {
 
 class _EditBookingSheetState extends State<_EditBookingSheet> {
   late DateTime _date = widget.booking.preferredDate;
-  late final TextEditingController _time =
-      TextEditingController(text: widget.booking.preferredTime ?? '');
+  late final TextEditingController _time = TextEditingController(
+    text: widget.booking.preferredTime ?? '',
+  );
   late String _status = widget.booking.status;
 
   @override
@@ -572,16 +585,21 @@ class _EditBookingSheetState extends State<_EditBookingSheet> {
                 onTap: _pickDate,
                 borderRadius: BorderRadius.circular(10),
                 child: Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 12,
+                  ),
                   decoration: BoxDecoration(
                     borderRadius: BorderRadius.circular(10),
                     border: Border.all(color: AppColors.hairline),
                   ),
                   child: Row(
                     children: [
-                      const Icon(Icons.event_outlined,
-                          size: 16, color: AppColors.textSecondary),
+                      const Icon(
+                        Icons.event_outlined,
+                        size: 16,
+                        color: AppColors.textSecondary,
+                      ),
                       const SizedBox(width: 8),
                       Text(
                         '${_date.year}-${_date.month.toString().padLeft(2, '0')}'
@@ -604,8 +622,10 @@ class _EditBookingSheetState extends State<_EditBookingSheet> {
                 decoration: InputDecoration(
                   hintText: 'e.g. 11:00 AM — optional',
                   isDense: true,
-                  contentPadding:
-                      const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                  contentPadding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 12,
+                  ),
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(10),
                     borderSide: const BorderSide(color: AppColors.hairline),
@@ -618,8 +638,10 @@ class _EditBookingSheetState extends State<_EditBookingSheet> {
               ),
               const SizedBox(height: 14),
 
-              Text('Status',
-                  style: AppTextStyles.body.copyWith(fontSize: 12.5)),
+              Text(
+                'Status',
+                style: AppTextStyles.body.copyWith(fontSize: 12.5),
+              ),
               const SizedBox(height: 6),
               Wrap(
                 spacing: 6,
@@ -637,8 +659,9 @@ class _EditBookingSheetState extends State<_EditBookingSheet> {
                           color: _status == option.value
                               ? AppColors.primary
                               : AppColors.primary.withValues(alpha: 0.08),
-                          borderRadius:
-                              BorderRadius.circular(AppConstants.pillRadius),
+                          borderRadius: BorderRadius.circular(
+                            AppConstants.pillRadius,
+                          ),
                         ),
                         child: Text(
                           option.label,
@@ -658,8 +681,11 @@ class _EditBookingSheetState extends State<_EditBookingSheet> {
                 const SizedBox(height: 10),
                 Row(
                   children: [
-                    const Icon(Icons.notifications_active_outlined,
-                        size: 14, color: AppColors.textSecondary),
+                    const Icon(
+                      Icons.notifications_active_outlined,
+                      size: 14,
+                      color: AppColors.textSecondary,
+                    ),
                     const SizedBox(width: 6),
                     Expanded(
                       child: Text(

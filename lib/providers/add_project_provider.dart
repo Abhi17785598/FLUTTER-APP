@@ -29,7 +29,8 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import '../models/project_model.dart';
 import '../screens/add_project/project_validation_rules.dart';
-import '../screens/post_property/listing_validation_rules.dart' show ListingIssue;
+import '../screens/post_property/listing_validation_rules.dart'
+    show ListingIssue;
 import '../services/project_media_service.dart';
 import '../services/project_service.dart';
 
@@ -45,8 +46,8 @@ class AddProjectProvider extends ChangeNotifier {
   AddProjectProvider({
     ProjectService? projectService,
     ProjectMediaService? mediaService,
-  })  : _projects = projectService ?? ProjectService(),
-        _media = mediaService ?? ProjectMediaService();
+  }) : _projects = projectService ?? ProjectService(),
+       _media = mediaService ?? ProjectMediaService();
 
   final ProjectService _projects;
   final ProjectMediaService _media;
@@ -150,8 +151,9 @@ class AddProjectProvider extends ChangeNotifier {
   void removeMapImage(int index) =>
       _update(_draft.copyWith(mapImages: _without(_draft.mapImages, index)));
 
-  void removeOtherImage(int index) =>
-      _update(_draft.copyWith(otherImages: _without(_draft.otherImages, index)));
+  void removeOtherImage(int index) => _update(
+    _draft.copyWith(otherImages: _without(_draft.otherImages, index)),
+  );
 
   void removeVideo(int index) =>
       _update(_draft.copyWith(videosUrls: _without(_draft.videosUrls, index)));
@@ -176,8 +178,10 @@ class AddProjectProvider extends ChangeNotifier {
   /// order of this list matters.
   Future<void> uploadMasterLayout(Uint8List bytes, String fileName) =>
       _withUpload(ProjectUploadSlot.masterLayout, () async {
-        final url =
-            await _media.uploadMasterLayout(bytes: bytes, fileName: fileName);
+        final url = await _media.uploadMasterLayout(
+          bytes: bytes,
+          fileName: fileName,
+        );
         _update(_draft.copyWith(mapImages: [..._draft.mapImages, url]));
       });
 
@@ -193,12 +197,13 @@ class AddProjectProvider extends ChangeNotifier {
         _update(_draft.copyWith(videosUrls: [..._draft.videosUrls, url]));
       });
 
-  Future<void> uploadBrochure(Uint8List bytes, String fileName) =>
-      _withUpload(ProjectUploadSlot.brochure, () async {
-        final url =
-            await _media.uploadBrochure(bytes: bytes, fileName: fileName);
-        _update(_draft.copyWith(brochureUrl: url));
-      });
+  Future<void> uploadBrochure(Uint8List bytes, String fileName) => _withUpload(
+    ProjectUploadSlot.brochure,
+    () async {
+      final url = await _media.uploadBrochure(bytes: bytes, fileName: fileName);
+      _update(_draft.copyWith(brochureUrl: url));
+    },
+  );
 
   Future<void> _withUpload(
     ProjectUploadSlot slot,
@@ -340,7 +345,8 @@ class AddProjectProvider extends ChangeNotifier {
       if (decoded is! Map<String, dynamic>) return;
 
       final candidate = ProjectDraft.fromJson(decoded);
-      final meaningful = candidate.title.trim().isNotEmpty ||
+      final meaningful =
+          candidate.title.trim().isNotEmpty ||
           candidate.location.trim().isNotEmpty ||
           candidate.projectType.isNotEmpty ||
           candidate.mapImages.isNotEmpty ||

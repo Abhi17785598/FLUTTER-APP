@@ -20,10 +20,7 @@ class SectionHeader extends StatelessWidget {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Text(
-            title,
-            style: AppTextStyles.heading2,
-          ),
+          Text(title, style: AppTextStyles.heading2),
           if (actionLabel != null)
             GestureDetector(
               onTap: onActionTap,

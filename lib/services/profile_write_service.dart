@@ -42,8 +42,8 @@ const Set<String> kTriggerGuardedColumns = <String>{
 
 class ProfileWriteService {
   ProfileWriteService({AuthService? authService, SupabaseClient? client})
-      : _authService = authService ?? AuthService(),
-        _supabase = client ?? Supabase.instance.client;
+    : _authService = authService ?? AuthService(),
+      _supabase = client ?? Supabase.instance.client;
 
   final AuthService _authService;
   final SupabaseClient _supabase;
@@ -88,10 +88,7 @@ class ProfileWriteService {
   }) async {
     final payload = stripGuarded(<String, dynamic>{
       ...columns,
-      'social_media': mergeSocialMedia(
-        socialMediaExisting,
-        socialMediaChanges,
-      ),
+      'social_media': mergeSocialMedia(socialMediaExisting, socialMediaChanges),
     });
 
     await _authService.updateProfileFields(userId, payload);
@@ -126,9 +123,10 @@ class ProfileWriteService {
             .update({'city': city})
             .eq('user_id', userId);
       } else {
-        await _supabase
-            .from('user_preferences')
-            .insert({'user_id': userId, 'city': city});
+        await _supabase.from('user_preferences').insert({
+          'user_id': userId,
+          'city': city,
+        });
       }
     } catch (e) {
       debugPrint('ProfileWriteService.syncCityPreference failed: $e');

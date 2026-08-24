@@ -144,10 +144,7 @@ class _StatTile extends StatelessWidget {
               ),
             ),
           const SizedBox(height: 2),
-          Text(
-            label,
-            style: AppTextStyles.caption.copyWith(fontSize: 11.5),
-          ),
+          Text(label, style: AppTextStyles.caption.copyWith(fontSize: 11.5)),
         ],
       ),
     );

@@ -40,7 +40,8 @@ class SocialService {
       return (data as Map<String, dynamic>?) ?? const <String, dynamic>{};
     } on FunctionException catch (e) {
       final message = e.details is Map ? e.details['error'] : null;
-      throw message?.toString() ?? 'Could not reach the server. Please try again.';
+      throw message?.toString() ??
+          'Could not reach the server. Please try again.';
     } catch (e) {
       if (e is String) rethrow;
       throw 'A network error occurred. Please try again.';
@@ -110,7 +111,10 @@ class SocialService {
   /// what the Activity screen renders: `social_share_logs` (above) never
   /// carries a `queued` or `canceled` row, only what a worker attempt already
   /// resolved to.
-  Future<List<ShareQueueItem>> listQueue(String userId, {int limit = 50}) async {
+  Future<List<ShareQueueItem>> listQueue(
+    String userId, {
+    int limit = 50,
+  }) async {
     try {
       final rows = await _supabase
           .from('social_share_queue')
@@ -120,7 +124,9 @@ class SocialService {
           .limit(limit);
 
       return (rows as List)
-          .map((r) => ShareQueueItem.fromJson(Map<String, dynamic>.from(r as Map)))
+          .map(
+            (r) => ShareQueueItem.fromJson(Map<String, dynamic>.from(r as Map)),
+          )
           .toList();
     } catch (e) {
       debugPrint('SocialService.listQueue failed: $e');
@@ -289,7 +295,9 @@ class SocialService {
   /// passthrough, same as `metaAdsService.createCampaign`.
   Future<AdCampaign> createCampaign(Map<String, dynamic> body) async {
     final result = await _invoke('meta-campaign-create', body: body);
-    return AdCampaign.fromJson(Map<String, dynamic>.from(result['campaign'] as Map));
+    return AdCampaign.fromJson(
+      Map<String, dynamic>.from(result['campaign'] as Map),
+    );
   }
 
   Future<AdCampaign> updateCampaign(
@@ -297,12 +305,17 @@ class SocialService {
     String? action,
     int? dailyBudgetMinor,
   }) async {
-    final result = await _invoke('meta-campaign-update', body: {
-      'campaign_id': campaignId,
-      if (action != null) 'action': action,
-      if (dailyBudgetMinor != null) 'daily_budget_minor': dailyBudgetMinor,
-    });
-    return AdCampaign.fromJson(Map<String, dynamic>.from(result['campaign'] as Map));
+    final result = await _invoke(
+      'meta-campaign-update',
+      body: {
+        'campaign_id': campaignId,
+        if (action != null) 'action': action,
+        if (dailyBudgetMinor != null) 'daily_budget_minor': dailyBudgetMinor,
+      },
+    );
+    return AdCampaign.fromJson(
+      Map<String, dynamic>.from(result['campaign'] as Map),
+    );
   }
 
   /// Pulls live spend/impressions/clicks/leads/effective_status —
@@ -327,7 +340,10 @@ class SocialService {
   // ── Leads ────────────────────────────────────────────────────────────────
 
   Future<void> updateLeadStatus(String leadId, String status) async {
-    await _supabase.from('social_ad_leads').update({'status': status}).eq('id', leadId);
+    await _supabase
+        .from('social_ad_leads')
+        .update({'status': status})
+        .eq('id', leadId);
   }
 
   /// Pulls new Meta lead-form submissions — `meta-leads-sync`.
@@ -480,12 +496,15 @@ class SocialService {
     String? tone,
   }) async {
     try {
-      return await _invoke('meta-caption-generate', body: {
-        'content_type': contentType,
-        'content_id': contentId,
-        'platform': platform,
-        if (tone != null) 'tone': tone,
-      });
+      return await _invoke(
+        'meta-caption-generate',
+        body: {
+          'content_type': contentType,
+          'content_id': contentId,
+          'platform': platform,
+          if (tone != null) 'tone': tone,
+        },
+      );
     } catch (e) {
       debugPrint('SocialService.generateCaption failed: $e');
       return const {'caption': '', 'hashtags': [], 'cta': null};

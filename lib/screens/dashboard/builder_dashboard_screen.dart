@@ -193,7 +193,9 @@ class _BuilderDashboardViewState extends State<_BuilderDashboardView> {
   Future<List<ProjectModel>> _resolveProjects(List<String> ids) async {
     if (ids.isEmpty) return const [];
     try {
-      final rows = await ProjectService().listMine(context.read<AuthProvider>().userId!);
+      final rows = await ProjectService().listMine(
+        context.read<AuthProvider>().userId!,
+      );
       return rows.where((p) => ids.contains(p.id)).toList(growable: false);
     } catch (e) {
       debugPrint('BuilderDashboard project resolve failed: $e');
@@ -206,7 +208,9 @@ class _BuilderDashboardViewState extends State<_BuilderDashboardView> {
     super.initState();
     _dashboardFuture = _loadDashboard();
     WidgetsBinding.instance.addPostFrameCallback((_) => _loadAnalytics());
-    WidgetsBinding.instance.addPostFrameCallback((_) => _loadProjectsIndependently());
+    WidgetsBinding.instance.addPostFrameCallback(
+      (_) => _loadProjectsIndependently(),
+    );
   }
 
   /// Populates [_projects] without waiting for `MyProjectsSection` (the
@@ -431,10 +435,7 @@ class _BuilderDashboardViewState extends State<_BuilderDashboardView> {
             // The portal's full wording, which the pill abbreviates to "Offers".
             const DashboardSectionLabel('Marketed Offers'),
             const SizedBox(height: 10),
-            BuilderOffersSection(
-              builderId: auth.userId!,
-              projects: _projects,
-            ),
+            BuilderOffersSection(builderId: auth.userId!, projects: _projects),
           ],
         );
 
@@ -485,10 +486,7 @@ class _BuilderDashboardViewState extends State<_BuilderDashboardView> {
           children: [
             const DashboardSectionLabel('Team'),
             const SizedBox(height: 10),
-            BuilderTeamSection(
-              builderId: auth.userId!,
-              projects: _projects,
-            ),
+            BuilderTeamSection(builderId: auth.userId!, projects: _projects),
             const SizedBox(height: 22),
             const DashboardSectionLabel('Audience'),
             const SizedBox(height: 10),
@@ -515,9 +513,9 @@ class _BuilderDashboardViewState extends State<_BuilderDashboardView> {
           const SizedBox(height: 16),
           Text(
             "Loading your dashboard...",
-            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                  color: Colors.grey.shade600,
-                ),
+            style: Theme.of(
+              context,
+            ).textTheme.bodyMedium?.copyWith(color: Colors.grey.shade600),
           ),
         ],
       ),
@@ -584,12 +582,18 @@ class _BuilderDashboardViewState extends State<_BuilderDashboardView> {
                 style: FilledButton.styleFrom(
                   backgroundColor: Colors.transparent,
                   shadowColor: Colors.transparent,
-                  padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 14),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 22,
+                    vertical: 14,
+                  ),
                 ),
                 icon: const Icon(Icons.refresh_rounded, color: Colors.white),
                 label: const Text(
                   "Retry",
-                  style: TextStyle(color: Colors.white, fontWeight: FontWeight.w700),
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.w700,
+                  ),
                 ),
               ),
             ),

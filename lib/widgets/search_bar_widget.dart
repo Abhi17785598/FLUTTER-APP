@@ -72,7 +72,8 @@ class SearchBarWidget extends StatelessWidget {
       decoration: BoxDecoration(
         color: AppColors.cardBackground,
         borderRadius: BorderRadius.circular(borderRadius),
-        boxShadow: boxShadow ??
+        boxShadow:
+            boxShadow ??
             [
               BoxShadow(
                 color: Colors.black.withOpacity(0.03),
@@ -85,11 +86,7 @@ class SearchBarWidget extends StatelessWidget {
         children: [
           SizedBox(width: leadingPadding),
 
-          const Icon(
-            Icons.search,
-            color: AppColors.textSecondary,
-            size: 18,
-          ),
+          const Icon(Icons.search, color: AppColors.textSecondary, size: 18),
 
           SizedBox(width: iconGap),
 
@@ -115,9 +112,7 @@ class SearchBarWidget extends StatelessWidget {
                     onSubmitted: onSubmitted,
                     textInputAction: TextInputAction.search,
                     autofocus: autofocus,
-                    style: AppTextStyles.body.copyWith(
-                      height: 1.2,
-                    ),
+                    style: AppTextStyles.body.copyWith(height: 1.2),
                     cursorColor: AppColors.primary,
                     textAlignVertical: TextAlignVertical.center,
                     decoration: InputDecoration(
@@ -171,10 +166,7 @@ class SearchBarWidget extends StatelessWidget {
             const SizedBox(width: 8),
           ],
 
-          if (trailing != null) ...[
-            SizedBox(width: trailingGap),
-            trailing!,
-          ],
+          if (trailing != null) ...[SizedBox(width: trailingGap), trailing!],
 
           SizedBox(width: trailingPadding),
         ],

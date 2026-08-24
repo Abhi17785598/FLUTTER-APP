@@ -70,9 +70,13 @@ class _ForwardMessageSheetState extends State<_ForwardMessageSheet> {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
+      padding: EdgeInsets.only(
+        bottom: MediaQuery.of(context).viewInsets.bottom,
+      ),
       child: Container(
-        constraints: BoxConstraints(maxHeight: MediaQuery.of(context).size.height * 0.7),
+        constraints: BoxConstraints(
+          maxHeight: MediaQuery.of(context).size.height * 0.7,
+        ),
         decoration: const BoxDecoration(
           color: AppColors.cardBackground,
           borderRadius: BorderRadius.only(
@@ -93,14 +97,19 @@ class _ForwardMessageSheetState extends State<_ForwardMessageSheet> {
                   height: 4,
                   decoration: BoxDecoration(
                     color: const Color(0xFFEDEDF2),
-                    borderRadius: BorderRadius.circular(AppConstants.pillRadius),
+                    borderRadius: BorderRadius.circular(
+                      AppConstants.pillRadius,
+                    ),
                   ),
                 ),
               ),
               const SizedBox(height: 16),
               Text(
                 'Forward to…',
-                style: AppTextStyles.heading3.copyWith(fontSize: 14.5, fontWeight: FontWeight.w700),
+                style: AppTextStyles.heading3.copyWith(
+                  fontSize: 14.5,
+                  fontWeight: FontWeight.w700,
+                ),
               ),
               const SizedBox(height: 12),
               Flexible(child: _buildBody()),
@@ -133,7 +142,10 @@ class _ForwardMessageSheetState extends State<_ForwardMessageSheet> {
       return Padding(
         padding: const EdgeInsets.symmetric(vertical: 28),
         child: Center(
-          child: Text('No conversations yet', style: AppTextStyles.caption.copyWith(fontSize: 12.5)),
+          child: Text(
+            'No conversations yet',
+            style: AppTextStyles.caption.copyWith(fontSize: 12.5),
+          ),
         ),
       );
     }
@@ -163,7 +175,10 @@ class _ForwardMessageSheetState extends State<_ForwardMessageSheet> {
                       conversation.title,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: AppTextStyles.body.copyWith(fontSize: 14, fontWeight: FontWeight.w600),
+                      style: AppTextStyles.body.copyWith(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w600,
+                      ),
                     ),
                   ),
                 ],

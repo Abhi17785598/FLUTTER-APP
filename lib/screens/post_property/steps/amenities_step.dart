@@ -66,8 +66,18 @@ class _AmenitiesStepState extends State<AmenitiesStep> {
   ];
 
   static const _suitableForOptions = [
-    'Office', 'Retail', 'Restaurant', 'Clinic', 'Salon', 'Gym', 'Warehouse',
-    'Manufacturing', 'Startup', 'IT Company', 'Franchise', 'Showroom',
+    'Office',
+    'Retail',
+    'Restaurant',
+    'Clinic',
+    'Salon',
+    'Gym',
+    'Warehouse',
+    'Manufacturing',
+    'Startup',
+    'IT Company',
+    'Franchise',
+    'Showroom',
   ];
 
   // Portal's commercialOfficeBuildingAmenityList (AmenitiesStep.tsx) — one
@@ -77,17 +87,37 @@ class _AmenitiesStepState extends State<AmenitiesStep> {
   // Backup" and "Wheelchair Accessibility" and relabelled "Waiting Lounge" as
   // "Waiting Area".
   static const _officeBuildingFeatures = [
-    'Reception Area', 'Waiting Lounge', 'Conference Room', 'Meeting Room',
-    'Open Workspace', 'Cafeteria', 'Biometric Entry', 'Service Lift',
-    'Escalator', 'Security Guard', 'CCTV', 'Fire Fighting System',
-    'Fire Exit', 'Fiber Connectivity', 'Intercom', 'DG Backup',
-    'Solar Backup', 'ATM', 'Wheelchair Accessibility',
+    'Reception Area',
+    'Waiting Lounge',
+    'Conference Room',
+    'Meeting Room',
+    'Open Workspace',
+    'Cafeteria',
+    'Biometric Entry',
+    'Service Lift',
+    'Escalator',
+    'Security Guard',
+    'CCTV',
+    'Fire Fighting System',
+    'Fire Exit',
+    'Fiber Connectivity',
+    'Intercom',
+    'DG Backup',
+    'Solar Backup',
+    'ATM',
+    'Wheelchair Accessibility',
   ];
 
   static const _retailFeatures = [
-    'Glass Frontage', 'Display Area', 'Signage Space', 'Dock Height',
-    'Truck Parking', 'Loading Area', 'Crane Facility',
-    'Storage Racks', 'Ventilation',
+    'Glass Frontage',
+    'Display Area',
+    'Signage Space',
+    'Dock Height',
+    'Truck Parking',
+    'Loading Area',
+    'Crane Facility',
+    'Storage Racks',
+    'Ventilation',
   ];
 
   static const _parkingToggles = [
@@ -98,7 +128,6 @@ class _AmenitiesStepState extends State<AmenitiesStep> {
     ('truckParking', 'Truck Parking'),
     ('loadingVehicleAccess', 'Loading Vehicle Access'),
   ];
-
 
   static const _pgSafetyToggles = [
     ('cctvCoverage', 'CCTV Coverage'),
@@ -121,30 +150,44 @@ class _AmenitiesStepState extends State<AmenitiesStep> {
     super.initState();
     final inv = context.read<PostPropertyProvider>();
     _buildingWorkingHoursController = TextEditingController(
-        text: inv.buildingInventoryText('buildingWorkingHours'));
-    _liftCountController =
-        TextEditingController(text: inv.buildingInventoryText('liftCount'));
+      text: inv.buildingInventoryText('buildingWorkingHours'),
+    );
+    _liftCountController = TextEditingController(
+      text: inv.buildingInventoryText('liftCount'),
+    );
     _securityGuardsController = TextEditingController(
-        text: inv.buildingInventoryText('securityGuards'));
+      text: inv.buildingInventoryText('securityGuards'),
+    );
     _buildingMaintenanceController = TextEditingController(
-        text: inv.buildingInventoryText('maintenanceCharges'));
+      text: inv.buildingInventoryText('maintenanceCharges'),
+    );
     _totalCarParkingController = TextEditingController(
-        text: inv.buildingInventoryText('totalCarParking'));
+      text: inv.buildingInventoryText('totalCarParking'),
+    );
     _totalBikeParkingController = TextEditingController(
-        text: inv.buildingInventoryText('totalBikeParking'));
+      text: inv.buildingInventoryText('totalBikeParking'),
+    );
     _serviceLiftCountController = TextEditingController(
-        text: inv.buildingInventoryText('serviceLiftCount'));
+      text: inv.buildingInventoryText('serviceLiftCount'),
+    );
     _camChargesController = TextEditingController(
-        text: inv.buildingInventoryText('commonAreaMaintenanceCharges'));
+      text: inv.buildingInventoryText('commonAreaMaintenanceCharges'),
+    );
     final p = context.read<PostPropertyProvider>();
     _coveredParkingController = TextEditingController(text: p.coveredParking);
     _openParkingController = TextEditingController(text: p.openParking);
     _liftsController = TextEditingController(text: p.numberOfLifts);
-    _businessTypeController = TextEditingController(text: p.text('businessType'));
+    _businessTypeController = TextEditingController(
+      text: p.text('businessType'),
+    );
     _washroomsController = TextEditingController(text: p.text('washrooms'));
-    _westernSeatsController = TextEditingController(text: p.text('westernSeats'));
+    _westernSeatsController = TextEditingController(
+      text: p.text('westernSeats'),
+    );
     _indianSeatsController = TextEditingController(text: p.text('indianSeats'));
-    _totalParkingController = TextEditingController(text: p.text('totalParking'));
+    _totalParkingController = TextEditingController(
+      text: p.text('totalParking'),
+    );
   }
 
   @override
@@ -216,9 +259,10 @@ class _AmenitiesStepState extends State<AmenitiesStep> {
       // Replace only this group's entries, leaving the other groups' choices
       // in the shared array untouched.
       final others = selected.where((a) => !group.contains(a)).toList();
-      context
-          .read<PostPropertyProvider>()
-          .setListVal('amenities', [...others, ...next]);
+      context.read<PostPropertyProvider>().setListVal('amenities', [
+        ...others,
+        ...next,
+      ]);
     }
 
     List<String> selectionFor(List<String> group) =>
@@ -307,9 +351,10 @@ class _AmenitiesStepState extends State<AmenitiesStep> {
               .listVal('amenities')
               .where((a) => !kOtherGeneralAmenities.contains(a))
               .toList();
-          context
-              .read<PostPropertyProvider>()
-              .setListVal('amenities', [...others, ...v]);
+          context.read<PostPropertyProvider>().setListVal('amenities', [
+            ...others,
+            ...v,
+          ]);
         },
       ),
     );
@@ -320,7 +365,10 @@ class _AmenitiesStepState extends State<AmenitiesStep> {
   /// anywhere in the portal's AmenitiesStep.tsx, for any category. Removed
   /// per explicit request; the category-specific sections below (Residential,
   /// PG, Others) are the only things the portal actually shows here.
-  Widget _buildDefaultSection(BuildContext context, PostPropertyProvider provider) {
+  Widget _buildDefaultSection(
+    BuildContext context,
+    PostPropertyProvider provider,
+  ) {
     return const SizedBox.shrink();
   }
 
@@ -362,7 +410,8 @@ class _AmenitiesStepState extends State<AmenitiesStep> {
                 label: 'Working Days *',
                 child: WizardChipGroup(
                   options: _kWorkingDays,
-                  selected: provider.buildingInventoryText('workingDays').isEmpty
+                  selected:
+                      provider.buildingInventoryText('workingDays').isEmpty
                       ? null
                       : provider.buildingInventoryText('workingDays'),
                   onSelected: (v) => setInv('workingDays', v),
@@ -381,35 +430,60 @@ class _AmenitiesStepState extends State<AmenitiesStep> {
               Row(
                 children: [
                   Expanded(
-                      child: numField(
-                          'liftCount', 'Lift Count *', _liftCountController)),
+                    child: numField(
+                      'liftCount',
+                      'Lift Count *',
+                      _liftCountController,
+                    ),
+                  ),
                   const SizedBox(width: 12),
                   Expanded(
-                      child: numField('securityGuards', 'Security Guards *',
-                          _securityGuardsController)),
+                    child: numField(
+                      'securityGuards',
+                      'Security Guards *',
+                      _securityGuardsController,
+                    ),
+                  ),
                 ],
               ),
               const WizardDivider(),
-              numField('maintenanceCharges', 'Maintenance Charges *',
-                  _buildingMaintenanceController),
+              numField(
+                'maintenanceCharges',
+                'Maintenance Charges *',
+                _buildingMaintenanceController,
+              ),
               const WizardDivider(),
               Row(
                 children: [
                   Expanded(
-                      child: numField('totalCarParking', 'Total Car Parking *',
-                          _totalCarParkingController)),
+                    child: numField(
+                      'totalCarParking',
+                      'Total Car Parking *',
+                      _totalCarParkingController,
+                    ),
+                  ),
                   const SizedBox(width: 12),
                   Expanded(
-                      child: numField('totalBikeParking',
-                          'Total Bike Parking *', _totalBikeParkingController)),
+                    child: numField(
+                      'totalBikeParking',
+                      'Total Bike Parking *',
+                      _totalBikeParkingController,
+                    ),
+                  ),
                 ],
               ),
               const WizardDivider(),
-              numField('serviceLiftCount', 'Service Lift Count',
-                  _serviceLiftCountController),
+              numField(
+                'serviceLiftCount',
+                'Service Lift Count',
+                _serviceLiftCountController,
+              ),
               const WizardDivider(),
-              numField('commonAreaMaintenanceCharges',
-                  'Common Area Maintenance Charges', _camChargesController),
+              numField(
+                'commonAreaMaintenanceCharges',
+                'Common Area Maintenance Charges',
+                _camChargesController,
+              ),
               const WizardDivider(),
               Wrap(
                 spacing: 8,
@@ -435,7 +509,10 @@ class _AmenitiesStepState extends State<AmenitiesStep> {
     );
   }
 
-  Widget _buildCommercialSections(BuildContext context, PostPropertyProvider provider) {
+  Widget _buildCommercialSections(
+    BuildContext context,
+    PostPropertyProvider provider,
+  ) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -445,7 +522,10 @@ class _AmenitiesStepState extends State<AmenitiesStep> {
           child: WizardMultiChipGroup(
             options: _suitableForOptions,
             selected: provider.listVal('suitableFor'),
-            onChanged: (v) => context.read<PostPropertyProvider>().setListVal('suitableFor', v),
+            onChanged: (v) => context.read<PostPropertyProvider>().setListVal(
+              'suitableFor',
+              v,
+            ),
           ),
         ),
         const SizedBox(height: 20),
@@ -471,8 +551,9 @@ class _AmenitiesStepState extends State<AmenitiesStep> {
                   inputFormatters: [
                     FilteringTextInputFormatter.allow(RegExp(r'[a-zA-Z\s]')),
                   ],
-                  onChanged: (v) =>
-                      context.read<PostPropertyProvider>().setText('businessType', v),
+                  onChanged: (v) => context
+                      .read<PostPropertyProvider>()
+                      .setText('businessType', v),
                 ),
               ),
             ],
@@ -498,9 +579,10 @@ class _AmenitiesStepState extends State<AmenitiesStep> {
                         .listVal('amenities')
                         .where((a) => !_officeBuildingFeatures.contains(a))
                         .toList();
-                    context
-                        .read<PostPropertyProvider>()
-                        .setListVal('amenities', [...others, ...v]);
+                    context.read<PostPropertyProvider>().setListVal(
+                      'amenities',
+                      [...others, ...v],
+                    );
                   },
                 ),
               ),
@@ -510,8 +592,9 @@ class _AmenitiesStepState extends State<AmenitiesStep> {
                 child: WizardMultiChipGroup(
                   options: _retailFeatures,
                   selected: provider.listVal('retailFeatures'),
-                  onChanged: (v) =>
-                      context.read<PostPropertyProvider>().setListVal('retailFeatures', v),
+                  onChanged: (v) => context
+                      .read<PostPropertyProvider>()
+                      .setListVal('retailFeatures', v),
                 ),
               ),
             ],
@@ -533,8 +616,9 @@ class _AmenitiesStepState extends State<AmenitiesStep> {
                         controller: _washroomsController,
                         hint: '0',
                         keyboardType: TextInputType.number,
-                        onChanged: (v) =>
-                            context.read<PostPropertyProvider>().setText('washrooms', v),
+                        onChanged: (v) => context
+                            .read<PostPropertyProvider>()
+                            .setText('washrooms', v),
                       ),
                     ),
                   ),
@@ -546,8 +630,9 @@ class _AmenitiesStepState extends State<AmenitiesStep> {
                         controller: _westernSeatsController,
                         hint: '0',
                         keyboardType: TextInputType.number,
-                        onChanged: (v) =>
-                            context.read<PostPropertyProvider>().setText('westernSeats', v),
+                        onChanged: (v) => context
+                            .read<PostPropertyProvider>()
+                            .setText('westernSeats', v),
                       ),
                     ),
                   ),
@@ -559,8 +644,9 @@ class _AmenitiesStepState extends State<AmenitiesStep> {
                         controller: _indianSeatsController,
                         hint: '0',
                         keyboardType: TextInputType.number,
-                        onChanged: (v) =>
-                            context.read<PostPropertyProvider>().setText('indianSeats', v),
+                        onChanged: (v) => context
+                            .read<PostPropertyProvider>()
+                            .setText('indianSeats', v),
                       ),
                     ),
                   ),
@@ -574,20 +660,23 @@ class _AmenitiesStepState extends State<AmenitiesStep> {
                   WizardCheckboxTile(
                     label: 'Male Washroom',
                     value: provider.boolVal('maleWashroom'),
-                    onChanged: (v) =>
-                        context.read<PostPropertyProvider>().setBoolVal('maleWashroom', v),
+                    onChanged: (v) => context
+                        .read<PostPropertyProvider>()
+                        .setBoolVal('maleWashroom', v),
                   ),
                   WizardCheckboxTile(
                     label: 'Female Washroom',
                     value: provider.boolVal('femaleWashroom'),
-                    onChanged: (v) =>
-                        context.read<PostPropertyProvider>().setBoolVal('femaleWashroom', v),
+                    onChanged: (v) => context
+                        .read<PostPropertyProvider>()
+                        .setBoolVal('femaleWashroom', v),
                   ),
                   WizardCheckboxTile(
                     label: 'Common Washroom',
                     value: provider.boolVal('commonWashroom'),
-                    onChanged: (v) =>
-                        context.read<PostPropertyProvider>().setBoolVal('commonWashroom', v),
+                    onChanged: (v) => context
+                        .read<PostPropertyProvider>()
+                        .setBoolVal('commonWashroom', v),
                   ),
                 ],
               ),
@@ -612,8 +701,9 @@ class _AmenitiesStepState extends State<AmenitiesStep> {
                         controller: _totalParkingController,
                         hint: '0',
                         keyboardType: TextInputType.number,
-                        onChanged: (v) =>
-                            context.read<PostPropertyProvider>().setText('totalParking', v),
+                        onChanged: (v) => context
+                            .read<PostPropertyProvider>()
+                            .setText('totalParking', v),
                       ),
                     ),
                   ),
@@ -625,8 +715,9 @@ class _AmenitiesStepState extends State<AmenitiesStep> {
                         controller: _coveredParkingController,
                         hint: '0',
                         keyboardType: TextInputType.number,
-                        onChanged: (v) =>
-                            context.read<PostPropertyProvider>().setCoveredParking(v),
+                        onChanged: (v) => context
+                            .read<PostPropertyProvider>()
+                            .setCoveredParking(v),
                       ),
                     ),
                   ),
@@ -638,8 +729,9 @@ class _AmenitiesStepState extends State<AmenitiesStep> {
                         controller: _openParkingController,
                         hint: '0',
                         keyboardType: TextInputType.number,
-                        onChanged: (v) =>
-                            context.read<PostPropertyProvider>().setOpenParking(v),
+                        onChanged: (v) => context
+                            .read<PostPropertyProvider>()
+                            .setOpenParking(v),
                       ),
                     ),
                   ),
@@ -653,8 +745,9 @@ class _AmenitiesStepState extends State<AmenitiesStep> {
                   return WizardCheckboxTile(
                     label: t.$2,
                     value: provider.boolVal(t.$1),
-                    onChanged: (v) =>
-                        context.read<PostPropertyProvider>().setBoolVal(t.$1, v),
+                    onChanged: (v) => context
+                        .read<PostPropertyProvider>()
+                        .setBoolVal(t.$1, v),
                   );
                 }).toList(),
               ),
@@ -665,7 +758,10 @@ class _AmenitiesStepState extends State<AmenitiesStep> {
     );
   }
 
-  Widget _buildPgAmenitiesSection(BuildContext context, PostPropertyProvider provider) {
+  Widget _buildPgAmenitiesSection(
+    BuildContext context,
+    PostPropertyProvider provider,
+  ) {
     return WizardCard(
       icon: Icons.home_work_outlined,
       title: 'PG & Co-Living Amenities',
@@ -695,7 +791,10 @@ class _AmenitiesStepState extends State<AmenitiesStep> {
             // on the web.
             options: kPgCommonAreaAmenities.map((o) => o.label).toList(),
             selected: provider.listVal('pgAmenities'),
-            onChanged: (v) => context.read<PostPropertyProvider>().setListVal('pgAmenities', v),
+            onChanged: (v) => context.read<PostPropertyProvider>().setListVal(
+              'pgAmenities',
+              v,
+            ),
           ),
           const WizardDivider(),
           WizardField(
@@ -707,7 +806,8 @@ class _AmenitiesStepState extends State<AmenitiesStep> {
                 return WizardCheckboxTile(
                   label: t.$2,
                   value: provider.boolVal(t.$1),
-                  onChanged: (v) => context.read<PostPropertyProvider>().setBoolVal(t.$1, v),
+                  onChanged: (v) =>
+                      context.read<PostPropertyProvider>().setBoolVal(t.$1, v),
                 );
               }).toList(),
             ),

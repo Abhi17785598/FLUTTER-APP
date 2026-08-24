@@ -125,10 +125,8 @@ class _TeamOffersTabState extends State<TeamOffersTab> {
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
-      builder: (_) => BuilderOfferEditorSheet(
-        project: matches.first,
-        editing: offer,
-      ),
+      builder: (_) =>
+          BuilderOfferEditorSheet(project: matches.first, editing: offer),
     );
     if (draft == null || !mounted) return;
 

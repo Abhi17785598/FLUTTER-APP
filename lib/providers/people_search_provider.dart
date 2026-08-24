@@ -16,8 +16,8 @@ import '../services/people_search_service.dart';
 
 class PeopleSearchProvider extends ChangeNotifier {
   PeopleSearchProvider({PeopleSearchService? service, int pageSize = 20})
-      : _service = service ?? PeopleSearchService(),
-        _pageSize = pageSize;
+    : _service = service ?? PeopleSearchService(),
+      _pageSize = pageSize;
 
   final PeopleSearchService _service;
   final int _pageSize;
@@ -61,7 +61,11 @@ class PeopleSearchProvider extends ChangeNotifier {
 
   /// A completed search that matched nobody.
   bool get isEmptyResult =>
-      !isIdle && _hasSearched && !_isSearching && !_hasError && _results.isEmpty;
+      !isIdle &&
+      _hasSearched &&
+      !_isSearching &&
+      !_hasError &&
+      _results.isEmpty;
 
   @override
   void dispose() {

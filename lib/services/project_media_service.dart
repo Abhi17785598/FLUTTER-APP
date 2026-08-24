@@ -48,8 +48,8 @@ class ProjectMediaException implements Exception {
 
 class ProjectMediaService {
   ProjectMediaService({SupabaseClient? client, Random? random})
-      : _supabase = client ?? Supabase.instance.client,
-        _random = random ?? Random();
+    : _supabase = client ?? Supabase.instance.client,
+      _random = random ?? Random();
 
   final SupabaseClient _supabase;
   final Random _random;
@@ -76,12 +76,11 @@ class ProjectMediaService {
   Future<String> uploadLogo({
     required Uint8List bytes,
     required String fileName,
-  }) =>
-      _upload(
-        bytes: bytes,
-        path: '$logoPrefix/${_stamp()}-logo.${_ext(fileName)}',
-        fileName: fileName,
-      );
+  }) => _upload(
+    bytes: bytes,
+    path: '$logoPrefix/${_stamp()}-logo.${_ext(fileName)}',
+    fileName: fileName,
+  );
 
   /// Uploads a master-plan layout image. Returns its public URL.
   ///
@@ -90,38 +89,34 @@ class ProjectMediaService {
   Future<String> uploadMasterLayout({
     required Uint8List bytes,
     required String fileName,
-  }) =>
-      _upload(
-        bytes: bytes,
-        path:
-            '$masterLayoutPrefix/${_stamp()}-master-layout.${_ext(fileName)}',
-        fileName: fileName,
-      );
+  }) => _upload(
+    bytes: bytes,
+    path: '$masterLayoutPrefix/${_stamp()}-master-layout.${_ext(fileName)}',
+    fileName: fileName,
+  );
 
   /// Uploads one project photograph. Returns its public URL.
   Future<String> uploadImage({
     required Uint8List bytes,
     required String fileName,
-  }) =>
-      _upload(
-        bytes: bytes,
-        path: '$imagePrefix/${_stamp()}-${_suffix()}.${_ext(fileName)}',
-        fileName: fileName,
-      );
+  }) => _upload(
+    bytes: bytes,
+    path: '$imagePrefix/${_stamp()}-${_suffix()}.${_ext(fileName)}',
+    fileName: fileName,
+  );
 
   /// Uploads one project video. Returns its public URL.
   Future<String> uploadVideo({
     required Uint8List bytes,
     required String fileName,
-  }) =>
-      _upload(
-        bytes: bytes,
-        path: '$videoPrefix/${_stamp()}-${_suffix()}.${_ext(fileName)}',
-        fileName: fileName,
-        // The portal's message for this case, near enough:
-        // "Videos must be under 50MB" (:400).
-        oversizeMessage: 'Videos must be under 50 MB.',
-      );
+  }) => _upload(
+    bytes: bytes,
+    path: '$videoPrefix/${_stamp()}-${_suffix()}.${_ext(fileName)}',
+    fileName: fileName,
+    // The portal's message for this case, near enough:
+    // "Videos must be under 50MB" (:400).
+    oversizeMessage: 'Videos must be under 50 MB.',
+  );
 
   /// Uploads the project brochure. Returns its public URL.
   ///
@@ -132,13 +127,12 @@ class ProjectMediaService {
   Future<String> uploadBrochure({
     required Uint8List bytes,
     required String fileName,
-  }) =>
-      _upload(
-        bytes: bytes,
-        path: '$brochurePrefix/${_stamp()}-brochure.${_ext(fileName)}',
-        fileName: fileName,
-        oversizeMessage: 'The brochure must be under 50 MB.',
-      );
+  }) => _upload(
+    bytes: bytes,
+    path: '$brochurePrefix/${_stamp()}-brochure.${_ext(fileName)}',
+    fileName: fileName,
+    oversizeMessage: 'The brochure must be under 50 MB.',
+  );
 
   /// One upload, one public URL.
   Future<String> _upload({
@@ -157,7 +151,9 @@ class ProjectMediaService {
     }
 
     try {
-      await _supabase.storage.from(bucket).uploadBinary(
+      await _supabase.storage
+          .from(bucket)
+          .uploadBinary(
             path,
             bytes,
             fileOptions: FileOptions(contentType: mimeFromName(fileName)),
@@ -201,14 +197,14 @@ class ProjectMediaService {
   /// service stays free of any dependency on the property feature.
   @visibleForTesting
   static String mimeFromName(String fileName) => switch (_ext(fileName)) {
-        'jpg' || 'jpeg' => 'image/jpeg',
-        'png' => 'image/png',
-        'webp' => 'image/webp',
-        'heic' => 'image/heic',
-        'gif' => 'image/gif',
-        'mp4' => 'video/mp4',
-        'mov' => 'video/quicktime',
-        'pdf' => 'application/pdf',
-        _ => 'application/octet-stream',
-      };
+    'jpg' || 'jpeg' => 'image/jpeg',
+    'png' => 'image/png',
+    'webp' => 'image/webp',
+    'heic' => 'image/heic',
+    'gif' => 'image/gif',
+    'mp4' => 'video/mp4',
+    'mov' => 'video/quicktime',
+    'pdf' => 'application/pdf',
+    _ => 'application/octet-stream',
+  };
 }

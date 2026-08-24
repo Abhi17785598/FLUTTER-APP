@@ -104,8 +104,9 @@ class _ProjectDetailsStepState extends State<ProjectDetailsStep> {
 
         if (provider.stepIssues.isNotEmpty) ...[
           PortalValidationSummary(
-            messages:
-                provider.stepIssues.map((issue) => issue.message).toList(),
+            messages: provider.stepIssues
+                .map((issue) => issue.message)
+                .toList(),
           ),
           const SizedBox(height: 16),
         ],
@@ -114,10 +115,7 @@ class _ProjectDetailsStepState extends State<ProjectDetailsStep> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const PortalSectionDivider(
-                icon: 'building',
-                title: 'Inventory',
-              ),
+              const PortalSectionDivider(icon: 'building', title: 'Inventory'),
               const SizedBox(height: 14),
               _pair(
                 left: PortalLabelledField(
@@ -185,10 +183,7 @@ class _ProjectDetailsStepState extends State<ProjectDetailsStep> {
               ),
               const SizedBox(height: 20),
 
-              const PortalSectionDivider(
-                icon: 'ruler',
-                title: 'Unit Sizes',
-              ),
+              const PortalSectionDivider(icon: 'ruler', title: 'Unit Sizes'),
               const SizedBox(height: 14),
               _pair(
                 left: PortalLabelledField(

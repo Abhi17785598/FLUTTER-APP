@@ -51,8 +51,9 @@ void showNotificationsSheet(BuildContext context) {
               children: [
                 Text(
                   'Notifications',
-                  style:
-                      AppTextStyles.heading3.copyWith(fontWeight: FontWeight.bold),
+                  style: AppTextStyles.heading3.copyWith(
+                    fontWeight: FontWeight.bold,
+                  ),
                 ),
                 IconButton(
                   icon: const Icon(Icons.close),
@@ -142,14 +143,17 @@ Widget _buildNotificationItem(
               const SizedBox(height: 4),
               Text(
                 message,
-                style: AppTextStyles.caption
-                    .copyWith(color: AppColors.textSecondary),
+                style: AppTextStyles.caption.copyWith(
+                  color: AppColors.textSecondary,
+                ),
               ),
               const SizedBox(height: 8),
               Text(
                 time,
-                style: AppTextStyles.caption
-                    .copyWith(color: AppColors.textHint, fontSize: 11),
+                style: AppTextStyles.caption.copyWith(
+                  color: AppColors.textHint,
+                  fontSize: 11,
+                ),
               ),
             ],
           ),

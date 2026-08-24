@@ -20,10 +20,8 @@ import '../../../services/auth_service.dart';
 /// change that silently reverted on the next profile fetch.
 void showEditProfileDialog(BuildContext context) {
   final authProvider = Provider.of<AuthProvider>(context, listen: false);
-  final nameController =
-      TextEditingController(text: authProvider.userName);
-  final emailController =
-      TextEditingController(text: authProvider.userEmail);
+  final nameController = TextEditingController(text: authProvider.userName);
+  final emailController = TextEditingController(text: authProvider.userEmail);
   final saving = ValueNotifier<bool>(false);
 
   showDialog(
@@ -66,7 +64,8 @@ void showEditProfileDialog(BuildContext context) {
                     final name = nameController.text.trim();
                     final emailVal = emailController.text.trim();
                     final nameErr = Validators.required(name);
-                    final emailErr = Validators.required(emailVal) ??
+                    final emailErr =
+                        Validators.required(emailVal) ??
                         Validators.email(emailVal);
                     if (nameErr != null || emailErr != null) {
                       ScaffoldMessenger.of(dialogContext).showSnackBar(
@@ -79,7 +78,9 @@ void showEditProfileDialog(BuildContext context) {
                     if (userId == null) {
                       ScaffoldMessenger.of(dialogContext).showSnackBar(
                         const SnackBar(
-                          content: Text('You must be logged in to update your profile.'),
+                          content: Text(
+                            'You must be logged in to update your profile.',
+                          ),
                         ),
                       );
                       return;
@@ -97,7 +98,9 @@ void showEditProfileDialog(BuildContext context) {
                       if (!dialogContext.mounted) return;
                       ScaffoldMessenger.of(dialogContext).showSnackBar(
                         const SnackBar(
-                          content: Text('Could not save your profile. Please try again.'),
+                          content: Text(
+                            'Could not save your profile. Please try again.',
+                          ),
                         ),
                       );
                       return;
@@ -106,7 +109,9 @@ void showEditProfileDialog(BuildContext context) {
                     if (!dialogContext.mounted) return;
                     Navigator.pop(dialogContext);
                     ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text('Profile updated successfully')),
+                      const SnackBar(
+                        content: Text('Profile updated successfully'),
+                      ),
                     );
                   },
             child: isSaving

@@ -11,10 +11,7 @@ import '../../widgets/shared/stat_kpi_card.dart';
 class InfluencerStatsWidget extends StatelessWidget {
   final InfluencerDashboardModel stats;
 
-  const InfluencerStatsWidget({
-    super.key,
-    required this.stats,
-  });
+  const InfluencerStatsWidget({super.key, required this.stats});
 
   @override
   Widget build(BuildContext context) {

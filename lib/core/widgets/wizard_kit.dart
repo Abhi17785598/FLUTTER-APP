@@ -46,7 +46,9 @@ class WizardCard extends StatelessWidget {
                 Expanded(
                   child: Text(
                     title!,
-                    style: AppTextStyles.heading3.copyWith(fontWeight: FontWeight.w600),
+                    style: AppTextStyles.heading3.copyWith(
+                      fontWeight: FontWeight.w600,
+                    ),
                   ),
                 ),
               ],
@@ -144,7 +146,10 @@ class WizardTextField extends StatelessWidget {
             borderRadius: BorderRadius.circular(12),
             borderSide: BorderSide.none,
           ),
-          contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+          contentPadding: const EdgeInsets.symmetric(
+            horizontal: 14,
+            vertical: 14,
+          ),
         ),
       ),
     );
@@ -186,7 +191,11 @@ class WizardChoiceChip extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           children: [
             if (icon != null) ...[
-              Icon(icon, size: 15, color: isSelected ? Colors.white : AppColors.primary),
+              Icon(
+                icon,
+                size: 15,
+                color: isSelected ? Colors.white : AppColors.primary,
+              ),
               const SizedBox(width: 6),
             ],
             Text(
@@ -294,7 +303,9 @@ class WizardCheckboxTile extends StatelessWidget {
           color: value ? AppColors.primaryLight : AppColors.background,
           borderRadius: BorderRadius.circular(10),
           border: Border.all(
-            color: value ? AppColors.primary.withOpacity(0.4) : Colors.transparent,
+            color: value
+                ? AppColors.primary.withOpacity(0.4)
+                : Colors.transparent,
           ),
         ),
         child: Row(

@@ -54,7 +54,8 @@ class _LatestArticlesSectionState extends State<LatestArticlesSection> {
       future: _future,
       builder: (context, snapshot) {
         final articles = snapshot.data;
-        if (articles == null || articles.isEmpty) return const SizedBox.shrink();
+        if (articles == null || articles.isEmpty)
+          return const SizedBox.shrink();
 
         return Padding(
           padding: const EdgeInsets.only(bottom: 24),
@@ -71,7 +72,9 @@ class _LatestArticlesSectionState extends State<LatestArticlesSection> {
                   ),
                   itemCount: articles.length,
                   itemBuilder: (context, i) => Padding(
-                    padding: const EdgeInsets.only(right: AppConstants.spacingM),
+                    padding: const EdgeInsets.only(
+                      right: AppConstants.spacingM,
+                    ),
                     child: ScaleTap(
                       onTap: () => _showArticleDetail(context, articles[i]),
                       child: _ArticleCard(article: articles[i]),
@@ -191,16 +194,16 @@ class _ArticleThumbnail extends StatelessWidget {
   }
 
   Widget _placeholder() => Container(
-        height: height,
-        width: width,
-        color: AppColors.primaryLight,
-        alignment: Alignment.center,
-        child: const Icon(
-          Icons.article_rounded,
-          size: 26,
-          color: AppColors.primary,
-        ),
-      );
+    height: height,
+    width: width,
+    color: AppColors.primaryLight,
+    alignment: Alignment.center,
+    child: const Icon(
+      Icons.article_rounded,
+      size: 26,
+      color: AppColors.primary,
+    ),
+  );
 }
 
 /// Strips HTML tags for a plain-text body — good enough for a read-only
@@ -257,8 +260,9 @@ class _ArticleDetailSheet extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     ClipRRect(
-                      borderRadius:
-                          BorderRadius.circular(AppConstants.cardRadius),
+                      borderRadius: BorderRadius.circular(
+                        AppConstants.cardRadius,
+                      ),
                       child: _ArticleThumbnail(
                         imageUrl: article.imageUrl,
                         height: 190,
@@ -309,8 +313,9 @@ class _ArticleDetailSheet extends StatelessWidget {
                             '${article.publishedAt!.day}/'
                             '${article.publishedAt!.month}/'
                             '${article.publishedAt!.year}',
-                            style:
-                                AppTextStyles.caption.copyWith(fontSize: 11.5),
+                            style: AppTextStyles.caption.copyWith(
+                              fontSize: 11.5,
+                            ),
                           ),
                         ],
                       ],

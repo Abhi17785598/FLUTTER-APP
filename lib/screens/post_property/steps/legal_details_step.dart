@@ -64,9 +64,12 @@ class _LegalDetailsStepState extends State<LegalDetailsStep> {
   void initState() {
     super.initState();
     _ownerNameController = TextEditingController(
-        text: context.read<PostPropertyProvider>().text('ownerName'));
+      text: context.read<PostPropertyProvider>().text('ownerName'),
+    );
     final provider = context.read<PostPropertyProvider>();
-    _quietHoursController = TextEditingController(text: provider.text('quietHours'));
+    _quietHoursController = TextEditingController(
+      text: provider.text('quietHours'),
+    );
   }
 
   @override
@@ -186,8 +189,9 @@ class _LegalDetailsStepState extends State<LegalDetailsStep> {
                 WizardCheckboxTile(
                   label: 'Property Approved by Authority',
                   value: provider.propertyApproved,
-                  onChanged: (v) =>
-                      context.read<PostPropertyProvider>().setPropertyApproved(v),
+                  onChanged: (v) => context
+                      .read<PostPropertyProvider>()
+                      .setPropertyApproved(v),
                 ),
                 const WizardDivider(),
                 Wrap(
@@ -207,8 +211,9 @@ class _LegalDetailsStepState extends State<LegalDetailsStep> {
                       WizardCheckboxTile(
                         label: 'Registry Copy',
                         value: provider.registryCopy,
-                        onChanged: (v) =>
-                            context.read<PostPropertyProvider>().setRegistryCopy(v),
+                        onChanged: (v) => context
+                            .read<PostPropertyProvider>()
+                            .setRegistryCopy(v),
                       ),
                     WizardCheckboxTile(
                       label: 'Registered Agreement',
@@ -227,8 +232,9 @@ class _LegalDetailsStepState extends State<LegalDetailsStep> {
                     WizardCheckboxTile(
                       label: "NOC's Available",
                       value: provider.nocAvailable,
-                      onChanged: (v) =>
-                          context.read<PostPropertyProvider>().setNocAvailable(v),
+                      onChanged: (v) => context
+                          .read<PostPropertyProvider>()
+                          .setNocAvailable(v),
                     ),
                     WizardCheckboxTile(
                       label: 'Encumbrance Free',
@@ -255,7 +261,8 @@ class _LegalDetailsStepState extends State<LegalDetailsStep> {
                 return WizardCheckboxTile(
                   label: t.$2,
                   value: provider.boolVal(t.$1),
-                  onChanged: (v) => context.read<PostPropertyProvider>().setBoolVal(t.$1, v),
+                  onChanged: (v) =>
+                      context.read<PostPropertyProvider>().setBoolVal(t.$1, v),
                 );
               }).toList(),
             ),
@@ -276,8 +283,9 @@ class _LegalDetailsStepState extends State<LegalDetailsStep> {
                     return WizardCheckboxTile(
                       label: t.$2,
                       value: provider.boolVal(t.$1),
-                      onChanged: (v) =>
-                          context.read<PostPropertyProvider>().setBoolVal(t.$1, v),
+                      onChanged: (v) => context
+                          .read<PostPropertyProvider>()
+                          .setBoolVal(t.$1, v),
                     );
                   }).toList(),
                 ),
@@ -308,14 +316,16 @@ class _LegalDetailsStepState extends State<LegalDetailsStep> {
                 WizardCheckboxTile(
                   label: 'Hostel / PG License',
                   value: provider.boolVal('hostelLicense'),
-                  onChanged: (v) =>
-                      context.read<PostPropertyProvider>().setBoolVal('hostelLicense', v),
+                  onChanged: (v) => context
+                      .read<PostPropertyProvider>()
+                      .setBoolVal('hostelLicense', v),
                 ),
                 WizardCheckboxTile(
                   label: 'Building Approval / OC',
                   value: provider.boolVal('buildingApproval'),
-                  onChanged: (v) =>
-                      context.read<PostPropertyProvider>().setBoolVal('buildingApproval', v),
+                  onChanged: (v) => context
+                      .read<PostPropertyProvider>()
+                      .setBoolVal('buildingApproval', v),
                 ),
               ],
             ),
@@ -351,7 +361,9 @@ class _OwnershipDocumentPicker extends StatelessWidget {
     if (picked.size > _maxBytes) {
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('${picked.name} is over 10MB and was skipped.')),
+          SnackBar(
+            content: Text('${picked.name} is over 10MB and was skipped.'),
+          ),
         );
       }
       return;

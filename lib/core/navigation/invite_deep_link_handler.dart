@@ -39,7 +39,7 @@ import '../constants/app_constants.dart';
 /// [AppConstants.pendingInvitationScreen] instead of a browser.
 class InviteDeepLinkHandler {
   InviteDeepLinkHandler({AuthProvider? authProvider})
-      : _authProvider = authProvider;
+    : _authProvider = authProvider;
 
   final AuthProvider? _authProvider;
   final AppLinks _appLinks = AppLinks();

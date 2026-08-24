@@ -35,8 +35,8 @@ class ProfileContentService {
   ProfileContentService({
     SupabaseClient? client,
     UserProfileService? profileService,
-  })  : _supabase = client ?? Supabase.instance.client,
-        _profileService = profileService ?? UserProfileService();
+  }) : _supabase = client ?? Supabase.instance.client,
+       _profileService = profileService ?? UserProfileService();
 
   final SupabaseClient _supabase;
   final UserProfileService _profileService;
@@ -63,9 +63,9 @@ class ProfileContentService {
           .inFilter('status', ['active', 'sold'])
           .order('created_at', ascending: false);
 
-      return List<Map<String, dynamic>>.from(rows)
-          .map(PropertyModel.fromSupabase)
-          .toList(growable: false);
+      return List<Map<String, dynamic>>.from(
+        rows,
+      ).map(PropertyModel.fromSupabase).toList(growable: false);
     } catch (e) {
       debugPrint('ProfileContentService.fetchProperties($userId) failed: $e');
       rethrow;
@@ -94,12 +94,13 @@ class ProfileContentService {
 
       final rows = await query.order('created_at', ascending: false);
 
-      return List<Map<String, dynamic>>.from(rows)
-          .map(BuilderProjectModel.fromSupabase)
-          .toList(growable: false);
+      return List<Map<String, dynamic>>.from(
+        rows,
+      ).map(BuilderProjectModel.fromSupabase).toList(growable: false);
     } catch (e) {
       debugPrint(
-          'ProfileContentService.fetchBuilderProjects($builderId) failed: $e');
+        'ProfileContentService.fetchBuilderProjects($builderId) failed: $e',
+      );
       rethrow;
     }
   }

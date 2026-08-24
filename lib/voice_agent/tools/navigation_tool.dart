@@ -3,17 +3,19 @@ import '../rag/route_index.dart';
 import 'registry.dart';
 
 void registerNavigationTool() {
-  toolRegistry.register(ToolDefinition(
-    name: 'navigate',
-    description:
-        'Navigate to any route. Accepts an exact path or natural-language destination.',
-    execute: (params, ctx) async {
-      final raw = (params['route'] as String?) ?? '/';
-      final resolved = resolveRoute(raw, ctx.userRole, ctx.userType);
-      ctx.navigate(resolved);
-      return ToolResult.ok(userMessage: 'Navigated to $resolved');
-    },
-  ));
+  toolRegistry.register(
+    ToolDefinition(
+      name: 'navigate',
+      description:
+          'Navigate to any route. Accepts an exact path or natural-language destination.',
+      execute: (params, ctx) async {
+        final raw = (params['route'] as String?) ?? '/';
+        final resolved = resolveRoute(raw, ctx.userRole, ctx.userType);
+        ctx.navigate(resolved);
+        return ToolResult.ok(userMessage: 'Navigated to $resolved');
+      },
+    ),
+  );
 }
 
 // ─── Route resolution (5-step pipeline) ──────────────────────────────────────
@@ -35,7 +37,10 @@ String resolveRoute(String raw, String? userRole, String? userType) {
   if (_isDynamicPath(raw)) return raw;
 
   // Step 4: Concept fuzzy match via route index
-  final tier = roleToTier(userRole, true); // navigation tool only runs when logged in or guest
+  final tier = roleToTier(
+    userRole,
+    true,
+  ); // navigation tool only runs when logged in or guest
   final entry = resolveConcept(lower, tier);
   if (entry != null) return entry.path;
 

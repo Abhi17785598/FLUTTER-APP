@@ -35,8 +35,26 @@ const double _kFooterButtonHeight = 48;
 /// equivalent histogram is generated with `Math.random()` on every render. This
 /// at least renders the same shape every time.
 const List<double> _kHistogram = [
-  30, 38, 45, 52, 60, 68, 74, 80, 86, 92,
-  96, 100, 98, 90, 84, 76, 68, 58, 48, 38,
+  30,
+  38,
+  45,
+  52,
+  60,
+  68,
+  74,
+  80,
+  86,
+  92,
+  96,
+  100,
+  98,
+  90,
+  84,
+  76,
+  68,
+  58,
+  48,
+  38,
 ];
 
 /// One selectable value in a dropdown. A null [value] is the "no filter" row.
@@ -108,7 +126,10 @@ const List<_OptionGroup> _kSubtypeGroups = [
   _OptionGroup(
     heading: 'HOUSE',
     options: [
-      _Option(label: 'Raw / Independent House', value: 'Raw / Independent House'),
+      _Option(
+        label: 'Raw / Independent House',
+        value: 'Raw / Independent House',
+      ),
       _Option(label: 'Villa / Kothi', value: 'Villa / Kothi'),
       _Option(label: 'Duplex House', value: 'Duplex House'),
       _Option(label: 'Triplex House', value: 'Triplex House'),
@@ -168,8 +189,10 @@ class _FilterSheet extends StatefulWidget {
 }
 
 class _FilterSheetState extends State<_FilterSheet> {
-  static const RangeValues _kDefaultBudget =
-      RangeValues(AppConstants.priceMin, AppConstants.priceMax);
+  static const RangeValues _kDefaultBudget = RangeValues(
+    AppConstants.priceMin,
+    AppConstants.priceMax,
+  );
 
   String? _category;
   String? _listingType;
@@ -297,10 +320,7 @@ class _FilterSheetState extends State<_FilterSheet> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 mainAxisSize: MainAxisSize.min,
-                children: [
-                  _buildHandle(),
-                  _buildHeader(),
-                ],
+                children: [_buildHandle(), _buildHeader()],
               ),
             ),
             // Flexible, not Expanded: a short section list must leave the sheet
@@ -407,7 +427,9 @@ class _FilterSheetState extends State<_FilterSheet> {
             onTap: count == 0 ? null : _resetDraft,
             behavior: HitTestBehavior.opaque,
             child: Padding(
-              padding: const EdgeInsets.symmetric(vertical: AppConstants.spacingS),
+              padding: const EdgeInsets.symmetric(
+                vertical: AppConstants.spacingS,
+              ),
               child: Text(
                 'RESET ALL',
                 style: AppTextStyles.caption.copyWith(
@@ -634,7 +656,9 @@ class _FilterSheetState extends State<_FilterSheet> {
             child: Container(
               decoration: BoxDecoration(
                 color: AppColors.cardBackground,
-                borderRadius: BorderRadius.circular(AppConstants.searchBarRadius),
+                borderRadius: BorderRadius.circular(
+                  AppConstants.searchBarRadius,
+                ),
                 border: Border.all(color: AppColors.hairlineStrong),
                 boxShadow: AppColors.surfaceCardShadow,
               ),
@@ -690,8 +714,9 @@ class _FilterSheetState extends State<_FilterSheet> {
             // established selection fill, reused here rather than introducing a
             // second one.
             color: isSelected ? AppColors.primaryLight : Colors.transparent,
-            borderRadius:
-                BorderRadius.circular(AppConstants.segmentedTabItemRadius),
+            borderRadius: BorderRadius.circular(
+              AppConstants.segmentedTabItemRadius,
+            ),
           ),
           child: Row(
             children: [
@@ -799,13 +824,9 @@ class _FilterSheetState extends State<_FilterSheet> {
   Widget _buildMinMax() {
     return Row(
       children: [
-        Expanded(
-          child: _buildReadout('MINIMUM', _priceLabel(_budget.start)),
-        ),
+        Expanded(child: _buildReadout('MINIMUM', _priceLabel(_budget.start))),
         const SizedBox(width: 10),
-        Expanded(
-          child: _buildReadout('MAXIMUM', _priceLabel(_budget.end)),
-        ),
+        Expanded(child: _buildReadout('MAXIMUM', _priceLabel(_budget.end))),
       ],
     );
   }
@@ -819,7 +840,9 @@ class _FilterSheetState extends State<_FilterSheet> {
         Container(
           height: _kFieldHeight,
           alignment: Alignment.centerLeft,
-          padding: const EdgeInsets.symmetric(horizontal: AppConstants.spacingM),
+          padding: const EdgeInsets.symmetric(
+            horizontal: AppConstants.spacingM,
+          ),
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(AppConstants.buttonRadius),
             border: Border.all(color: AppColors.hairline),
@@ -869,7 +892,9 @@ class _FilterSheetState extends State<_FilterSheet> {
           padding: const EdgeInsets.symmetric(horizontal: 14),
           alignment: Alignment.center,
           decoration: BoxDecoration(
-            color: isSelected ? AppColors.primaryLight : AppColors.cardBackground,
+            color: isSelected
+                ? AppColors.primaryLight
+                : AppColors.cardBackground,
             borderRadius: BorderRadius.circular(AppConstants.buttonRadius),
             border: Border.all(
               color: isSelected ? AppColors.primary : AppColors.hairline,
@@ -903,7 +928,9 @@ class _FilterSheetState extends State<_FilterSheet> {
                 height: _kFooterButtonHeight,
                 alignment: Alignment.center,
                 decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(AppConstants.buttonRadius),
+                  borderRadius: BorderRadius.circular(
+                    AppConstants.buttonRadius,
+                  ),
                   border: Border.all(color: AppColors.hairline, width: 1.5),
                 ),
                 child: Text(
@@ -932,7 +959,9 @@ class _FilterSheetState extends State<_FilterSheet> {
                 alignment: Alignment.center,
                 decoration: BoxDecoration(
                   gradient: AppColors.primaryGradient,
-                  borderRadius: BorderRadius.circular(AppConstants.buttonRadius),
+                  borderRadius: BorderRadius.circular(
+                    AppConstants.buttonRadius,
+                  ),
                   boxShadow: AppColors.primaryActionShadow,
                 ),
                 child: Text(

@@ -107,16 +107,15 @@ class _RatingSheetState extends State<_RatingSheet> {
                   height: 4,
                   decoration: BoxDecoration(
                     color: AppColors.hairline,
-                    borderRadius:
-                        BorderRadius.circular(AppConstants.pillRadius),
+                    borderRadius: BorderRadius.circular(
+                      AppConstants.pillRadius,
+                    ),
                   ),
                 ),
               ),
               const SizedBox(height: AppConstants.spacingL),
               Text(
-                isUpdate
-                    ? 'Update your review'
-                    : 'Rate ${widget.userName}',
+                isUpdate ? 'Update your review' : 'Rate ${widget.userName}',
                 style: AppTextStyles.heading3.copyWith(fontSize: 16),
               ),
               const SizedBox(height: 4),
@@ -140,8 +139,9 @@ class _RatingSheetState extends State<_RatingSheet> {
                           ScaleTap(
                             onTap: () => setState(() => _rating = star),
                             child: Padding(
-                              padding:
-                                  const EdgeInsets.symmetric(horizontal: 4),
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 4,
+                              ),
                               child: Icon(
                                 Icons.star_rounded,
                                 // 34 dp keeps each star's 42 dp tap area close to
@@ -219,11 +219,11 @@ class _RatingSheetState extends State<_RatingSheet> {
                       onTap: _rating == 0
                           ? null
                           : () => Navigator.of(context).pop(
-                                RatingSubmission(
-                                  rating: _rating,
-                                  review: _review.text,
-                                ),
+                              RatingSubmission(
+                                rating: _rating,
+                                review: _review.text,
                               ),
+                            ),
                     ),
                   ),
                 ],

@@ -26,11 +26,7 @@ void showShareProfileSheet(
   double? rating,
   int? reviewsCount,
 }) {
-  final shareUrl = profileShareUrl(
-    userId: userId,
-    name: name,
-    role: userType,
-  );
+  final shareUrl = profileShareUrl(userId: userId, name: name, role: userType);
 
   showModalBottomSheet(
     context: context,
@@ -158,9 +154,7 @@ Future<void> copyProfileLink(BuildContext context, String shareUrl) async {
   if (!context.mounted) return;
   ScaffoldMessenger.of(context)
     ..hideCurrentSnackBar()
-    ..showSnackBar(
-      const SnackBar(content: Text('Link copied to clipboard')),
-    );
+    ..showSnackBar(const SnackBar(content: Text('Link copied to clipboard')));
 }
 
 /// Pill button used by the Share and QR sheets.

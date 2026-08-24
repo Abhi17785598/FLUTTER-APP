@@ -28,9 +28,7 @@ class AppTheme {
       cardTheme: CardThemeData(
         color: AppColors.cardBackground,
         elevation: 0,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(16),
-        ),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       ),
       elevatedButtonTheme: ElevatedButtonThemeData(
         style: ElevatedButton.styleFrom(
@@ -52,17 +50,13 @@ class AppTheme {
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(12),
           ),
-          textStyle: AppTextStyles.button.copyWith(
-            color: AppColors.primary,
-          ),
+          textStyle: AppTextStyles.button.copyWith(color: AppColors.primary),
         ),
       ),
       textButtonTheme: TextButtonThemeData(
         style: TextButton.styleFrom(
           foregroundColor: AppColors.primary,
-          textStyle: AppTextStyles.body.copyWith(
-            fontWeight: FontWeight.w600,
-          ),
+          textStyle: AppTextStyles.body.copyWith(fontWeight: FontWeight.w600),
         ),
       ),
       inputDecorationTheme: InputDecorationTheme(
@@ -84,9 +78,7 @@ class AppTheme {
           borderRadius: BorderRadius.circular(14),
           borderSide: const BorderSide(color: AppColors.primary, width: 2),
         ),
-        hintStyle: AppTextStyles.body.copyWith(
-          color: AppColors.textHint,
-        ),
+        hintStyle: AppTextStyles.body.copyWith(color: AppColors.textHint),
       ),
       bottomNavigationBarTheme: BottomNavigationBarThemeData(
         backgroundColor: AppColors.surface,
@@ -108,9 +100,7 @@ class AppTheme {
         // Gender picker) has nothing to copyWith onto, so it rendered with no
         // visible color at all here.
         labelStyle: AppTextStyles.chip.copyWith(color: AppColors.textPrimary),
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(8),
-        ),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
         side: BorderSide.none,
       ),
       dividerTheme: const DividerThemeData(

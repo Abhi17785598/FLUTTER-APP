@@ -5,8 +5,7 @@ import '../models/builder_project_model.dart';
 class BuilderProjectService {
   final _supabase = Supabase.instance.client;
 
-  Future<List<BuilderProjectModel>> getProjects(
-      String builderId) async {
+  Future<List<BuilderProjectModel>> getProjects(String builderId) async {
     try {
       final response = await _supabase
           .from('builder_projects')
@@ -15,9 +14,7 @@ class BuilderProjectService {
           .order('created_at', ascending: false);
 
       return response
-          .map<BuilderProjectModel>(
-            (e) => BuilderProjectModel.fromSupabase(e),
-          )
+          .map<BuilderProjectModel>((e) => BuilderProjectModel.fromSupabase(e))
           .toList();
     } catch (e) {
       print("================================");

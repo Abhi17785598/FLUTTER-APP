@@ -219,7 +219,8 @@ class _TellYourNeedsSectionState extends State<TellYourNeedsSection> {
               maxLines: 4,
               style: AppTextStyles.body.copyWith(fontSize: 13.5),
               decoration: sheetFieldDecoration(
-                hint: 'Describe your requirements in detail (e.g., number of '
+                hint:
+                    'Describe your requirements in detail (e.g., number of '
                     'bedrooms, amenities, specific area, etc.)',
               ),
             ),
@@ -248,11 +249,7 @@ class _TellYourNeedsSectionState extends State<TellYourNeedsSection> {
             shape: BoxShape.circle,
             boxShadow: AppColors.primaryGlow,
           ),
-          child: const Icon(
-            Icons.home_rounded,
-            color: Colors.white,
-            size: 20,
-          ),
+          child: const Icon(Icons.home_rounded, color: Colors.white, size: 20),
         ),
         const SizedBox(width: AppConstants.spacingM),
         Expanded(

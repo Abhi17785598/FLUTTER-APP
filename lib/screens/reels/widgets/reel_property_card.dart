@@ -78,10 +78,7 @@ class ReelPropertyCard extends StatelessWidget {
             overflow: TextOverflow.ellipsis,
           ),
         ),
-        if (reel.isFeatured) ...[
-          const SizedBox(width: 10),
-          _FeaturedBadge(),
-        ],
+        if (reel.isFeatured) ...[const SizedBox(width: 10), _FeaturedBadge()],
       ],
     );
   }
@@ -89,8 +86,11 @@ class ReelPropertyCard extends StatelessWidget {
   Widget _buildLocationRow() {
     return Row(
       children: [
-        Icon(Icons.location_on_outlined,
-            color: AppColors.textPrimary.withOpacity(0.55), size: 15),
+        Icon(
+          Icons.location_on_outlined,
+          color: AppColors.textPrimary.withOpacity(0.55),
+          size: 15,
+        ),
         const SizedBox(width: 4),
         Expanded(
           child: Text(
@@ -222,7 +222,11 @@ class _StatusBadge extends StatelessWidget {
 }
 
 class _SpecItem extends StatelessWidget {
-  const _SpecItem({required this.icon, required this.value, required this.label});
+  const _SpecItem({
+    required this.icon,
+    required this.value,
+    required this.label,
+  });
 
   final IconData icon;
   final String value;
@@ -272,7 +276,11 @@ class _HighlightItem extends StatelessWidget {
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        Icon(_iconFor(label), size: 18, color: AppColors.textPrimary.withOpacity(0.7)),
+        Icon(
+          _iconFor(label),
+          size: 18,
+          color: AppColors.textPrimary.withOpacity(0.7),
+        ),
         const SizedBox(width: 6),
         Flexible(
           child: Text(

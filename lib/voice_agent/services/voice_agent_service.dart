@@ -12,7 +12,12 @@ Future<AgentResponse> processVoiceCommand({
   required String systemPrompt,
   String knowledgeContext = '', // Phase 3: RAG context injected here
 }) async {
-  final messages = _buildMessages(history, userText, systemPrompt, knowledgeContext);
+  final messages = _buildMessages(
+    history,
+    userText,
+    systemPrompt,
+    knowledgeContext,
+  );
   final headers = OpenAiProxy.jsonHeaders();
   final url = Uri.parse(OpenAiProxy.proxyUrl('/chat/completions'));
 
@@ -79,13 +84,15 @@ AgentResponse _parseResponse(String raw) {
     final trimmed = raw.trim();
     if (trimmed.startsWith('{')) {
       return AgentResponse.fromJson(
-          jsonDecode(trimmed) as Map<String, dynamic>);
+        jsonDecode(trimmed) as Map<String, dynamic>,
+      );
     }
     // Extract first {...} block if model prefixed with explanation text.
     final match = RegExp(r'\{[\s\S]*\}').firstMatch(trimmed);
     if (match != null) {
       return AgentResponse.fromJson(
-          jsonDecode(match.group(0)!) as Map<String, dynamic>);
+        jsonDecode(match.group(0)!) as Map<String, dynamic>,
+      );
     }
   } catch (_) {
     // Fall through to unknown.

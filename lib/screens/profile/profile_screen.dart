@@ -176,10 +176,8 @@ class _ProfileViewState extends State<_ProfileView> {
     final refreshNeeded = await Navigator.push<bool>(
       context,
       MaterialPageRoute(
-        builder: (_) => PostPropertyScreen(
-          editPropertyId: property.id,
-          editBundle: bundle,
-        ),
+        builder: (_) =>
+            PostPropertyScreen(editPropertyId: property.id, editBundle: bundle),
       ),
     );
 
@@ -222,9 +220,9 @@ class _ProfileViewState extends State<_ProfileView> {
       if (!mounted) return;
       await context.read<ProfileProvider>().refresh();
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Property deleted.')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Property deleted.')));
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -247,8 +245,9 @@ class _ProfileViewState extends State<_ProfileView> {
     final isBuilder = auth.userType?.toLowerCase() == 'builder';
     final isInfluencer = auth.userType?.toLowerCase() == 'influencer';
     final completion = calculateProfileCompletion(auth.profileRow);
-    final initial =
-        auth.userName.isNotEmpty ? auth.userName[0].toUpperCase() : 'U';
+    final initial = auth.userName.isNotEmpty
+        ? auth.userName[0].toUpperCase()
+        : 'U';
 
     return Scaffold(
       key: _scaffoldKey,
@@ -313,8 +312,9 @@ class _ProfileViewState extends State<_ProfileView> {
                       onEdit: () => _editProfile(auth),
                       onShare: () {
                         final row = auth.profileRow;
-                        final userProfile =
-                            row != null ? UserProfile.fromMap(row) : null;
+                        final userProfile = row != null
+                            ? UserProfile.fromMap(row)
+                            : null;
                         showDigitalVisitingCard(
                           context,
                           userId: auth.userId,
@@ -343,9 +343,9 @@ class _ProfileViewState extends State<_ProfileView> {
                       onAddArticle: isBuilder ? null : _openArticleEditor,
                       onAddVideo: isInfluencer
                           ? () => Navigator.pushNamed(
-                                context,
-                                AppConstants.influencerVideoFormScreen,
-                              )
+                              context,
+                              AppConstants.influencerVideoFormScreen,
+                            )
                           : null,
                     ).animate().fadeIn(duration: 400.ms, delay: 250.ms),
                     const SizedBox(height: 26),
@@ -422,12 +422,11 @@ class _ProfileViewState extends State<_ProfileView> {
                       // Builder-only, preserved from the old Business section.
                       onProjects: isBuilder
                           ? () => Navigator.push(
-                                context,
-                                MaterialPageRoute(
-                                  builder: (_) =>
-                                      const BuilderDashboardScreen(),
-                                ),
-                              )
+                              context,
+                              MaterialPageRoute(
+                                builder: (_) => const BuilderDashboardScreen(),
+                              ),
+                            )
                           : null,
                     ).animate().fadeIn(duration: 400.ms, delay: 300.ms),
                     const SizedBox(height: 100),

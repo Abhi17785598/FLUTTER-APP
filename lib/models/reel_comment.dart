@@ -27,7 +27,8 @@ class ReelComment {
       id: json['id'].toString(),
       userId: json['user_id']?.toString() ?? '',
       content: json['content']?.toString() ?? '',
-      createdAt: DateTime.tryParse(json['created_at']?.toString() ?? '') ??
+      createdAt:
+          DateTime.tryParse(json['created_at']?.toString() ?? '') ??
           DateTime.now(),
       authorName: profile?['display_name']?.toString(),
       authorAvatarUrl: profile?['avatar_url']?.toString(),

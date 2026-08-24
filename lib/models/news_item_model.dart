@@ -55,7 +55,7 @@ class NewsItemModel {
       displayOrder: (row['display_order'] as num?)?.toInt() ?? 0,
       publishedAt:
           DateTime.tryParse(row['published_at']?.toString() ?? '') ??
-              DateTime.now(),
+          DateTime.now(),
     );
   }
 

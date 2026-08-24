@@ -18,7 +18,7 @@ import '../models/news_item_model.dart';
 
 class NewsService {
   NewsService({SupabaseClient? client})
-      : _supabase = client ?? Supabase.instance.client;
+    : _supabase = client ?? Supabase.instance.client;
 
   final SupabaseClient _supabase;
 
@@ -44,7 +44,9 @@ class NewsService {
           .order('published_at', ascending: false);
 
       return rows
-          .map((row) => NewsItemModel.fromSupabase(Map<String, dynamic>.from(row)))
+          .map(
+            (row) => NewsItemModel.fromSupabase(Map<String, dynamic>.from(row)),
+          )
           .where((item) => item.id.isNotEmpty && item.title.isNotEmpty)
           .toList(growable: false);
     } catch (e) {

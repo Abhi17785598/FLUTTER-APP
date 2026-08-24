@@ -19,7 +19,11 @@ import '../models/smart_query_result.dart';
 
 class AiSearchService {
   static const Set<String> _validCategories = {
-    'residential', 'commercial', 'land', 'pg_coliving', 'others',
+    'residential',
+    'commercial',
+    'land',
+    'pg_coliving',
+    'others',
   };
   static const Set<String> _validListingTypes = {'sell', 'rent', 'lease'};
 
@@ -138,8 +142,9 @@ class AiSearchService {
       return SmartQueryResult(
         city: result.city,
         bhk: result.bhk,
-        category:
-            _validCategories.contains(result.category) ? result.category : null,
+        category: _validCategories.contains(result.category)
+            ? result.category
+            : null,
         listingType: _validListingTypes.contains(result.listingType)
             ? result.listingType
             : null,
@@ -152,8 +157,8 @@ class AiSearchService {
         // prompt's own instruction not to infer is ignored. The model is asked to
         // behave AND checked afterwards, because a prompt is a request, not a
         // constraint.
-        subtype: (_validSubtypes.contains(result.subtype) &&
-                _mentionsSubtype(query))
+        subtype:
+            (_validSubtypes.contains(result.subtype) && _mentionsSubtype(query))
             ? result.subtype
             : null,
         keywords: result.keywords,

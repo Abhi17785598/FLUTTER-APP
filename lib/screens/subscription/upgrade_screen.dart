@@ -181,8 +181,10 @@ class _UpgradeViewState extends State<_UpgradeView> {
     } catch (e) {
       if (!mounted) return;
       setState(() => _busyPlan = null);
-      _toast(_messageFor(e, fallback: 'Could not load pricing. Please try again.'),
-          isError: true);
+      _toast(
+        _messageFor(e, fallback: 'Could not load pricing. Please try again.'),
+        isError: true,
+      );
       return;
     }
     if (!mounted) return;
@@ -192,11 +194,8 @@ class _UpgradeViewState extends State<_UpgradeView> {
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
-      builder: (_) => _CheckoutReviewSheet(
-        plan: plan,
-        quote: quote,
-        yearly: _yearly,
-      ),
+      builder: (_) =>
+          _CheckoutReviewSheet(plan: plan, quote: quote, yearly: _yearly),
     );
     if (confirmed != true || !mounted) return;
 
@@ -222,7 +221,10 @@ class _UpgradeViewState extends State<_UpgradeView> {
 
     setState(() => _busyPlan = plan.id);
     try {
-      await _payments.changePlan(planId: PlanId.free.wire, billingCycle: 'monthly');
+      await _payments.changePlan(
+        planId: PlanId.free.wire,
+        billingCycle: 'monthly',
+      );
       if (!mounted) return;
       await context.read<SubscriptionProvider>().refresh();
       if (!mounted) return;
@@ -231,8 +233,10 @@ class _UpgradeViewState extends State<_UpgradeView> {
     } catch (e) {
       if (!mounted) return;
       setState(() => _busyPlan = null);
-      _toast(_messageFor(e, fallback: 'Could not change your plan.'),
-          isError: true);
+      _toast(
+        _messageFor(e, fallback: 'Could not change your plan.'),
+        isError: true,
+      );
     }
   }
 
@@ -275,8 +279,10 @@ class _UpgradeViewState extends State<_UpgradeView> {
         // Regenerated per attempt — see PaymentService.newIdempotencyKey.
         idempotencyKey: PaymentService.newIdempotencyKey(),
       );
-      _log('← createOrder ok: order=${order.orderId} amount=${order.amount} '
-          '${order.currency} keyId=${order.keyId.isEmpty ? 'EMPTY' : 'set'}');
+      _log(
+        '← createOrder ok: order=${order.orderId} amount=${order.amount} '
+        '${order.currency} keyId=${order.keyId.isEmpty ? 'EMPTY' : 'set'}',
+      );
 
       _log('→ openCheckout…');
       final result = await _openCheckout(plan: plan, order: order);
@@ -319,8 +325,10 @@ class _UpgradeViewState extends State<_UpgradeView> {
       _log('✗ checkout threw: $e');
       if (!mounted) return;
       setState(() => _busyPlan = null);
-      _toast(_messageFor(e, fallback: 'Payment failed. Please try again.'),
-          isError: true);
+      _toast(
+        _messageFor(e, fallback: 'Payment failed. Please try again.'),
+        isError: true,
+      );
     }
   }
 
@@ -401,7 +409,9 @@ class _UpgradeViewState extends State<_UpgradeView> {
     // unrecognised platform response is emitted into the void.
     razorpay.on('error', (dynamic r) {
       _log('razorpay → unnamed error event: $r');
-      attempt.complete(const _CheckoutFailed('Payment could not be completed.'));
+      attempt.complete(
+        const _CheckoutFailed('Payment could not be completed.'),
+      );
     });
 
     final options = <String, dynamic>{
@@ -415,25 +425,24 @@ class _UpgradeViewState extends State<_UpgradeView> {
       // The portal's checkout theme (`PaymentContext.tsx:390`).
       'theme': {'color': '#F97316'},
     };
-    _log('razorpay.open() key=${order.keyId} order=${order.orderId} '
-        'amount=${order.amount} ${order.currency}');
+    _log(
+      'razorpay.open() key=${order.keyId} order=${order.orderId} '
+      'amount=${order.amount} ${order.currency}',
+    );
 
     // (2) `open()` throws into the zone, not into a `try`, so this is the only
     // place those failures can be observed. Without it they are silent and the
     // await below never returns.
-    runZonedGuarded(
-      () => razorpay.open(options),
-      (error, stack) {
-        _log('razorpay.open() threw: $error');
-        attempt.complete(
-          _CheckoutFailed(
-            error is PlatformException
-                ? (error.message ?? 'Could not open checkout.')
-                : 'Could not open checkout.',
-          ),
-        );
-      },
-    );
+    runZonedGuarded(() => razorpay.open(options), (error, stack) {
+      _log('razorpay.open() threw: $error');
+      attempt.complete(
+        _CheckoutFailed(
+          error is PlatformException
+              ? (error.message ?? 'Could not open checkout.')
+              : 'Could not open checkout.',
+        ),
+      );
+    });
 
     return attempt.future;
   }
@@ -465,8 +474,14 @@ class _UpgradeViewState extends State<_UpgradeView> {
     final result = await showDialog<bool>(
       context: context,
       builder: (dialogContext) => AlertDialog(
-        title: Text(title, style: AppTextStyles.heading3.copyWith(fontSize: 16)),
-        content: Text(message, style: AppTextStyles.body.copyWith(fontSize: 13)),
+        title: Text(
+          title,
+          style: AppTextStyles.heading3.copyWith(fontSize: 16),
+        ),
+        content: Text(
+          message,
+          style: AppTextStyles.body.copyWith(fontSize: 13),
+        ),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(dialogContext).pop(false),
@@ -529,8 +544,9 @@ class _UpgradeViewState extends State<_UpgradeView> {
     // while the read is still in flight would be a guess, and it is the guess
     // that makes the Free card look inert to a paying user.
     final resolving = auth.userId != null && billing.loading;
-    final currentPlan =
-        resolving ? null : PlanId.fromWire(billing.subscription.plan);
+    final currentPlan = resolving
+        ? null
+        : PlanId.fromWire(billing.subscription.plan);
 
     return Scaffold(
       backgroundColor: AppColors.background,
@@ -602,10 +618,7 @@ class _BillingPeriodSwitch extends StatelessWidget {
             selected: yearly,
             onTap: () => onChanged(true),
           ),
-          if (yearly) ...[
-            const SizedBox(width: 10),
-            const _SavingPill(),
-          ],
+          if (yearly) ...[const SizedBox(width: 10), const _SavingPill()],
         ],
       ),
     );
@@ -763,12 +776,7 @@ class _PlanCard extends StatelessWidget {
             _FeatureRow(feature: plan.features[i]),
           ],
           const SizedBox(height: AppConstants.spacingL),
-          _PlanCta(
-            plan: plan,
-            isCurrent: isCurrent,
-            busy: busy,
-            onTap: onTap,
-          ),
+          _PlanCta(plan: plan, isCurrent: isCurrent, busy: busy, onTap: onTap),
         ],
       ),
     );
@@ -819,9 +827,7 @@ class _FeatureRow extends StatelessWidget {
         Icon(
           feature.included ? Icons.check : Icons.close,
           size: 15,
-          color: feature.included
-              ? AppColors.success
-              : const Color(0xFFD1D5DB),
+          color: feature.included ? AppColors.success : const Color(0xFFD1D5DB),
         ),
         const SizedBox(width: 8),
         Expanded(
@@ -948,9 +954,9 @@ class _CheckoutReviewSheetState extends State<_CheckoutReviewSheet> {
       v == v.roundToDouble() ? '₹${v.round()}' : '₹${v.toStringAsFixed(2)}';
 
   void _openPolicies() {
-    Navigator.of(context).push(
-      PremiumPageRoute(builder: (_) => const BillingPoliciesScreen()),
-    );
+    Navigator.of(
+      context,
+    ).push(PremiumPageRoute(builder: (_) => const BillingPoliciesScreen()));
   }
 
   @override
@@ -1046,7 +1052,10 @@ class _CheckoutReviewSheetState extends State<_CheckoutReviewSheet> {
               const SizedBox(height: 16),
 
               // Order summary — the portal's `OrderSummary.tsx`.
-              _SummaryRow(label: 'Subtotal', value: _money(quote.displaySubtotal)),
+              _SummaryRow(
+                label: 'Subtotal',
+                value: _money(quote.displaySubtotal),
+              ),
               if (quote.tax > 0) ...[
                 const SizedBox(height: 8),
                 _SummaryRow(
@@ -1088,7 +1097,11 @@ class _CheckoutReviewSheetState extends State<_CheckoutReviewSheet> {
                 child: Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Icon(Icons.lock_outline, size: 15, color: AppColors.primary),
+                    const Icon(
+                      Icons.lock_outline,
+                      size: 15,
+                      color: AppColors.primary,
+                    ),
                     const SizedBox(width: 8),
                     Expanded(
                       child: Text(
@@ -1133,7 +1146,8 @@ class _CheckoutReviewSheetState extends State<_CheckoutReviewSheet> {
                             children: [
                               const TextSpan(text: 'I agree to the '),
                               TextSpan(
-                                text: 'Terms of Service, Privacy Policy and '
+                                text:
+                                    'Terms of Service, Privacy Policy and '
                                     'Refund Policy',
                                 style: const TextStyle(
                                   color: AppColors.primary,
@@ -1157,13 +1171,18 @@ class _CheckoutReviewSheetState extends State<_CheckoutReviewSheet> {
               SizedBox(
                 height: 48,
                 child: ElevatedButton(
-                  onPressed:
-                      _termsAccepted ? () => Navigator.of(context).pop(true) : null,
+                  onPressed: _termsAccepted
+                      ? () => Navigator.of(context).pop(true)
+                      : null,
                   style: ElevatedButton.styleFrom(
                     backgroundColor: AppColors.primary,
-                    disabledBackgroundColor: AppColors.textHint.withValues(alpha: 0.3),
+                    disabledBackgroundColor: AppColors.textHint.withValues(
+                      alpha: 0.3,
+                    ),
                     shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(AppConstants.buttonRadius),
+                      borderRadius: BorderRadius.circular(
+                        AppConstants.buttonRadius,
+                      ),
                     ),
                     elevation: 0,
                   ),

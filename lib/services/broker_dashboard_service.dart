@@ -5,8 +5,7 @@ import '../models/broker_dashboard_model.dart';
 class BrokerDashboardService {
   final _supabase = Supabase.instance.client;
 
-  Future<BrokerDashboardModel> getDashboardStats(
-      String brokerId) async {
+  Future<BrokerDashboardModel> getDashboardStats(String brokerId) async {
     try {
       final properties = await _supabase
           .from('properties')
@@ -22,7 +21,7 @@ class BrokerDashboardService {
       int totalViews = 0;
 
       for (final property in properties) {
-       totalViews += ((property['views'] ?? 0) as num).toInt();
+        totalViews += ((property['views'] ?? 0) as num).toInt();
       }
 
       // We will connect ratings later

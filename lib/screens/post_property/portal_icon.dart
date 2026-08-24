@@ -10,12 +10,7 @@ import 'package:flutter_svg/flutter_svg.dart';
 /// lucide artwork is stroke-based on a 24x24 viewBox with
 /// `stroke="currentColor"`, so tinting is a `srcIn` colour filter.
 class PortalIcon extends StatelessWidget {
-  const PortalIcon(
-    this.name, {
-    super.key,
-    this.size = 20,
-    this.color,
-  });
+  const PortalIcon(this.name, {super.key, this.size = 20, this.color});
 
   /// lucide's kebab-case name, e.g. `file-text`, `building`, `arrow-right`.
   final String name;

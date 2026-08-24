@@ -16,9 +16,9 @@ class RatingsService {
         .select('rating')
         .eq('rated_user_id', userId);
 
-    return List<Map<String, dynamic>>.from(rows as List)
-        .map((r) => (r['rating'] as num?)?.toInt() ?? 0)
-        .toList();
+    return List<Map<String, dynamic>>.from(
+      rows as List,
+    ).map((r) => (r['rating'] as num?)?.toInt() ?? 0).toList();
   }
 
   /// Count and average in one round-trip.

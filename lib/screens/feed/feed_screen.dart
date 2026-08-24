@@ -34,8 +34,7 @@ class FeedScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return ChangeNotifierProvider(
-      create: (_) => FeedProvider()
-        ..load(context.read<AuthProvider>().userId),
+      create: (_) => FeedProvider()..load(context.read<AuthProvider>().userId),
       child: const _FeedView(),
     );
   }
@@ -59,9 +58,9 @@ class _FeedView extends StatelessWidget {
       ),
       body: RefreshIndicator(
         color: AppColors.primary,
-        onRefresh: () => context
-            .read<FeedProvider>()
-            .load(context.read<AuthProvider>().userId),
+        onRefresh: () => context.read<FeedProvider>().load(
+          context.read<AuthProvider>().userId,
+        ),
         child: Column(
           children: [
             _FilterRow(
@@ -144,7 +143,9 @@ class _FilterChip extends StatelessWidget {
             style: AppTextStyles.chip.copyWith(
               fontSize: 12,
               fontWeight: FontWeight.w600,
-              color: isSelected ? AppColors.cardBackground : AppColors.textSecondary,
+              color: isSelected
+                  ? AppColors.cardBackground
+                  : AppColors.textSecondary,
             ),
           ),
         ),
@@ -173,7 +174,9 @@ class _FeedBody extends StatelessWidget {
           Center(
             child: Text(
               feed.error!,
-              style: AppTextStyles.body.copyWith(color: AppColors.textSecondary),
+              style: AppTextStyles.body.copyWith(
+                color: AppColors.textSecondary,
+              ),
             ),
           ),
         ],
@@ -189,7 +192,9 @@ class _FeedBody extends StatelessWidget {
           Center(
             child: Text(
               'No content available',
-              style: AppTextStyles.body.copyWith(color: AppColors.textSecondary),
+              style: AppTextStyles.body.copyWith(
+                color: AppColors.textSecondary,
+              ),
             ),
           ),
         ],
@@ -204,8 +209,7 @@ class _FeedBody extends StatelessWidget {
         AppConstants.spacingL,
       ),
       itemCount: items.length,
-      itemBuilder: (context, index) =>
-          _FeedItemCard(item: items[index]),
+      itemBuilder: (context, index) => _FeedItemCard(item: items[index]),
     );
   }
 }
@@ -267,10 +271,10 @@ class _FeedItemCard extends StatelessWidget {
   }
 
   String get _typeBadge => switch (item.type) {
-        FeedItemType.property => 'Property',
-        FeedItemType.project => 'Project',
-        FeedItemType.video => 'Video',
-      };
+    FeedItemType.property => 'Property',
+    FeedItemType.project => 'Project',
+    FeedItemType.video => 'Video',
+  };
 
   @override
   Widget build(BuildContext context) {
@@ -294,18 +298,27 @@ class _FeedItemCard extends StatelessWidget {
                   Expanded(
                     child: InkWell(
                       onTap: () => _openProfile(context),
-                      borderRadius: BorderRadius.circular(AppConstants.cardRadius),
+                      borderRadius: BorderRadius.circular(
+                        AppConstants.cardRadius,
+                      ),
                       child: Row(
                         children: [
                           CircleAvatar(
                             radius: 18,
                             backgroundColor: AppColors.primaryLight,
-                            backgroundImage: (item.posterAvatarUrl?.isNotEmpty ?? false)
-                                ? CachedNetworkImageProvider(item.posterAvatarUrl!)
+                            backgroundImage:
+                                (item.posterAvatarUrl?.isNotEmpty ?? false)
+                                ? CachedNetworkImageProvider(
+                                    item.posterAvatarUrl!,
+                                  )
                                 : null,
                             child: (item.posterAvatarUrl?.isNotEmpty ?? false)
                                 ? null
-                                : const Icon(Icons.person, size: 18, color: AppColors.primary),
+                                : const Icon(
+                                    Icons.person,
+                                    size: 18,
+                                    color: AppColors.primary,
+                                  ),
                           ),
                           const SizedBox(width: AppConstants.spacingS),
                           Expanded(
@@ -324,7 +337,9 @@ class _FeedItemCard extends StatelessWidget {
                                 if (_roleLabel.isNotEmpty)
                                   Text(
                                     _roleLabel,
-                                    style: AppTextStyles.caption.copyWith(fontSize: 11),
+                                    style: AppTextStyles.caption.copyWith(
+                                      fontSize: 11,
+                                    ),
                                   ),
                               ],
                             ),
@@ -335,10 +350,15 @@ class _FeedItemCard extends StatelessWidget {
                   ),
                   const SizedBox(width: AppConstants.spacingS),
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 3,
+                    ),
                     decoration: BoxDecoration(
                       color: AppColors.primaryLight,
-                      borderRadius: BorderRadius.circular(AppConstants.chipRadius),
+                      borderRadius: BorderRadius.circular(
+                        AppConstants.chipRadius,
+                      ),
                     ),
                     child: Text(
                       _typeBadge,
@@ -399,8 +419,11 @@ class _FeedItemCard extends StatelessWidget {
                     const SizedBox(height: 4),
                     Row(
                       children: [
-                        const Icon(Icons.location_on,
-                            size: 12, color: AppColors.textSecondary),
+                        const Icon(
+                          Icons.location_on,
+                          size: 12,
+                          color: AppColors.textSecondary,
+                        ),
                         const SizedBox(width: 4),
                         Expanded(
                           child: Text(
@@ -423,13 +446,19 @@ class _FeedItemCard extends StatelessWidget {
                   else
                     Row(
                       children: [
-                        const Icon(Icons.favorite_border,
-                            size: 15, color: AppColors.textHint),
+                        const Icon(
+                          Icons.favorite_border,
+                          size: 15,
+                          color: AppColors.textHint,
+                        ),
                         const SizedBox(width: 4),
                         Text('${item.likes}', style: AppTextStyles.caption),
                         const SizedBox(width: AppConstants.spacingM),
-                        const Icon(Icons.visibility_outlined,
-                            size: 15, color: AppColors.textHint),
+                        const Icon(
+                          Icons.visibility_outlined,
+                          size: 15,
+                          color: AppColors.textHint,
+                        ),
                         const SizedBox(width: 4),
                         Text('${item.views}', style: AppTextStyles.caption),
                       ],
@@ -461,9 +490,9 @@ class _PropertyFeedActions extends StatelessWidget {
   final FeedItem item;
 
   void _signInRequired(BuildContext context) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Sign in required')),
-    );
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(const SnackBar(content: Text('Sign in required')));
   }
 
   Future<void> _like(BuildContext context, PropertyProvider properties) async {
@@ -570,7 +599,11 @@ class _PropertyFeedActions extends StatelessWidget {
           onTap: () => _share(context),
         ),
         const Spacer(),
-        const Icon(Icons.visibility_outlined, size: 15, color: AppColors.textHint),
+        const Icon(
+          Icons.visibility_outlined,
+          size: 15,
+          color: AppColors.textHint,
+        ),
         const SizedBox(width: 4),
         Text('${item.views}', style: AppTextStyles.caption),
       ],
@@ -636,9 +669,9 @@ class _FeedCommentsSheetState extends State<_FeedCommentsSheet> {
 
     final userId = context.read<AuthProvider>().userId;
     if (userId == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Sign in to comment')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Sign in to comment')));
       return;
     }
 
@@ -658,9 +691,9 @@ class _FeedCommentsSheetState extends State<_FeedCommentsSheet> {
     } catch (e) {
       debugPrint('[Feed] submitComment failed: $e');
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text("Couldn't post comment")),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text("Couldn't post comment")));
       }
     } finally {
       if (mounted) setState(() => _submitting = false);
@@ -696,7 +729,10 @@ class _FeedCommentsSheetState extends State<_FeedCommentsSheet> {
                   Text('Comments', style: AppTextStyles.heading3),
                   const Spacer(),
                   IconButton(
-                    icon: const Icon(Icons.close, color: AppColors.textSecondary),
+                    icon: const Icon(
+                      Icons.close,
+                      color: AppColors.textSecondary,
+                    ),
                     onPressed: () => Navigator.pop(context),
                   ),
                 ],
@@ -717,10 +753,18 @@ class _FeedCommentsSheetState extends State<_FeedCommentsSheet> {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Icon(Icons.wifi_off_rounded, size: 48, color: AppColors.textHint),
+            const Icon(
+              Icons.wifi_off_rounded,
+              size: 48,
+              color: AppColors.textHint,
+            ),
             const SizedBox(height: 12),
-            Text('Could not load comments',
-                style: AppTextStyles.body.copyWith(color: AppColors.textSecondary)),
+            Text(
+              'Could not load comments',
+              style: AppTextStyles.body.copyWith(
+                color: AppColors.textSecondary,
+              ),
+            ),
             const SizedBox(height: 8),
             TextButton(onPressed: _load, child: const Text('Retry')),
           ],
@@ -731,7 +775,10 @@ class _FeedCommentsSheetState extends State<_FeedCommentsSheet> {
     final comments = _comments;
     if (comments == null) {
       return const Center(
-        child: CircularProgressIndicator(color: AppColors.primary, strokeWidth: 2),
+        child: CircularProgressIndicator(
+          color: AppColors.primary,
+          strokeWidth: 2,
+        ),
       );
     }
 
@@ -740,11 +787,18 @@ class _FeedCommentsSheetState extends State<_FeedCommentsSheet> {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Icon(Icons.mode_comment_outlined,
-                size: 56, color: AppColors.textHint),
+            const Icon(
+              Icons.mode_comment_outlined,
+              size: 56,
+              color: AppColors.textHint,
+            ),
             const SizedBox(height: 12),
-            Text('No comments yet. Be the first!',
-                style: AppTextStyles.body.copyWith(color: AppColors.textSecondary)),
+            Text(
+              'No comments yet. Be the first!',
+              style: AppTextStyles.body.copyWith(
+                color: AppColors.textSecondary,
+              ),
+            ),
           ],
         ),
       );
@@ -759,8 +813,9 @@ class _FeedCommentsSheetState extends State<_FeedCommentsSheet> {
   }
 
   Widget _buildCommentRow(ReelComment comment) {
-    final name =
-        (comment.authorName?.isNotEmpty ?? false) ? comment.authorName! : 'User';
+    final name = (comment.authorName?.isNotEmpty ?? false)
+        ? comment.authorName!
+        : 'User';
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -772,21 +827,31 @@ class _FeedCommentsSheetState extends State<_FeedCommentsSheet> {
               : null,
           child: (comment.authorAvatarUrl?.isNotEmpty ?? false)
               ? null
-              : Text(name[0].toUpperCase(),
-                  style: const TextStyle(color: AppColors.primary, fontSize: 12)),
+              : Text(
+                  name[0].toUpperCase(),
+                  style: const TextStyle(
+                    color: AppColors.primary,
+                    fontSize: 12,
+                  ),
+                ),
         ),
         const SizedBox(width: 10),
         Expanded(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(name,
-                  style: AppTextStyles.body.copyWith(
-                    fontWeight: FontWeight.w600,
-                    fontSize: 13,
-                  )),
+              Text(
+                name,
+                style: AppTextStyles.body.copyWith(
+                  fontWeight: FontWeight.w600,
+                  fontSize: 13,
+                ),
+              ),
               const SizedBox(height: 2),
-              Text(comment.content, style: AppTextStyles.body.copyWith(fontSize: 13)),
+              Text(
+                comment.content,
+                style: AppTextStyles.body.copyWith(fontSize: 13),
+              ),
             ],
           ),
         ),
@@ -808,8 +873,10 @@ class _FeedCommentsSheetState extends State<_FeedCommentsSheet> {
                   hintText: 'Add a comment...',
                   filled: true,
                   fillColor: AppColors.background,
-                  contentPadding:
-                      const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                  contentPadding: const EdgeInsets.symmetric(
+                    horizontal: 14,
+                    vertical: 10,
+                  ),
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(24),
                     borderSide: BorderSide.none,
@@ -826,7 +893,9 @@ class _FeedCommentsSheetState extends State<_FeedCommentsSheet> {
                       width: 18,
                       height: 18,
                       child: CircularProgressIndicator(
-                          color: AppColors.primary, strokeWidth: 2),
+                        color: AppColors.primary,
+                        strokeWidth: 2,
+                      ),
                     )
                   : const Icon(Icons.send_rounded, color: AppColors.primary),
             ),

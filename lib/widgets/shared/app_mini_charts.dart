@@ -67,9 +67,7 @@ class DashboardDonutChart extends StatelessWidget {
     if (slices.isEmpty || _total <= 0) {
       return SizedBox(
         height: size,
-        child: Center(
-          child: Text(emptyMessage, style: AppTextStyles.caption),
-        ),
+        child: Center(child: Text(emptyMessage, style: AppTextStyles.caption)),
       );
     }
 
@@ -88,9 +86,10 @@ class DashboardDonutChart extends StatelessWidget {
                       centerLabel!,
                       style: AppTextStyles.heading2.copyWith(fontSize: 19),
                     ),
-                    Text('total', style: AppTextStyles.caption.copyWith(
-                      fontSize: 10,
-                    )),
+                    Text(
+                      'total',
+                      style: AppTextStyles.caption.copyWith(fontSize: 10),
+                    ),
                   ],
                 ),
               ),

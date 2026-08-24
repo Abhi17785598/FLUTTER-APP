@@ -261,6 +261,7 @@ class PostPropertyProvider extends ChangeNotifier {
   int get currentStep => _currentStep;
   bool get isSubmitting => _isSubmitting;
   bool get isEditMode => _editingPropertyId != null;
+
   /// Existing photos with their categories, in `media_urls` order.
   List<MediaRef> get existingMedia => List.unmodifiable(_existingMedia);
 
@@ -372,8 +373,9 @@ class PostPropertyProvider extends ChangeNotifier {
   }
 
   /// PG per-floor room details, one entry per floor number 1..totalFloors.
-  List<Map<String, dynamic>> get floorWiseRoomDetails =>
-      _floorWiseRoomDetails.map((f) => Map<String, dynamic>.unmodifiable(f)).toList();
+  List<Map<String, dynamic>> get floorWiseRoomDetails => _floorWiseRoomDetails
+      .map((f) => Map<String, dynamic>.unmodifiable(f))
+      .toList();
 
   Map<String, dynamic>? _floorEntry(int floorNumber) {
     for (final f in _floorWiseRoomDetails) {
@@ -383,7 +385,8 @@ class PostPropertyProvider extends ChangeNotifier {
   }
 
   /// Room details for one floor, or `null` if that floor has no entry yet.
-  Map<String, dynamic>? floorRoomDetails(int floorNumber) => _floorEntry(floorNumber);
+  Map<String, dynamic>? floorRoomDetails(int floorNumber) =>
+      _floorEntry(floorNumber);
 
   /// Sets a floor's total room count, mirroring the portal's
   /// `handleFloorRoomsChange`: the `rooms[]` array is regenerated to match
@@ -392,8 +395,7 @@ class PostPropertyProvider extends ChangeNotifier {
   void setFloorTotalRooms(int floorNumber, int totalRooms) {
     final clamped = totalRooms < 0 ? 0 : totalRooms;
     var entry = _floorEntry(floorNumber);
-    final List<dynamic> existingRooms =
-        (entry?['rooms'] as List?) ?? const [];
+    final List<dynamic> existingRooms = (entry?['rooms'] as List?) ?? const [];
     final rooms = List<Map<String, dynamic>>.generate(clamped, (i) {
       final roomNumber = i + 1;
       final existing = existingRooms.firstWhere(
@@ -402,15 +404,22 @@ class PostPropertyProvider extends ChangeNotifier {
       );
       return {
         'roomNumber': roomNumber,
-        'roomType': (existing is Map ? existing['roomType'] : null) ??
-            'Single Sharing',
+        'roomType':
+            (existing is Map ? existing['roomType'] : null) ?? 'Single Sharing',
       };
     });
 
     if (entry == null) {
-      entry = {'floorNumber': floorNumber, 'totalRooms': clamped, 'rooms': rooms};
+      entry = {
+        'floorNumber': floorNumber,
+        'totalRooms': clamped,
+        'rooms': rooms,
+      };
       _floorWiseRoomDetails = [..._floorWiseRoomDetails, entry]
-        ..sort((a, b) => (a['floorNumber'] as int).compareTo(b['floorNumber'] as int));
+        ..sort(
+          (a, b) =>
+              (a['floorNumber'] as int).compareTo(b['floorNumber'] as int),
+        );
     } else {
       entry['totalRooms'] = clamped;
       entry['rooms'] = rooms;
@@ -445,11 +454,11 @@ class PostPropertyProvider extends ChangeNotifier {
   // `{...provider.buildingInventory}` spread picks up floor edits with no
   // extra write path, the same way sub-keys the app never edits already
   // survive there.
-  List<Map<String, dynamic>> get buildingFloors => (_buildingInventory['floors']
-          as List?)
-      ?.whereType<Map>()
-      .map((f) => Map<String, dynamic>.from(f))
-      .toList() ??
+  List<Map<String, dynamic>> get buildingFloors =>
+      (_buildingInventory['floors'] as List?)
+          ?.whereType<Map>()
+          .map((f) => Map<String, dynamic>.from(f))
+          .toList() ??
       const [];
 
   Map<String, dynamic>? buildingFloorEntry(int floorNumber) {
@@ -464,26 +473,26 @@ class PostPropertyProvider extends ChangeNotifier {
   /// added office matches what a web-created listing's company object looks
   /// like before it is filled in.
   static Map<String, dynamic> _blankOffice() => {
-        'companyName': '',
-        'companyType': '',
-        'industryCategory': '',
-        'officeNumber': '',
-        'registrationNumber': '',
-        'gstNumber': '',
-        'website': '',
-        'email': '',
-        'phoneNumber': '',
-        'contactPerson': '',
-        'designation': '',
-        'occupiedArea': '',
-        'leaseStartDate': '',
-        'leaseEndDate': '',
-        'monthlyRent': '',
-        'securityDeposit': '',
-        'lockInPeriod': '',
-        'numberOfEmployees': '',
-        'seatingCapacity': '',
-      };
+    'companyName': '',
+    'companyType': '',
+    'industryCategory': '',
+    'officeNumber': '',
+    'registrationNumber': '',
+    'gstNumber': '',
+    'website': '',
+    'email': '',
+    'phoneNumber': '',
+    'contactPerson': '',
+    'designation': '',
+    'occupiedArea': '',
+    'leaseStartDate': '',
+    'leaseEndDate': '',
+    'monthlyRent': '',
+    'securityDeposit': '',
+    'lockInPeriod': '',
+    'numberOfEmployees': '',
+    'seatingCapacity': '',
+  };
 
   void _writeBuildingFloors(List<Map<String, dynamic>> floors) {
     _buildingInventory = {..._buildingInventory, 'floors': floors};
@@ -541,14 +550,17 @@ class PostPropertyProvider extends ChangeNotifier {
   /// (from a web-created listing, or from fields this editor doesn't expose)
   /// survives untouched.
   void setBuildingOfficeField(
-      int floorNumber, int companyIndex, String field, Object? value) {
+    int floorNumber,
+    int companyIndex,
+    String field,
+    Object? value,
+  ) {
     final floors = buildingFloors;
     final i = floors.indexWhere((f) => f['floorNumber'] == floorNumber);
     if (i < 0) return;
-    final companies =
-        ((floors[i]['companies'] as List?) ?? const [])
-            .map((c) => c is Map ? Map<String, dynamic>.from(c) : _blankOffice())
-            .toList();
+    final companies = ((floors[i]['companies'] as List?) ?? const [])
+        .map((c) => c is Map ? Map<String, dynamic>.from(c) : _blankOffice())
+        .toList();
     if (companyIndex < 0 || companyIndex >= companies.length) return;
     companies[companyIndex] = {...companies[companyIndex], field: value};
     floors[i] = {...floors[i], 'companies': companies};
@@ -991,7 +1003,8 @@ class PostPropertyProvider extends ChangeNotifier {
       final String? name = project.builderName;
       if (name != null && name.isNotEmpty) _builderName = name;
       final String? status = project.status;
-      if (status != null && status.isNotEmpty) setText('propertyStatus', status);
+      if (status != null && status.isNotEmpty)
+        setText('propertyStatus', status);
     } else {
       _projectId = '';
       _projectLocation = '';
@@ -1250,7 +1263,9 @@ class PostPropertyProvider extends ChangeNotifier {
     _editingPropertyId = editingPropertyId;
 
     _category = _parseCategory(propertyRow['category']?.toString());
-    _listingIntent = _parseListingIntent(propertyRow['property_type']?.toString());
+    _listingIntent = _parseListingIntent(
+      propertyRow['property_type']?.toString(),
+    );
     _title = propertyRow['title']?.toString() ?? '';
     _description = propertyRow['description']?.toString() ?? '';
     _location = propertyRow['location']?.toString() ?? '';
@@ -1267,11 +1282,14 @@ class PostPropertyProvider extends ChangeNotifier {
     // read, so a row written by an older build still matches the canonical
     // option lists (and, for area unit, still resolves to a DropdownButton
     // item). Unknown values pass through untouched rather than being guessed.
-    _areaUnit = canonicalAreaUnit(propertyRow['area_unit']?.toString() ?? 'sq_ft');
+    _areaUnit = canonicalAreaUnit(
+      propertyRow['area_unit']?.toString() ?? 'sq_ft',
+    );
     _area = propertyRow['area']?.toString() ?? '';
     final String? rawSubType = propertyRow['residential_subtype']?.toString();
-    _residentialSubType =
-        rawSubType == null ? null : canonicalResidentialSubtype(rawSubType);
+    _residentialSubType = rawSubType == null
+        ? null
+        : canonicalResidentialSubtype(rawSubType);
 
     // The column holds React's string, so 'Immediately' round-trips as the
     // flag rather than as an unparseable date.
@@ -1297,7 +1315,9 @@ class PostPropertyProvider extends ChangeNotifier {
         for (int i = 0; i < mediaUrls.length; i++)
           MediaRef(
             url: mediaUrls[i].toString(),
-            category: i < cats.length && cats[i] != null &&
+            category:
+                i < cats.length &&
+                    cats[i] != null &&
                     cats[i].toString().isNotEmpty
                 ? cats[i].toString()
                 : 'other',
@@ -1313,8 +1333,10 @@ class PostPropertyProvider extends ChangeNotifier {
     // listing's amenities.
     final amenitiesCol = propertyRow['amenities'];
     if (amenitiesCol is List && amenitiesCol.isNotEmpty) {
-      _list['amenities'] =
-          amenitiesCol.where((e) => e != null).map((e) => e.toString()).toList();
+      _list['amenities'] = amenitiesCol
+          .where((e) => e != null)
+          .map((e) => e.toString())
+          .toList();
     }
 
     // properties.hashtags is likewise a real column outside metadata — same
@@ -1334,7 +1356,8 @@ class PostPropertyProvider extends ChangeNotifier {
     // metadata snapshot (PropertyWizard.tsx:954) — project_id is the source of
     // truth for the link, the metadata copy exists so cards can render the
     // project without a join.
-    _projectId = propertyRow['project_id']?.toString() ??
+    _projectId =
+        propertyRow['project_id']?.toString() ??
         meta['projectId']?.toString() ??
         '';
     _projectName = meta['projectName']?.toString() ?? '';
@@ -1382,14 +1405,14 @@ class PostPropertyProvider extends ChangeNotifier {
     // listings created by older app builds keep their value on edit.
     _maintenanceCharges =
         (meta['maintenanceCharges'] ?? meta['maintenanceAmount'])?.toString() ??
-            '';
+        '';
     _bookingAmount = meta['tokenAmount']?.toString() ?? '';
     _lockInPeriod = meta['lockInPeriod']?.toString();
     _priceNegotiable = meta['priceNegotiable'] as bool? ?? false;
     _allInclusivePriceToggle =
         (meta['allInclusivePriceToggle'] ?? meta['allInclusivePrice'])
-                as bool? ??
-            false;
+            as bool? ??
+        false;
     _taxGovtChargesIncluded = meta['taxGovtChargesIncluded'] as bool? ?? false;
     _loanAvailability = meta['loanAvailability'] as bool? ?? false;
     _brokerage = meta['brokerage']?.toString() ?? '';
@@ -1459,9 +1482,15 @@ class PostPropertyProvider extends ChangeNotifier {
           _furnishingType = furnished ? 'Fully-Furnished' : 'Raw';
         }
         setText('washrooms', subtableRow['washrooms']?.toString() ?? '');
-        setText('totalParking', subtableRow['parking_spaces']?.toString() ?? '');
+        setText(
+          'totalParking',
+          subtableRow['parking_spaces']?.toString() ?? '',
+        );
         setText('floorNumber', subtableRow['floor_number']?.toString() ?? '');
-        setText('totalFloorsCommercial', subtableRow['total_floors']?.toString() ?? '');
+        setText(
+          'totalFloorsCommercial',
+          subtableRow['total_floors']?.toString() ?? '',
+        );
         final bool cafeteria = subtableRow['cafeteria'] as bool? ?? false;
         _guardRoom = cafeteria;
       } else if (cat == 'land') {
@@ -1494,8 +1523,9 @@ class PostPropertyProvider extends ChangeNotifier {
     final data = ListingFormData(this);
     for (final rules in kPropertyStepRules.values) {
       for (final rule in rules) {
-        final Object? value =
-            rule.get != null ? rule.get!(data) : data.read(rule.field);
+        final Object? value = rule.get != null
+            ? rule.get!(data)
+            : data.read(rule.field);
         if (isBlank(value)) _grandfatheredBlankFields.add(rule.field);
       }
     }
@@ -1515,7 +1545,11 @@ class PostPropertyProvider extends ChangeNotifier {
     'propertyCondition', 'constructionAge', 'availabilityStatus',
     'availableItems',
     'electricityBackup', 'waterAvailability', 'numberOfLifts', 'openParking',
-    'gasPipeline', 'internetAvailability', 'solarBackup', 'solarPower', 'guardRoom',
+    'gasPipeline',
+    'internetAvailability',
+    'solarBackup',
+    'solarPower',
+    'guardRoom',
     'reraRegistered', 'reraNumber',
     'saleDeed', 'registryCopy', 'nocAvailable', 'encumbranceFree',
     'loanApproved', 'propertyApproved',
@@ -1590,10 +1624,11 @@ class PostPropertyProvider extends ChangeNotifier {
     _ => null,
   };
 
-  static ListingIntent? _parseListingIntent(String? dbValue) => switch (dbValue) {
-    'sell' => ListingIntent.sell,
-    'rent' => ListingIntent.rent,
-    'lease' => ListingIntent.lease,
-    _ => null,
-  };
+  static ListingIntent? _parseListingIntent(String? dbValue) =>
+      switch (dbValue) {
+        'sell' => ListingIntent.sell,
+        'rent' => ListingIntent.rent,
+        'lease' => ListingIntent.lease,
+        _ => null,
+      };
 }

@@ -35,12 +35,25 @@ class _BrokerProfileScreenState extends State<BrokerProfileScreen> {
   String? _errorMessage;
 
   final List<String> _commonCities = [
-    'Mumbai', 'Delhi', 'Bangalore', 'Chennai', 'Hyderabad',
-    'Pune', 'Ahmedabad', 'Jaipur', 'Lucknow', 'Kolkata'
+    'Mumbai',
+    'Delhi',
+    'Bangalore',
+    'Chennai',
+    'Hyderabad',
+    'Pune',
+    'Ahmedabad',
+    'Jaipur',
+    'Lucknow',
+    'Kolkata',
   ];
 
   final List<String> _propertyTypes = [
-    'Residential', 'Commercial', 'Land', 'Industrial', 'Office', 'Retail'
+    'Residential',
+    'Commercial',
+    'Land',
+    'Industrial',
+    'Office',
+    'Retail',
   ];
 
   @override
@@ -69,7 +82,7 @@ class _BrokerProfileScreenState extends State<BrokerProfileScreen> {
 
     try {
       final user = _authService.currentUser;
-      
+
       if (user == null) {
         setState(() {
           _errorMessage = 'User not logged in';
@@ -81,7 +94,11 @@ class _BrokerProfileScreenState extends State<BrokerProfileScreen> {
         'agency_name': _agencyNameController.text.trim(),
         'license_number': _licenseNumberController.text.trim(),
         'years_experience': int.tryParse(_yearsExperienceController.text) ?? 0,
-        'specialization': _specializationController.text.trim().split(',').map((e) => e.trim()).toList(),
+        'specialization': _specializationController.text
+            .trim()
+            .split(',')
+            .map((e) => e.trim())
+            .toList(),
         'agency_address': _agencyAddressController.text.trim(),
         'city': _cityController.text.trim(),
         'state': _stateController.text.trim(),
@@ -321,7 +338,8 @@ class _BrokerProfileScreenState extends State<BrokerProfileScreen> {
                 controller: _specializationController,
                 decoration: const InputDecoration(
                   labelText: 'Specialization',
-                  hintText: 'e.g., Residential, Commercial, Luxury (comma separated)',
+                  hintText:
+                      'e.g., Residential, Commercial, Luxury (comma separated)',
                   prefixIcon: Icon(Icons.star),
                   border: OutlineInputBorder(),
                 ),
@@ -494,12 +512,17 @@ class _BrokerProfileScreenState extends State<BrokerProfileScreen> {
                           width: 20,
                           child: CircularProgressIndicator(
                             strokeWidth: 2,
-                            valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                            valueColor: AlwaysStoppedAnimation<Color>(
+                              Colors.white,
+                            ),
                           ),
                         )
                       : const Text(
                           'Complete Profile',
-                          style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                          style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                          ),
                         ),
                 ),
               ),

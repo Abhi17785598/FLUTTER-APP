@@ -77,11 +77,13 @@ class _TeamInventoryTabState extends State<TeamInventoryTab> {
     try {
       final all = await _projects.listMine(widget.builderId);
       final allowed = widget.allowedProjectIds;
-      final visible =
-          allowed == null ? all : all.where((p) => allowed.contains(p.id)).toList();
+      final visible = allowed == null
+          ? all
+          : all.where((p) => allowed.contains(p.id)).toList();
 
-      final counts =
-          await _inventory.countsByProject(visible.map((p) => p.id).toList());
+      final counts = await _inventory.countsByProject(
+        visible.map((p) => p.id).toList(),
+      );
 
       if (!mounted) return;
       setState(() {
@@ -155,11 +157,15 @@ class _TeamInventoryTabState extends State<TeamInventoryTab> {
 
     setState(() => _busyProjectId = project.id);
     try {
-      await _projects.delete(projectId: project.id, builderId: widget.builderId);
+      await _projects.delete(
+        projectId: project.id,
+        builderId: widget.builderId,
+      );
       if (!mounted) return;
       setState(() {
-        _visibleProjects =
-            _visibleProjects.where((p) => p.id != project.id).toList();
+        _visibleProjects = _visibleProjects
+            .where((p) => p.id != project.id)
+            .toList();
         _busyProjectId = null;
       });
       _toast('Project deleted.');
@@ -195,9 +201,7 @@ class _TeamInventoryTabState extends State<TeamInventoryTab> {
 
   void _manageUnits(ProjectModel project) {
     Navigator.of(context).push(
-      MaterialPageRoute(
-        builder: (_) => ManageUnitsScreen(project: project),
-      ),
+      MaterialPageRoute(builder: (_) => ManageUnitsScreen(project: project)),
     );
   }
 
@@ -350,8 +354,10 @@ class _ProjectInventoryCard extends StatelessWidget {
                     isDense: true,
                     decoration: const InputDecoration(
                       isDense: true,
-                      contentPadding:
-                          EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                      contentPadding: EdgeInsets.symmetric(
+                        horizontal: 10,
+                        vertical: 8,
+                      ),
                     ),
                     items: [
                       for (final option in kProjectStatusPickerOptions)
@@ -380,7 +386,10 @@ class _ProjectInventoryCard extends StatelessWidget {
                 ),
                 IconButton(
                   onPressed: onDelete,
-                  icon: const Icon(Icons.delete_outline, color: AppColors.error),
+                  icon: const Icon(
+                    Icons.delete_outline,
+                    color: AppColors.error,
+                  ),
                   tooltip: 'Delete',
                 ),
               ],

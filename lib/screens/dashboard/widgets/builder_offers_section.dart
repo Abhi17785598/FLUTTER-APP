@@ -223,8 +223,9 @@ class _BuilderOffersSectionState extends State<BuilderOffersSection> {
   /// in the parent's list — deleted since, which cascades the offer away too, so
   /// this is defensive — the edit is refused rather than opened against a stand-in.
   Future<void> _edit(BuilderOffer offer) async {
-    final matches =
-        widget.projects.where((p) => p.id == offer.projectId).toList();
+    final matches = widget.projects
+        .where((p) => p.id == offer.projectId)
+        .toList();
     if (matches.isEmpty) {
       _toast("That offer's project is no longer available.", isError: true);
       return;
@@ -234,10 +235,8 @@ class _BuilderOffersSectionState extends State<BuilderOffersSection> {
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
-      builder: (_) => BuilderOfferEditorSheet(
-        project: matches.first,
-        editing: offer,
-      ),
+      builder: (_) =>
+          BuilderOfferEditorSheet(project: matches.first, editing: offer),
     );
     if (draft == null || !mounted) return;
 
@@ -304,7 +303,7 @@ class _BuilderOffersSectionState extends State<BuilderOffersSection> {
       // rather than a flow on another platform.
       emptyMessage: widget.projects.isEmpty
           ? 'Publish a project first, then market an offer on it to your broker '
-              'network.'
+                'network.'
           : 'No active offers yet. Use Create to market one.',
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -417,16 +416,16 @@ class _Cover extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     Widget placeholder() => Container(
-          width: _size,
-          height: _size,
-          color: AppColors.primaryLight,
-          alignment: Alignment.center,
-          child: const Icon(
-            Icons.local_offer_rounded,
-            size: 24,
-            color: AppColors.primary,
-          ),
-        );
+      width: _size,
+      height: _size,
+      color: AppColors.primaryLight,
+      alignment: Alignment.center,
+      child: const Icon(
+        Icons.local_offer_rounded,
+        size: 24,
+        color: AppColors.primary,
+      ),
+    );
 
     // The portal falls back to a stock Unsplash photo here
     // (`ProjectOfferCard.tsx:42`). A placeholder the app owns is used instead —
@@ -521,8 +520,18 @@ class _Summary extends StatelessWidget {
   /// `MMM d, yyyy` — the portal's `toLocaleDateString()` position on the card.
   static String _formatDate(DateTime dt) {
     const months = [
-      'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
-      'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
+      'Jan',
+      'Feb',
+      'Mar',
+      'Apr',
+      'May',
+      'Jun',
+      'Jul',
+      'Aug',
+      'Sep',
+      'Oct',
+      'Nov',
+      'Dec',
     ];
     return '${months[dt.month - 1]} ${dt.day}, ${dt.year}';
   }

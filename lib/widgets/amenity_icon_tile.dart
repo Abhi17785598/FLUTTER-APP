@@ -25,11 +25,7 @@ class AmenityIconTile extends StatelessWidget {
             color: color.withOpacity(0.1),
             shape: BoxShape.circle,
           ),
-          child: Icon(
-            icon,
-            color: color,
-            size: 20,
-          ),
+          child: Icon(icon, color: color, size: 20),
         ),
         const SizedBox(height: 6),
         SizedBox(

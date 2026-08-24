@@ -150,7 +150,13 @@ class RatingBreakdown {
     required this.reviews,
   });
 
-  static const Map<int, int> _emptyDistribution = {5: 0, 4: 0, 3: 0, 2: 0, 1: 0};
+  static const Map<int, int> _emptyDistribution = {
+    5: 0,
+    4: 0,
+    3: 0,
+    2: 0,
+    1: 0,
+  };
 
   static const RatingBreakdown zero = RatingBreakdown(
     customer: RatingSummary.zero,

@@ -16,16 +16,22 @@ class RBACService {
   bool get isSeller => _authProvider.userRole == 'seller';
 
   /// Check if current user is a builder
-  bool get isBuilder => _authProvider.userRole == 'seller' && _authProvider.userType == 'builder';
+  bool get isBuilder =>
+      _authProvider.userRole == 'seller' && _authProvider.userType == 'builder';
 
   /// Check if current user is a broker
-  bool get isBroker => _authProvider.userRole == 'seller' && _authProvider.userType == 'broker';
+  bool get isBroker =>
+      _authProvider.userRole == 'seller' && _authProvider.userType == 'broker';
 
   /// Check if current user is an influencer
-  bool get isInfluencer => _authProvider.userRole == 'seller' && _authProvider.userType == 'influencer';
+  bool get isInfluencer =>
+      _authProvider.userRole == 'seller' &&
+      _authProvider.userType == 'influencer';
 
   /// Check if current user is an individual buyer
-  bool get isIndividual => _authProvider.userRole == 'buyer' && _authProvider.userType == 'individual';
+  bool get isIndividual =>
+      _authProvider.userRole == 'buyer' &&
+      _authProvider.userType == 'individual';
 
   // ========== PERMISSION CHECKS ==========
 

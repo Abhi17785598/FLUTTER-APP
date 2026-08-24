@@ -24,7 +24,7 @@ import '../services/notification_service.dart';
 
 class NotificationProvider extends ChangeNotifier {
   NotificationProvider({NotificationService? service})
-      : _service = service ?? NotificationService();
+    : _service = service ?? NotificationService();
 
   final NotificationService _service;
 
@@ -191,7 +191,9 @@ class NotificationProvider extends ChangeNotifier {
     if (userId == null || unreadCount == 0) return;
 
     final previous = _items;
-    _items = _items.map((n) => n.isRead ? n : n.copyWith(isRead: true)).toList();
+    _items = _items
+        .map((n) => n.isRead ? n : n.copyWith(isRead: true))
+        .toList();
     _safeNotify();
 
     try {

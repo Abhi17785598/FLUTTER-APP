@@ -76,8 +76,10 @@ class _FiltersScreenState extends State<FiltersScreen> {
   @override
   void initState() {
     super.initState();
-    _draftBudgetRange =
-        Provider.of<FilterProvider>(context, listen: false).budgetRange;
+    _draftBudgetRange = Provider.of<FilterProvider>(
+      context,
+      listen: false,
+    ).budgetRange;
   }
 
   @override
@@ -151,21 +153,22 @@ class _FiltersScreenState extends State<FiltersScreen> {
             ),
           ),
           const SizedBox(width: 16),
-          Text(
-            'Filters',
-            style: AppTextStyles.heading2,
-          ),
+          Text('Filters', style: AppTextStyles.heading2),
           const Spacer(),
           TextButton(
             onPressed: () {
-              final filterProvider =
-                  Provider.of<FilterProvider>(context, listen: false);
+              final filterProvider = Provider.of<FilterProvider>(
+                context,
+                listen: false,
+              );
               filterProvider.resetFilters();
               setState(() {
                 _draftBudgetRange = filterProvider.budgetRange;
               });
-              Provider.of<PropertyProvider>(context, listen: false)
-                  .runSearch(filterProvider.toQueryParams(), reset: true);
+              Provider.of<PropertyProvider>(
+                context,
+                listen: false,
+              ).runSearch(filterProvider.toQueryParams(), reset: true);
             },
             child: const Text('Reset All ↺'),
           ),
@@ -264,7 +267,8 @@ class _FiltersScreenState extends State<FiltersScreen> {
               itemCount: _propertyTypes.length,
               itemBuilder: (context, index) {
                 final type = _propertyTypes[index];
-                final isSelected = filterProvider.category == type['category'] &&
+                final isSelected =
+                    filterProvider.category == type['category'] &&
                     filterProvider.subtype == type['subtype'];
                 return Padding(
                   padding: const EdgeInsets.only(right: 12),
@@ -305,8 +309,9 @@ class _FiltersScreenState extends State<FiltersScreen> {
                               color: isSelected
                                   ? AppColors.primary
                                   : AppColors.textPrimary,
-                              fontWeight:
-                                  isSelected ? FontWeight.w600 : FontWeight.w400,
+                              fontWeight: isSelected
+                                  ? FontWeight.w600
+                                  : FontWeight.w400,
                             ),
                             textAlign: TextAlign.center,
                             maxLines: 2,
@@ -365,7 +370,14 @@ class _FiltersScreenState extends State<FiltersScreen> {
   }
 
   Widget _buildBedroomsSection(FilterProvider filterProvider) {
-    const bedroomOptions = ['Any', '1 BHK', '2 BHK', '3 BHK', '4 BHK', '4+ BHK'];
+    const bedroomOptions = [
+      'Any',
+      '1 BHK',
+      '2 BHK',
+      '3 BHK',
+      '4 BHK',
+      '4+ BHK',
+    ];
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16),
       child: Column(
@@ -405,8 +417,9 @@ class _FiltersScreenState extends State<FiltersScreen> {
                         color: isSelected
                             ? AppColors.primary
                             : AppColors.textPrimary,
-                        fontWeight:
-                            isSelected ? FontWeight.w600 : FontWeight.w400,
+                        fontWeight: isSelected
+                            ? FontWeight.w600
+                            : FontWeight.w400,
                         fontSize: 12,
                       ),
                     ),
@@ -436,7 +449,8 @@ class _FiltersScreenState extends State<FiltersScreen> {
               final String? value = label == 'Any' ? null : label;
               final isSelected = filterProvider.postedBy == value;
               return GestureDetector(
-                onTap: () => filterProvider.setPostedBy(isSelected ? null : value),
+                onTap: () =>
+                    filterProvider.setPostedBy(isSelected ? null : value),
                 child: Container(
                   height: AppConstants.selectableChipHeight,
                   padding: const EdgeInsets.symmetric(horizontal: 16),
@@ -459,8 +473,9 @@ class _FiltersScreenState extends State<FiltersScreen> {
                         color: isSelected
                             ? AppColors.primary
                             : AppColors.textPrimary,
-                        fontWeight:
-                            isSelected ? FontWeight.w600 : FontWeight.w400,
+                        fontWeight: isSelected
+                            ? FontWeight.w600
+                            : FontWeight.w400,
                         fontSize: 12,
                       ),
                     ),
@@ -479,22 +494,21 @@ class _FiltersScreenState extends State<FiltersScreen> {
       padding: const EdgeInsets.all(16),
       decoration: const BoxDecoration(
         color: AppColors.surface,
-        border: Border(
-          top: BorderSide(
-            color: AppColors.textHint,
-            width: 0.5,
-          ),
-        ),
+        border: Border(top: BorderSide(color: AppColors.textHint, width: 0.5)),
       ),
       child: SizedBox(
         width: double.infinity,
         height: AppConstants.showResultsButtonHeight,
         child: ElevatedButton(
           onPressed: () {
-            final filterProvider =
-                Provider.of<FilterProvider>(context, listen: false);
-            Provider.of<PropertyProvider>(context, listen: false)
-                .runSearch(filterProvider.toQueryParams(), reset: true);
+            final filterProvider = Provider.of<FilterProvider>(
+              context,
+              listen: false,
+            );
+            Provider.of<PropertyProvider>(
+              context,
+              listen: false,
+            ).runSearch(filterProvider.toQueryParams(), reset: true);
             // Signals "filters were actually applied" (vs. just backing out)
             // to whichever screen pushed this one — see SearchScreen's filter
             // chips, which use this to know whether to forward the user to

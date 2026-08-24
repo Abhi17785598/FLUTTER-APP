@@ -140,8 +140,9 @@ class _ArticleEditorViewState extends State<_ArticleEditorView> {
       contentType: _socialContentType,
       contentId: articleId,
       title: _titleController.text,
-      mediaUrls:
-          _imageController.text.trim().isEmpty ? const [] : [_imageController.text.trim()],
+      mediaUrls: _imageController.text.trim().isEmpty
+          ? const []
+          : [_imageController.text.trim()],
     );
   }
 
@@ -155,8 +156,9 @@ class _ArticleEditorViewState extends State<_ArticleEditorView> {
       contentType: _socialContentType,
       contentId: articleId,
       title: _titleController.text,
-      mediaUrls:
-          _imageController.text.trim().isEmpty ? const [] : [_imageController.text.trim()],
+      mediaUrls: _imageController.text.trim().isEmpty
+          ? const []
+          : [_imageController.text.trim()],
     );
   }
 
@@ -184,8 +186,9 @@ class _ArticleEditorViewState extends State<_ArticleEditorView> {
           ],
         ),
       ),
-      bottomNavigationBar:
-          editor.loading || editor.loadFailed ? null : _buildActionBar(editor),
+      bottomNavigationBar: editor.loading || editor.loadFailed
+          ? null
+          : _buildActionBar(editor),
     );
   }
 
@@ -372,10 +375,13 @@ class _ArticleEditorViewState extends State<_ArticleEditorView> {
                     maxLines: null,
                     keyboardType: TextInputType.multiline,
                     textCapitalization: TextCapitalization.sentences,
-                    style:
-                        AppTextStyles.body.copyWith(fontSize: 13, height: 1.6),
-                    decoration:
-                        _inputDecoration('Start writing your article...'),
+                    style: AppTextStyles.body.copyWith(
+                      fontSize: 13,
+                      height: 1.6,
+                    ),
+                    decoration: _inputDecoration(
+                      'Start writing your article...',
+                    ),
                   ),
           ),
         ),
@@ -463,9 +469,9 @@ class _ArticleEditorViewState extends State<_ArticleEditorView> {
             child: Text(
               editor.lockReason == ArticleLockReason.richContent
                   ? 'This article was written on the web. Open it there to '
-                      'edit without losing its formatting.'
+                        'edit without losing its formatting.'
                   : 'This article is already under review and can no longer '
-                      'be edited.',
+                        'be edited.',
               textAlign: TextAlign.center,
               style: AppTextStyles.caption.copyWith(fontSize: 12),
             ),
@@ -541,8 +547,16 @@ class _StatusBanner extends StatelessWidget {
     final approval = (article.approvalStatus ?? 'pending').toLowerCase();
 
     final (Color fg, Color bg, IconData icon) = switch (approval) {
-      'approved' => (AppColors.success, const Color(0x1A22C55E), Icons.check_circle_outline),
-      'rejected' => (AppColors.error, const Color(0x1AEF4444), Icons.error_outline),
+      'approved' => (
+        AppColors.success,
+        const Color(0x1A22C55E),
+        Icons.check_circle_outline,
+      ),
+      'rejected' => (
+        AppColors.error,
+        const Color(0x1AEF4444),
+        Icons.error_outline,
+      ),
       _ => (AppColors.warning, const Color(0x1AF97316), Icons.schedule),
     };
 
@@ -677,8 +691,9 @@ class _BarButton extends StatelessWidget {
               border: style == _BarButtonStyle.outlined
                   ? Border.all(color: AppColors.primary, width: 1.5)
                   : null,
-              boxShadow:
-                  isFilled && enabled ? AppColors.primaryActionShadow : null,
+              boxShadow: isFilled && enabled
+                  ? AppColors.primaryActionShadow
+                  : null,
             ),
             child: Center(
               child: busy
@@ -687,8 +702,7 @@ class _BarButton extends StatelessWidget {
                       height: 18,
                       child: CircularProgressIndicator(
                         strokeWidth: 2,
-                        valueColor:
-                            AlwaysStoppedAnimation<Color>(Colors.white),
+                        valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
                       ),
                     )
                   : Text(

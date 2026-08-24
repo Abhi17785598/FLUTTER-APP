@@ -37,10 +37,12 @@ class AddressAutocompleteField extends StatefulWidget {
   /// on failure — the typed text is simply left as-is, same as the portal
   /// leaving the manually typed address untouched if the picker click never
   /// lands on a valid place.
-  final void Function(GeocodedAddress address, double lat, double lng) onPlaceSelected;
+  final void Function(GeocodedAddress address, double lat, double lng)
+  onPlaceSelected;
 
   @override
-  State<AddressAutocompleteField> createState() => _AddressAutocompleteFieldState();
+  State<AddressAutocompleteField> createState() =>
+      _AddressAutocompleteFieldState();
 }
 
 class _AddressAutocompleteFieldState extends State<AddressAutocompleteField> {
@@ -82,7 +84,10 @@ class _AddressAutocompleteFieldState extends State<AddressAutocompleteField> {
       _removeOverlay();
       return;
     }
-    _debounce = Timer(const Duration(milliseconds: 400), () => _fetchPredictions(text));
+    _debounce = Timer(
+      const Duration(milliseconds: 400),
+      () => _fetchPredictions(text),
+    );
   }
 
   Future<void> _fetchPredictions(String input) async {
@@ -134,8 +139,15 @@ class _AddressAutocompleteFieldState extends State<AddressAutocompleteField> {
                     final prediction = _predictions[i];
                     return ListTile(
                       dense: true,
-                      leading: Icon(Icons.location_on_outlined, size: 18, color: scheme.primary),
-                      title: Text(prediction.description, style: const TextStyle(fontSize: 13)),
+                      leading: Icon(
+                        Icons.location_on_outlined,
+                        size: 18,
+                        color: scheme.primary,
+                      ),
+                      title: Text(
+                        prediction.description,
+                        style: const TextStyle(fontSize: 13),
+                      ),
                       onTap: () => _selectPrediction(prediction),
                     );
                   },
@@ -157,14 +169,20 @@ class _AddressAutocompleteFieldState extends State<AddressAutocompleteField> {
   Future<void> _selectPrediction(PlacePrediction prediction) async {
     _suppressNextChange = true;
     widget.controller.text = prediction.description;
-    widget.controller.selection = TextSelection.collapsed(offset: prediction.description.length);
+    widget.controller.selection = TextSelection.collapsed(
+      offset: prediction.description.length,
+    );
     setState(() => _predictions = []);
     _removeOverlay();
     _focusNode.unfocus();
 
     final details = await _service.placeDetails(prediction.placeId);
     if (!mounted || details == null) return;
-    widget.onPlaceSelected(details.address, details.latitude, details.longitude);
+    widget.onPlaceSelected(
+      details.address,
+      details.latitude,
+      details.longitude,
+    );
   }
 
   @override

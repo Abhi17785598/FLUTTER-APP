@@ -53,7 +53,7 @@ enum RatingWriteError {
 
 class ProfileRatingService {
   ProfileRatingService({SupabaseClient? client})
-      : _supabase = client ?? Supabase.instance.client;
+    : _supabase = client ?? Supabase.instance.client;
 
   final SupabaseClient _supabase;
 
@@ -155,10 +155,10 @@ class ProfileRatingService {
     if (ratingId.isEmpty) return RatingWriteError.failed;
 
     try {
-      await _supabase.from(_table).update({
-        'rating': rating,
-        'review': _normaliseReview(review),
-      }).eq('id', ratingId);
+      await _supabase
+          .from(_table)
+          .update({'rating': rating, 'review': _normaliseReview(review)})
+          .eq('id', ratingId);
       return null;
     } catch (e) {
       debugPrint('ProfileRatingService.updateRating failed: $e');
@@ -172,15 +172,15 @@ class ProfileRatingService {
     required String? viewerId,
     required String ratedUserId,
     required int rating,
-  }) =>
-      _guard(viewerId, ratedUserId, rating);
+  }) => _guard(viewerId, ratedUserId, rating);
 
   static RatingWriteError? _guard(
     String? viewerId,
     String ratedUserId,
     int rating,
   ) {
-    if (viewerId == null || viewerId.isEmpty) return RatingWriteError.notAllowed;
+    if (viewerId == null || viewerId.isEmpty)
+      return RatingWriteError.notAllowed;
     if (ratedUserId.isEmpty) return RatingWriteError.notAllowed;
     // The RLS check enforces this too; catching it here avoids a round-trip that
     // can only fail.

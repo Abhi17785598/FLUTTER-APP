@@ -68,8 +68,7 @@ class ProfileCompletionCard extends StatelessWidget {
                 ),
                 const SizedBox(height: 9),
                 ClipRRect(
-                  borderRadius:
-                      BorderRadius.circular(AppConstants.pillRadius),
+                  borderRadius: BorderRadius.circular(AppConstants.pillRadius),
                   child: LinearProgressIndicator(
                     value: percentage / 100,
                     minHeight: 7,

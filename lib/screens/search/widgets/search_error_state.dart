@@ -30,7 +30,8 @@ class SearchErrorState extends StatelessWidget {
           // harmless if the fault was actually server-side.
           icon: Icons.cloud_off_rounded,
           title: "Couldn't load results",
-          message: 'We could not complete that search. Check your connection '
+          message:
+              'We could not complete that search. Check your connection '
               'and try again.',
           actionLabel: 'Retry',
           onAction: onRetry,

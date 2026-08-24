@@ -56,15 +56,15 @@ class _PreferencesViewState extends State<_PreferencesView>
     try {
       await _service.savePreferences(userId, draft);
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Preferences saved')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Preferences saved')));
       reloadSection();
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Could not save preferences: $e')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Could not save preferences: $e')));
     } finally {
       if (mounted) setState(() => _saving = false);
     }
@@ -175,13 +175,20 @@ class SocialPreferencesBody extends StatelessWidget {
                   onChanged == null
                       ? null
                       : [
-                          (v) => (p) => p.copyWith(autoShareProperty: v),
-                          (v) => (p) => p.copyWith(autoShareProjects: v),
-                          (v) => (p) => p.copyWith(autoShareVideos: v),
-                          (v) => (p) => p.copyWith(autoShareReels: v),
-                          (v) => (p) => p.copyWith(autoShareBlogs: v),
-                          (v) => (p) => p.copyWith(autoSharePromotions: v),
-                          (v) => (p) => p.copyWith(autoShareOpenHouses: v),
+                          (v) =>
+                              (p) => p.copyWith(autoShareProperty: v),
+                          (v) =>
+                              (p) => p.copyWith(autoShareProjects: v),
+                          (v) =>
+                              (p) => p.copyWith(autoShareVideos: v),
+                          (v) =>
+                              (p) => p.copyWith(autoShareReels: v),
+                          (v) =>
+                              (p) => p.copyWith(autoShareBlogs: v),
+                          (v) =>
+                              (p) => p.copyWith(autoSharePromotions: v),
+                          (v) =>
+                              (p) => p.copyWith(autoShareOpenHouses: v),
                         ],
                 ),
               ],
@@ -218,12 +225,18 @@ class SocialPreferencesBody extends StatelessWidget {
                   onChanged == null
                       ? null
                       : [
-                          (v) => (p) => p.copyWith(fbEnabled: v),
-                          (v) => (p) => p.copyWith(igEnabled: v),
-                          (v) => (p) => p.copyWith(igFeed: v),
-                          (v) => (p) => p.copyWith(igReel: v),
-                          (v) => (p) => p.copyWith(fbStory: v),
-                          (v) => (p) => p.copyWith(igStory: v),
+                          (v) =>
+                              (p) => p.copyWith(fbEnabled: v),
+                          (v) =>
+                              (p) => p.copyWith(igEnabled: v),
+                          (v) =>
+                              (p) => p.copyWith(igFeed: v),
+                          (v) =>
+                              (p) => p.copyWith(igReel: v),
+                          (v) =>
+                              (p) => p.copyWith(fbStory: v),
+                          (v) =>
+                              (p) => p.copyWith(igStory: v),
                         ],
                 ),
               ],
@@ -250,21 +263,25 @@ class SocialPreferencesBody extends StatelessWidget {
                       : (v) => onChanged!((p) => p.copyWith(autoShareRule: v)),
                 ),
                 const SizedBox(height: 14),
-                const SocialFieldLabel('Default hashtags (comma separated, max 30)'),
+                const SocialFieldLabel(
+                  'Default hashtags (comma separated, max 30)',
+                ),
                 const SizedBox(height: 6),
                 _HashtagsField(
                   value: prefs.defaultHashtags.join(', '),
                   enabled: editable,
                   onChanged: onChanged == null
                       ? null
-                      : (v) => onChanged!((p) => p.copyWith(
+                      : (v) => onChanged!(
+                          (p) => p.copyWith(
                             defaultHashtags: v
                                 .split(RegExp(r'[,\n]'))
                                 .map((h) => h.trim().replaceAll('#', ''))
                                 .where((h) => h.isNotEmpty)
                                 .take(30)
                                 .toList(),
-                          )),
+                          ),
+                        ),
                 ),
                 const SizedBox(height: 14),
                 const SocialFieldLabel('Default call to action'),
@@ -274,9 +291,11 @@ class SocialPreferencesBody extends StatelessWidget {
                   enabled: editable,
                   onChanged: onChanged == null
                       ? null
-                      : (v) => onChanged!((p) => p.copyWith(
+                      : (v) => onChanged!(
+                          (p) => p.copyWith(
                             defaultCta: v.trim().isEmpty ? null : v.trim(),
-                          )),
+                          ),
+                        ),
                 ),
               ],
             ),
@@ -310,9 +329,7 @@ class SocialPreferencesBody extends StatelessWidget {
           label: labels[i],
           value: values[i],
           bordered: true,
-          onChanged: onEdits == null
-              ? null
-              : (v) => onChanged!(onEdits[i](v)),
+          onChanged: onEdits == null ? null : (v) => onChanged!(onEdits[i](v)),
         ),
       );
     }
@@ -390,8 +407,9 @@ class _HashtagsField extends StatefulWidget {
 }
 
 class _HashtagsFieldState extends State<_HashtagsField> {
-  late final TextEditingController _controller =
-      TextEditingController(text: widget.value);
+  late final TextEditingController _controller = TextEditingController(
+    text: widget.value,
+  );
   String _lastExternal = '';
 
   @override
@@ -433,7 +451,10 @@ class _HashtagsFieldState extends State<_HashtagsField> {
         hintStyle: AppTextStyles.caption.copyWith(color: AppColors.textHint),
         filled: true,
         fillColor: AppColors.background,
-        contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+        contentPadding: const EdgeInsets.symmetric(
+          horizontal: 14,
+          vertical: 12,
+        ),
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(12),
           borderSide: BorderSide.none,
@@ -459,8 +480,9 @@ class _CtaField extends StatefulWidget {
 }
 
 class _CtaFieldState extends State<_CtaField> {
-  late final TextEditingController _controller =
-      TextEditingController(text: widget.value);
+  late final TextEditingController _controller = TextEditingController(
+    text: widget.value,
+  );
   String _lastExternal = '';
 
   @override
@@ -499,7 +521,10 @@ class _CtaFieldState extends State<_CtaField> {
         hintStyle: AppTextStyles.caption.copyWith(color: AppColors.textHint),
         filled: true,
         fillColor: AppColors.background,
-        contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+        contentPadding: const EdgeInsets.symmetric(
+          horizontal: 14,
+          vertical: 12,
+        ),
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(12),
           borderSide: BorderSide.none,

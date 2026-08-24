@@ -28,13 +28,13 @@ class ProfileProvider extends ChangeNotifier {
     PropertyService? propertyService,
     ArticleService? articleService,
     InfluencerVideoService? influencerVideoService,
-  })  : _networkService = networkService ?? NetworkService(),
-        _ratingsService = ratingsService ?? RatingsService(),
-        _profileViewService = profileViewService ?? ProfileViewService(),
-        _propertyService = propertyService ?? PropertyService(),
-        _articleService = articleService ?? ArticleService(),
-        _influencerVideoService =
-            influencerVideoService ?? InfluencerVideoService();
+  }) : _networkService = networkService ?? NetworkService(),
+       _ratingsService = ratingsService ?? RatingsService(),
+       _profileViewService = profileViewService ?? ProfileViewService(),
+       _propertyService = propertyService ?? PropertyService(),
+       _articleService = articleService ?? ArticleService(),
+       _influencerVideoService =
+           influencerVideoService ?? InfluencerVideoService();
 
   final NetworkService _networkService;
   final RatingsService _ratingsService;

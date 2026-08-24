@@ -9,10 +9,7 @@ class VerifiedBadge extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.symmetric(
-        horizontal: 8,
-        vertical: 4,
-      ),
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
       decoration: BoxDecoration(
         color: AppColors.verifiedBadge,
         borderRadius: BorderRadius.circular(AppConstants.chipRadius),
@@ -20,11 +17,7 @@ class VerifiedBadge extends StatelessWidget {
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          const Icon(
-            Icons.check,
-            size: 12,
-            color: AppColors.verifiedBadgeText,
-          ),
+          const Icon(Icons.check, size: 12, color: AppColors.verifiedBadgeText),
           const SizedBox(width: 4),
           Text(
             'Verified',

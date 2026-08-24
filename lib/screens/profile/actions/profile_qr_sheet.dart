@@ -22,11 +22,7 @@ void showProfileQrSheet(
   required String name,
   required String? userType,
 }) {
-  final shareUrl = profileShareUrl(
-    userId: userId,
-    name: name,
-    role: userType,
-  );
+  final shareUrl = profileShareUrl(userId: userId, name: name, role: userType);
 
   showModalBottomSheet(
     context: context,

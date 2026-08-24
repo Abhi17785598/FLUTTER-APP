@@ -161,7 +161,9 @@ class OverviewTab extends StatelessWidget {
                 'Features unlocked on your plan',
               ),
               const SizedBox(height: 14),
-              Center(child: PlanUsageDonut(unlocked: included, total: total)),
+              Center(
+                child: PlanUsageDonut(unlocked: included, total: total),
+              ),
             ],
           ),
         ),
@@ -420,11 +422,7 @@ class FeaturesTab extends StatelessWidget {
   final SubscriptionTabData data;
   final VoidCallback onUpgrade;
 
-  const FeaturesTab({
-    super.key,
-    required this.data,
-    required this.onUpgrade,
-  });
+  const FeaturesTab({super.key, required this.data, required this.onUpgrade});
 
   @override
   Widget build(BuildContext context) {
@@ -482,8 +480,7 @@ class _FeatureAccessRow extends StatelessWidget {
             width: 36,
             height: 36,
             decoration: BoxDecoration(
-              color:
-                  included ? AppColors.primaryLight : AppColors.background,
+              color: included ? AppColors.primaryLight : AppColors.background,
               borderRadius: BorderRadius.circular(10),
             ),
             child: Icon(
@@ -520,16 +517,13 @@ class InvoicesTab extends StatelessWidget {
   final SubscriptionTabData data;
   final ValueChanged<BillingHistoryItem> onDownload;
 
-  const InvoicesTab({
-    super.key,
-    required this.data,
-    required this.onDownload,
-  });
+  const InvoicesTab({super.key, required this.data, required this.onDownload});
 
   @override
   Widget build(BuildContext context) {
-    final invoiced =
-        data.payments.where((i) => i.invoiceNumber != null).toList();
+    final invoiced = data.payments
+        .where((i) => i.invoiceNumber != null)
+        .toList();
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -622,8 +616,10 @@ class UsageTab extends StatelessWidget {
         _UsageCard(
           icon: Icons.article_outlined,
           label: 'AI Features',
-          value: PlanFeatures.forPlan(plan)
-                  .any((f) => f.included && f.label.contains('AI'))
+          value:
+              PlanFeatures.forPlan(
+                plan,
+              ).any((f) => f.included && f.label.contains('AI'))
               ? 'Included'
               : 'Not included',
           sub: 'Based on your plan',
@@ -701,7 +697,10 @@ class _UsageCard extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               mainAxisSize: MainAxisSize.min,
               children: [
-                Text(label, style: AppTextStyles.caption.copyWith(fontSize: 11)),
+                Text(
+                  label,
+                  style: AppTextStyles.caption.copyWith(fontSize: 11),
+                ),
                 const SizedBox(height: 1),
                 Text(
                   value,
@@ -995,11 +994,7 @@ class RefundsTab extends StatelessWidget {
   final SubscriptionTabData data;
   final VoidCallback onViewPlans;
 
-  const RefundsTab({
-    super.key,
-    required this.data,
-    required this.onViewPlans,
-  });
+  const RefundsTab({super.key, required this.data, required this.onViewPlans});
 
   @override
   Widget build(BuildContext context) {
@@ -1067,7 +1062,8 @@ class RefundsTab extends StatelessWidget {
                     for (var i = 0; i < refunds.length; i++) ...[
                       if (i > 0) const SizedBox(height: 10),
                       BillingInfoRow(
-                        label: refunds[i].invoiceNumber ??
+                        label:
+                            refunds[i].invoiceNumber ??
                             refunds[i].transactionId,
                         value: formatRupees(
                           refunds[i].refundAmount ?? refunds[i].amount,
@@ -1192,8 +1188,7 @@ class HelpTab extends StatelessWidget {
                 shrinkWrap: true,
                 physics: const NeverScrollableScrollPhysics(),
                 padding: EdgeInsets.zero,
-                gridDelegate:
-                    const SliverGridDelegateWithFixedCrossAxisCount(
+                gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
                   crossAxisCount: 2,
                   mainAxisSpacing: 9,
                   crossAxisSpacing: 9,

@@ -29,11 +29,7 @@ class ViewSwitcher extends StatelessWidget {
   final SearchViewMode value;
   final ValueChanged<SearchViewMode> onChanged;
 
-  const ViewSwitcher({
-    super.key,
-    required this.value,
-    required this.onChanged,
-  });
+  const ViewSwitcher({super.key, required this.value, required this.onChanged});
 
   static const Map<SearchViewMode, ({String label, IconData icon})> _items = {
     SearchViewMode.list: (label: 'List', icon: Icons.list),
@@ -73,8 +69,9 @@ class ViewSwitcher extends StatelessWidget {
     required IconData icon,
   }) {
     final bool isSelected = mode == value;
-    final Color content =
-        isSelected ? AppColors.primary : AppColors.textSecondary;
+    final Color content = isSelected
+        ? AppColors.primary
+        : AppColors.textSecondary;
 
     return Semantics(
       label: label,
@@ -91,8 +88,9 @@ class ViewSwitcher extends StatelessWidget {
           child: DecoratedBox(
             decoration: BoxDecoration(
               color: isSelected ? AppColors.cardBackground : Colors.transparent,
-              borderRadius:
-                  BorderRadius.circular(AppConstants.segmentedTabItemRadius),
+              borderRadius: BorderRadius.circular(
+                AppConstants.segmentedTabItemRadius,
+              ),
               boxShadow: isSelected ? AppColors.raisedPillShadow : null,
             ),
             child: SizedBox(

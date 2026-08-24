@@ -31,7 +31,8 @@ class ChannelSettingsScreen extends StatefulWidget {
 
 class _ChannelSettingsScreenState extends State<ChannelSettingsScreen> {
   final _service = MessagingService();
-  List<({ConversationParticipant profile, String role})> _participants = const [];
+  List<({ConversationParticipant profile, String role})> _participants =
+      const [];
   bool _loading = true;
   bool _failed = false;
 
@@ -79,7 +80,9 @@ class _ChannelSettingsScreenState extends State<ChannelSettingsScreen> {
       context: context,
       builder: (dialogContext) => AlertDialog(
         title: const Text('Leave channel?'),
-        content: Text("You'll stop receiving messages from ${widget.channelName}."),
+        content: Text(
+          "You'll stop receiving messages from ${widget.channelName}.",
+        ),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(dialogContext).pop(false),
@@ -164,8 +167,13 @@ class _ChannelSettingsScreenState extends State<ChannelSettingsScreen> {
             size: 40,
           ),
           title: Text(
-            isSelf ? '${entry.profile.displayName} (you)' : entry.profile.displayName,
-            style: AppTextStyles.body.copyWith(fontSize: 14, fontWeight: FontWeight.w600),
+            isSelf
+                ? '${entry.profile.displayName} (you)'
+                : entry.profile.displayName,
+            style: AppTextStyles.body.copyWith(
+              fontSize: 14,
+              fontWeight: FontWeight.w600,
+            ),
           ),
           subtitle: Text(
             entry.role[0].toUpperCase() + entry.role.substring(1),
@@ -176,7 +184,10 @@ class _ChannelSettingsScreenState extends State<ChannelSettingsScreen> {
                   onSelected: (role) => _setRole(entry.profile.userId, role),
                   itemBuilder: (context) => const [
                     PopupMenuItem(value: 'admin', child: Text('Make admin')),
-                    PopupMenuItem(value: 'moderator', child: Text('Make moderator')),
+                    PopupMenuItem(
+                      value: 'moderator',
+                      child: Text('Make moderator'),
+                    ),
                     PopupMenuItem(value: 'member', child: Text('Make member')),
                   ],
                 )

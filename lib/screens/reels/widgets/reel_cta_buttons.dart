@@ -46,7 +46,9 @@ class ReelCtaButtons extends StatelessWidget {
                 side: BorderSide.none,
                 padding: const EdgeInsets.symmetric(horizontal: 6),
                 shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(AppConstants.buttonRadius),
+                  borderRadius: BorderRadius.circular(
+                    AppConstants.buttonRadius,
+                  ),
                 ),
               ),
               child: Row(
@@ -65,7 +67,11 @@ class ReelCtaButtons extends StatelessWidget {
                     ),
                   ),
                   const SizedBox(width: 2),
-                  const Icon(Icons.chevron_right_rounded, color: AppColors.primary, size: 16),
+                  const Icon(
+                    Icons.chevron_right_rounded,
+                    color: AppColors.primary,
+                    size: 16,
+                  ),
                 ],
               ),
             ),
@@ -82,13 +88,19 @@ class ReelCtaButtons extends StatelessWidget {
               child: Material(
                 color: Colors.transparent,
                 child: InkWell(
-                  borderRadius: BorderRadius.circular(AppConstants.buttonRadius),
+                  borderRadius: BorderRadius.circular(
+                    AppConstants.buttonRadius,
+                  ),
                   onTap: onContactBuilder,
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      const Icon(Icons.call_rounded, color: Colors.white, size: 14),
+                      const Icon(
+                        Icons.call_rounded,
+                        color: Colors.white,
+                        size: 14,
+                      ),
                       const SizedBox(width: 4),
                       Flexible(
                         child: Text(
@@ -122,7 +134,9 @@ class ReelCtaButtons extends StatelessWidget {
                 backgroundColor: AppColors.primaryLight,
                 side: BorderSide.none,
                 shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(AppConstants.buttonRadius),
+                  borderRadius: BorderRadius.circular(
+                    AppConstants.buttonRadius,
+                  ),
                 ),
               ),
               child: Text(

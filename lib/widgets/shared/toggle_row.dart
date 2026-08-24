@@ -140,16 +140,16 @@ class ToggleRow extends StatelessWidget {
         ),
         decoration: bordered
             ? BoxDecoration(
-                borderRadius:
-                    BorderRadius.circular(AppConstants.buttonRadius),
+                borderRadius: BorderRadius.circular(AppConstants.buttonRadius),
                 border: Border.all(color: AppColors.hairline),
               )
             : (showDivider
-                ? const BoxDecoration(
-                    border:
-                        Border(bottom: BorderSide(color: AppColors.hairline)),
-                  )
-                : null),
+                  ? const BoxDecoration(
+                      border: Border(
+                        bottom: BorderSide(color: AppColors.hairline),
+                      ),
+                    )
+                  : null),
         child: Row(
           children: [
             Expanded(

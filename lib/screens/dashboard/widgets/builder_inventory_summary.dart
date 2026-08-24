@@ -62,46 +62,48 @@ class BuilderInventorySummary extends StatelessWidget {
     // spinner, so a second one here would be two spinners for one load.
     if (projects.isEmpty) return const SizedBox.shrink();
 
-    return MetricCardGrid(cards: [
-      MetricCard(
-        icon: Icons.apartment_rounded,
-        value: '${projects.length}',
-        label: 'Total Projects',
-        accent: AppColors.primary,
-      ),
-      MetricCard(
-        icon: Icons.check_circle_rounded,
-        value: '${_withStatus('active')}',
-        label: 'Active',
-        accent: AppColors.success,
-      ),
-      MetricCard(
-        icon: Icons.construction_rounded,
-        value: '${_withStatus('under_construction')}',
-        label: 'Under Construction',
-        accent: AppColors.warning,
-      ),
-      MetricCard(
-        icon: Icons.task_alt_rounded,
-        value: '${_withStatus('completed')}',
-        label: 'Completed',
-        accent: AppColors.statusNewLaunch,
-      ),
-      // Unconditional, matching the portal — see the file header. `0` here
-      // means "no inventory added yet", which is worth showing directly
-      // rather than making the whole card disappear.
-      MetricCard(
-        icon: Icons.grid_view_rounded,
-        value: '$_totalUnits',
-        label: 'Total Units',
-        accent: AppColors.statusLoanAvailableText,
-      ),
-      MetricCard(
-        icon: Icons.sell_rounded,
-        value: '$_soldUnits',
-        label: 'Units Sold',
-        accent: AppColors.statusSold,
-      ),
-    ]);
+    return MetricCardGrid(
+      cards: [
+        MetricCard(
+          icon: Icons.apartment_rounded,
+          value: '${projects.length}',
+          label: 'Total Projects',
+          accent: AppColors.primary,
+        ),
+        MetricCard(
+          icon: Icons.check_circle_rounded,
+          value: '${_withStatus('active')}',
+          label: 'Active',
+          accent: AppColors.success,
+        ),
+        MetricCard(
+          icon: Icons.construction_rounded,
+          value: '${_withStatus('under_construction')}',
+          label: 'Under Construction',
+          accent: AppColors.warning,
+        ),
+        MetricCard(
+          icon: Icons.task_alt_rounded,
+          value: '${_withStatus('completed')}',
+          label: 'Completed',
+          accent: AppColors.statusNewLaunch,
+        ),
+        // Unconditional, matching the portal — see the file header. `0` here
+        // means "no inventory added yet", which is worth showing directly
+        // rather than making the whole card disappear.
+        MetricCard(
+          icon: Icons.grid_view_rounded,
+          value: '$_totalUnits',
+          label: 'Total Units',
+          accent: AppColors.statusLoanAvailableText,
+        ),
+        MetricCard(
+          icon: Icons.sell_rounded,
+          value: '$_soldUnits',
+          label: 'Units Sold',
+          accent: AppColors.statusSold,
+        ),
+      ],
+    );
   }
 }

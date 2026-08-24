@@ -60,7 +60,8 @@ class ManageDashboardDispatcher extends StatelessWidget {
         // user_type.
         return const ComingSoonScreen(
           title: 'Dashboard',
-          message: 'Your dashboard will appear here once your account type is '
+          message:
+              'Your dashboard will appear here once your account type is '
               'set up.',
         );
     }

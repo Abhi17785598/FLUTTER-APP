@@ -19,8 +19,7 @@ class InfluencerCampaignModel {
     required this.status,
   });
 
-  factory InfluencerCampaignModel.fromSupabase(
-      Map<String, dynamic> json) {
+  factory InfluencerCampaignModel.fromSupabase(Map<String, dynamic> json) {
     return InfluencerCampaignModel(
       id: json['id'] ?? '',
       title: json['title'] ?? '',

@@ -94,8 +94,9 @@ String? dbDate(Object? value) {
 /// the same keystrokes.
 /// Public so the parity can be asserted directly.
 double? jsParseFloat(String input) {
-  final match = RegExp(r'^[+-]?(\d+\.?\d*|\.\d+)([eE][+-]?\d+)?')
-      .firstMatch(input.trimLeft());
+  final match = RegExp(
+    r'^[+-]?(\d+\.?\d*|\.\d+)([eE][+-]?\d+)?',
+  ).firstMatch(input.trimLeft());
   if (match == null) return null;
   return double.tryParse(match.group(0)!);
 }
@@ -146,8 +147,14 @@ String sanitizeText(String? value) {
         ),
         '',
       )
-      .replaceAll(RegExp(r'''on[a-z]+\s*=\s*"[^"]*"''', caseSensitive: false), '')
-      .replaceAll(RegExp(r"""on[a-z]+\s*=\s*'[^']*'""", caseSensitive: false), '')
+      .replaceAll(
+        RegExp(r'''on[a-z]+\s*=\s*"[^"]*"''', caseSensitive: false),
+        '',
+      )
+      .replaceAll(
+        RegExp(r"""on[a-z]+\s*=\s*'[^']*'""", caseSensitive: false),
+        '',
+      )
       .replaceAll(RegExp(r'on[a-z]+\s*=\s*[^\s>]+', caseSensitive: false), '')
       .replaceAll(RegExp(r'javascript:', caseSensitive: false), '')
       // PD9 FIX - this line is the divergence.

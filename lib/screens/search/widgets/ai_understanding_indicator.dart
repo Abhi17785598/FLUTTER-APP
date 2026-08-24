@@ -32,11 +32,7 @@ class AiUnderstandingIndicator extends StatelessWidget {
       ),
       child: Row(
         children: [
-          const Icon(
-            Icons.auto_awesome,
-            size: 14,
-            color: AppColors.primary,
-          )
+          const Icon(Icons.auto_awesome, size: 14, color: AppColors.primary)
               // Breathing, not spinning — deliberately unlike a progress
               // spinner, and slow enough not to nag.
               .animate(onPlay: (controller) => controller.repeat(reverse: true))

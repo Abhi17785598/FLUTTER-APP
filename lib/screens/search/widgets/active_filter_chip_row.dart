@@ -56,10 +56,7 @@ class ActiveFilterChipRow extends StatelessWidget {
         },
         behavior: HitTestBehavior.opaque,
         child: Container(
-          padding: const EdgeInsets.only(
-            left: AppConstants.spacingM,
-            right: 6,
-          ),
+          padding: const EdgeInsets.only(left: AppConstants.spacingM, right: 6),
           decoration: BoxDecoration(
             color: AppColors.primaryLight,
             borderRadius: BorderRadius.circular(AppConstants.pillRadius),

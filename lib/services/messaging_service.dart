@@ -61,7 +61,8 @@ class MessagingService {
       // `.toString()`'d into the literal `"null"`, which would otherwise
       // silently pollute the batched profile lookup below with a bogus id.
       final otherIdByConversation = <String, String>{};
-      final selfStatusByConversation = <String, ({String requestStatus, bool isMuted})>{};
+      final selfStatusByConversation =
+          <String, ({String requestStatus, bool isMuted})>{};
       for (final row in List<Map<String, dynamic>>.from(
         participantRows as List,
       )) {
@@ -135,8 +136,9 @@ class MessagingService {
 
         return ConversationSummary(
           id: id,
-          lastMessageAt:
-              createdRaw == null ? null : DateTime.tryParse(createdRaw),
+          lastMessageAt: createdRaw == null
+              ? null
+              : DateTime.tryParse(createdRaw),
           otherParticipant: otherId == null ? null : profilesById[otherId],
           lastMessage: lastMessageByConversation[id] ?? '',
           unreadCount: unread[id] ?? 0,
@@ -213,9 +215,9 @@ class MessagingService {
           .order('created_at', ascending: false)
           .limit(50);
 
-      return List<Map<String, dynamic>>.from(rows as List)
-          .map(ChatMessage.fromSupabase)
-          .toList();
+      return List<Map<String, dynamic>>.from(
+        rows as List,
+      ).map(ChatMessage.fromSupabase).toList();
     } catch (e) {
       debugPrint('MessagingService.searchMessagesInThread failed: $e');
       rethrow;
@@ -254,20 +256,18 @@ class MessagingService {
         final rows = await query
             .order('created_at', ascending: true)
             .limit(mergeFetchCap);
-        return List<Map<String, dynamic>>.from(rows as List)
-            .map(ChatMessage.fromSupabase)
-            .toList();
+        return List<Map<String, dynamic>>.from(
+          rows as List,
+        ).map(ChatMessage.fromSupabase).toList();
       }
 
       final rows = await query
           .order('created_at', ascending: false)
           .limit(messagePageSize);
 
-      return List<Map<String, dynamic>>.from(rows as List)
-          .map(ChatMessage.fromSupabase)
-          .toList()
-          .reversed
-          .toList();
+      return List<Map<String, dynamic>>.from(
+        rows as List,
+      ).map(ChatMessage.fromSupabase).toList().reversed.toList();
     } catch (e) {
       debugPrint('MessagingService.listMessages failed: $e');
       rethrow;
@@ -540,10 +540,9 @@ class MessagingService {
           .from('user_blocks')
           .select('blocked_id')
           .eq('blocker_id', currentUserId);
-      return List<Map<String, dynamic>>.from(rows as List)
-          .map((r) => r['blocked_id']?.toString())
-          .whereType<String>()
-          .toSet();
+      return List<Map<String, dynamic>>.from(
+        rows as List,
+      ).map((r) => r['blocked_id']?.toString()).whereType<String>().toSet();
     } catch (e) {
       debugPrint('MessagingService.myBlockedUserIds failed: $e');
       return const {};
@@ -612,10 +611,7 @@ class MessagingService {
     }
   }
 
-  Future<void> setConversationMuted(
-    String conversationId,
-    bool muted,
-  ) async {
+  Future<void> setConversationMuted(String conversationId, bool muted) async {
     try {
       await _supabase.rpc(
         'set_conversation_muted',
@@ -715,15 +711,17 @@ class MessagingService {
           .select('channel_id, role, muted_at')
           .eq('user_id', userId);
 
-      final memberships = List<Map<String, dynamic>>.from(membershipRows as List)
-          .where((m) => m['channel_id'] != null)
-          .toList();
+      final memberships = List<Map<String, dynamic>>.from(
+        membershipRows as List,
+      ).where((m) => m['channel_id'] != null).toList();
       if (memberships.isEmpty) return const [];
 
-      final channelIds =
-          memberships.map((m) => m['channel_id'].toString()).toList();
+      final channelIds = memberships
+          .map((m) => m['channel_id'].toString())
+          .toList();
       final roleByChannel = {
-        for (final m in memberships) m['channel_id'].toString(): m['role'] as String?,
+        for (final m in memberships)
+          m['channel_id'].toString(): m['role'] as String?,
       };
       final mutedByChannel = {
         for (final m in memberships)
@@ -732,8 +730,10 @@ class MessagingService {
 
       final channelRows = await _supabase
           .from('channels')
-          .select('id, name, description, created_at, created_by, '
-              'max_participants')
+          .select(
+            'id, name, description, created_at, created_by, '
+            'max_participants',
+          )
           .inFilter('id', channelIds);
 
       final allParticipants = await _supabase
@@ -772,28 +772,28 @@ class MessagingService {
         }
       }
 
-      final channels = List<Map<String, dynamic>>.from(channelRows as List)
-          .where((row) => row['id'] != null)
-          .map((row) {
-            final id = row['id'].toString();
-            return ChannelSummary.fromSupabase(
-              row,
-              myRole: roleByChannel[id],
-              participantCount: participantCounts[id] ?? 0,
-              lastMessageAt: lastMessageAt[id],
-              unreadCount: unread[id] ?? 0,
-              isMuted: mutedByChannel[id] ?? false,
-            );
-          })
-          .toList()
-        ..sort((a, b) {
-          final at = a.lastMessageAt;
-          final bt = b.lastMessageAt;
-          if (at == null && bt == null) return a.name.compareTo(b.name);
-          if (at == null) return 1;
-          if (bt == null) return -1;
-          return bt.compareTo(at);
-        });
+      final channels =
+          List<Map<String, dynamic>>.from(
+              channelRows as List,
+            ).where((row) => row['id'] != null).map((row) {
+              final id = row['id'].toString();
+              return ChannelSummary.fromSupabase(
+                row,
+                myRole: roleByChannel[id],
+                participantCount: participantCounts[id] ?? 0,
+                lastMessageAt: lastMessageAt[id],
+                unreadCount: unread[id] ?? 0,
+                isMuted: mutedByChannel[id] ?? false,
+              );
+            }).toList()
+            ..sort((a, b) {
+              final at = a.lastMessageAt;
+              final bt = b.lastMessageAt;
+              if (at == null && bt == null) return a.name.compareTo(b.name);
+              if (at == null) return 1;
+              if (bt == null) return -1;
+              return bt.compareTo(at);
+            });
 
       return channels;
     } catch (e) {
@@ -827,20 +827,18 @@ class MessagingService {
         final rows = await query
             .order('created_at', ascending: true)
             .limit(mergeFetchCap);
-        return List<Map<String, dynamic>>.from(rows as List)
-            .map(ChatMessage.fromSupabase)
-            .toList();
+        return List<Map<String, dynamic>>.from(
+          rows as List,
+        ).map(ChatMessage.fromSupabase).toList();
       }
 
       final rows = await query
           .order('created_at', ascending: false)
           .limit(messagePageSize);
 
-      return List<Map<String, dynamic>>.from(rows as List)
-          .map(ChatMessage.fromSupabase)
-          .toList()
-          .reversed
-          .toList();
+      return List<Map<String, dynamic>>.from(
+        rows as List,
+      ).map(ChatMessage.fromSupabase).toList().reversed.toList();
     } catch (e) {
       debugPrint('MessagingService.listChannelMessages failed: $e');
       rethrow;
@@ -853,8 +851,7 @@ class MessagingService {
   /// not need. Resolved in one batched round-trip.
   Future<Map<String, ConversationParticipant>> fetchSenderProfiles(
     Set<String> senderIds,
-  ) =>
-      _fetchPublicProfiles(senderIds);
+  ) => _fetchPublicProfiles(senderIds);
 
   /// Mirrors `sendMessage` in ChannelChat.tsx: moderate first (fail-open),
   /// then insert, mapping rate-limit/RLS errors to the portal's exact copy.
@@ -1064,7 +1061,9 @@ class MessagingService {
       });
     } catch (e) {
       if (postgrestErrorCode(e) == '23505') {
-        debugPrint('MessagingService.blockUser: already blocked, treating as success');
+        debugPrint(
+          'MessagingService.blockUser: already blocked, treating as success',
+        );
         return;
       }
       debugPrint('MessagingService.blockUser failed: $e');
@@ -1136,27 +1135,26 @@ class MessagingService {
   /// Participants of a channel, with their public profile resolved — for the
   /// channel settings screen.
   Future<List<({ConversationParticipant profile, String role})>>
-      fetchChannelParticipants(String channelId) async {
+  fetchChannelParticipants(String channelId) async {
     try {
       final rows = await _supabase
           .from('channel_participants')
           .select('user_id, role')
           .eq('channel_id', channelId);
 
-      final list = List<Map<String, dynamic>>.from(rows as List)
-          .where((r) => r['user_id'] != null)
-          .toList();
+      final list = List<Map<String, dynamic>>.from(
+        rows as List,
+      ).where((r) => r['user_id'] != null).toList();
       final ids = list.map((r) => r['user_id'].toString()).toSet();
       final profiles = await _fetchPublicProfiles(ids);
 
-      return list
-          .map((r) {
-            final id = r['user_id'].toString();
-            final profile = profiles[id] ??
-                ConversationParticipant(userId: id, displayName: 'Unknown');
-            return (profile: profile, role: (r['role'] as String?) ?? 'member');
-          })
-          .toList();
+      return list.map((r) {
+        final id = r['user_id'].toString();
+        final profile =
+            profiles[id] ??
+            ConversationParticipant(userId: id, displayName: 'Unknown');
+        return (profile: profile, role: (r['role'] as String?) ?? 'member');
+      }).toList();
     } catch (e) {
       debugPrint('MessagingService.fetchChannelParticipants failed: $e');
       rethrow;

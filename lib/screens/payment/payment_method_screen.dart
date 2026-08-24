@@ -152,8 +152,11 @@ class _SecureHeader extends StatelessWidget {
                   color: Colors.white.withOpacity(0.18),
                   borderRadius: BorderRadius.circular(10),
                 ),
-                child: const Icon(Icons.lock_rounded,
-                    color: Colors.white, size: 18),
+                child: const Icon(
+                  Icons.lock_rounded,
+                  color: Colors.white,
+                  size: 18,
+                ),
               ),
               const SizedBox(width: 10),
               Expanded(
@@ -239,8 +242,11 @@ class _StickyContinueBar extends StatelessWidget {
       ),
       child: Row(
         children: [
-          const Icon(Icons.verified_user_rounded,
-              color: AppColors.verifiedBadge, size: 18),
+          const Icon(
+            Icons.verified_user_rounded,
+            color: AppColors.verifiedBadge,
+            size: 18,
+          ),
           const SizedBox(width: 6),
           Text(
             'Safe & secure',

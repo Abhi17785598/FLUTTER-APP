@@ -173,9 +173,7 @@ class _WorkspaceBody extends StatelessWidget {
             ),
           ),
           Expanded(
-            child: TabBarView(
-              children: [for (final tab in tabs) tab.child],
-            ),
+            child: TabBarView(children: [for (final tab in tabs) tab.child]),
           ),
         ],
       ),
@@ -237,19 +235,21 @@ class _BuilderSelectorState extends State<_BuilderSelector> {
         .where((id) => id.isNotEmpty)
         .toSet();
 
-    final results = await Future.wait(ids.map((id) async {
-      try {
-        final profile = await _authService.getUserProfile(id);
-        final company = profile?['company_name']?.toString();
-        final name = profile?['display_name']?.toString();
-        final label = (company != null && company.isNotEmpty)
-            ? company
-            : (name != null && name.isNotEmpty ? name : 'A builder');
-        return MapEntry(id, label);
-      } catch (_) {
-        return MapEntry(id, 'A builder');
-      }
-    }));
+    final results = await Future.wait(
+      ids.map((id) async {
+        try {
+          final profile = await _authService.getUserProfile(id);
+          final company = profile?['company_name']?.toString();
+          final name = profile?['display_name']?.toString();
+          final label = (company != null && company.isNotEmpty)
+              ? company
+              : (name != null && name.isNotEmpty ? name : 'A builder');
+          return MapEntry(id, label);
+        } catch (_) {
+          return MapEntry(id, 'A builder');
+        }
+      }),
+    );
 
     if (!mounted) return;
     setState(() {
@@ -271,7 +271,9 @@ class _BuilderSelectorState extends State<_BuilderSelector> {
         children: [
           Text(
             'Managing for',
-            style: AppTextStyles.caption.copyWith(color: AppColors.textSecondary),
+            style: AppTextStyles.caption.copyWith(
+              color: AppColors.textSecondary,
+            ),
           ),
           const SizedBox(width: AppConstants.spacingS),
           Expanded(
@@ -287,8 +289,9 @@ class _BuilderSelectorState extends State<_BuilderSelector> {
                           value: m.builderId,
                           child: Text(
                             _names[m.builderId] ?? 'A builder',
-                            style: AppTextStyles.body
-                                .copyWith(fontWeight: FontWeight.w600),
+                            style: AppTextStyles.body.copyWith(
+                              fontWeight: FontWeight.w600,
+                            ),
                           ),
                         ),
                     ],

@@ -16,10 +16,13 @@ void registerUtilityTools() {
     'ask_about_platform',
     'ask_property_info',
   ]) {
-    toolRegistry.register(ToolDefinition(
-      name: name,
-      description: 'Sentinel tool — handled by VoiceAgentProvider state machine.',
-      execute: (params, ctx) async => ToolResult.ok(),
-    ));
+    toolRegistry.register(
+      ToolDefinition(
+        name: name,
+        description:
+            'Sentinel tool — handled by VoiceAgentProvider state machine.',
+        execute: (params, ctx) async => ToolResult.ok(),
+      ),
+    );
   }
 }

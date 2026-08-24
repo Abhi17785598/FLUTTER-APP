@@ -50,7 +50,14 @@ const List<RouteEntry> _routes = [
     tier: 'public',
     section: 'discovery',
     description: 'Saved and bookmarked properties',
-    concepts: ['shortlist', 'saved', 'bookmarks', 'liked', 'favourites', 'favorites'],
+    concepts: [
+      'shortlist',
+      'saved',
+      'bookmarks',
+      'liked',
+      'favourites',
+      'favorites',
+    ],
     keywords: ['shortlist', 'saved', 'bookmark', 'liked', 'wishlist', 'pasand'],
   ),
   RouteEntry(
@@ -59,7 +66,13 @@ const List<RouteEntry> _routes = [
     tier: 'public',
     section: 'discovery',
     description: 'Short property video reels',
-    concepts: ['reels', 'videos', 'property videos', 'property reels', 'influencer'],
+    concepts: [
+      'reels',
+      'videos',
+      'property videos',
+      'property reels',
+      'influencer',
+    ],
     keywords: ['reels', 'video', 'shorts', 'reel'],
   ),
   RouteEntry(
@@ -68,7 +81,13 @@ const List<RouteEntry> _routes = [
     tier: 'public',
     section: 'tools',
     description: 'Calculate home loan EMI',
-    concepts: ['emi calculator', 'loan calculator', 'emi', 'home loan', 'mortgage'],
+    concepts: [
+      'emi calculator',
+      'loan calculator',
+      'emi',
+      'home loan',
+      'mortgage',
+    ],
     keywords: ['emi', 'loan', 'calculator', 'mortgage', 'interest'],
   ),
   RouteEntry(
@@ -106,8 +125,23 @@ const List<RouteEntry> _routes = [
     tier: 'authenticated',
     section: 'listings',
     description: 'Create a new property listing',
-    concepts: ['post property', 'create listing', 'add property', 'new listing', 'list property'],
-    keywords: ['post', 'create', 'add', 'new', 'listing', 'property', 'sell', 'rent'],
+    concepts: [
+      'post property',
+      'create listing',
+      'add property',
+      'new listing',
+      'list property',
+    ],
+    keywords: [
+      'post',
+      'create',
+      'add',
+      'new',
+      'listing',
+      'property',
+      'sell',
+      'rent',
+    ],
   ),
   // The builder project wizard. Without this entry the voice agent could not
   // reach it by intent at all, so "create a project" had no correct destination.
@@ -124,8 +158,22 @@ const List<RouteEntry> _routes = [
     tier: 'authenticated',
     section: 'listings',
     description: 'Create a new builder project',
-    concepts: ['add project', 'create project', 'new project', 'post project', 'list project'],
-    keywords: ['project', 'add', 'create', 'new', 'launch', 'township', 'builder'],
+    concepts: [
+      'add project',
+      'create project',
+      'new project',
+      'post project',
+      'list project',
+    ],
+    keywords: [
+      'project',
+      'add',
+      'create',
+      'new',
+      'launch',
+      'township',
+      'builder',
+    ],
   ),
   // The influencer video form. Reachable by intent for the same reason
   // '/add-project' is: post_content(video) now resolves here, and without an entry
@@ -142,8 +190,22 @@ const List<RouteEntry> _routes = [
     tier: 'authenticated',
     section: 'listings',
     description: 'Create a new influencer video',
-    concepts: ['upload video', 'create video', 'post video', 'new video', 'post reel'],
-    keywords: ['video', 'upload', 'create', 'post', 'reel', 'influencer', 'content'],
+    concepts: [
+      'upload video',
+      'create video',
+      'post video',
+      'new video',
+      'post reel',
+    ],
+    keywords: [
+      'video',
+      'upload',
+      'create',
+      'post',
+      'reel',
+      'influencer',
+      'content',
+    ],
   ),
   RouteEntry(
     path: '/notifications',
@@ -160,7 +222,13 @@ const List<RouteEntry> _routes = [
     tier: 'authenticated',
     section: 'bookings',
     description: 'Property visit bookings',
-    concepts: ['visits', 'my visits', 'visit bookings', 'appointments', 'schedule'],
+    concepts: [
+      'visits',
+      'my visits',
+      'visit bookings',
+      'appointments',
+      'schedule',
+    ],
     keywords: ['visit', 'booking', 'appointment', 'schedule', 'site visit'],
   ),
   RouteEntry(
@@ -198,7 +266,12 @@ const List<RouteEntry> _routes = [
     tier: 'authenticated',
     section: 'dashboard',
     description: 'Builder management dashboard',
-    concepts: ['builder dashboard', 'manage builder', 'builder panel', 'projects'],
+    concepts: [
+      'builder dashboard',
+      'manage builder',
+      'builder panel',
+      'projects',
+    ],
     keywords: ['builder', 'dashboard', 'manage', 'projects'],
   ),
   RouteEntry(
@@ -207,7 +280,11 @@ const List<RouteEntry> _routes = [
     tier: 'authenticated',
     section: 'dashboard',
     description: 'Influencer management dashboard',
-    concepts: ['influencer dashboard', 'manage influencer', 'content dashboard'],
+    concepts: [
+      'influencer dashboard',
+      'manage influencer',
+      'content dashboard',
+    ],
     keywords: ['influencer', 'dashboard', 'content', 'reel', 'video'],
   ),
 ];
@@ -215,8 +292,13 @@ const List<RouteEntry> _routes = [
 // ─── Tier resolution ──────────────────────────────────────────────────────────
 
 const _adminRoles = {
-  'admin', 'crm_manager', 'crm_agent', 'seo_manager',
-  'content_editor', 'finance_manager', 'support_agent',
+  'admin',
+  'crm_manager',
+  'crm_agent',
+  'seo_manager',
+  'content_editor',
+  'finance_manager',
+  'support_agent',
 };
 
 String roleToTier(String? role, bool isAuthenticated) {

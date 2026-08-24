@@ -5,8 +5,7 @@ import '../models/influencer_campaign_model.dart';
 class InfluencerCampaignService {
   final _supabase = Supabase.instance.client;
 
-  Future<List<InfluencerCampaignModel>> getVideos(
-      String userId) async {
+  Future<List<InfluencerCampaignModel>> getVideos(String userId) async {
     try {
       final response = await _supabase
           .from('influencer_videos')

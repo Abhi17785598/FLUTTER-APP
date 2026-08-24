@@ -169,7 +169,8 @@ class DashboardAnalyticsBody extends StatelessWidget {
                 value: formatCompactCurrency(analytics.totalCommission!),
                 // The rate is part of the label because it is an assumption, not
                 // a measurement — the portal hard-codes 2%.
-                label: 'Commission '
+                label:
+                    'Commission '
                     '(${_trimZero(analytics.commissionRate ?? 0)}%)',
               ),
 
@@ -385,10 +386,7 @@ class DashboardContentBody extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        ContentLibraryHeader(
-          actionLabel: createLabel,
-          onAction: onCreate,
-        ),
+        ContentLibraryHeader(actionLabel: createLabel, onAction: onCreate),
         if (isEmpty) ...[
           // Prototype puts 44 dp between the header row and the empty state.
           const SizedBox(height: 44),
@@ -412,4 +410,3 @@ class DashboardContentBody extends StatelessWidget {
     );
   }
 }
-

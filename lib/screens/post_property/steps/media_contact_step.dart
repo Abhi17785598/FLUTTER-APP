@@ -26,8 +26,8 @@ class _MediaContactStepState extends State<MediaContactStep> {
   /// Land images / Others (MediaAndFinalStep.tsx:32).
   List<ListingOption> _categoriesFor(PropertyCategory? category) =>
       category == PropertyCategory.land
-          ? kLandImageCategories
-          : kDefaultImageCategories;
+      ? kLandImageCategories
+      : kDefaultImageCategories;
 
   final ImagePicker _picker = ImagePicker();
   String? _selectedCategoryId;
@@ -59,8 +59,12 @@ class _MediaContactStepState extends State<MediaContactStep> {
     _whatsappController = TextEditingController(text: p.whatsappNumber);
     _bestTimeController = TextEditingController(text: p.bestTimeToCall);
     _hashtagsController = TextEditingController(text: p.hashtags);
-    _ownerManagerNameController = TextEditingController(text: p.text('ownerManagerName'));
-    _alternateNumberController = TextEditingController(text: p.text('alternateNumber'));
+    _ownerManagerNameController = TextEditingController(
+      text: p.text('ownerManagerName'),
+    );
+    _alternateNumberController = TextEditingController(
+      text: p.text('alternateNumber'),
+    );
   }
 
   @override
@@ -126,7 +130,9 @@ class _MediaContactStepState extends State<MediaContactStep> {
     if (await _tooLarge(image)) return;
     final provider = context.read<PostPropertyProvider>();
     provider.addMediaItem(
-        image, _activeCategory(_categoriesFor(provider.category)));
+      image,
+      _activeCategory(_categoriesFor(provider.category)),
+    );
   }
 
   /// The portal accepts `video/*` alongside images on the same picker
@@ -142,8 +148,8 @@ class _MediaContactStepState extends State<MediaContactStep> {
     final videoCategory = categories.any((c) => c.id == 'property_video')
         ? 'property_video'
         : categories.any((c) => c.id == 'land_video')
-            ? 'land_video'
-            : _activeCategory(categories);
+        ? 'land_video'
+        : _activeCategory(categories);
     provider.addMediaItem(video, videoCategory);
   }
 
@@ -175,7 +181,9 @@ class _MediaContactStepState extends State<MediaContactStep> {
             children: [
               Text(
                 'Add at least one image. No upload happens yet — images stay on this device.',
-                style: AppTextStyles.caption.copyWith(color: AppColors.textSecondary),
+                style: AppTextStyles.caption.copyWith(
+                  color: AppColors.textSecondary,
+                ),
               ),
               const SizedBox(height: 12),
               WizardField(
@@ -270,7 +278,8 @@ class _MediaContactStepState extends State<MediaContactStep> {
                   itemCount: provider.existingMedia.length,
                   itemBuilder: (context, index) {
                     final media = provider.existingMedia[index];
-                    final isMain = provider.mainDisplayMediaUrl == media.url ||
+                    final isMain =
+                        provider.mainDisplayMediaUrl == media.url ||
                         (provider.mainDisplayMediaUrl.isEmpty &&
                             index == 0 &&
                             provider.existingMedia.isNotEmpty);
@@ -285,11 +294,11 @@ class _MediaContactStepState extends State<MediaContactStep> {
                                 child: Image.network(
                                   media.url,
                                   fit: BoxFit.cover,
-                                  errorBuilder:
-                                      (context, error, stackTrace) => Container(
-                                    color: Colors.grey.shade200,
-                                    child: const Icon(Icons.broken_image),
-                                  ),
+                                  errorBuilder: (context, error, stackTrace) =>
+                                      Container(
+                                        color: Colors.grey.shade200,
+                                        child: const Icon(Icons.broken_image),
+                                      ),
                                 ),
                               ),
                               Positioned(
@@ -305,8 +314,11 @@ class _MediaContactStepState extends State<MediaContactStep> {
                                       color: Colors.black54,
                                       shape: BoxShape.circle,
                                     ),
-                                    child: const Icon(Icons.close,
-                                        color: Colors.white, size: 14),
+                                    child: const Icon(
+                                      Icons.close,
+                                      color: Colors.white,
+                                      size: 14,
+                                    ),
                                   ),
                                 ),
                               ),
@@ -317,7 +329,8 @@ class _MediaContactStepState extends State<MediaContactStep> {
                                   onTap: () => context
                                       .read<PostPropertyProvider>()
                                       .setMainDisplayMediaUrl(
-                                          isMain ? '' : media.url),
+                                        isMain ? '' : media.url,
+                                      ),
                                   child: Container(
                                     padding: const EdgeInsets.all(4),
                                     decoration: const BoxDecoration(
@@ -394,22 +407,30 @@ class _MediaContactStepState extends State<MediaContactStep> {
                                     // directly, so it goes through
                                     // `Image.network` there instead.
                                     : kIsWeb
-                                        ? Image.network(
-                                            item.file.path,
-                                            fit: BoxFit.cover,
-                                            errorBuilder: (context, error, stackTrace) => Container(
-                                              color: Colors.grey.shade200,
-                                              child: const Icon(Icons.broken_image),
-                                            ),
-                                          )
-                                        : Image.file(
-                                            File(item.file.path),
-                                            fit: BoxFit.cover,
-                                            errorBuilder: (context, error, stackTrace) => Container(
-                                              color: Colors.grey.shade200,
-                                              child: const Icon(Icons.broken_image),
-                                            ),
-                                          ),
+                                    ? Image.network(
+                                        item.file.path,
+                                        fit: BoxFit.cover,
+                                        errorBuilder:
+                                            (context, error, stackTrace) =>
+                                                Container(
+                                                  color: Colors.grey.shade200,
+                                                  child: const Icon(
+                                                    Icons.broken_image,
+                                                  ),
+                                                ),
+                                      )
+                                    : Image.file(
+                                        File(item.file.path),
+                                        fit: BoxFit.cover,
+                                        errorBuilder:
+                                            (context, error, stackTrace) =>
+                                                Container(
+                                                  color: Colors.grey.shade200,
+                                                  child: const Icon(
+                                                    Icons.broken_image,
+                                                  ),
+                                                ),
+                                      ),
                               ),
                               Positioned(
                                 top: 4,
@@ -424,7 +445,11 @@ class _MediaContactStepState extends State<MediaContactStep> {
                                       color: Colors.black54,
                                       shape: BoxShape.circle,
                                     ),
-                                    child: const Icon(Icons.close, color: Colors.white, size: 14),
+                                    child: const Icon(
+                                      Icons.close,
+                                      color: Colors.white,
+                                      size: 14,
+                                    ),
                                   ),
                                 ),
                               ),
@@ -461,8 +486,9 @@ class _MediaContactStepState extends State<MediaContactStep> {
                     inputFormatters: [
                       FilteringTextInputFormatter.allow(RegExp(r'[a-zA-Z\s]')),
                     ],
-                    onChanged: (v) =>
-                        context.read<PostPropertyProvider>().setText('ownerManagerName', v),
+                    onChanged: (v) => context
+                        .read<PostPropertyProvider>()
+                        .setText('ownerManagerName', v),
                   ),
                 ),
                 const WizardDivider(),
@@ -476,8 +502,9 @@ class _MediaContactStepState extends State<MediaContactStep> {
                       FilteringTextInputFormatter.digitsOnly,
                       LengthLimitingTextInputFormatter(10),
                     ],
-                    onChanged: (v) =>
-                        context.read<PostPropertyProvider>().setText('alternateNumber', v),
+                    onChanged: (v) => context
+                        .read<PostPropertyProvider>()
+                        .setText('alternateNumber', v),
                   ),
                 ),
                 const WizardDivider(),
@@ -490,7 +517,8 @@ class _MediaContactStepState extends State<MediaContactStep> {
                   inputFormatters: [
                     FilteringTextInputFormatter.allow(RegExp(r'[a-zA-Z\s]')),
                   ],
-                  onChanged: (v) => context.read<PostPropertyProvider>().setContactName(v),
+                  onChanged: (v) =>
+                      context.read<PostPropertyProvider>().setContactName(v),
                 ),
               ),
               const WizardDivider(),
@@ -507,8 +535,9 @@ class _MediaContactStepState extends State<MediaContactStep> {
                           FilteringTextInputFormatter.digitsOnly,
                           LengthLimitingTextInputFormatter(10),
                         ],
-                        onChanged: (v) =>
-                            context.read<PostPropertyProvider>().setContactPhone(v),
+                        onChanged: (v) => context
+                            .read<PostPropertyProvider>()
+                            .setContactPhone(v),
                       ),
                     ),
                   ),
@@ -520,8 +549,9 @@ class _MediaContactStepState extends State<MediaContactStep> {
                         controller: _contactEmailController,
                         hint: 'your.email@example.com',
                         keyboardType: TextInputType.emailAddress,
-                        onChanged: (v) =>
-                            context.read<PostPropertyProvider>().setContactEmail(v),
+                        onChanged: (v) => context
+                            .read<PostPropertyProvider>()
+                            .setContactEmail(v),
                       ),
                     ),
                   ),
@@ -541,8 +571,9 @@ class _MediaContactStepState extends State<MediaContactStep> {
                           FilteringTextInputFormatter.digitsOnly,
                           LengthLimitingTextInputFormatter(10),
                         ],
-                        onChanged: (v) =>
-                            context.read<PostPropertyProvider>().setWhatsappNumber(v),
+                        onChanged: (v) => context
+                            .read<PostPropertyProvider>()
+                            .setWhatsappNumber(v),
                       ),
                     ),
                   ),
@@ -553,8 +584,9 @@ class _MediaContactStepState extends State<MediaContactStep> {
                       child: WizardTextField(
                         controller: _bestTimeController,
                         hint: 'e.g., 10 AM - 6 PM',
-                        onChanged: (v) =>
-                            context.read<PostPropertyProvider>().setBestTimeToCall(v),
+                        onChanged: (v) => context
+                            .read<PostPropertyProvider>()
+                            .setBestTimeToCall(v),
                       ),
                     ),
                   ),
@@ -573,12 +605,15 @@ class _MediaContactStepState extends State<MediaContactStep> {
               WizardTextField(
                 controller: _hashtagsController,
                 hint: '#modern #furnished #parking',
-                onChanged: (v) => context.read<PostPropertyProvider>().setHashtags(v),
+                onChanged: (v) =>
+                    context.read<PostPropertyProvider>().setHashtags(v),
               ),
               const SizedBox(height: 8),
               Text(
                 'Use hashtags to help property seekers find your property.',
-                style: AppTextStyles.caption.copyWith(color: AppColors.textSecondary),
+                style: AppTextStyles.caption.copyWith(
+                  color: AppColors.textSecondary,
+                ),
               ),
             ],
           ),

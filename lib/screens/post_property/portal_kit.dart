@@ -99,7 +99,12 @@ class PortalField extends StatelessWidget {
             text: label,
             style: PortalTheme.inputLabel,
             children: required
-                ? const [TextSpan(text: ' *', style: TextStyle(color: PortalTheme.fieldLabel))]
+                ? const [
+                    TextSpan(
+                      text: ' *',
+                      style: TextStyle(color: PortalTheme.fieldLabel),
+                    ),
+                  ]
                 : null,
           ),
         ),
@@ -172,8 +177,9 @@ class PortalTextField extends StatelessWidget {
       alignment: single ? Alignment.centerLeft : Alignment.topLeft,
       padding: EdgeInsets.symmetric(horizontal: 10, vertical: single ? 0 : 6),
       child: Row(
-        crossAxisAlignment:
-            single ? CrossAxisAlignment.center : CrossAxisAlignment.start,
+        crossAxisAlignment: single
+            ? CrossAxisAlignment.center
+            : CrossAxisAlignment.start,
         children: [
           if (prefix != null) ...[prefix!, const SizedBox(width: 4)],
           Expanded(
@@ -220,8 +226,9 @@ class PortalTextField extends StatelessWidget {
                 focusedErrorBorder: InputBorder.none,
                 contentPadding: EdgeInsets.zero,
                 hintText: hint,
-                hintStyle: PortalTheme.inputText
-                    .copyWith(color: PortalTheme.radioIdle),
+                hintStyle: PortalTheme.inputText.copyWith(
+                  color: PortalTheme.radioIdle,
+                ),
               ),
             ),
           ),
@@ -260,8 +267,11 @@ class PortalValidationSummary extends StatelessWidget {
         children: [
           const Padding(
             padding: EdgeInsets.only(top: 2),
-            child: PortalIcon('alert-circle',
-                size: 16, color: PortalTheme.errorIcon),
+            child: PortalIcon(
+              'alert-circle',
+              size: 16,
+              color: PortalTheme.errorIcon,
+            ),
           ),
           const SizedBox(width: 8),
           Expanded(
@@ -352,12 +362,17 @@ class PortalStepHeader extends StatelessWidget {
                   children: [
                     Text(title, style: PortalTheme.stepHeaderTitle),
                     if (badge2 != null)
-                      _PortalPill(badge2!,
-                          bg: PortalTheme.slate100, fg: PortalTheme.slate600),
+                      _PortalPill(
+                        badge2!,
+                        bg: PortalTheme.slate100,
+                        fg: PortalTheme.slate600,
+                      ),
                     if (badge != null)
-                      _PortalPill(badge!,
-                          bg: PortalTheme.headerSurface,
-                          fg: PortalTheme.accent),
+                      _PortalPill(
+                        badge!,
+                        bg: PortalTheme.headerSurface,
+                        fg: PortalTheme.accent,
+                      ),
                   ],
                 ),
                 const SizedBox(height: 4), // mb-1
@@ -380,13 +395,13 @@ class _PortalPill extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Container(
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-        decoration: BoxDecoration(
-          color: bg,
-          borderRadius: BorderRadius.circular(999),
-        ),
-        child: Text(text.toUpperCase(), style: PortalTheme.pill(fg)),
-      );
+    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+    decoration: BoxDecoration(
+      color: bg,
+      borderRadius: BorderRadius.circular(999),
+    ),
+    child: Text(text.toUpperCase(), style: PortalTheme.pill(fg)),
+  );
 }
 
 /// `SectionDivider` — icon tile, 13px bold title, hairline filling the rest.
@@ -406,36 +421,36 @@ class PortalSectionDivider extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Padding(
-        padding: const EdgeInsets.only(bottom: 16), // mb-4
-        child: Row(
-          children: [
-            Container(
-              width: 28, // w-7
-              height: 28,
-              decoration: BoxDecoration(
-                color: iconBg ?? PortalTheme.headerBorder,
-                borderRadius: BorderRadius.circular(8), // rounded-lg
-              ),
-              child: Center(
-                child: PortalIcon(icon,
-                    size: 16, color: iconColor ?? PortalTheme.accent),
-              ),
+    padding: const EdgeInsets.only(bottom: 16), // mb-4
+    child: Row(
+      children: [
+        Container(
+          width: 28, // w-7
+          height: 28,
+          decoration: BoxDecoration(
+            color: iconBg ?? PortalTheme.headerBorder,
+            borderRadius: BorderRadius.circular(8), // rounded-lg
+          ),
+          child: Center(
+            child: PortalIcon(
+              icon,
+              size: 16,
+              color: iconColor ?? PortalTheme.accent,
             ),
-            const SizedBox(width: 12), // gap-3
-            // Flexible, not fixed: the portal renders this on a wide desktop
-            // column where the title always fits. On a phone a longer heading
-            // ("Builder Project (Optional)") overruns the row, so the title
-            // yields space to the trailing hairline rather than overflowing.
-            // The heading is never truncated.
-            Flexible(
-              child: Text(title, style: PortalTheme.sectionDividerTitle),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-                child: Divider(height: 1, color: PortalTheme.slate200)),
-          ],
+          ),
         ),
-      );
+        const SizedBox(width: 12), // gap-3
+        // Flexible, not fixed: the portal renders this on a wide desktop
+        // column where the title always fits. On a phone a longer heading
+        // ("Builder Project (Optional)") overruns the row, so the title
+        // yields space to the trailing hairline rather than overflowing.
+        // The heading is never truncated.
+        Flexible(child: Text(title, style: PortalTheme.sectionDividerTitle)),
+        const SizedBox(width: 12),
+        Expanded(child: Divider(height: 1, color: PortalTheme.slate200)),
+      ],
+    ),
+  );
 }
 
 /// A `<Select>` as the portal renders it: a 34px trigger showing the value or
@@ -485,17 +500,24 @@ class PortalSelect extends StatelessWidget {
               if (entry.$1.isNotEmpty)
                 Padding(
                   padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
-                  child: Text(entry.$1.toUpperCase(),
-                      style: PortalTheme.selectGroupLabel),
+                  child: Text(
+                    entry.$1.toUpperCase(),
+                    style: PortalTheme.selectGroupLabel,
+                  ),
                 ),
               for (final o in entry.$2)
                 ListTile(
                   dense: true,
-                  title: Text(labelFor?.call(o) ?? o,
-                      style: PortalTheme.inputText),
+                  title: Text(
+                    labelFor?.call(o) ?? o,
+                    style: PortalTheme.inputText,
+                  ),
                   trailing: o == value
-                      ? const PortalIcon('check',
-                          size: 16, color: PortalTheme.accent)
+                      ? const PortalIcon(
+                          'check',
+                          size: 16,
+                          color: PortalTheme.accent,
+                        )
                       : null,
                   onTap: () => Navigator.of(ctx).pop(o),
                 ),
@@ -532,13 +554,17 @@ class PortalSelect extends StatelessWidget {
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 style: empty
-                    ? PortalTheme.inputText
-                        .copyWith(color: PortalTheme.radioIdle)
+                    ? PortalTheme.inputText.copyWith(
+                        color: PortalTheme.radioIdle,
+                      )
                     : PortalTheme.inputText,
               ),
             ),
-            const Icon(Icons.keyboard_arrow_down,
-                size: 18, color: PortalTheme.slate400),
+            const Icon(
+              Icons.keyboard_arrow_down,
+              size: 18,
+              color: PortalTheme.slate400,
+            ),
           ],
         ),
       ),
@@ -637,18 +663,18 @@ class PortalLabelledSelect extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => PortalLabelledField(
-        label: label,
-        icon: icon,
-        iconColor: iconColor,
-        required: required,
-        child: PortalSelect(
-          value: value,
-          placeholder: placeholder,
-          options: options,
-          groups: groups,
-          onChanged: onChanged,
-        ),
-      );
+    label: label,
+    icon: icon,
+    iconColor: iconColor,
+    required: required,
+    child: PortalSelect(
+      value: value,
+      placeholder: placeholder,
+      options: options,
+      groups: groups,
+      onChanged: onChanged,
+    ),
+  );
 }
 
 /// A bare `<h4 className="text-lg font-semibold tracking-tight">` block heading
@@ -666,17 +692,16 @@ class PortalBlockHeading extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Padding(
-        // mt-4 pt-3 = 28 above, mb-2 = 8 below
-        padding: const EdgeInsets.only(top: 28, bottom: 8),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(title, style: PortalTheme.blockHeading),
-            if (subtitle != null)
-              Text(subtitle!, style: PortalTheme.blockSubtitle),
-          ],
-        ),
-      );
+    // mt-4 pt-3 = 28 above, mb-2 = 8 below
+    padding: const EdgeInsets.only(top: 28, bottom: 8),
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(title, style: PortalTheme.blockHeading),
+        if (subtitle != null) Text(subtitle!, style: PortalTheme.blockSubtitle),
+      ],
+    ),
+  );
 }
 
 /// `components/ui/checkbox.tsx` — `h-4 w-4 rounded-sm border border-primary`,
@@ -699,31 +724,33 @@ class PortalCheckbox extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => GestureDetector(
-        behavior: HitTestBehavior.opaque,
-        onTap: () => onChanged(!value),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Container(
-              width: 16,
-              height: 16,
-              decoration: BoxDecoration(
-                color: value ? _primary : Colors.transparent,
-                borderRadius: BorderRadius.circular(2), // rounded-sm
-                border: Border.all(color: _primary),
-              ),
-              child: value
-                  ? const Center(
-                      child: PortalIcon('check', size: 12, color: Colors.white))
-                  : null,
-            ),
-            const SizedBox(width: 8), // space-x-2
-            Text(label,
-                style:
-                    PortalTheme.inputLabel.copyWith(fontWeight: FontWeight.w400)),
-          ],
+    behavior: HitTestBehavior.opaque,
+    onTap: () => onChanged(!value),
+    child: Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Container(
+          width: 16,
+          height: 16,
+          decoration: BoxDecoration(
+            color: value ? _primary : Colors.transparent,
+            borderRadius: BorderRadius.circular(2), // rounded-sm
+            border: Border.all(color: _primary),
+          ),
+          child: value
+              ? const Center(
+                  child: PortalIcon('check', size: 12, color: Colors.white),
+                )
+              : null,
         ),
-      );
+        const SizedBox(width: 8), // space-x-2
+        Text(
+          label,
+          style: PortalTheme.inputLabel.copyWith(fontWeight: FontWeight.w400),
+        ),
+      ],
+    ),
+  );
 }
 
 /// A non-editable value box styled like an input —
@@ -736,16 +763,17 @@ class PortalReadOnlyBox extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Container(
-        height: PortalTheme.inputHeight,
-        alignment: Alignment.centerLeft,
-        padding: const EdgeInsets.symmetric(horizontal: 10),
-        decoration: BoxDecoration(
-          color: PortalTheme.cardSurface,
-          borderRadius: BorderRadius.circular(6),
-          border: Border.all(color: PortalTheme.cardBorder),
-        ),
-        child: Text(text,
-            style:
-                PortalTheme.inputText.copyWith(fontWeight: FontWeight.w500)),
-      );
+    height: PortalTheme.inputHeight,
+    alignment: Alignment.centerLeft,
+    padding: const EdgeInsets.symmetric(horizontal: 10),
+    decoration: BoxDecoration(
+      color: PortalTheme.cardSurface,
+      borderRadius: BorderRadius.circular(6),
+      border: Border.all(color: PortalTheme.cardBorder),
+    ),
+    child: Text(
+      text,
+      style: PortalTheme.inputText.copyWith(fontWeight: FontWeight.w500),
+    ),
+  );
 }

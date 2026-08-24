@@ -43,12 +43,12 @@ const List<String> kUserTypeOptions = <String>[
 /// EditProfile.tsx:118-124.
 const List<({String code, String country})> kCountryCodes =
     <({String code, String country})>[
-  (code: '+91', country: 'India'),
-  (code: '+1', country: 'USA'),
-  (code: '+44', country: 'UK'),
-  (code: '+61', country: 'Australia'),
-  (code: '+971', country: 'UAE'),
-];
+      (code: '+91', country: 'India'),
+      (code: '+1', country: 'USA'),
+      (code: '+44', country: 'UK'),
+      (code: '+61', country: 'Australia'),
+      (code: '+971', country: 'UAE'),
+    ];
 
 /// EditProfile.tsx:31-34 — `LANGUAGE_OPTIONS`.
 const List<String> kLanguageOptions = <String>[

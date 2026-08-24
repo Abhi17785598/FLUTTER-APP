@@ -26,7 +26,8 @@ class LocationPickerMap extends StatefulWidget {
   /// Fires on every tap/drag, even when reverse geocoding fails — [address]
   /// is null in that case, matching the portal's `onLocationSelect(lat, lng)`
   /// fallback call when `performGeocode` catches an error.
-  final void Function(double lat, double lng, GeocodedAddress? address) onLocationSelected;
+  final void Function(double lat, double lng, GeocodedAddress? address)
+  onLocationSelected;
 
   @override
   State<LocationPickerMap> createState() => _LocationPickerMapState();
@@ -110,7 +111,10 @@ class _LocationPickerMapState extends State<LocationPickerMap> {
               left: 8,
               right: 8,
               child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 6,
+                ),
                 decoration: BoxDecoration(
                   color: scheme.surface.withOpacity(0.92),
                   borderRadius: BorderRadius.circular(8),
@@ -129,7 +133,9 @@ class _LocationPickerMapState extends State<LocationPickerMap> {
                     const SizedBox(width: 6),
                     Expanded(
                       child: Text(
-                        _geocoding ? 'Locating...' : 'Tap on the map to select location',
+                        _geocoding
+                            ? 'Locating...'
+                            : 'Tap on the map to select location',
                         style: const TextStyle(fontSize: 11),
                         overflow: TextOverflow.ellipsis,
                       ),

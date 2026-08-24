@@ -54,9 +54,9 @@ class _AccountsViewState extends State<_AccountsView>
 
   void _showError(Object error) {
     if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('$error')),
-    );
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text('$error')));
   }
 
   Future<void> _connect() async {
@@ -118,8 +118,9 @@ class _AccountsViewState extends State<_AccountsView>
               final page = pages[i];
               return ListTile(
                 leading: CircleAvatar(
-                  backgroundImage:
-                      page.picture != null ? NetworkImage(page.picture!) : null,
+                  backgroundImage: page.picture != null
+                      ? NetworkImage(page.picture!)
+                      : null,
                   child: page.picture == null
                       ? const Icon(Icons.facebook)
                       : null,
@@ -335,13 +336,13 @@ class SocialAccountsBody extends StatelessWidget {
             badge: loading
                 ? 'Checking…'
                 : (account?.hasFacebookPage ?? false)
-                    ? 'Connected'
-                    : 'Not connected',
+                ? 'Connected'
+                : 'Not connected',
             connected: !loading && (account?.hasFacebookPage ?? false),
             description: (account?.hasFacebookPage ?? false)
                 ? account!.pageName!
                 : 'Connect your Facebook Page to publish listings, projects '
-                    'and updates automatically.',
+                      'and updates automatically.',
           ),
           const SizedBox(height: AppConstants.spacingM),
           _StatusCard(
@@ -350,14 +351,14 @@ class SocialAccountsBody extends StatelessWidget {
             badge: loading
                 ? 'Checking…'
                 : (account?.hasInstagram ?? false)
-                    ? 'Linked'
-                    : 'Not linked',
+                ? 'Linked'
+                : 'Not linked',
             connected: !loading && (account?.hasInstagram ?? false),
             description: (account?.hasInstagram ?? false)
                 ? '@${account!.instagramUsername!}'
                 : 'Instagram publishing uses the Instagram Business account '
-                    'linked to your Facebook Page. Link one in Meta, then '
-                    'reconnect.',
+                      'linked to your Facebook Page. Link one in Meta, then '
+                      'reconnect.',
           ),
           if (connected) ...[
             const SizedBox(height: AppConstants.spacingM),
@@ -367,14 +368,14 @@ class SocialAccountsBody extends StatelessWidget {
               badge: (account?.adAccountName?.isNotEmpty ?? false)
                   ? 'Selected'
                   : (account?.adsCapable ?? false)
-                      ? 'Not selected'
-                      : 'Unavailable',
+                  ? 'Not selected'
+                  : 'Unavailable',
               connected: account?.adAccountName?.isNotEmpty ?? false,
               description: (account?.adAccountName?.isNotEmpty ?? false)
                   ? '${account!.adAccountName} (${account!.adAccountCurrency ?? ''})'
                   : (account?.adsCapable ?? false)
-                      ? 'Choose which ad account to run campaigns from.'
-                      : 'Reconnect and grant Ads access to run campaigns.',
+                  ? 'Choose which ad account to run campaigns from.'
+                  : 'Reconnect and grant Ads access to run campaigns.',
             ),
             if (account?.adsCapable ?? false) ...[
               const SizedBox(height: AppConstants.spacingS),
@@ -390,8 +391,9 @@ class SocialAccountsBody extends StatelessWidget {
             ],
           ],
         ],
-        if (!loading && !failed && (account?.lastError?.isNotEmpty ?? false))
-          ...[
+        if (!loading &&
+            !failed &&
+            (account?.lastError?.isNotEmpty ?? false)) ...[
           const SizedBox(height: AppConstants.spacingM),
           _NoticeCard(text: account!.lastError!),
         ],
@@ -404,7 +406,8 @@ class SocialAccountsBody extends StatelessWidget {
         if (needsReconnectForAds) ...[
           const SizedBox(height: AppConstants.spacingM),
           _NoticeCard(
-            text: 'Reconnect to enable Ads & Leads — Facebook needs extra '
+            text:
+                'Reconnect to enable Ads & Leads — Facebook needs extra '
                 'permission for that.',
           ),
         ],
@@ -476,7 +479,8 @@ class SocialAccountsBody extends StatelessWidget {
     if (account == null || !account.connected) return null;
     final days = account.daysUntilExpiry;
     if (days == null || days > 14) return null;
-    if (days < 0) return 'Your Meta access has expired. Reconnect to resume publishing.';
+    if (days < 0)
+      return 'Your Meta access has expired. Reconnect to resume publishing.';
     return 'Your Meta access expires in $days ${days == 1 ? 'day' : 'days'}. '
         'Reconnect to avoid interruption.';
   }

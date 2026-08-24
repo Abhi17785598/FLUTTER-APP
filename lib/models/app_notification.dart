@@ -303,14 +303,14 @@ class AppNotification {
   }
 
   AppNotification copyWith({bool? isRead}) => AppNotification(
-        id: id,
-        type: type,
-        title: title,
-        message: message,
-        isRead: isRead ?? this.isRead,
-        data: data,
-        createdAt: createdAt,
-      );
+    id: id,
+    type: type,
+    title: title,
+    message: message,
+    isRead: isRead ?? this.isRead,
+    data: data,
+    createdAt: createdAt,
+  );
 
   NotificationStyle get style => notificationStyleFor(type);
 
@@ -336,8 +336,18 @@ class AppNotification {
     if (delta.inDays < 7) return '${delta.inDays} days ago';
 
     const months = [
-      'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
-      'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
+      'Jan',
+      'Feb',
+      'Mar',
+      'Apr',
+      'May',
+      'Jun',
+      'Jul',
+      'Aug',
+      'Sep',
+      'Oct',
+      'Nov',
+      'Dec',
     ];
     return '${months[created.month - 1]} ${created.day}';
   }

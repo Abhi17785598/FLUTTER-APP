@@ -110,11 +110,7 @@ class _QuickPreviewSheet extends StatelessWidget {
             const SizedBox(height: 10),
             Row(
               children: [
-                const Icon(
-                  Icons.bed,
-                  size: 14,
-                  color: AppColors.textSecondary,
-                ),
+                const Icon(Icons.bed, size: 14, color: AppColors.textSecondary),
                 const SizedBox(width: 5),
                 Expanded(
                   child: Text(
@@ -146,9 +142,8 @@ class _QuickPreviewSheet extends StatelessWidget {
             CachedNetworkImage(
               imageUrl: property.imageUrl,
               fit: BoxFit.cover,
-              placeholder: (context, url) => ColoredBox(
-                color: AppColors.textHint.withValues(alpha: 0.1),
-              ),
+              placeholder: (context, url) =>
+                  ColoredBox(color: AppColors.textHint.withValues(alpha: 0.1)),
               errorWidget: (context, url, error) => ColoredBox(
                 color: AppColors.textHint.withValues(alpha: 0.1),
                 child: const Icon(Icons.broken_image, size: 24),

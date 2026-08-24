@@ -31,11 +31,7 @@ import '../../../services/broker_sections_service.dart';
 import 'builder_section_kit.dart';
 
 class BrokerProfileSection extends StatefulWidget {
-  const BrokerProfileSection({
-    super.key,
-    required this.userId,
-    this.service,
-  });
+  const BrokerProfileSection({super.key, required this.userId, this.service});
 
   final String userId;
 
@@ -98,10 +94,7 @@ class _BrokerProfileSectionState extends State<BrokerProfileSection> {
 
     setState(() => _saving = true);
     try {
-      final saved = await _profiles.save(
-        userId: widget.userId,
-        profile: draft,
-      );
+      final saved = await _profiles.save(userId: widget.userId, profile: draft);
       if (!mounted) return;
       setState(() => _profile = saved);
       _toast('Profile saved.');
@@ -133,8 +126,8 @@ class _BrokerProfileSectionState extends State<BrokerProfileSection> {
         child: _saving
             ? const BuilderActionBusyRow()
             : profile == null
-                ? _EmptyProfile(onCreate: _openEditor)
-                : _ProfileSummary(profile: profile, onEdit: _openEditor),
+            ? _EmptyProfile(onCreate: _openEditor)
+            : _ProfileSummary(profile: profile, onEdit: _openEditor),
       ),
     );
   }
@@ -183,10 +176,10 @@ class _ProfileSummary extends StatelessWidget {
   final VoidCallback onEdit;
 
   static Color _approvalTint(String status) => switch (status) {
-        'approved' => AppColors.success,
-        'rejected' => AppColors.error,
-        _ => AppColors.warning,
-      };
+    'approved' => AppColors.success,
+    'rejected' => AppColors.error,
+    _ => AppColors.warning,
+  };
 
   @override
   Widget build(BuildContext context) {
@@ -259,7 +252,8 @@ class _ProfileSummary extends StatelessWidget {
             if (profile.yearsOfExperience > 0)
               _Field(
                 label: 'Experience',
-                value: '${profile.yearsOfExperience} yr'
+                value:
+                    '${profile.yearsOfExperience} yr'
                     '${profile.yearsOfExperience == 1 ? '' : 's'}',
               ),
             if (profile.city != null)
@@ -319,10 +313,7 @@ class _Field extends StatelessWidget {
             color: AppColors.textHint,
           ),
         ),
-        Text(
-          value,
-          style: AppTextStyles.body.copyWith(fontSize: 12.5),
-        ),
+        Text(value, style: AppTextStyles.body.copyWith(fontSize: 12.5)),
       ],
     );
   }
@@ -344,8 +335,9 @@ class _ProfileSheetState extends State<_ProfileSheet> {
   late final _rera = _controller(widget.profile?.reraNumber);
   late final _licence = _controller(widget.profile?.licenseNumber);
   late final _agency = _controller(widget.profile?.agencyName);
-  late final _experience =
-      _controller(widget.profile?.yearsOfExperience.toString());
+  late final _experience = _controller(
+    widget.profile?.yearsOfExperience.toString(),
+  );
   late final _description = _controller(widget.profile?.companyDescription);
   late final _office = _controller(widget.profile?.officeAddress);
   late final _city = _controller(widget.profile?.city);
@@ -361,9 +353,20 @@ class _ProfileSheetState extends State<_ProfileSheet> {
       TextEditingController(text: value ?? '');
 
   List<TextEditingController> get _all => [
-        _fullName, _rera, _licence, _agency, _experience, _description,
-        _office, _city, _state, _pincode, _mobile, _email, _website,
-      ];
+    _fullName,
+    _rera,
+    _licence,
+    _agency,
+    _experience,
+    _description,
+    _office,
+    _city,
+    _state,
+    _pincode,
+    _mobile,
+    _email,
+    _website,
+  ];
 
   @override
   void dispose() {
@@ -461,8 +464,9 @@ class _ProfileSheetState extends State<_ProfileSheet> {
                   ),
                   child: Text(
                     _error!,
-                    style:
-                        AppTextStyles.caption.copyWith(color: AppColors.error),
+                    style: AppTextStyles.caption.copyWith(
+                      color: AppColors.error,
+                    ),
                   ),
                 ),
                 const SizedBox(height: 14),
@@ -493,11 +497,7 @@ class _ProfileSheetState extends State<_ProfileSheet> {
 
               const SizedBox(height: 6),
               _Group(label: 'Location'),
-              _Input(
-                label: 'Office Address',
-                controller: _office,
-                maxLines: 2,
-              ),
+              _Input(label: 'Office Address', controller: _office, maxLines: 2),
               _Input(label: 'City', controller: _city),
               _Input(label: 'State', controller: _state),
               _Input(
@@ -629,8 +629,10 @@ class _Input extends StatelessWidget {
               if (required)
                 Text(
                   ' *',
-                  style: AppTextStyles.body
-                      .copyWith(fontSize: 12.5, color: AppColors.error),
+                  style: AppTextStyles.body.copyWith(
+                    fontSize: 12.5,
+                    color: AppColors.error,
+                  ),
                 ),
             ],
           ),
@@ -642,8 +644,10 @@ class _Input extends StatelessWidget {
             onChanged: onChanged == null ? null : (_) => onChanged!(),
             decoration: InputDecoration(
               isDense: true,
-              contentPadding:
-                  const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+              contentPadding: const EdgeInsets.symmetric(
+                horizontal: 12,
+                vertical: 12,
+              ),
               border: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(10),
                 borderSide: const BorderSide(color: AppColors.hairline),

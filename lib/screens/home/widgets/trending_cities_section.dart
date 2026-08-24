@@ -69,7 +69,9 @@ class _TrendingCitiesSectionState extends State<TrendingCitiesSection> {
                   ),
                   itemCount: cities.length,
                   itemBuilder: (context, i) => Padding(
-                    padding: const EdgeInsets.only(right: AppConstants.spacingM),
+                    padding: const EdgeInsets.only(
+                      right: AppConstants.spacingM,
+                    ),
                     child: ScaleTap(
                       onTap: () => _openCity(context, cities[i]),
                       child: _TrendingCityCard(city: cities[i]),
@@ -110,7 +112,8 @@ class _TrendingCityCard extends StatelessWidget {
               imageUrl: city.featuredImageUrl!,
               fit: BoxFit.cover,
               placeholder: (_, _) => Container(color: AppColors.primaryLight),
-              errorWidget: (_, _, _) => Container(color: AppColors.primaryLight),
+              errorWidget: (_, _, _) =>
+                  Container(color: AppColors.primaryLight),
             )
           else
             Container(color: AppColors.primaryLight),
@@ -140,8 +143,11 @@ class _TrendingCityCard extends StatelessWidget {
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    const Icon(Icons.trending_up_rounded,
-                        size: 12, color: Colors.white),
+                    const Icon(
+                      Icons.trending_up_rounded,
+                      size: 12,
+                      color: Colors.white,
+                    ),
                     const SizedBox(width: 3),
                     Text(
                       '+${growth.toStringAsFixed(0)}%',

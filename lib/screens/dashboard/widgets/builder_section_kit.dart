@@ -24,11 +24,7 @@ import '../../../core/widgets/empty_state_view.dart';
 /// Same 7×2 padding, 6 dp radius and 12 % tint the projects and videos cards use,
 /// so a builder scrolling the Content tab sees one chip style throughout.
 class BuilderPill extends StatelessWidget {
-  const BuilderPill({
-    super.key,
-    required this.label,
-    required this.tint,
-  });
+  const BuilderPill({super.key, required this.label, required this.tint});
 
   final String label;
   final Color tint;
@@ -80,9 +76,7 @@ class BuilderAction extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final disabled = onTap == null;
-    final color = disabled
-        ? AppColors.textHint
-        : (tint ?? AppColors.primary);
+    final color = disabled ? AppColors.textHint : (tint ?? AppColors.primary);
 
     return InkWell(
       onTap: onTap,

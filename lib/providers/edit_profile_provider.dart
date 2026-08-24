@@ -27,9 +27,9 @@ class EditProfileProvider extends ChangeNotifier {
     UserProfileService? profileService,
     ProfileWriteService? writeService,
     ProfileMediaService? mediaService,
-  })  : _profileService = profileService ?? UserProfileService(),
-        _writeService = writeService ?? ProfileWriteService(),
-        _mediaService = mediaService ?? ProfileMediaService();
+  }) : _profileService = profileService ?? UserProfileService(),
+       _writeService = writeService ?? ProfileWriteService(),
+       _mediaService = mediaService ?? ProfileMediaService();
 
   final UserProfileService _profileService;
   final ProfileWriteService _writeService;
@@ -98,13 +98,39 @@ class EditProfileProvider extends ChangeNotifier {
   final previousCollaborations = TextEditingController();
 
   List<TextEditingController> get _allControllers => [
-        fullName, phone, username, companyName, reraNumber, city,
-        yearsExperience, website, bio, officeAddress, state, pincode, landmark,
-        alternateMobile, email, gstNumber, panNumber, facebook, instagram,
-        linkedin, youtube, whatsapp, telegram, twitter, instagramFollowers,
-        youtubeSubscribers, audienceType, commissionDetails, priceRangeMin,
-        priceRangeMax, portfolioLinks, previousCollaborations,
-      ];
+    fullName,
+    phone,
+    username,
+    companyName,
+    reraNumber,
+    city,
+    yearsExperience,
+    website,
+    bio,
+    officeAddress,
+    state,
+    pincode,
+    landmark,
+    alternateMobile,
+    email,
+    gstNumber,
+    panNumber,
+    facebook,
+    instagram,
+    linkedin,
+    youtube,
+    whatsapp,
+    telegram,
+    twitter,
+    instagramFollowers,
+    youtubeSubscribers,
+    audienceType,
+    commissionDetails,
+    priceRangeMin,
+    priceRangeMax,
+    portfolioLinks,
+    previousCollaborations,
+  ];
 
   // ── Single-select state ───────────────────────────────────────────────────
   String _countryCode = '+91';
@@ -312,10 +338,7 @@ class EditProfileProvider extends ChangeNotifier {
     phone.text = '';
     final stored = p.phone;
     if (stored != null) {
-      final match = _knownCodes.firstWhere(
-        stored.startsWith,
-        orElse: () => '',
-      );
+      final match = _knownCodes.firstWhere(stored.startsWith, orElse: () => '');
       if (match.isEmpty) {
         phone.text = stored;
       } else {
@@ -324,7 +347,8 @@ class EditProfileProvider extends ChangeNotifier {
       }
     }
 
-    username.text = p.username ??
+    username.text =
+        p.username ??
         (fullName.text.isEmpty
             ? ''
             : fullName.text.toLowerCase().replaceAll(RegExp(r'\s+'), '.'));
@@ -341,7 +365,8 @@ class EditProfileProvider extends ChangeNotifier {
     pincode.text = p.pincode ?? '';
     email.text = p.email ?? '';
 
-    final years = p.yearsOfExperience ?? p.yearsExperience ?? sm.yearsOfExperience;
+    final years =
+        p.yearsOfExperience ?? p.yearsExperience ?? sm.yearsOfExperience;
     yearsExperience.text = years == null || years == 0 ? '' : '$years';
 
     landmark.text = sm.landmark ?? '';
@@ -366,8 +391,9 @@ class EditProfileProvider extends ChangeNotifier {
 
     // Decision 5.2 — stored as arrays by the influencer wizard.
     portfolioLinks.text = _joinLines(sm.raw['portfolio_links']);
-    previousCollaborations.text =
-        _joinLines(sm.raw['previous_brand_collaborations']);
+    previousCollaborations.text = _joinLines(
+      sm.raw['previous_brand_collaborations'],
+    );
 
     _gender = sm.gender;
     _dob = sm.dob;
@@ -456,7 +482,8 @@ class EditProfileProvider extends ChangeNotifier {
     if (phoneError != null) return phoneError;
 
     final emailError = Validators.email(email.text);
-    if (emailError != null) return 'Please enter a valid business email address.';
+    if (emailError != null)
+      return 'Please enter a valid business email address.';
 
     final altError = ProfileValidators.optionalMobile(alternateMobile.text);
     if (altError != null) return altError;
@@ -552,10 +579,7 @@ class EditProfileProvider extends ChangeNotifier {
     }
 
     // Always written, for every role — EditProfile.tsx:356-357.
-    final changes = <String, dynamic>{
-      'gender': _gender,
-      'dob': _dob,
-    };
+    final changes = <String, dynamic>{'gender': _gender, 'dob': _dob};
 
     if (isBuilder) {
       changes.addAll(<String, dynamic>{
@@ -615,8 +639,9 @@ class EditProfileProvider extends ChangeNotifier {
         'preferred_promotion_types': List<String>.from(_promotionTypes),
         // Decision 5.2 — arrays, matching what the wizard writes.
         'portfolio_links': _splitLines(portfolioLinks.text),
-        'previous_brand_collaborations':
-            _splitLines(previousCollaborations.text),
+        'previous_brand_collaborations': _splitLines(
+          previousCollaborations.text,
+        ),
       });
     }
 
@@ -711,7 +736,7 @@ class ProfileMediaTarget {
   const ProfileMediaTarget.avatarTarget() : this._(null, true, false);
   const ProfileMediaTarget.coverTarget() : this._(null, false, true);
   const ProfileMediaTarget.document(ProfileDocumentKind kind)
-      : this._(kind, false, false);
+    : this._(kind, false, false);
 
   static const ProfileMediaTarget avatar = ProfileMediaTarget.avatarTarget();
   static const ProfileMediaTarget cover = ProfileMediaTarget.coverTarget();

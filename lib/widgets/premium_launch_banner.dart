@@ -224,10 +224,7 @@ class _PremiumLaunchBannerState extends State<PremiumLaunchBanner>
           ),
         ),
       ),
-    ).animate().fadeIn(duration: 500.ms).slideY(
-          begin: 0.08,
-          curve: Curves.easeOutCubic,
-        );
+    ).animate().fadeIn(duration: 500.ms).slideY(begin: 0.08, curve: Curves.easeOutCubic);
   }
 
   // ── Decorative helpers ─────────────────────────────────────────────────
@@ -317,8 +314,7 @@ class _PremiumLaunchBannerState extends State<PremiumLaunchBanner>
           AnimatedBuilder(
             animation: _ambient,
             builder: (context, _) {
-              final double pulse =
-                  math.sin(_ambient.value * 2 * math.pi).abs();
+              final double pulse = math.sin(_ambient.value * 2 * math.pi).abs();
               return Icon(
                 Icons.rocket_launch_rounded,
                 size: 13,
@@ -431,29 +427,29 @@ class _PremiumLaunchBannerState extends State<PremiumLaunchBanner>
         itemBuilder: (context, i) {
           final b = items[i];
           return Container(
-            padding: const EdgeInsets.symmetric(horizontal: 10),
-            alignment: Alignment.center,
-            decoration: BoxDecoration(
-              color: _violet.withOpacity(0.13),
-              borderRadius: BorderRadius.circular(15),
-              border: Border.all(color: _violet.withOpacity(0.26)),
-            ),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Icon(b.icon, size: 12, color: _magenta),
-                const SizedBox(width: 5),
-                Text(
-                  b.label,
-                  style: AppTextStyles.chip.copyWith(
-                    color: Colors.white.withOpacity(0.92),
-                    fontSize: 10.5,
-                    fontWeight: FontWeight.w600,
-                  ),
+                padding: const EdgeInsets.symmetric(horizontal: 10),
+                alignment: Alignment.center,
+                decoration: BoxDecoration(
+                  color: _violet.withOpacity(0.13),
+                  borderRadius: BorderRadius.circular(15),
+                  border: Border.all(color: _violet.withOpacity(0.26)),
                 ),
-              ],
-            ),
-          )
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(b.icon, size: 12, color: _magenta),
+                    const SizedBox(width: 5),
+                    Text(
+                      b.label,
+                      style: AppTextStyles.chip.copyWith(
+                        color: Colors.white.withOpacity(0.92),
+                        fontSize: 10.5,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ],
+                ),
+              )
               .animate()
               .fadeIn(delay: (70 * i).ms, duration: 340.ms)
               .slideX(begin: 0.15, curve: Curves.easeOutCubic);
@@ -468,8 +464,9 @@ class _PremiumLaunchBannerState extends State<PremiumLaunchBanner>
     // '₹299/month' -> big '₹299' + small '/month', without hardcoding either.
     const String full = LaunchOfferContent.priceLabel;
     const String amount = LaunchOfferContent.amountLabel;
-    final String suffix =
-        full.startsWith(amount) ? full.substring(amount.length) : '';
+    final String suffix = full.startsWith(amount)
+        ? full.substring(amount.length)
+        : '';
 
     return Container(
       padding: const EdgeInsets.fromLTRB(14, 11, 14, 11),

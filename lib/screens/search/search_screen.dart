@@ -89,11 +89,7 @@ class _SuggestionGroup {
 
 /// Fixed order, mirroring the website's own city-before-property grouping.
 const List<_SuggestionGroup> _kSuggestionGroups = [
-  _SuggestionGroup(
-    type: 'city',
-    label: 'CITIES',
-    icon: Icons.location_city,
-  ),
+  _SuggestionGroup(type: 'city', label: 'CITIES', icon: Icons.location_city),
   _SuggestionGroup(
     type: 'property',
     label: 'PROPERTIES',
@@ -135,9 +131,15 @@ class _PropertyTypeOption {
 
 const List<_PropertyTypeOption> _kPropertyTypes = [
   _PropertyTypeOption(
-      label: 'Apartment', category: 'residential', subtype: 'Flat'),
+    label: 'Apartment',
+    category: 'residential',
+    subtype: 'Flat',
+  ),
   _PropertyTypeOption(
-      label: 'Villa', category: 'residential', subtype: 'Villa'),
+    label: 'Villa',
+    category: 'residential',
+    subtype: 'Villa',
+  ),
   _PropertyTypeOption(label: 'Plot', category: 'land'),
   _PropertyTypeOption(label: 'Commercial', category: 'commercial'),
 ];
@@ -270,19 +272,20 @@ class _SearchScreenState extends State<SearchScreen>
     // per-promise error handling: a people failure must not blank the property
     // suggestions, and vice versa. Both handlers are attached before either
     // await, so neither rejection can go unobserved.
-    final Future<List<GlobalSearchSuggestion>> placesFuture =
-        _propertyService.globalSearch(term).catchError((Object e) {
-      debugPrint('[SearchScreen] suggestions failed: $e');
-      return const <GlobalSearchSuggestion>[];
-    });
+    final Future<List<GlobalSearchSuggestion>> placesFuture = _propertyService
+        .globalSearch(term)
+        .catchError((Object e) {
+          debugPrint('[SearchScreen] suggestions failed: $e');
+          return const <GlobalSearchSuggestion>[];
+        });
 
     final Future<List<UserProfile>> peopleFuture = _peopleSearchService
         .searchPeople(query: term, limit: _kPeopleSuggestionLimit)
         .then<List<UserProfile>>((page) => page.rows)
         .catchError((Object e) {
-      debugPrint('[SearchScreen] people suggestions failed: $e');
-      return const <UserProfile>[];
-    });
+          debugPrint('[SearchScreen] people suggestions failed: $e');
+          return const <UserProfile>[];
+        });
 
     final places = await placesFuture;
     final people = await peopleFuture;
@@ -293,8 +296,10 @@ class _SearchScreenState extends State<SearchScreen>
       // to dead-end. `builder` stays dropped — see _kSuggestionGroups for why
       // that branch of the RPC cannot be trusted.
       _suggestions = places
-          .where((s) =>
-              s.type == 'city' || s.type == 'property' || s.type == 'project')
+          .where(
+            (s) =>
+                s.type == 'city' || s.type == 'property' || s.type == 'project',
+          )
           .toList();
       _peopleSuggestions = people;
       _isLoadingSuggestions = false;
@@ -314,8 +319,10 @@ class _SearchScreenState extends State<SearchScreen>
   Future<void> _submitSearch(String value) async {
     final trimmed = value.trim();
     final filterProvider = Provider.of<FilterProvider>(context, listen: false);
-    final recentSearches =
-        Provider.of<RecentSearchesProvider>(context, listen: false);
+    final recentSearches = Provider.of<RecentSearchesProvider>(
+      context,
+      listen: false,
+    );
 
     if (trimmed.isNotEmpty) {
       // Recorded BEFORE the AI parse, and as the RAW text the user typed — the
@@ -371,10 +378,12 @@ class _SearchScreenState extends State<SearchScreen>
       filterProvider.setCities([result.city!]);
     }
     if (result.budgetMin != null || result.budgetMax != null) {
-      filterProvider.setBudgetRange(RangeValues(
-        result.budgetMin ?? AppConstants.priceMin,
-        result.budgetMax ?? AppConstants.priceMax,
-      ));
+      filterProvider.setBudgetRange(
+        RangeValues(
+          result.budgetMin ?? AppConstants.priceMin,
+          result.budgetMax ?? AppConstants.priceMax,
+        ),
+      );
     }
   }
 
@@ -398,31 +407,32 @@ class _SearchScreenState extends State<SearchScreen>
     // that into the same "unavailable" message a refusal produces.
     final bool started = await _voiceSearchService
         .startListening(
-      onResult: (text, isFinal) {
-        // A cancelled session can still flush a queued callback, so an abandoned
-        // utterance is checked for here as well as at the cancel site.
-        if (!mounted || _voiceCancelled) return;
-        _searchController.text = text;
-        _searchController.selection =
-            TextSelection.collapsed(offset: text.length);
-        _onQueryChanged(text);
-        setState(() {});
-        if (isFinal) {
-          final bool hasText = text.trim().isNotEmpty;
-          setState(() {
-            _isListening = false;
-            // The badge stays busy across the AI parse that follows, so the
-            // control the user just used is the thing that reports progress.
-            _isProcessingVoice = hasText;
-          });
-          if (hasText) {
-            _submitSearch(text).whenComplete(() {
-              if (mounted) setState(() => _isProcessingVoice = false);
-            });
-          }
-        }
-      },
-    )
+          onResult: (text, isFinal) {
+            // A cancelled session can still flush a queued callback, so an abandoned
+            // utterance is checked for here as well as at the cancel site.
+            if (!mounted || _voiceCancelled) return;
+            _searchController.text = text;
+            _searchController.selection = TextSelection.collapsed(
+              offset: text.length,
+            );
+            _onQueryChanged(text);
+            setState(() {});
+            if (isFinal) {
+              final bool hasText = text.trim().isNotEmpty;
+              setState(() {
+                _isListening = false;
+                // The badge stays busy across the AI parse that follows, so the
+                // control the user just used is the thing that reports progress.
+                _isProcessingVoice = hasText;
+              });
+              if (hasText) {
+                _submitSearch(text).whenComplete(() {
+                  if (mounted) setState(() => _isProcessingVoice = false);
+                });
+              }
+            }
+          },
+        )
         .timeout(
           // Long enough not to race a first-run OS permission dialog — timing
           // out while the user is still deciding would report "unavailable" and
@@ -498,8 +508,10 @@ class _SearchScreenState extends State<SearchScreen>
     // Picking a city IS a committed search, so it joins the recent list under
     // the city's own name — matching the website, which calls
     // saveRecentSearch(suggestion.label) on this same branch.
-    Provider.of<RecentSearchesProvider>(context, listen: false)
-        .add(suggestion.label);
+    Provider.of<RecentSearchesProvider>(
+      context,
+      listen: false,
+    ).add(suggestion.label);
     filterProvider.setSearchText('');
     filterProvider.setCities([suggestion.label]);
     setState(_clearSuggestions);
@@ -564,48 +576,48 @@ class _SearchScreenState extends State<SearchScreen>
             _buildAppBar(context),
             Expanded(
               child: SingleChildScrollView(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const SizedBox(height: AppConstants.spacingL),
-                    _buildHeading(),
-                    const SizedBox(height: 18),
-                    _buildSearchBar(),
-                    if (_isParsingSmartQuery) ...[
-                      const SizedBox(height: AppConstants.spacingS),
-                      const Padding(
-                        padding: EdgeInsets.symmetric(
-                            horizontal: AppConstants.spacingXL),
-                        child: AiUnderstandingIndicator(),
-                      ),
-                    ],
-                    if (isQueryNotEmpty)
-                      _buildSuggestions()
-                    else ...[
-                      const SizedBox(height: 22),
-                      _buildPropertyTypeSection(),
-                      const SizedBox(height: 26),
-                      _buildRecentSearches(),
-                    ],
-                    const SizedBox(height: 100),
-                  ],
-                )
-                    .animate()
-                    .fadeIn(duration: 400.ms)
-                    .slideY(
-                      begin: 0.08,
-                      end: 0,
-                      duration: 400.ms,
-                      curve: Curves.easeOut,
-                    ),
+                child:
+                    Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const SizedBox(height: AppConstants.spacingL),
+                            _buildHeading(),
+                            const SizedBox(height: 18),
+                            _buildSearchBar(),
+                            if (_isParsingSmartQuery) ...[
+                              const SizedBox(height: AppConstants.spacingS),
+                              const Padding(
+                                padding: EdgeInsets.symmetric(
+                                  horizontal: AppConstants.spacingXL,
+                                ),
+                                child: AiUnderstandingIndicator(),
+                              ),
+                            ],
+                            if (isQueryNotEmpty)
+                              _buildSuggestions()
+                            else ...[
+                              const SizedBox(height: 22),
+                              _buildPropertyTypeSection(),
+                              const SizedBox(height: 26),
+                              _buildRecentSearches(),
+                            ],
+                            const SizedBox(height: 100),
+                          ],
+                        )
+                        .animate()
+                        .fadeIn(duration: 400.ms)
+                        .slideY(
+                          begin: 0.08,
+                          end: 0,
+                          duration: 400.ms,
+                          curve: Curves.easeOut,
+                        ),
               ),
             ),
           ],
         ),
       ),
-      bottomNavigationBar: const BottomNavBar(
-        currentIndex: 1,
-      ),
+      bottomNavigationBar: const BottomNavBar(currentIndex: 1),
     );
   }
 
@@ -633,8 +645,10 @@ class _SearchScreenState extends State<SearchScreen>
               if (Navigator.of(context).canPop()) {
                 Navigator.pop(context);
               } else {
-                Provider.of<NavigationProvider>(context, listen: false)
-                    .setIndex(0);
+                Provider.of<NavigationProvider>(
+                  context,
+                  listen: false,
+                ).setIndex(0);
                 Navigator.popUntil(context, (route) => route.isFirst);
               }
             },
@@ -655,10 +669,8 @@ class _SearchScreenState extends State<SearchScreen>
             background: AppColors.primary,
             withShadow: false,
             semanticLabel: 'View results on map',
-            onTap: () => Navigator.pushNamed(
-              context,
-              AppConstants.searchResultsScreen,
-            ),
+            onTap: () =>
+                Navigator.pushNamed(context, AppConstants.searchResultsScreen),
           ),
         ],
       ),
@@ -787,8 +799,8 @@ class _SearchScreenState extends State<SearchScreen>
       label: _isProcessingVoice
           ? 'Processing voice search'
           : _isListening
-              ? 'Stop voice search'
-              : 'Start voice search',
+          ? 'Stop voice search'
+          : 'Start voice search',
       button: true,
       child: GestureDetector(
         // Inert while processing: the dictation is already committed, and a tap
@@ -797,14 +809,15 @@ class _SearchScreenState extends State<SearchScreen>
         behavior: HitTestBehavior.opaque,
         child: _isListening
             ? badge
-                .animate(
-                    onPlay: (controller) => controller.repeat(reverse: true))
-                .scaleXY(
-                  begin: 1,
-                  end: 1.08,
-                  duration: 800.ms,
-                  curve: Curves.easeInOut,
-                )
+                  .animate(
+                    onPlay: (controller) => controller.repeat(reverse: true),
+                  )
+                  .scaleXY(
+                    begin: 1,
+                    end: 1.08,
+                    duration: 800.ms,
+                    curve: Curves.easeInOut,
+                  )
             : badge,
       ),
     );
@@ -814,8 +827,9 @@ class _SearchScreenState extends State<SearchScreen>
     return Consumer<FilterProvider>(
       builder: (context, filterProvider, child) {
         return Padding(
-          padding:
-              const EdgeInsets.symmetric(horizontal: AppConstants.spacingXL),
+          padding: const EdgeInsets.symmetric(
+            horizontal: AppConstants.spacingXL,
+          ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -867,11 +881,11 @@ class _SearchScreenState extends State<SearchScreen>
         behavior: HitTestBehavior.opaque,
         child: Container(
           height: AppConstants.filterChipHeight,
-          padding:
-              const EdgeInsets.symmetric(horizontal: AppConstants.spacingL),
+          padding: const EdgeInsets.symmetric(
+            horizontal: AppConstants.spacingL,
+          ),
           decoration: BoxDecoration(
-            color:
-                isSelected ? AppColors.primary : AppColors.background,
+            color: isSelected ? AppColors.primary : AppColors.background,
             borderRadius: BorderRadius.circular(AppConstants.pillRadius),
           ),
           child: Center(
@@ -896,8 +910,9 @@ class _SearchScreenState extends State<SearchScreen>
         final queries = recentSearches.queries;
 
         return Padding(
-          padding:
-              const EdgeInsets.symmetric(horizontal: AppConstants.spacingXL),
+          padding: const EdgeInsets.symmetric(
+            horizontal: AppConstants.spacingXL,
+          ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -998,8 +1013,7 @@ class _SearchScreenState extends State<SearchScreen>
   /// parsing and the recent-list refresh exactly as a freshly typed query does.
   void _onRecentSearchTap(String query) {
     _searchController.text = query;
-    _searchController.selection =
-        TextSelection.collapsed(offset: query.length);
+    _searchController.selection = TextSelection.collapsed(offset: query.length);
     _submitSearch(query);
   }
 
@@ -1092,8 +1106,9 @@ class _SearchScreenState extends State<SearchScreen>
       ),
       for (final profile in _peopleSuggestions)
         Padding(
-          padding:
-              const EdgeInsets.symmetric(horizontal: AppConstants.spacingXL),
+          padding: const EdgeInsets.symmetric(
+            horizontal: AppConstants.spacingXL,
+          ),
           child: ListTile(
             contentPadding: EdgeInsets.zero,
             leading: PeopleAvatar(
@@ -1186,8 +1201,9 @@ class _SearchScreenState extends State<SearchScreen>
       ),
       for (final suggestion in matches)
         Padding(
-          padding:
-              const EdgeInsets.symmetric(horizontal: AppConstants.spacingXL),
+          padding: const EdgeInsets.symmetric(
+            horizontal: AppConstants.spacingXL,
+          ),
           child: ListTile(
             contentPadding: EdgeInsets.zero,
             leading: Icon(group.icon, color: AppColors.primary),

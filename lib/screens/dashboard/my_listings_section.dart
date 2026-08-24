@@ -86,8 +86,7 @@ class _MyListingsSectionState extends State<MyListingsSection> {
       _error = null;
     });
     try {
-      final results =
-          await _service.getPropertiesByUser(widget.userId);
+      final results = await _service.getPropertiesByUser(widget.userId);
       if (mounted) {
         setState(() {
           _properties = results;
@@ -124,10 +123,8 @@ class _MyListingsSectionState extends State<MyListingsSection> {
     final refreshNeeded = await Navigator.push<bool>(
       context,
       MaterialPageRoute(
-        builder: (_) => PostPropertyScreen(
-          editPropertyId: property.id,
-          editBundle: bundle,
-        ),
+        builder: (_) =>
+            PostPropertyScreen(editPropertyId: property.id, editBundle: bundle),
       ),
     );
 
@@ -163,16 +160,15 @@ class _MyListingsSectionState extends State<MyListingsSection> {
       await _service.deleteProperty(property.id);
       if (mounted) {
         setState(() {
-          _properties =
-              _properties.where((p) => p.id != property.id).toList();
+          _properties = _properties.where((p) => p.id != property.id).toList();
         });
         // This path prunes the list locally rather than re-fetching, so without
         // this the count would go stale and deleting the last listing would
         // leave an empty section on screen instead of collapsing it.
         _reportCount();
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Property deleted.')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('Property deleted.')));
       }
     } catch (e) {
       if (mounted) {
@@ -360,9 +356,9 @@ class _ErrorState extends StatelessWidget {
           children: [
             Text(
               'Failed to load listings.',
-              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    color: Colors.red.shade600,
-                  ),
+              style: Theme.of(
+                context,
+              ).textTheme.bodyMedium?.copyWith(color: Colors.red.shade600),
             ),
             const SizedBox(height: 10),
             TextButton.icon(
@@ -399,8 +395,18 @@ class _PropertyCard extends StatelessWidget {
   static String _formatDate(DateTime? dt) {
     if (dt == null) return '';
     const months = [
-      'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
-      'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
+      'Jan',
+      'Feb',
+      'Mar',
+      'Apr',
+      'May',
+      'Jun',
+      'Jul',
+      'Aug',
+      'Sep',
+      'Oct',
+      'Nov',
+      'Dec',
     ];
     return '${months[dt.month - 1]} ${dt.day}, ${dt.year}';
   }
@@ -409,12 +415,12 @@ class _PropertyCard extends StatelessWidget {
   // rented listing read as unreviewed. The label now comes from
   // propertyStatusLabel, which covers all four CHECK values.
   Color _statusColor(String? status) => switch (status) {
-        'active' => Colors.green,
-        'sold' => Colors.blue,
-        'rented' => Colors.teal,
-        'inactive' => Colors.grey,
-        _ => Colors.amber,
-      };
+    'active' => Colors.green,
+    'sold' => Colors.blue,
+    'rented' => Colors.teal,
+    'inactive' => Colors.grey,
+    _ => Colors.amber,
+  };
 
   @override
   Widget build(BuildContext context) {
@@ -449,8 +455,7 @@ class _PropertyCard extends StatelessWidget {
         children: [
           // ── Cover image ────────────────────────────────────────────────────
           ClipRRect(
-            borderRadius:
-                const BorderRadius.vertical(top: Radius.circular(20)),
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
             child: AspectRatio(
               aspectRatio: 16 / 9,
               child: coverUrl != null
@@ -537,9 +542,11 @@ class _PropertyCard extends StatelessWidget {
                 if (property.location.isNotEmpty)
                   Row(
                     children: [
-                      Icon(Icons.location_on_outlined,
-                          size: 14,
-                          color: scheme.onSurface.withOpacity(0.5)),
+                      Icon(
+                        Icons.location_on_outlined,
+                        size: 14,
+                        color: scheme.onSurface.withOpacity(0.5),
+                      ),
                       const SizedBox(width: 4),
                       Expanded(
                         child: Text(
@@ -559,9 +566,11 @@ class _PropertyCard extends StatelessWidget {
                   const SizedBox(height: 4),
                   Row(
                     children: [
-                      Icon(Icons.calendar_today_outlined,
-                          size: 12,
-                          color: scheme.onSurface.withOpacity(0.4)),
+                      Icon(
+                        Icons.calendar_today_outlined,
+                        size: 12,
+                        color: scheme.onSurface.withOpacity(0.4),
+                      ),
                       const SizedBox(width: 4),
                       Text(
                         _formatDate(property.createdAt),
@@ -637,8 +646,11 @@ class _PropertyCard extends StatelessWidget {
     return Container(
       color: const Color(0xFFEEECF8),
       child: const Center(
-        child: Icon(Icons.home_work_outlined,
-            size: 48, color: Color(0xFFBBB6E0)),
+        child: Icon(
+          Icons.home_work_outlined,
+          size: 48,
+          color: Color(0xFFBBB6E0),
+        ),
       ),
     );
   }

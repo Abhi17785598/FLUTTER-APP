@@ -92,9 +92,7 @@ class _EditProfileViewState extends State<_EditProfileView> {
 
     messenger
       ..hideCurrentSnackBar()
-      ..showSnackBar(
-        const SnackBar(content: Text('Profile updated')),
-      );
+      ..showSnackBar(const SnackBar(content: Text('Profile updated')));
     navigator.maybePop();
   }
 
@@ -114,7 +112,10 @@ class _EditProfileViewState extends State<_EditProfileView> {
         ),
         bottom: const PreferredSize(
           preferredSize: Size.fromHeight(1),
-          child: ColoredBox(color: AppColors.hairline, child: SizedBox(height: 1)),
+          child: ColoredBox(
+            color: AppColors.hairline,
+            child: SizedBox(height: 1),
+          ),
         ),
       ),
       body: _buildBody(provider),
@@ -223,22 +224,19 @@ class _EditProfileViewState extends State<_EditProfileView> {
       ];
     }
     if (p.isInfluencer) {
-      return const [
-        ProfileDocumentKind.aadhaar,
-        ProfileDocumentKind.pan,
-      ];
+      return const [ProfileDocumentKind.aadhaar, ProfileDocumentKind.pan];
     }
     return const [];
   }
 
   static String _documentLabel(ProfileDocumentKind kind) => switch (kind) {
-        ProfileDocumentKind.rera => 'RERA certificate',
-        ProfileDocumentKind.gst => 'GST certificate',
-        ProfileDocumentKind.pan => 'PAN card',
-        ProfileDocumentKind.registrationProof => 'Registration proof',
-        ProfileDocumentKind.aadhaar => 'Aadhaar card',
-        ProfileDocumentKind.companyLogo => 'Company logo',
-      };
+    ProfileDocumentKind.rera => 'RERA certificate',
+    ProfileDocumentKind.gst => 'GST certificate',
+    ProfileDocumentKind.pan => 'PAN card',
+    ProfileDocumentKind.registrationProof => 'Registration proof',
+    ProfileDocumentKind.aadhaar => 'Aadhaar card',
+    ProfileDocumentKind.companyLogo => 'Company logo',
+  };
 
   Future<void> _runUpload(Future<String?> Function() action) async {
     final messenger = ScaffoldMessenger.of(context);
@@ -250,336 +248,332 @@ class _EditProfileViewState extends State<_EditProfileView> {
   }
 
   Widget _mediaSection(EditProfileProvider p) => _Section(
-        title: 'Photos',
-        children: [
-          _AvatarRow(
-            url: p.avatarUrl,
-            busy: p.uploading == ProfileMediaTarget.avatar,
-            onChange: () => _runUpload(p.pickAndUploadAvatar),
-          ),
-          _MediaRow(
-            label: 'Cover photo',
-            url: p.backgroundImageUrl,
-            busy: p.uploading == ProfileMediaTarget.cover,
-            onChange: () => _runUpload(p.pickAndUploadCover),
-          ),
-        ],
-      );
+    title: 'Photos',
+    children: [
+      _AvatarRow(
+        url: p.avatarUrl,
+        busy: p.uploading == ProfileMediaTarget.avatar,
+        onChange: () => _runUpload(p.pickAndUploadAvatar),
+      ),
+      _MediaRow(
+        label: 'Cover photo',
+        url: p.backgroundImageUrl,
+        busy: p.uploading == ProfileMediaTarget.cover,
+        onChange: () => _runUpload(p.pickAndUploadCover),
+      ),
+    ],
+  );
 
   Widget _documentsSection(EditProfileProvider p) => _Section(
-        title: 'Verification documents',
-        children: [
-          for (final kind in _documentKindsFor(p))
-            _MediaRow(
-              label: _documentLabel(kind),
-              url: kind == ProfileDocumentKind.companyLogo
-                  ? p.companyLogoUrl
-                  : p.documentUrl(kind),
-              busy: p.uploading == ProfileMediaTarget.document(kind),
-              onChange: () => _runUpload(() => p.pickAndUploadDocument(kind)),
-            ),
-          Text(
-            'Images only — PDF upload is not yet supported.',
-            style: AppTextStyles.caption.copyWith(
-              fontSize: 11.5,
-              color: AppColors.textHint,
-            ),
-          ),
-        ],
-      );
+    title: 'Verification documents',
+    children: [
+      for (final kind in _documentKindsFor(p))
+        _MediaRow(
+          label: _documentLabel(kind),
+          url: kind == ProfileDocumentKind.companyLogo
+              ? p.companyLogoUrl
+              : p.documentUrl(kind),
+          busy: p.uploading == ProfileMediaTarget.document(kind),
+          onChange: () => _runUpload(() => p.pickAndUploadDocument(kind)),
+        ),
+      Text(
+        'Images only — PDF upload is not yet supported.',
+        style: AppTextStyles.caption.copyWith(
+          fontSize: 11.5,
+          color: AppColors.textHint,
+        ),
+      ),
+    ],
+  );
 
   // ── Sections ──────────────────────────────────────────────────────────────
 
   Widget _basicSection(EditProfileProvider p) => _Section(
-        title: 'Basic information',
-        children: [
-          _Field(
-            label: 'Full name',
-            controller: p.fullName,
-            required: true,
-            hint: 'Enter your full name',
-          ),
-          _PhoneField(provider: p),
-          _ReadOnlyField(
-            label: 'User type',
-            value: p.userType?.isNotEmpty == true ? p.userType! : 'Not set',
-            note: p.roleLocked ? 'Role cannot be changed once set.' : null,
-          ),
-          _Field(
-            label: 'Username',
-            controller: p.username,
-            hint: 'Choose username',
-          ),
-          // EditProfile.tsx:634 hides these two for individuals.
-          if (p.isBusinessRole) ...[
-            _Dropdown(
-              label: 'Gender',
-              value: p.gender,
-              options: mergeSingle(kGenderOptions, p.gender),
-              onChanged: p.setGender,
-            ),
-            _DateField(
-              label: 'Date of birth',
-              value: p.dob,
-              onChanged: p.setDob,
-            ),
-          ],
-        ],
-      );
+    title: 'Basic information',
+    children: [
+      _Field(
+        label: 'Full name',
+        controller: p.fullName,
+        required: true,
+        hint: 'Enter your full name',
+      ),
+      _PhoneField(provider: p),
+      _ReadOnlyField(
+        label: 'User type',
+        value: p.userType?.isNotEmpty == true ? p.userType! : 'Not set',
+        note: p.roleLocked ? 'Role cannot be changed once set.' : null,
+      ),
+      _Field(
+        label: 'Username',
+        controller: p.username,
+        hint: 'Choose username',
+      ),
+      // EditProfile.tsx:634 hides these two for individuals.
+      if (p.isBusinessRole) ...[
+        _Dropdown(
+          label: 'Gender',
+          value: p.gender,
+          options: mergeSingle(kGenderOptions, p.gender),
+          onChanged: p.setGender,
+        ),
+        _DateField(label: 'Date of birth', value: p.dob, onChanged: p.setDob),
+      ],
+    ],
+  );
 
   Widget _builderCompanySection(EditProfileProvider p) => _Section(
-        title: 'Company details',
-        children: [
-          _Field(
-            label: 'Company / agency name',
-            controller: p.companyName,
-            hint: 'e.g. Prestige Builders Ltd.',
-          ),
-          _Field(
-            label: 'RERA / license number',
-            controller: p.reraNumber,
-            hint: 'e.g. MH12345678',
-          ),
-          _Dropdown(
-            label: 'Company structure',
-            value: p.companyType,
-            options: mergeSingle(kCompanyTypeOptions, p.companyType),
-            legacyOptions: kCompanyTypeOptions,
-            onChanged: p.setCompanyType,
-          ),
-          _Field(label: 'Base city', controller: p.city, hint: 'e.g. Mumbai'),
-          _Field(
-            label: 'Years of experience',
-            controller: p.yearsExperience,
-            keyboardType: TextInputType.number,
-            hint: 'e.g. 10',
-          ),
-          _Field(
-            label: 'Website URL',
-            controller: p.website,
-            hint: 'e.g. www.yourcompany.com',
-          ),
-          _Field(
-            label: 'GST number',
-            controller: p.gstNumber,
-            hint: '15-digit GSTIN',
-          ),
-          _Field(
-            label: 'PAN number',
-            controller: p.panNumber,
-            hint: '10-digit PAN',
-          ),
-          _Field(
-            label: 'About company',
-            controller: p.bio,
-            maxLines: 4,
-            hint: 'Describe your company, expertise, or property offerings…',
-          ),
-        ],
-      );
+    title: 'Company details',
+    children: [
+      _Field(
+        label: 'Company / agency name',
+        controller: p.companyName,
+        hint: 'e.g. Prestige Builders Ltd.',
+      ),
+      _Field(
+        label: 'RERA / license number',
+        controller: p.reraNumber,
+        hint: 'e.g. MH12345678',
+      ),
+      _Dropdown(
+        label: 'Company structure',
+        value: p.companyType,
+        options: mergeSingle(kCompanyTypeOptions, p.companyType),
+        legacyOptions: kCompanyTypeOptions,
+        onChanged: p.setCompanyType,
+      ),
+      _Field(label: 'Base city', controller: p.city, hint: 'e.g. Mumbai'),
+      _Field(
+        label: 'Years of experience',
+        controller: p.yearsExperience,
+        keyboardType: TextInputType.number,
+        hint: 'e.g. 10',
+      ),
+      _Field(
+        label: 'Website URL',
+        controller: p.website,
+        hint: 'e.g. www.yourcompany.com',
+      ),
+      _Field(
+        label: 'GST number',
+        controller: p.gstNumber,
+        hint: '15-digit GSTIN',
+      ),
+      _Field(
+        label: 'PAN number',
+        controller: p.panNumber,
+        hint: '10-digit PAN',
+      ),
+      _Field(
+        label: 'About company',
+        controller: p.bio,
+        maxLines: 4,
+        hint: 'Describe your company, expertise, or property offerings…',
+      ),
+    ],
+  );
 
   Widget _brokerProfessionalSection(EditProfileProvider p) => _Section(
-        title: 'Professional details',
-        children: [
-          _Field(
-            label: 'Company name',
-            controller: p.companyName,
-            hint: 'e.g. Dream Realty Services',
-          ),
-          _Dropdown(
-            label: 'Broker type',
-            value: p.brokerType,
-            options: mergeSingle(kBrokerTypeOptions, p.brokerType),
-            legacyOptions: kBrokerTypeOptions,
-            onChanged: p.setBrokerType,
-          ),
-          _Field(
-            label: 'RERA / license number',
-            controller: p.reraNumber,
-            hint: 'e.g. MH12345678',
-          ),
-          _Field(label: 'City', controller: p.city, hint: 'e.g. Mumbai'),
-          _Field(
-            label: 'Years of experience',
-            controller: p.yearsExperience,
-            keyboardType: TextInputType.number,
-            hint: 'e.g. 5',
-          ),
-          _Field(
-            label: 'Website URL',
-            controller: p.website,
-            hint: 'e.g. www.youragency.com',
-          ),
-          _Field(
-            label: 'About your agency',
-            controller: p.bio,
-            maxLines: 4,
-            hint: 'Years in the market, specialisations…',
-          ),
-        ],
-      );
+    title: 'Professional details',
+    children: [
+      _Field(
+        label: 'Company name',
+        controller: p.companyName,
+        hint: 'e.g. Dream Realty Services',
+      ),
+      _Dropdown(
+        label: 'Broker type',
+        value: p.brokerType,
+        options: mergeSingle(kBrokerTypeOptions, p.brokerType),
+        legacyOptions: kBrokerTypeOptions,
+        onChanged: p.setBrokerType,
+      ),
+      _Field(
+        label: 'RERA / license number',
+        controller: p.reraNumber,
+        hint: 'e.g. MH12345678',
+      ),
+      _Field(label: 'City', controller: p.city, hint: 'e.g. Mumbai'),
+      _Field(
+        label: 'Years of experience',
+        controller: p.yearsExperience,
+        keyboardType: TextInputType.number,
+        hint: 'e.g. 5',
+      ),
+      _Field(
+        label: 'Website URL',
+        controller: p.website,
+        hint: 'e.g. www.youragency.com',
+      ),
+      _Field(
+        label: 'About your agency',
+        controller: p.bio,
+        maxLines: 4,
+        hint: 'Years in the market, specialisations…',
+      ),
+    ],
+  );
 
   Widget _brokerDealsSection(EditProfileProvider p) => _Section(
-        title: 'Deals & expertise',
-        children: [
-          // Decision 5.2 — previously write-once at registration.
-          _ChipGroup(
-            label: 'Property types you deal in',
-            group: ProfileChipGroup.propertyTypes,
-            canonical: kPropertyTypeOptions,
-            provider: p,
-          ),
-          _ChipGroup(
-            label: 'Areas of expertise',
-            group: ProfileChipGroup.areasOfExpertise,
-            canonical: kExpertiseOptions,
-            provider: p,
-          ),
-          _ChipGroup(
-            label: 'Languages known',
-            group: ProfileChipGroup.languagesKnown,
-            canonical: kLanguageOptions,
-            provider: p,
-          ),
-          _Field(
-            label: 'Commission details',
-            controller: p.commissionDetails,
-            maxLines: 2,
-            hint: 'e.g. 2% on sale, 1 month rent on rental',
-          ),
-          _Field(
-            label: 'Price range — minimum (₹)',
-            controller: p.priceRangeMin,
-            keyboardType: TextInputType.number,
-          ),
-          _Field(
-            label: 'Price range — maximum (₹)',
-            controller: p.priceRangeMax,
-            keyboardType: TextInputType.number,
-          ),
-        ],
-      );
+    title: 'Deals & expertise',
+    children: [
+      // Decision 5.2 — previously write-once at registration.
+      _ChipGroup(
+        label: 'Property types you deal in',
+        group: ProfileChipGroup.propertyTypes,
+        canonical: kPropertyTypeOptions,
+        provider: p,
+      ),
+      _ChipGroup(
+        label: 'Areas of expertise',
+        group: ProfileChipGroup.areasOfExpertise,
+        canonical: kExpertiseOptions,
+        provider: p,
+      ),
+      _ChipGroup(
+        label: 'Languages known',
+        group: ProfileChipGroup.languagesKnown,
+        canonical: kLanguageOptions,
+        provider: p,
+      ),
+      _Field(
+        label: 'Commission details',
+        controller: p.commissionDetails,
+        maxLines: 2,
+        hint: 'e.g. 2% on sale, 1 month rent on rental',
+      ),
+      _Field(
+        label: 'Price range — minimum (₹)',
+        controller: p.priceRangeMin,
+        keyboardType: TextInputType.number,
+      ),
+      _Field(
+        label: 'Price range — maximum (₹)',
+        controller: p.priceRangeMax,
+        keyboardType: TextInputType.number,
+      ),
+    ],
+  );
 
   Widget _builderDetailsSection(EditProfileProvider p) => _Section(
-        title: 'Builder details',
-        children: [
-          _ChipGroup(
-            label: 'Areas of expertise',
-            group: ProfileChipGroup.areasOfExpertise,
-            canonical: kExpertiseOptions,
-            provider: p,
-          ),
-          _ChipGroup(
-            label: 'Languages known',
-            group: ProfileChipGroup.languagesKnown,
-            canonical: kLanguageOptions,
-            provider: p,
-          ),
-        ],
-      );
+    title: 'Builder details',
+    children: [
+      _ChipGroup(
+        label: 'Areas of expertise',
+        group: ProfileChipGroup.areasOfExpertise,
+        canonical: kExpertiseOptions,
+        provider: p,
+      ),
+      _ChipGroup(
+        label: 'Languages known',
+        group: ProfileChipGroup.languagesKnown,
+        canonical: kLanguageOptions,
+        provider: p,
+      ),
+    ],
+  );
 
   Widget _influencerProfileSection(EditProfileProvider p) => _Section(
-        title: 'Influencer profile',
-        children: [
-          _Dropdown(
-            label: 'Category',
-            value: p.category,
-            options: mergeSingle(kInfluencerCategoryOptions, p.category),
-            legacyOptions: kInfluencerCategoryOptions,
-            onChanged: p.setCategory,
-          ),
-          _Dropdown(
-            label: 'Primary platform',
-            value: p.primaryPlatform,
-            options: mergeSingle(kPrimaryPlatformOptions, p.primaryPlatform),
-            legacyOptions: kPrimaryPlatformOptions,
-            onChanged: p.setPrimaryPlatform,
-          ),
-          _Field(
-            label: 'Years of experience',
-            controller: p.yearsExperience,
-            keyboardType: TextInputType.number,
-            hint: 'e.g. 3',
-          ),
-          // Free text on the portal, a dropdown in the wizard. The portal wins.
-          _Field(
-            label: 'Audience type',
-            controller: p.audienceType,
-            hint: 'e.g. Luxury Seekers, First-time Buyers',
-          ),
-          _Field(
-            label: 'Website / portfolio',
-            controller: p.website,
-            hint: 'e.g. www.yourportfolio.com',
-          ),
-          _ChipGroup(
-            label: 'Languages known',
-            group: ProfileChipGroup.languagesKnown,
-            canonical: kLanguageOptions,
-            provider: p,
-          ),
-          _Field(
-            label: 'Bio',
-            controller: p.bio,
-            maxLines: 4,
-            hint: 'Your content niche, platform metrics, collaborating brands…',
-          ),
-        ],
-      );
+    title: 'Influencer profile',
+    children: [
+      _Dropdown(
+        label: 'Category',
+        value: p.category,
+        options: mergeSingle(kInfluencerCategoryOptions, p.category),
+        legacyOptions: kInfluencerCategoryOptions,
+        onChanged: p.setCategory,
+      ),
+      _Dropdown(
+        label: 'Primary platform',
+        value: p.primaryPlatform,
+        options: mergeSingle(kPrimaryPlatformOptions, p.primaryPlatform),
+        legacyOptions: kPrimaryPlatformOptions,
+        onChanged: p.setPrimaryPlatform,
+      ),
+      _Field(
+        label: 'Years of experience',
+        controller: p.yearsExperience,
+        keyboardType: TextInputType.number,
+        hint: 'e.g. 3',
+      ),
+      // Free text on the portal, a dropdown in the wizard. The portal wins.
+      _Field(
+        label: 'Audience type',
+        controller: p.audienceType,
+        hint: 'e.g. Luxury Seekers, First-time Buyers',
+      ),
+      _Field(
+        label: 'Website / portfolio',
+        controller: p.website,
+        hint: 'e.g. www.yourportfolio.com',
+      ),
+      _ChipGroup(
+        label: 'Languages known',
+        group: ProfileChipGroup.languagesKnown,
+        canonical: kLanguageOptions,
+        provider: p,
+      ),
+      _Field(
+        label: 'Bio',
+        controller: p.bio,
+        maxLines: 4,
+        hint: 'Your content niche, platform metrics, collaborating brands…',
+      ),
+    ],
+  );
 
   Widget _influencerSocialSection(EditProfileProvider p) => _Section(
-        title: 'Social media & metrics',
-        children: [
-          _Field(label: 'Instagram', controller: p.instagram),
-          _Field(
-            label: 'Instagram followers',
-            controller: p.instagramFollowers,
-            keyboardType: TextInputType.number,
-          ),
-          _Field(label: 'YouTube', controller: p.youtube),
-          _Field(
-            label: 'YouTube subscribers',
-            controller: p.youtubeSubscribers,
-            keyboardType: TextInputType.number,
-          ),
-          _Field(label: 'Facebook', controller: p.facebook),
-          _Field(label: 'LinkedIn', controller: p.linkedin),
-          _Field(label: 'WhatsApp', controller: p.whatsapp),
-          _Field(label: 'Telegram', controller: p.telegram),
-          _Field(label: 'Twitter / X', controller: p.twitter),
-        ],
-      );
+    title: 'Social media & metrics',
+    children: [
+      _Field(label: 'Instagram', controller: p.instagram),
+      _Field(
+        label: 'Instagram followers',
+        controller: p.instagramFollowers,
+        keyboardType: TextInputType.number,
+      ),
+      _Field(label: 'YouTube', controller: p.youtube),
+      _Field(
+        label: 'YouTube subscribers',
+        controller: p.youtubeSubscribers,
+        keyboardType: TextInputType.number,
+      ),
+      _Field(label: 'Facebook', controller: p.facebook),
+      _Field(label: 'LinkedIn', controller: p.linkedin),
+      _Field(label: 'WhatsApp', controller: p.whatsapp),
+      _Field(label: 'Telegram', controller: p.telegram),
+      _Field(label: 'Twitter / X', controller: p.twitter),
+    ],
+  );
 
   Widget _influencerContentSection(EditProfileProvider p) => _Section(
-        title: 'Content & promotion',
-        children: [
-          _ChipGroup(
-            label: 'Content types',
-            group: ProfileChipGroup.contentTypes,
-            canonical: kContentTypeOptions,
-            provider: p,
-          ),
-          _ChipGroup(
-            label: 'Preferred promotion types',
-            group: ProfileChipGroup.promotionTypes,
-            canonical: kPromotionTypeOptions,
-            provider: p,
-          ),
-          // Decision 5.2 — previously write-once at registration.
-          _Field(
-            label: 'Portfolio links',
-            controller: p.portfolioLinks,
-            maxLines: 3,
-            hint: 'One link per line',
-          ),
-          _Field(
-            label: 'Previous brand collaborations',
-            controller: p.previousCollaborations,
-            maxLines: 3,
-            hint: 'One per line',
-          ),
-        ],
-      );
+    title: 'Content & promotion',
+    children: [
+      _ChipGroup(
+        label: 'Content types',
+        group: ProfileChipGroup.contentTypes,
+        canonical: kContentTypeOptions,
+        provider: p,
+      ),
+      _ChipGroup(
+        label: 'Preferred promotion types',
+        group: ProfileChipGroup.promotionTypes,
+        canonical: kPromotionTypeOptions,
+        provider: p,
+      ),
+      // Decision 5.2 — previously write-once at registration.
+      _Field(
+        label: 'Portfolio links',
+        controller: p.portfolioLinks,
+        maxLines: 3,
+        hint: 'One link per line',
+      ),
+      _Field(
+        label: 'Previous brand collaborations',
+        controller: p.previousCollaborations,
+        maxLines: 3,
+        hint: 'One per line',
+      ),
+    ],
+  );
 
   Widget _addressSection(EditProfileProvider p, {required String title}) =>
       _Section(
@@ -617,23 +611,23 @@ class _EditProfileViewState extends State<_EditProfileView> {
       );
 
   Widget _socialSection(EditProfileProvider p) => _Section(
-        title: 'Social media',
-        children: [
-          _Field(label: 'Facebook', controller: p.facebook),
-          _Field(label: 'Instagram', controller: p.instagram),
-          _Field(label: 'LinkedIn', controller: p.linkedin),
-          _Field(label: 'YouTube', controller: p.youtube),
-          _Field(label: 'WhatsApp', controller: p.whatsapp),
-          _Field(label: 'Telegram', controller: p.telegram),
-        ],
-      );
+    title: 'Social media',
+    children: [
+      _Field(label: 'Facebook', controller: p.facebook),
+      _Field(label: 'Instagram', controller: p.instagram),
+      _Field(label: 'LinkedIn', controller: p.linkedin),
+      _Field(label: 'YouTube', controller: p.youtube),
+      _Field(label: 'WhatsApp', controller: p.whatsapp),
+      _Field(label: 'Telegram', controller: p.telegram),
+    ],
+  );
 
   Widget _individualNote() => DashboardCard(
-        child: Text(
-          'Individual profiles need only the basics above.',
-          style: AppTextStyles.caption.copyWith(fontSize: 12.5),
-        ),
-      );
+    child: Text(
+      'Individual profiles need only the basics above.',
+      style: AppTextStyles.caption.copyWith(fontSize: 12.5),
+    ),
+  );
 }
 
 /// Avatar preview + change action.
@@ -684,8 +678,10 @@ class _AvatarRow extends StatelessWidget {
                       color: AppColors.primary,
                     ),
                   )
-                : const Icon(Icons.person_outline_rounded,
-                    color: AppColors.primary),
+                : const Icon(
+                    Icons.person_outline_rounded,
+                    color: AppColors.primary,
+                  ),
           ),
         ),
         const SizedBox(width: AppConstants.spacingL),
@@ -1065,8 +1061,11 @@ class _DateField extends StatelessWidget {
                     ),
                   ),
                 ),
-                const Icon(Icons.calendar_today_outlined,
-                    size: 16, color: AppColors.textHint),
+                const Icon(
+                  Icons.calendar_today_outlined,
+                  size: 16,
+                  color: AppColors.textHint,
+                ),
               ],
             ),
           ),
@@ -1212,8 +1211,7 @@ class _SelectableChip extends StatelessWidget {
         child: ScaleTap(
           onTap: onTap,
           child: Container(
-            padding:
-                const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
             decoration: BoxDecoration(
               color: isSelected
                   ? AppColors.primaryLight
@@ -1268,9 +1266,7 @@ class _SaveBar extends StatelessWidget {
       ),
       decoration: const BoxDecoration(
         color: AppColors.cardBackground,
-        border: Border(
-          top: BorderSide(color: AppColors.textHint, width: 0.5),
-        ),
+        border: Border(top: BorderSide(color: AppColors.textHint, width: 0.5)),
       ),
       child: AppActionButton(
         label: saving ? 'Saving…' : 'Update profile',

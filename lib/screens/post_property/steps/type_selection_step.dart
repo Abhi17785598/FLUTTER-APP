@@ -142,9 +142,9 @@ class TypeSelectionStep extends StatelessWidget {
           _ListingTypeCard(
             data: _listingTypes[i],
             selected: provider.listingIntent == _listingTypes[i].intent,
-            onTap: () => context
-                .read<PostPropertyProvider>()
-                .setListingIntent(_listingTypes[i].intent),
+            onTap: () => context.read<PostPropertyProvider>().setListingIntent(
+              _listingTypes[i].intent,
+            ),
           ),
         ],
       ],
@@ -285,8 +285,9 @@ class _PropertyTypeCard extends StatelessWidget {
             color: selected ? PortalTheme.accent : PortalTheme.cardBorder,
             width: selected ? 2 : 1,
           ),
-          boxShadow:
-              selected ? PortalTheme.cardShadowActive : PortalTheme.cardShadow,
+          boxShadow: selected
+              ? PortalTheme.cardShadowActive
+              : PortalTheme.cardShadow,
         ),
         child: Stack(
           children: [
@@ -296,8 +297,7 @@ class _PropertyTypeCard extends StatelessWidget {
               children: [
                 // 135px image band, full card width, 12px radius, cover fit.
                 ClipRRect(
-                  borderRadius:
-                      BorderRadius.circular(PortalTheme.imageRadius),
+                  borderRadius: BorderRadius.circular(PortalTheme.imageRadius),
                   child: SizedBox(
                     width: double.infinity,
                     height: 135,
@@ -379,8 +379,9 @@ class _ListingTypeCard extends StatelessWidget {
             color: selected ? PortalTheme.accent : PortalTheme.cardBorder,
             width: selected ? 2 : 1,
           ),
-          boxShadow:
-              selected ? PortalTheme.cardShadowActive : PortalTheme.cardShadow,
+          boxShadow: selected
+              ? PortalTheme.cardShadowActive
+              : PortalTheme.cardShadow,
         ),
         child: Stack(
           children: [
@@ -394,11 +395,15 @@ class _ListingTypeCard extends StatelessWidget {
                       mainAxisAlignment: MainAxisAlignment.center,
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        Text(data.title,
-                            style: PortalTheme.cardTitle(selected)),
+                        Text(
+                          data.title,
+                          style: PortalTheme.cardTitle(selected),
+                        ),
                         const SizedBox(height: 4),
-                        Text(data.description,
-                            style: PortalTheme.cardDescription),
+                        Text(
+                          data.description,
+                          style: PortalTheme.cardDescription,
+                        ),
                       ],
                     ),
                   ),

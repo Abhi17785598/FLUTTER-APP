@@ -29,8 +29,7 @@ class InvestorsCornerSection extends StatefulWidget {
   final InvestorsCornerService? service;
 
   @override
-  State<InvestorsCornerSection> createState() =>
-      _InvestorsCornerSectionState();
+  State<InvestorsCornerSection> createState() => _InvestorsCornerSectionState();
 }
 
 class _InvestorsCornerSectionState extends State<InvestorsCornerSection> {
@@ -60,7 +59,9 @@ class _InvestorsCornerSectionState extends State<InvestorsCornerSection> {
                   ),
                   itemCount: items.length,
                   itemBuilder: (context, i) => Padding(
-                    padding: const EdgeInsets.only(right: AppConstants.spacingM),
+                    padding: const EdgeInsets.only(
+                      right: AppConstants.spacingM,
+                    ),
                     child: _InvestorCard(item: items[i]),
                   ),
                 ),
@@ -130,8 +131,11 @@ class _InvestorCard extends StatelessWidget {
                   if (item.expectedRoiPercentage != null)
                     Row(
                       children: [
-                        const Icon(Icons.trending_up_rounded,
-                            size: 13, color: AppColors.success),
+                        const Icon(
+                          Icons.trending_up_rounded,
+                          size: 13,
+                          color: AppColors.success,
+                        ),
                         const SizedBox(width: 3),
                         Text(
                           '${item.expectedRoiPercentage!.toStringAsFixed(1)}% ROI',
@@ -145,7 +149,9 @@ class _InvestorCard extends StatelessWidget {
                           const SizedBox(width: 8),
                           Text(
                             'from ${PropertyModel.formatIndianPrice(item.investmentAmount)}',
-                            style: AppTextStyles.caption.copyWith(fontSize: 10.5),
+                            style: AppTextStyles.caption.copyWith(
+                              fontSize: 10.5,
+                            ),
                           ),
                         ],
                       ],
@@ -160,14 +166,14 @@ class _InvestorCard extends StatelessWidget {
   }
 
   Widget _placeholder() => Container(
-        height: _kInvestorImageHeight,
-        width: _kInvestorCardWidth,
-        color: AppColors.primaryLight,
-        alignment: Alignment.center,
-        child: const Icon(
-          Icons.insights_rounded,
-          size: 26,
-          color: AppColors.primary,
-        ),
-      );
+    height: _kInvestorImageHeight,
+    width: _kInvestorCardWidth,
+    color: AppColors.primaryLight,
+    alignment: Alignment.center,
+    child: const Icon(
+      Icons.insights_rounded,
+      size: 26,
+      color: AppColors.primary,
+    ),
+  );
 }

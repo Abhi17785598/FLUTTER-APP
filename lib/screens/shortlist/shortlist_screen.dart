@@ -3,6 +3,8 @@ import 'package:provider/provider.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_text_styles.dart';
 import '../../core/constants/app_constants.dart';
+import '../../core/utils/compare_toggle_handler.dart';
+import '../../providers/compare_provider.dart';
 import '../../providers/navigation_provider.dart';
 import '../../providers/property_provider.dart';
 import '../../widgets/property_card_compact.dart';
@@ -15,7 +17,8 @@ class ShortlistScreen extends StatefulWidget {
   State<ShortlistScreen> createState() => _ShortlistScreenState();
 }
 
-class _ShortlistScreenState extends State<ShortlistScreen> with SingleTickerProviderStateMixin {
+class _ShortlistScreenState extends State<ShortlistScreen>
+    with SingleTickerProviderStateMixin {
   late TabController _tabController;
 
   @override
@@ -47,19 +50,14 @@ class _ShortlistScreenState extends State<ShortlistScreen> with SingleTickerProv
             Expanded(
               child: TabBarView(
                 controller: _tabController,
-                children: [
-                  _buildPropertiesTab(),
-                  _buildProjectsTab(),
-                ],
+                children: [_buildPropertiesTab(), _buildProjectsTab()],
               ),
             ),
             _buildPromoBanner(),
           ],
         ),
       ),
-      bottomNavigationBar: const BottomNavBar(
-        currentIndex: 2,
-      ),
+      bottomNavigationBar: const BottomNavBar(currentIndex: 2),
     );
   }
 
@@ -81,7 +79,10 @@ class _ShortlistScreenState extends State<ShortlistScreen> with SingleTickerProv
                 if (Navigator.of(context).canPop()) {
                   Navigator.pop(context);
                 } else {
-                  Provider.of<NavigationProvider>(context, listen: false).setIndex(0);
+                  Provider.of<NavigationProvider>(
+                    context,
+                    listen: false,
+                  ).setIndex(0);
                   Navigator.popUntil(context, (route) => route.isFirst);
                 }
               },
@@ -94,10 +95,7 @@ class _ShortlistScreenState extends State<ShortlistScreen> with SingleTickerProv
             style: AppTextStyles.heading1.copyWith(fontSize: 20),
           ),
           const Spacer(),
-          TextButton(
-            onPressed: () {},
-            child: const Text('Edit'),
-          ),
+          TextButton(onPressed: () {}, child: const Text('Edit')),
         ],
       ),
     );
@@ -113,7 +111,9 @@ class _ShortlistScreenState extends State<ShortlistScreen> with SingleTickerProv
             controller: _tabController,
             labelColor: AppColors.primary,
             unselectedLabelColor: AppColors.textSecondary,
-            labelStyle: AppTextStyles.body.copyWith(fontWeight: FontWeight.w600),
+            labelStyle: AppTextStyles.body.copyWith(
+              fontWeight: FontWeight.w600,
+            ),
             unselectedLabelStyle: AppTextStyles.body,
             indicatorColor: AppColors.primary,
             indicatorWeight: 3,
@@ -128,10 +128,12 @@ class _ShortlistScreenState extends State<ShortlistScreen> with SingleTickerProv
   }
 
   Widget _buildPropertiesTab() {
+    final compareProvider = context.watch<CompareProvider>();
     return Consumer<PropertyProvider>(
       builder: (context, propertyProvider, child) {
-        final shortlistedProperties = propertyProvider.getShortlistedProperties();
-        
+        final shortlistedProperties = propertyProvider
+            .getShortlistedProperties();
+
         if (shortlistedProperties.isEmpty) {
           return Center(
             child: Column(
@@ -153,7 +155,7 @@ class _ShortlistScreenState extends State<ShortlistScreen> with SingleTickerProv
             ),
           );
         }
-        
+
         return ListView.builder(
           padding: const EdgeInsets.symmetric(vertical: 8),
           itemCount: shortlistedProperties.length,
@@ -168,8 +170,15 @@ class _ShortlistScreenState extends State<ShortlistScreen> with SingleTickerProv
                 );
               },
               onFavoriteToggle: () {
-                propertyProvider.toggleShortlist(shortlistedProperties[index].id);
+                propertyProvider.toggleShortlist(
+                  shortlistedProperties[index].id,
+                );
               },
+              isInCompare: compareProvider.isSelected(
+                shortlistedProperties[index].id,
+              ),
+              onCompareToggle: () =>
+                  handleCompareToggle(context, shortlistedProperties[index]),
             );
           },
         );
@@ -182,17 +191,11 @@ class _ShortlistScreenState extends State<ShortlistScreen> with SingleTickerProv
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(
-            Icons.apartment,
-            size: 64,
-            color: AppColors.textHint,
-          ),
+          Icon(Icons.apartment, size: 64, color: AppColors.textHint),
           const SizedBox(height: 16),
           Text(
             'No shortlisted projects',
-            style: AppTextStyles.body.copyWith(
-              color: AppColors.textSecondary,
-            ),
+            style: AppTextStyles.body.copyWith(color: AppColors.textSecondary),
           ),
         ],
       ),

@@ -169,7 +169,9 @@ class _LeadStatsRow extends StatelessWidget {
 
     return Row(
       children: [
-        Expanded(child: _StatChip(label: 'Total', value: total)),
+        Expanded(
+          child: _StatChip(label: 'Total', value: total),
+        ),
         const SizedBox(width: 8),
         Expanded(
           child: _StatChip(
@@ -246,13 +248,13 @@ class _LeadCard extends StatelessWidget {
   final VoidCallback onCall;
 
   static Color _tint(String status) => switch (status) {
-        'pending' => AppColors.warning,
-        'confirmed' => AppColors.success,
-        'completed' => AppColors.primary,
-        'cancelled' => AppColors.error,
-        'rescheduled' => AppColors.statusNewLaunch,
-        _ => AppColors.textHint,
-      };
+    'pending' => AppColors.warning,
+    'confirmed' => AppColors.success,
+    'completed' => AppColors.primary,
+    'cancelled' => AppColors.error,
+    'rescheduled' => AppColors.statusNewLaunch,
+    _ => AppColors.textHint,
+  };
 
   @override
   Widget build(BuildContext context) {
@@ -299,10 +301,7 @@ class _LeadCard extends StatelessWidget {
             runSpacing: 4,
             crossAxisAlignment: WrapCrossAlignment.center,
             children: [
-              _Meta(
-                icon: Icons.call_outlined,
-                label: booking.visitorPhone,
-              ),
+              _Meta(icon: Icons.call_outlined, label: booking.visitorPhone),
               _Meta(
                 icon: Icons.event_outlined,
                 label: _formatDate(booking.preferredDate),
@@ -344,8 +343,18 @@ class _LeadCard extends StatelessWidget {
 
   static String _formatDate(DateTime dt) {
     const months = [
-      'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
-      'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
+      'Jan',
+      'Feb',
+      'Mar',
+      'Apr',
+      'May',
+      'Jun',
+      'Jul',
+      'Aug',
+      'Sep',
+      'Oct',
+      'Nov',
+      'Dec',
     ];
     return '${months[dt.month - 1]} ${dt.day}, ${dt.year}';
   }

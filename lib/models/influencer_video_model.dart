@@ -163,11 +163,11 @@ class InfluencerVideoModel {
   }
 
   static int _int(Object? value) => switch (value) {
-        final int v => v,
-        final num v => v.toInt(),
-        final String v => int.tryParse(v) ?? 0,
-        _ => 0,
-      };
+    final int v => v,
+    final num v => v.toInt(),
+    final String v => int.tryParse(v) ?? 0,
+    _ => 0,
+  };
 
   static List<String> _stringList(Object? value) {
     if (value is! List) return const [];

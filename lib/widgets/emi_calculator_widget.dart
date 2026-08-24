@@ -25,9 +25,9 @@ class _EmiCalculatorWidgetState extends State<EmiCalculatorWidget>
   late Animation<double> _fadeIn;
 
   // Sliders
-  double _loanAmount = 50.0;   // in lakhs
-  double _interestRate = 8.5;  // % per annum
-  double _tenure = 20.0;        // years
+  double _loanAmount = 50.0; // in lakhs
+  double _interestRate = 8.5; // % per annum
+  double _tenure = 20.0; // years
 
   // Results
   double get _emi {
@@ -37,6 +37,7 @@ class _EmiCalculatorWidgetState extends State<EmiCalculatorWidget>
     if (r == 0) return p / n;
     return p * r * pow(1 + r, n) / (pow(1 + r, n) - 1);
   }
+
   double get _totalAmount => _emi * _tenure * 12;
   double get _totalInterest => _totalAmount - (_loanAmount * 100000);
   double get _principalPercent => (_loanAmount * 100000) / _totalAmount;
@@ -62,7 +63,8 @@ class _EmiCalculatorWidgetState extends State<EmiCalculatorWidget>
   }
 
   String _formatCurrency(double amount) {
-    if (amount >= 10000000) return '₹${(amount / 10000000).toStringAsFixed(2)} Cr';
+    if (amount >= 10000000)
+      return '₹${(amount / 10000000).toStringAsFixed(2)} Cr';
     if (amount >= 100000) return '₹${(amount / 100000).toStringAsFixed(2)} L';
     return '₹${amount.toStringAsFixed(0)}';
   }
@@ -96,11 +98,14 @@ class _EmiCalculatorWidgetState extends State<EmiCalculatorWidget>
       ),
       child: Column(
         children: [
-          Text('Monthly EMI',
-              style: TextStyle(
-                  fontSize: 13,
-                  fontWeight: FontWeight.w500,
-                  color: Colors.white.withOpacity(0.8))),
+          Text(
+            'Monthly EMI',
+            style: TextStyle(
+              fontSize: 13,
+              fontWeight: FontWeight.w500,
+              color: Colors.white.withOpacity(0.8),
+            ),
+          ),
           const SizedBox(height: 6),
           Text(
             '₹${_emi.toStringAsFixed(0).replaceAllMapped(RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'), (m) => '${m[1]},')}',
@@ -112,30 +117,39 @@ class _EmiCalculatorWidgetState extends State<EmiCalculatorWidget>
             ),
           ),
           const SizedBox(height: 4),
-          Text('per month',
-              style: TextStyle(
-                  fontSize: 12,
-                  color: Colors.white.withOpacity(0.7))),
+          Text(
+            'per month',
+            style: TextStyle(
+              fontSize: 12,
+              color: Colors.white.withOpacity(0.7),
+            ),
+          ),
           const SizedBox(height: 20),
           Row(
             children: [
               Expanded(
-                  child: _buildResultStat(
-                      'Loan Amount',
-                      _formatCurrency(_loanAmount * 100000),
-                      Icons.account_balance_outlined)),
+                child: _buildResultStat(
+                  'Loan Amount',
+                  _formatCurrency(_loanAmount * 100000),
+                  Icons.account_balance_outlined,
+                ),
+              ),
               _buildDivider(),
               Expanded(
-                  child: _buildResultStat(
-                      'Total Interest',
-                      _formatCurrency(_totalInterest),
-                      Icons.trending_up_rounded)),
+                child: _buildResultStat(
+                  'Total Interest',
+                  _formatCurrency(_totalInterest),
+                  Icons.trending_up_rounded,
+                ),
+              ),
               _buildDivider(),
               Expanded(
-                  child: _buildResultStat(
-                      'Total Amount',
-                      _formatCurrency(_totalAmount),
-                      Icons.summarize_outlined)),
+                child: _buildResultStat(
+                  'Total Amount',
+                  _formatCurrency(_totalAmount),
+                  Icons.summarize_outlined,
+                ),
+              ),
             ],
           ),
         ],
@@ -148,26 +162,30 @@ class _EmiCalculatorWidgetState extends State<EmiCalculatorWidget>
       children: [
         Icon(icon, size: 18, color: Colors.white.withOpacity(0.75)),
         const SizedBox(height: 4),
-        Text(value,
-            style: const TextStyle(
-                fontSize: 14,
-                fontWeight: FontWeight.w700,
-                color: Colors.white)),
+        Text(
+          value,
+          style: const TextStyle(
+            fontSize: 14,
+            fontWeight: FontWeight.w700,
+            color: Colors.white,
+          ),
+        ),
         const SizedBox(height: 2),
-        Text(label,
-            style: TextStyle(
-                fontSize: 9,
-                color: Colors.white.withOpacity(0.65))),
+        Text(
+          label,
+          style: TextStyle(fontSize: 9, color: Colors.white.withOpacity(0.65)),
+        ),
       ],
     );
   }
 
   Widget _buildDivider() {
     return Container(
-        width: 1,
-        height: 40,
-        color: Colors.white.withOpacity(0.2),
-        margin: const EdgeInsets.symmetric(horizontal: 4));
+      width: 1,
+      height: 40,
+      color: Colors.white.withOpacity(0.2),
+      margin: const EdgeInsets.symmetric(horizontal: 4),
+    );
   }
 
   Widget _buildSliders() {
@@ -241,11 +259,14 @@ class _EmiCalculatorWidgetState extends State<EmiCalculatorWidget>
             ),
             const SizedBox(width: 10),
             Expanded(
-              child: Text(label,
-                  style: TextStyle(
-                      fontSize: 13,
-                      fontWeight: FontWeight.w600,
-                      color: AppColors.textPrimary)),
+              child: Text(
+                label,
+                style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w600,
+                  color: AppColors.textPrimary,
+                ),
+              ),
             ),
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
@@ -253,11 +274,14 @@ class _EmiCalculatorWidgetState extends State<EmiCalculatorWidget>
                 gradient: AppColors.primaryGradient,
                 borderRadius: BorderRadius.circular(20),
               ),
-              child: Text(displayValue,
-                  style: const TextStyle(
-                      fontSize: 12,
-                      fontWeight: FontWeight.w700,
-                      color: Colors.white)),
+              child: Text(
+                displayValue,
+                style: const TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w700,
+                  color: Colors.white,
+                ),
+              ),
             ),
           ],
         ),
@@ -323,9 +347,7 @@ class _EmiCalculatorWidgetState extends State<EmiCalculatorWidget>
                   ),
                   Expanded(
                     flex: (interestPct * 100).round(),
-                    child: Container(
-                      color: const Color(0xFFFECACA),
-                    ),
+                    child: Container(color: const Color(0xFFFECACA)),
                   ),
                 ],
               ),
@@ -335,16 +357,18 @@ class _EmiCalculatorWidgetState extends State<EmiCalculatorWidget>
           Row(
             children: [
               _buildLegend(
-                  'Principal',
-                  _formatCurrency(_loanAmount * 100000),
-                  '${(principalPct * 100).toStringAsFixed(1)}%',
-                  AppColors.primary),
+                'Principal',
+                _formatCurrency(_loanAmount * 100000),
+                '${(principalPct * 100).toStringAsFixed(1)}%',
+                AppColors.primary,
+              ),
               const SizedBox(width: 16),
               _buildLegend(
-                  'Interest',
-                  _formatCurrency(_totalInterest),
-                  '${(interestPct * 100).toStringAsFixed(1)}%',
-                  const Color(0xFFEF4444)),
+                'Interest',
+                _formatCurrency(_totalInterest),
+                '${(interestPct * 100).toStringAsFixed(1)}%',
+                const Color(0xFFEF4444),
+              ),
             ],
           ),
           const SizedBox(height: 16),
@@ -362,25 +386,32 @@ class _EmiCalculatorWidgetState extends State<EmiCalculatorWidget>
                   children: [
                     Text('Total Payable', style: AppTextStyles.caption),
                     const SizedBox(height: 2),
-                    Text(_formatCurrency(_totalAmount),
-                        style: TextStyle(
-                            fontSize: 18,
-                            fontWeight: FontWeight.w800,
-                            color: AppColors.textPrimary)),
+                    Text(
+                      _formatCurrency(_totalAmount),
+                      style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.w800,
+                        color: AppColors.textPrimary,
+                      ),
+                    ),
                   ],
                 ),
                 Column(
                   crossAxisAlignment: CrossAxisAlignment.end,
                   children: [
-                    Text('Over ${_tenure.toStringAsFixed(0)} years',
-                        style: AppTextStyles.caption),
+                    Text(
+                      'Over ${_tenure.toStringAsFixed(0)} years',
+                      style: AppTextStyles.caption,
+                    ),
                     const SizedBox(height: 2),
                     Text(
-                        '${(_tenure * 12).toStringAsFixed(0)} EMIs',
-                        style: TextStyle(
-                            fontSize: 14,
-                            fontWeight: FontWeight.w600,
-                            color: AppColors.primary)),
+                      '${(_tenure * 12).toStringAsFixed(0)} EMIs',
+                      style: TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w600,
+                        color: AppColors.primary,
+                      ),
+                    ),
                   ],
                 ),
               ],
@@ -391,8 +422,7 @@ class _EmiCalculatorWidgetState extends State<EmiCalculatorWidget>
     );
   }
 
-  Widget _buildLegend(
-      String label, String amount, String pct, Color color) {
+  Widget _buildLegend(String label, String amount, String pct, Color color) {
     return Expanded(
       child: Container(
         padding: const EdgeInsets.all(12),
@@ -407,29 +437,41 @@ class _EmiCalculatorWidgetState extends State<EmiCalculatorWidget>
             Row(
               children: [
                 Container(
-                    width: 10,
-                    height: 10,
-                    decoration: BoxDecoration(
-                        color: color, shape: BoxShape.circle)),
+                  width: 10,
+                  height: 10,
+                  decoration: BoxDecoration(
+                    color: color,
+                    shape: BoxShape.circle,
+                  ),
+                ),
                 const SizedBox(width: 6),
-                Text(label,
-                    style: TextStyle(
-                        fontSize: 11,
-                        fontWeight: FontWeight.w500,
-                        color: AppColors.textSecondary)),
+                Text(
+                  label,
+                  style: TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w500,
+                    color: AppColors.textSecondary,
+                  ),
+                ),
               ],
             ),
             const SizedBox(height: 6),
-            Text(amount,
-                style: TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w700,
-                    color: AppColors.textPrimary)),
-            Text(pct,
-                style: TextStyle(
-                    fontSize: 11,
-                    fontWeight: FontWeight.w600,
-                    color: color)),
+            Text(
+              amount,
+              style: TextStyle(
+                fontSize: 14,
+                fontWeight: FontWeight.w700,
+                color: AppColors.textPrimary,
+              ),
+            ),
+            Text(
+              pct,
+              style: TextStyle(
+                fontSize: 11,
+                fontWeight: FontWeight.w600,
+                color: color,
+              ),
+            ),
           ],
         ),
       ),
@@ -454,24 +496,33 @@ class _EmiCalculatorWidgetState extends State<EmiCalculatorWidget>
               color: const Color(0xFFFEF3C7),
               borderRadius: BorderRadius.circular(10),
             ),
-            child: const Icon(Icons.lightbulb_outline_rounded,
-                size: 18, color: Color(0xFFF59E0B)),
+            child: const Icon(
+              Icons.lightbulb_outline_rounded,
+              size: 18,
+              color: Color(0xFFF59E0B),
+            ),
           ),
           const SizedBox(width: 12),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text('Affordability Tip',
-                    style: TextStyle(
-                        fontSize: 13,
-                        fontWeight: FontWeight.w700,
-                        color: const Color(0xFF92400E))),
+                Text(
+                  'Affordability Tip',
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w700,
+                    color: const Color(0xFF92400E),
+                  ),
+                ),
                 const SizedBox(height: 4),
                 Text(
                   'For this EMI, a monthly income of ${_formatCurrency(monthlyIncomeNeeded)} is recommended (using the 40% EMI-to-income rule).',
                   style: const TextStyle(
-                      fontSize: 12, color: Color(0xFF78350F), height: 1.5),
+                    fontSize: 12,
+                    color: Color(0xFF78350F),
+                    height: 1.5,
+                  ),
                 ),
               ],
             ),

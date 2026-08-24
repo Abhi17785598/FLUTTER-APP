@@ -18,12 +18,41 @@ const String kProfileOrigin = 'https://propcid.com';
 /// reproduces the web result for the characters that realistically appear in
 /// names.
 const Map<String, String> _accentFolding = {
-  'à': 'a', 'á': 'a', 'â': 'a', 'ã': 'a', 'ä': 'a', 'å': 'a', 'ā': 'a',
-  'è': 'e', 'é': 'e', 'ê': 'e', 'ë': 'e', 'ē': 'e',
-  'ì': 'i', 'í': 'i', 'î': 'i', 'ï': 'i', 'ī': 'i',
-  'ò': 'o', 'ó': 'o', 'ô': 'o', 'õ': 'o', 'ö': 'o', 'ø': 'o', 'ō': 'o',
-  'ù': 'u', 'ú': 'u', 'û': 'u', 'ü': 'u', 'ū': 'u',
-  'ñ': 'n', 'ç': 'c', 'ý': 'y', 'ÿ': 'y', 'š': 's', 'ž': 'z',
+  'à': 'a',
+  'á': 'a',
+  'â': 'a',
+  'ã': 'a',
+  'ä': 'a',
+  'å': 'a',
+  'ā': 'a',
+  'è': 'e',
+  'é': 'e',
+  'ê': 'e',
+  'ë': 'e',
+  'ē': 'e',
+  'ì': 'i',
+  'í': 'i',
+  'î': 'i',
+  'ï': 'i',
+  'ī': 'i',
+  'ò': 'o',
+  'ó': 'o',
+  'ô': 'o',
+  'õ': 'o',
+  'ö': 'o',
+  'ø': 'o',
+  'ō': 'o',
+  'ù': 'u',
+  'ú': 'u',
+  'û': 'u',
+  'ü': 'u',
+  'ū': 'u',
+  'ñ': 'n',
+  'ç': 'c',
+  'ý': 'y',
+  'ÿ': 'y',
+  'š': 's',
+  'ž': 'z',
 };
 
 /// Lowercase, accent-folded, alphanumerics only, capped at 40 characters.
@@ -38,8 +67,7 @@ String profileSlug(String? value) {
     folded.write(_accentFolding[char] ?? char);
   }
 
-  final cleaned =
-      folded.toString().replaceAll(RegExp(r'[^a-z0-9]+'), '');
+  final cleaned = folded.toString().replaceAll(RegExp(r'[^a-z0-9]+'), '');
 
   return cleaned.length <= 40 ? cleaned : cleaned.substring(0, 40);
 }
@@ -47,11 +75,7 @@ String profileSlug(String? value) {
 /// Canonical profile path, mirroring `profilePath`:
 /// `/profile/{role}/{nameSlug}/{userId}`, with the documented fallbacks when
 /// the role or name is unknown.
-String profilePath({
-  required String? userId,
-  String? name,
-  String? role,
-}) {
+String profilePath({required String? userId, String? name, String? role}) {
   if (userId == null || userId.isEmpty) return '/profile';
 
   final roleSeg = profileSlug(role);
@@ -60,17 +84,11 @@ String profilePath({
   if (roleSeg.isNotEmpty) {
     return '/profile/$roleSeg/${nameSlug.isEmpty ? 'user' : nameSlug}/$userId';
   }
-  return nameSlug.isEmpty
-      ? '/profile/$userId'
-      : '/profile/$userId/$nameSlug';
+  return nameSlug.isEmpty ? '/profile/$userId' : '/profile/$userId/$nameSlug';
 }
 
 /// Absolute, shareable profile URL.
-String profileShareUrl({
-  required String? userId,
-  String? name,
-  String? role,
-}) =>
+String profileShareUrl({required String? userId, String? name, String? role}) =>
     '$kProfileOrigin${profilePath(userId: userId, name: name, role: role)}';
 
 /// Lowercase, hyphenated, ASCII slug — a 1:1 port of `toSlug` in
@@ -100,8 +118,8 @@ String seoSlug(String? text) {
 /// Absolute URL for a property detail page — `propertyPath` in `seoSlug.ts`.
 String propertyShareUrl(String id, {String? title}) =>
     title == null || title.isEmpty
-        ? '$kProfileOrigin/property/$id'
-        : '$kProfileOrigin/property/$id/${seoSlug(title)}';
+    ? '$kProfileOrigin/property/$id'
+    : '$kProfileOrigin/property/$id/${seoSlug(title)}';
 
 /// Where the portal points the reels feed. `App.tsx:208`.
 const String kReelsFeedPath = '/property-reels';

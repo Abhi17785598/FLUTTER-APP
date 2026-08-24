@@ -62,7 +62,9 @@ class ProfileSocialMedia {
 
   const ProfileSocialMedia(this.raw);
 
-  static const ProfileSocialMedia empty = ProfileSocialMedia(<String, dynamic>{});
+  static const ProfileSocialMedia empty = ProfileSocialMedia(
+    <String, dynamic>{},
+  );
 
   factory ProfileSocialMedia.fromValue(dynamic value) {
     if (value is Map) {
@@ -79,16 +81,19 @@ class ProfileSocialMedia {
   // EditProfile.tsx:190 reads `facebook_page_link || facebook`. Display order
   // wins, both are consulted.
 
-  String? get facebook => _firstText([raw['facebook'], raw['facebook_page_link']]);
+  String? get facebook =>
+      _firstText([raw['facebook'], raw['facebook_page_link']]);
   String? get instagram =>
       _firstText([raw['instagram'], raw['instagram_username']]);
   String? get linkedin =>
       _firstText([raw['linkedin'], raw['linkedin_profile_url']]);
-  String? get youtube => _firstText([raw['youtube'], raw['youtube_channel_link']]);
+  String? get youtube =>
+      _firstText([raw['youtube'], raw['youtube_channel_link']]);
   String? get whatsapp => _firstText([raw['whatsapp'], raw['whatsapp_number']]);
   String? get telegram =>
       _firstText([raw['telegram'], raw['telegram_channel_link']]);
-  String? get twitter => _firstText([raw['twitter'], raw['twitter_profile_url']]);
+  String? get twitter =>
+      _firstText([raw['twitter'], raw['twitter_profile_url']]);
 
   // ── Personal ──────────────────────────────────────────────────────────────
 
@@ -153,7 +158,8 @@ class ProfileSocialMedia {
   String? get reraCertificateUrl => _firstText([raw['rera_certificate_url']]);
   String? get gstCertificateUrl => _firstText([raw['gst_certificate_url']]);
   String? get panCardUrl => _firstText([raw['pan_card_url']]);
-  String? get registrationProofUrl => _firstText([raw['registration_proof_url']]);
+  String? get registrationProofUrl =>
+      _firstText([raw['registration_proof_url']]);
   String? get aadhaarCardUrl => _firstText([raw['aadhaar_card_url']]);
 
   /// True when any social handle is set — drives whether the profile's social
@@ -414,8 +420,7 @@ class UserProfile {
 
   /// `office_address || city || work_city` — UserProfile.tsx:1540. Unlike the
   /// phone and email, the address is public.
-  String? get effectiveAddress =>
-      _firstText([officeAddress, city, workCity]);
+  String? get effectiveAddress => _firstText([officeAddress, city, workCity]);
 
   /// `years_experience || years_of_experience`, then the `social_media` copy the
   /// influencer save path writes.
@@ -424,9 +429,11 @@ class UserProfile {
   /// which is what the portal does. Use [hasExperienceField] to decide whether
   /// to render the row at all — the portal gates on `!== undefined`, so a
   /// genuine 0 still shows a row.
-  int? get effectiveExperience => _firstNumber(
-        [yearsExperience, yearsOfExperience, socialMedia.yearsOfExperience],
-      )?.toInt();
+  int? get effectiveExperience => _firstNumber([
+    yearsExperience,
+    yearsOfExperience,
+    socialMedia.yearsOfExperience,
+  ])?.toInt();
 
   /// Presence test matching the portal's `!== undefined` row gate
   /// (UserProfile.tsx:1101), which is *not* the same as [effectiveExperience]
@@ -471,8 +478,11 @@ class UserProfile {
   /// convention in capping at two.
   String get initials {
     final source = displayTitle ?? '';
-    final words =
-        source.trim().split(RegExp(r'\s+')).where((w) => w.isNotEmpty).toList();
+    final words = source
+        .trim()
+        .split(RegExp(r'\s+'))
+        .where((w) => w.isNotEmpty)
+        .toList();
     if (words.isEmpty) return 'U';
     final letters = words.take(2).map((w) => w[0].toUpperCase()).join();
     return letters.isEmpty ? 'U' : letters;
@@ -547,8 +557,5 @@ DateTime? _asDate(dynamic value) {
 /// dropped so a caller never renders an empty chip.
 List<String> _asStringList(dynamic value) {
   if (value is! List) return const [];
-  return value
-      .map((e) => _text(e))
-      .whereType<String>()
-      .toList(growable: false);
+  return value.map((e) => _text(e)).whereType<String>().toList(growable: false);
 }

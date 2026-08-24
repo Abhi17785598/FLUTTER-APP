@@ -57,12 +57,12 @@ class BuilderOfferDraft {
   /// only — the update path never touches it, so an offer a builder later
   /// deactivated is not silently reactivated by an edit.
   Map<String, dynamic> toPayload({required bool isCreate}) => {
-        'offer_title': title,
-        'offer_description': description,
-        'offer_media_urls': mediaUrls,
-        'offer_video_url': videoUrl,
-        if (isCreate) 'status': 'active',
-      };
+    'offer_title': title,
+    'offer_description': description,
+    'offer_media_urls': mediaUrls,
+    'offer_video_url': videoUrl,
+    if (isCreate) 'status': 'active',
+  };
 }
 
 /// Title, description, images and an optional video.
@@ -102,8 +102,9 @@ class _BuilderOfferEditorSheetState extends State<BuilderOfferEditorSheet> {
   late final ImagePicker _picker = widget.picker ?? ImagePicker();
 
   late final _title = TextEditingController(text: widget.editing?.title ?? '');
-  late final _description =
-      TextEditingController(text: widget.editing?.description ?? '');
+  late final _description = TextEditingController(
+    text: widget.editing?.description ?? '',
+  );
 
   /// Every image the builder may attach — the project's own plus anything freshly
   /// uploaded, deduplicated the way the portal's `uniqueImages` is.
@@ -265,15 +266,18 @@ class _BuilderOfferEditorSheetState extends State<BuilderOfferEditorSheet> {
                   ),
                   child: Text(
                     _error!,
-                    style:
-                        AppTextStyles.caption.copyWith(color: AppColors.error),
+                    style: AppTextStyles.caption.copyWith(
+                      color: AppColors.error,
+                    ),
                   ),
                 ),
                 const SizedBox(height: 14),
               ],
 
-              Text('Offer Title *',
-                  style: AppTextStyles.body.copyWith(fontSize: 12.5)),
+              Text(
+                'Offer Title *',
+                style: AppTextStyles.body.copyWith(fontSize: 12.5),
+              ),
               const SizedBox(height: 5),
               TextField(
                 controller: _title,
@@ -284,8 +288,10 @@ class _BuilderOfferEditorSheetState extends State<BuilderOfferEditorSheet> {
               ),
               const SizedBox(height: 14),
 
-              Text('Description',
-                  style: AppTextStyles.body.copyWith(fontSize: 12.5)),
+              Text(
+                'Description',
+                style: AppTextStyles.body.copyWith(fontSize: 12.5),
+              ),
               const SizedBox(height: 5),
               TextField(
                 controller: _description,
@@ -304,8 +310,10 @@ class _BuilderOfferEditorSheetState extends State<BuilderOfferEditorSheet> {
                   ),
                   TextButton.icon(
                     onPressed: _uploading ? null : _addImage,
-                    icon: const Icon(Icons.add_photo_alternate_outlined,
-                        size: 16),
+                    icon: const Icon(
+                      Icons.add_photo_alternate_outlined,
+                      size: 16,
+                    ),
                     label: const Text('Upload'),
                   ),
                 ],
@@ -345,8 +353,9 @@ class _BuilderOfferEditorSheetState extends State<BuilderOfferEditorSheet> {
                       onPressed: _uploading
                           ? null
                           : () => setState(() => _videoUrl = null),
-                      style:
-                          TextButton.styleFrom(foregroundColor: AppColors.error),
+                      style: TextButton.styleFrom(
+                        foregroundColor: AppColors.error,
+                      ),
                       child: const Text('Remove'),
                     ),
                   TextButton.icon(
@@ -373,8 +382,9 @@ class _BuilderOfferEditorSheetState extends State<BuilderOfferEditorSheet> {
                 children: [
                   Expanded(
                     child: OutlinedButton(
-                      onPressed:
-                          _uploading ? null : () => Navigator.pop(context),
+                      onPressed: _uploading
+                          ? null
+                          : () => Navigator.pop(context),
                       child: const Text('Cancel'),
                     ),
                   ),
@@ -399,19 +409,18 @@ class _BuilderOfferEditorSheetState extends State<BuilderOfferEditorSheet> {
   }
 
   InputDecoration _decoration(String hint) => InputDecoration(
-        hintText: hint,
-        isDense: true,
-        contentPadding:
-            const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-        border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(10),
-          borderSide: const BorderSide(color: AppColors.hairline),
-        ),
-        enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(10),
-          borderSide: const BorderSide(color: AppColors.hairline),
-        ),
-      );
+    hintText: hint,
+    isDense: true,
+    contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+    border: OutlineInputBorder(
+      borderRadius: BorderRadius.circular(10),
+      borderSide: const BorderSide(color: AppColors.hairline),
+    ),
+    enabledBorder: OutlineInputBorder(
+      borderRadius: BorderRadius.circular(10),
+      borderSide: const BorderSide(color: AppColors.hairline),
+    ),
+  );
 }
 
 /// One selectable image, ticked when included in the offer.
@@ -439,8 +448,9 @@ class _ImageTile extends StatelessWidget {
         child: Stack(
           children: [
             ClipRRect(
-              borderRadius:
-                  BorderRadius.circular(AppConstants.imageThumbnailRadius),
+              borderRadius: BorderRadius.circular(
+                AppConstants.imageThumbnailRadius,
+              ),
               child: Container(
                 width: _size,
                 height: _size,
@@ -465,8 +475,7 @@ class _ImageTile extends StatelessWidget {
                     shape: BoxShape.circle,
                   ),
                   padding: const EdgeInsets.all(2),
-                  child: const Icon(Icons.check,
-                      size: 11, color: Colors.white),
+                  child: const Icon(Icons.check, size: 11, color: Colors.white),
                 ),
               ),
           ],

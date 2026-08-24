@@ -4,6 +4,7 @@ import '../core/constants/app_constants.dart';
 import '../core/theme/app_colors.dart';
 import '../core/theme/app_text_styles.dart';
 import '../models/property_model.dart';
+import 'round_icon_button.dart';
 import 'verified_badge.dart';
 
 /// Same proxy threshold used for the Home "Luxury Collection" rail — kept in
@@ -16,6 +17,11 @@ class PropertyCardVertical extends StatelessWidget {
   final VoidCallback? onTap;
   final VoidCallback? onFavoriteToggle;
 
+  /// Opt-in, same convention as [onFavoriteToggle]: only rendered when a
+  /// caller supplies it, so screens that don't wire Compare are unaffected.
+  final VoidCallback? onCompareToggle;
+  final bool isInCompare;
+
   /// Optional size override so a rail can render a visibly larger "step up"
   /// card (e.g. Luxury Collection) without a second, near-duplicate widget.
   /// Defaults match the standard rail sizing everywhere else.
@@ -27,6 +33,8 @@ class PropertyCardVertical extends StatelessWidget {
     required this.property,
     this.onTap,
     this.onFavoriteToggle,
+    this.onCompareToggle,
+    this.isInCompare = false,
     double? width,
     double? imageHeight,
   }) : width = width ?? AppConstants.propertyCardWidth,
@@ -96,25 +104,46 @@ class PropertyCardVertical extends StatelessWidget {
                 Positioned(
                   top: 8,
                   right: 8,
-                  child: GestureDetector(
-                    onTap: onFavoriteToggle,
-                    child: Container(
-                      width: 36,
-                      height: 36,
-                      decoration: const BoxDecoration(
-                        color: Colors.white,
-                        shape: BoxShape.circle,
+                  child: Row(
+                    children: [
+                      if (onCompareToggle != null) ...[
+                        RoundIconButton(
+                          size: 36,
+                          iconSize: 20,
+                          onTap: onCompareToggle,
+                          icon: isInCompare
+                              ? Icons.check_circle
+                              : Icons.compare_arrows_rounded,
+                          color: isInCompare
+                              ? AppColors.primary
+                              : AppColors.textSecondary,
+                          semanticLabel: isInCompare
+                              ? 'Remove from compare'
+                              : 'Add to compare',
+                        ),
+                        const SizedBox(width: 6),
+                      ],
+                      GestureDetector(
+                        onTap: onFavoriteToggle,
+                        child: Container(
+                          width: 36,
+                          height: 36,
+                          decoration: const BoxDecoration(
+                            color: Colors.white,
+                            shape: BoxShape.circle,
+                          ),
+                          child: Icon(
+                            property.isShortlisted
+                                ? Icons.favorite
+                                : Icons.favorite_border,
+                            color: property.isShortlisted
+                                ? Colors.red
+                                : AppColors.textSecondary,
+                            size: 20,
+                          ),
+                        ),
                       ),
-                      child: Icon(
-                        property.isShortlisted
-                            ? Icons.favorite
-                            : Icons.favorite_border,
-                        color: property.isShortlisted
-                            ? Colors.red
-                            : AppColors.textSecondary,
-                        size: 20,
-                      ),
-                    ),
+                    ],
                   ),
                 ),
                 Positioned(

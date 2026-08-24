@@ -86,11 +86,12 @@ class _MessageComposerState extends State<MessageComposer> {
     if (!mounted) return;
     if (error != null) {
       _controller.text = text;
-      _controller.selection =
-          TextSelection.collapsed(offset: _controller.text.length);
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(error)),
+      _controller.selection = TextSelection.collapsed(
+        offset: _controller.text.length,
       );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(error)));
     }
   }
 
@@ -145,14 +146,19 @@ class _MessageComposerState extends State<MessageComposer> {
                   ],
                   Expanded(
                     child: Container(
-                      constraints:
-                          const BoxConstraints(minHeight: 40, maxHeight: 100),
-                      padding:
-                          const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
+                      constraints: const BoxConstraints(
+                        minHeight: 40,
+                        maxHeight: 100,
+                      ),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 14,
+                        vertical: 9,
+                      ),
                       decoration: BoxDecoration(
                         color: AppColors.background,
-                        borderRadius:
-                            BorderRadius.circular(AppConstants.pillRadius),
+                        borderRadius: BorderRadius.circular(
+                          AppConstants.pillRadius,
+                        ),
                       ),
                       alignment: Alignment.centerLeft,
                       child: TextField(
@@ -163,7 +169,10 @@ class _MessageComposerState extends State<MessageComposer> {
                         textCapitalization: TextCapitalization.sentences,
                         textInputAction: TextInputAction.send,
                         onSubmitted: (_) => _submit(),
-                        style: AppTextStyles.body.copyWith(fontSize: 13, height: 1.3),
+                        style: AppTextStyles.body.copyWith(
+                          fontSize: 13,
+                          height: 1.3,
+                        ),
                         // `isCollapsed` is the important bit: it's what tells
                         // Material's InputDecorator to skip the ambient
                         // InputDecorationTheme's own padding/border reservations
@@ -228,8 +237,9 @@ class _MessageComposerState extends State<MessageComposer> {
                                 ? AppColors.primary
                                 : AppColors.primary.withValues(alpha: 0.4),
                             shape: BoxShape.circle,
-                            boxShadow:
-                                canSend ? AppColors.primaryActionShadow : null,
+                            boxShadow: canSend
+                                ? AppColors.primaryActionShadow
+                                : null,
                           ),
                           child: widget.sending
                               ? const Padding(
@@ -241,8 +251,11 @@ class _MessageComposerState extends State<MessageComposer> {
                                     ),
                                   ),
                                 )
-                              : const Icon(Icons.send,
-                                  size: 18, color: Colors.white),
+                              : const Icon(
+                                  Icons.send,
+                                  size: 18,
+                                  color: Colors.white,
+                                ),
                         ),
                       ),
                     ),

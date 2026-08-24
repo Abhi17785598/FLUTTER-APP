@@ -40,15 +40,16 @@ class PlaceDetailsResult {
 
 class PlacesAutocompleteService {
   PlacesAutocompleteService({http.Client? client})
-      : _apiKey = dotenv.env['GOOGLE_MAPS_API_KEY'] ?? '',
-        _client = client ?? http.Client();
+    : _apiKey = dotenv.env['GOOGLE_MAPS_API_KEY'] ?? '',
+      _client = client ?? http.Client();
 
   final String _apiKey;
   final http.Client _client;
 
   static const String _autocompleteEndpoint =
       'https://places.googleapis.com/v1/places:autocomplete';
-  static const String _detailsEndpointBase = 'https://places.googleapis.com/v1/places';
+  static const String _detailsEndpointBase =
+      'https://places.googleapis.com/v1/places';
   static const Duration _timeout = Duration(seconds: 8);
 
   /// Predictions for [input], biased to India — matching the portal's
@@ -76,7 +77,9 @@ class PlacesAutocompleteService {
           .timeout(_timeout);
 
       if (response.statusCode != 200) {
-        debugPrint('PlacesAutocompleteService: request failed (${response.statusCode}).');
+        debugPrint(
+          'PlacesAutocompleteService: request failed (${response.statusCode}).',
+        );
         return const [];
       }
 
@@ -88,10 +91,12 @@ class PlacesAutocompleteService {
       final predictions = <PlacePrediction>[];
       for (final raw in suggestions) {
         final prediction =
-            (raw as Map<String, dynamic>)['placePrediction'] as Map<String, dynamic>?;
+            (raw as Map<String, dynamic>)['placePrediction']
+                as Map<String, dynamic>?;
         if (prediction == null) continue;
         final placeId = prediction['placeId'] as String?;
-        final text = (prediction['text'] as Map<String, dynamic>?)?['text'] as String?;
+        final text =
+            (prediction['text'] as Map<String, dynamic>?)?['text'] as String?;
         if (placeId == null || text == null) continue;
         predictions.add(PlacePrediction(placeId: placeId, description: text));
       }
@@ -110,16 +115,20 @@ class PlacesAutocompleteService {
     if (_apiKey.isEmpty) return null;
 
     try {
-      final response = await _client.get(
-        Uri.parse('$_detailsEndpointBase/$placeId'),
-        headers: {
-          'X-Goog-Api-Key': _apiKey,
-          'X-Goog-FieldMask': 'location,addressComponents,formattedAddress',
-        },
-      ).timeout(_timeout);
+      final response = await _client
+          .get(
+            Uri.parse('$_detailsEndpointBase/$placeId'),
+            headers: {
+              'X-Goog-Api-Key': _apiKey,
+              'X-Goog-FieldMask': 'location,addressComponents,formattedAddress',
+            },
+          )
+          .timeout(_timeout);
 
       if (response.statusCode != 200) {
-        debugPrint('PlacesAutocompleteService: details request failed (${response.statusCode}).');
+        debugPrint(
+          'PlacesAutocompleteService: details request failed (${response.statusCode}).',
+        );
         return null;
       }
 
@@ -131,7 +140,8 @@ class PlacesAutocompleteService {
       final lng = (location?['longitude'] as num?)?.toDouble();
       if (lat == null || lng == null) return null;
 
-      final components = (decoded['addressComponents'] as List<dynamic>?) ?? const [];
+      final components =
+          (decoded['addressComponents'] as List<dynamic>?) ?? const [];
 
       String? locality;
       String? adminArea2;
@@ -163,15 +173,20 @@ class PlacesAutocompleteService {
           state = longText;
         } else if (types.contains('postal_code')) {
           pincode = longText;
-        } else if (types.contains('point_of_interest') || types.contains('establishment')) {
+        } else if (types.contains('point_of_interest') ||
+            types.contains('establishment')) {
           landmark = longText;
         } else if (types.contains('route') || types.contains('street_number')) {
-          addressLine1 = addressLine1 == null ? longText : '$addressLine1 $longText';
+          addressLine1 = addressLine1 == null
+              ? longText
+              : '$addressLine1 $longText';
         }
       }
 
       final city = locality ?? postalTown ?? adminArea3 ?? adminArea2;
-      addressLine1 ??= (decoded['formattedAddress'] as String?)?.split(',').first;
+      addressLine1 ??= (decoded['formattedAddress'] as String?)
+          ?.split(',')
+          .first;
 
       return PlaceDetailsResult(
         address: GeocodedAddress(

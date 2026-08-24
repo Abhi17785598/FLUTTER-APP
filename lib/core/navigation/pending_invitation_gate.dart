@@ -51,8 +51,9 @@ class _PendingInvitationGateState extends State<PendingInvitationGate> {
       _hasFired = true;
 
       WidgetsBinding.instance.addPostFrameCallback((_) {
-        appNavigatorKey.currentState
-            ?.pushNamed(AppConstants.pendingInvitationScreen);
+        appNavigatorKey.currentState?.pushNamed(
+          AppConstants.pendingInvitationScreen,
+        );
       });
     }
 

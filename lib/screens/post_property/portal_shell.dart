@@ -16,29 +16,29 @@ import 'portal_theme.dart';
 /// Step icons, from the `icon` on each entry of `stepsRaw` — the real lucide
 /// artwork, not Material equivalents.
 String portalStepIcon(WizardStep step) => switch (step) {
-      WizardStep.category => PortalStepIcons.category,
-      WizardStep.basicInfo => PortalStepIcons.basicInfo,
-      WizardStep.dimensions => PortalStepIcons.dimensions,
-      WizardStep.condition => PortalStepIcons.condition,
-      WizardStep.amenities => PortalStepIcons.amenities,
-      WizardStep.legal => PortalStepIcons.legal,
-      WizardStep.pricing => PortalStepIcons.pricing,
-      WizardStep.media => PortalStepIcons.media,
-      WizardStep.review => PortalStepIcons.review,
-    };
+  WizardStep.category => PortalStepIcons.category,
+  WizardStep.basicInfo => PortalStepIcons.basicInfo,
+  WizardStep.dimensions => PortalStepIcons.dimensions,
+  WizardStep.condition => PortalStepIcons.condition,
+  WizardStep.amenities => PortalStepIcons.amenities,
+  WizardStep.legal => PortalStepIcons.legal,
+  WizardStep.pricing => PortalStepIcons.pricing,
+  WizardStep.media => PortalStepIcons.media,
+  WizardStep.review => PortalStepIcons.review,
+};
 
 /// Step titles as the portal's `stepsRaw` names them.
 String portalStepTitle(WizardStep step) => switch (step) {
-      WizardStep.category => 'Category',
-      WizardStep.basicInfo => 'Basic Info',
-      WizardStep.dimensions => 'Dimensions',
-      WizardStep.condition => 'Condition',
-      WizardStep.amenities => 'Amenities',
-      WizardStep.legal => 'Legal',
-      WizardStep.pricing => 'Pricing',
-      WizardStep.media => 'Media',
-      WizardStep.review => 'Review',
-    };
+  WizardStep.category => 'Category',
+  WizardStep.basicInfo => 'Basic Info',
+  WizardStep.dimensions => 'Dimensions',
+  WizardStep.condition => 'Condition',
+  WizardStep.amenities => 'Amenities',
+  WizardStep.legal => 'Legal',
+  WizardStep.pricing => 'Pricing',
+  WizardStep.media => 'Media',
+  WizardStep.review => 'Review',
+};
 
 /// One row of the stepper: what it is called, and which lucide glyph it shows.
 ///
@@ -57,10 +57,8 @@ class PortalStepInfo {
   final String icon;
 
   /// The descriptor for a listing wizard step.
-  factory PortalStepInfo.fromWizardStep(WizardStep step) => PortalStepInfo(
-        title: portalStepTitle(step),
-        icon: portalStepIcon(step),
-      );
+  factory PortalStepInfo.fromWizardStep(WizardStep step) =>
+      PortalStepInfo(title: portalStepTitle(step), icon: portalStepIcon(step));
 }
 
 /// The "Progress" card: heading with a circular percentage ring, then the
@@ -127,8 +125,11 @@ class PortalProgressCard extends StatelessWidget {
           // Header row: "Progress" + ring, with a bottom rule.
           Row(
             children: [
-              const PortalIcon('file-text',
-                  size: 22, color: PortalTheme.accent),
+              const PortalIcon(
+                'file-text',
+                size: 22,
+                color: PortalTheme.accent,
+              ),
               const SizedBox(width: 10), // gap-2.5
               Expanded(
                 child: compact
@@ -281,21 +282,21 @@ class _StepperRow extends StatelessWidget {
     final Color nodeBg = isCompleted
         ? PortalTheme.success
         : isActive
-            ? PortalTheme.accent
-            : PortalTheme.cardSurface;
+        ? PortalTheme.accent
+        : PortalTheme.cardSurface;
     final Color nodeBorder = isCompleted
         ? PortalTheme.success
         : isActive
-            ? PortalTheme.accent
-            : PortalTheme.slate200;
+        ? PortalTheme.accent
+        : PortalTheme.slate200;
     final Color nodeFg = (isCompleted || isActive)
         ? Colors.white
         : PortalTheme.slate400;
     final Color titleColor = isActive
         ? PortalTheme.accent
         : isCompleted
-            ? PortalTheme.success
-            : PortalTheme.slate600;
+        ? PortalTheme.success
+        : PortalTheme.slate600;
 
     return IntrinsicHeight(
       child: Row(
@@ -310,7 +311,8 @@ class _StepperRow extends StatelessWidget {
                   width: 40,
                   height: 40,
                   transform: isActive
-                      ? (Matrix4.identity()..scaleByDouble(1.05, 1.05, 1.05, 1.0))
+                      ? (Matrix4.identity()
+                          ..scaleByDouble(1.05, 1.05, 1.05, 1.0))
                       : Matrix4.identity(),
                   transformAlignment: Alignment.center,
                   decoration: BoxDecoration(
@@ -330,8 +332,7 @@ class _StepperRow extends StatelessWidget {
                   child: Center(
                     child: isCompleted
                         ? PortalIcon('check', size: 20, color: nodeFg)
-                        : PortalIcon(info.icon,
-                            size: 20, color: nodeFg),
+                        : PortalIcon(info.icon, size: 20, color: nodeFg),
                   ),
                 ),
               ),
@@ -352,11 +353,12 @@ class _StepperRow extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(info.title,
-                      style: PortalTheme.stepperTitle(titleColor)),
+                  Text(info.title, style: PortalTheme.stepperTitle(titleColor)),
                   const SizedBox(height: 2), // mt-0.5
-                  Text('Step ${index + 1} of $total',
-                      style: PortalTheme.stepperCounter),
+                  Text(
+                    'Step ${index + 1} of $total',
+                    style: PortalTheme.stepperCounter,
+                  ),
                 ],
               ),
             ),
@@ -401,11 +403,15 @@ class PortalWizardFooter extends StatelessWidget {
         height: 40, // h-10
         child: OutlinedButton.icon(
           onPressed: backDisabled ? null : onBack,
-          icon: const PortalIcon('arrow-left',
-              size: 18, color: PortalTheme.slate700),
-          label: Text('Back',
-              style: PortalTheme.navButton
-                  .copyWith(color: PortalTheme.slate700)),
+          icon: const PortalIcon(
+            'arrow-left',
+            size: 18,
+            color: PortalTheme.slate700,
+          ),
+          label: Text(
+            'Back',
+            style: PortalTheme.navButton.copyWith(color: PortalTheme.slate700),
+          ),
           style: OutlinedButton.styleFrom(
             foregroundColor: PortalTheme.slate700,
             side: BorderSide(color: PortalTheme.slate200),
@@ -472,58 +478,56 @@ class PortalWizardFooter extends StatelessWidget {
   }
 
   Widget _primaryButton() => isLastStep
-                  ? _GradientButton(
-                      // emerald-600 -> teal-600
-                      colors: const [
-                        PortalTheme.success,
-                        PortalTheme.successDark
-                      ],
-                      onPressed: isSubmitting ? null : onSubmit,
-                      child: isSubmitting
-                          ? Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                const SizedBox(
-                                  width: 16,
-                                  height: 16,
-                                  child: CircularProgressIndicator(
-                                      strokeWidth: 2, color: Colors.white),
-                                ),
-                                const SizedBox(width: 8),
-                                Text('Publishing...',
-                                    style: PortalTheme.navButton
-                                        .copyWith(color: Colors.white)),
-                              ],
-                            )
-                          : Text(
-                              isEditing ? 'Update Property' : 'Publish Listing',
-                              style: PortalTheme.navButton
-                                  .copyWith(color: Colors.white),
-                            ),
-                    )
-          : _GradientButton(
-              // The app's primary gradient.
-              colors: const [
-                PortalTheme.accent,
-                PortalTheme.accentGradientEnd
-              ],
-              onPressed: onContinue,
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Flexible(
-                    child: Text('Continue',
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: PortalTheme.navButton
-                            .copyWith(color: Colors.white)),
-                  ),
-                  const SizedBox(width: 8),
-                  const PortalIcon('arrow-right',
-                      size: 18, color: Colors.white),
-                ],
+      ? _GradientButton(
+          // emerald-600 -> teal-600
+          colors: const [PortalTheme.success, PortalTheme.successDark],
+          onPressed: isSubmitting ? null : onSubmit,
+          child: isSubmitting
+              ? Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const SizedBox(
+                      width: 16,
+                      height: 16,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: Colors.white,
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Text(
+                      'Publishing...',
+                      style: PortalTheme.navButton.copyWith(
+                        color: Colors.white,
+                      ),
+                    ),
+                  ],
+                )
+              : Text(
+                  isEditing ? 'Update Property' : 'Publish Listing',
+                  style: PortalTheme.navButton.copyWith(color: Colors.white),
+                ),
+        )
+      : _GradientButton(
+          // The app's primary gradient.
+          colors: const [PortalTheme.accent, PortalTheme.accentGradientEnd],
+          onPressed: onContinue,
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Flexible(
+                child: Text(
+                  'Continue',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: PortalTheme.navButton.copyWith(color: Colors.white),
+                ),
               ),
-            );
+              const SizedBox(width: 8),
+              const PortalIcon('arrow-right', size: 18, color: Colors.white),
+            ],
+          ),
+        );
 }
 
 class _GradientButton extends StatelessWidget {

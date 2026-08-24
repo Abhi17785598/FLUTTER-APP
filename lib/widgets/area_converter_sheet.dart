@@ -179,8 +179,9 @@ class _AreaConverterSheetState extends State<_AreaConverterSheet> {
                       flex: 5,
                       child: TextField(
                         controller: _fromController,
-                        keyboardType:
-                            const TextInputType.numberWithOptions(decimal: true),
+                        keyboardType: const TextInputType.numberWithOptions(
+                          decimal: true,
+                        ),
                         inputFormatters: [
                           FilteringTextInputFormatter.allow(
                             RegExp(r'^\d*\.?\d*'),
@@ -300,13 +301,13 @@ class _AreaConverterSheetState extends State<_AreaConverterSheet> {
   }
 
   Widget _label(String text) => Text(
-        text,
-        style: AppTextStyles.body.copyWith(
-          fontSize: 13,
-          fontWeight: FontWeight.w700,
-          color: AppColors.textSecondary,
-        ),
-      );
+    text,
+    style: AppTextStyles.body.copyWith(
+      fontSize: 13,
+      fontWeight: FontWeight.w700,
+      color: AppColors.textSecondary,
+    ),
+  );
 
   Widget _unitDropdown({
     required String value,
@@ -365,16 +366,16 @@ class SheetDragHandle extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Center(
-        child: Container(
-          width: _kHandleWidth,
-          height: _kHandleHeight,
-          margin: const EdgeInsets.only(bottom: 14),
-          decoration: BoxDecoration(
-            color: AppColors.hairline,
-            borderRadius: BorderRadius.circular(AppConstants.pillRadius),
-          ),
-        ),
-      );
+    child: Container(
+      width: _kHandleWidth,
+      height: _kHandleHeight,
+      margin: const EdgeInsets.only(bottom: 14),
+      decoration: BoxDecoration(
+        color: AppColors.hairline,
+        borderRadius: BorderRadius.circular(AppConstants.pillRadius),
+      ),
+    ),
+  );
 }
 
 /// Gradient icon badge + title + subtitle, the composition `QuickActionsSection`
@@ -410,10 +411,7 @@ class SheetToolHeader extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(
-                title,
-                style: AppTextStyles.heading3.copyWith(fontSize: 17),
-              ),
+              Text(title, style: AppTextStyles.heading3.copyWith(fontSize: 17)),
               const SizedBox(height: 1),
               Text(
                 subtitle,
@@ -461,9 +459,9 @@ InputDecoration sheetFieldDecoration({
   bool enabled = true,
 }) {
   OutlineInputBorder border(Color color, double width) => OutlineInputBorder(
-        borderRadius: BorderRadius.circular(_kFieldRadius),
-        borderSide: BorderSide(color: color, width: width),
-      );
+    borderRadius: BorderRadius.circular(_kFieldRadius),
+    borderSide: BorderSide(color: color, width: width),
+  );
 
   return InputDecoration(
     hintText: hint,

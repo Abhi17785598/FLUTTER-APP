@@ -54,8 +54,10 @@ class PaymentService {
           .invoke(function, body: body)
           .timeout(const Duration(seconds: 45));
       final data = response.data;
-      _log('← $function status=${response.status} '
-          'data=${data.runtimeType} keys=${data is Map ? data.keys.toList() : '-'}');
+      _log(
+        '← $function status=${response.status} '
+        'data=${data.runtimeType} keys=${data is Map ? data.keys.toList() : '-'}',
+      );
       if (data is Map && data['error'] != null) {
         throw data['error'].toString();
       }
@@ -64,7 +66,9 @@ class PaymentService {
       if (data is Map) return Map<String, dynamic>.from(data);
       return const <String, dynamic>{};
     } on FunctionException catch (e) {
-      _log('✗ $function FunctionException status=${e.status} details=${e.details}');
+      _log(
+        '✗ $function FunctionException status=${e.status} details=${e.details}',
+      );
       final message = e.details is Map ? e.details['error'] : null;
       throw message?.toString() ??
           'Could not reach the server. Please try again.';
@@ -215,17 +219,16 @@ class PaymentService {
   Future<Map<String, dynamic>> changePlan({
     required String planId,
     String? billingCycle,
-  }) =>
-      _invoke(
-        'manage-subscription',
-        body: {
-          'action': 'change_plan',
-          'planId': planId,
-          // Null-aware value: a null cycle omits the key entirely, which is
-          // what keeps the subscription's current cycle server-side.
-          'billingCycle': ?billingCycle,
-        },
-      );
+  }) => _invoke(
+    'manage-subscription',
+    body: {
+      'action': 'change_plan',
+      'planId': planId,
+      // Null-aware value: a null cycle omits the key entirely, which is
+      // what keeps the subscription's current cycle server-side.
+      'billingCycle': ?billingCycle,
+    },
+  );
 
   // ── Refunds, invoices, billing profile ────────────────────────────────────
 
@@ -236,11 +239,10 @@ class PaymentService {
   Future<Map<String, dynamic>> requestRefund({
     required String paymentId,
     required String reason,
-  }) =>
-      _invoke(
-        'refund-payment',
-        body: {'paymentId': paymentId, 'reason': reason},
-      );
+  }) => _invoke(
+    'refund-payment',
+    body: {'paymentId': paymentId, 'reason': reason},
+  );
 
   /// Fetches one invoice. `:543-544`.
   ///
@@ -256,8 +258,7 @@ class PaymentService {
   /// the user edited — and sending an unedited field back as null would clear it.
   Future<Map<String, dynamic>> updateBillingProfile(
     Map<String, dynamic> fields,
-  ) =>
-      _invoke('update-billing-profile', body: fields);
+  ) => _invoke('update-billing-profile', body: fields);
 }
 
 /// What `create-order` returns.
@@ -296,11 +297,11 @@ class PaymentOrder {
   double get displayAmount => amount / 100;
 
   static int _asInt(Object? value) => switch (value) {
-        final int v => v,
-        final num v => v.toInt(),
-        final String v => int.tryParse(v) ?? 0,
-        _ => 0,
-      };
+    final int v => v,
+    final num v => v.toInt(),
+    final String v => int.tryParse(v) ?? 0,
+    _ => 0,
+  };
 }
 
 /// What `create-order`'s `preview: true` mode returns — the same figures

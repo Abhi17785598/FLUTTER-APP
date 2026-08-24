@@ -55,14 +55,15 @@ enum InfluencerVideoFormResult { created, updated }
 /// no-op stub instead of the real dialog — which would otherwise open against
 /// a live `SocialService` and hang the test waiting for a tap that never
 /// comes, exactly like [videoService]/[mediaService]/[picker] below.
-typedef PublishDialogLauncher = Future<void> Function(
-  BuildContext context, {
-  required String userId,
-  required String contentType,
-  required String contentId,
-  required List<String> mediaUrls,
-  String? title,
-});
+typedef PublishDialogLauncher =
+    Future<void> Function(
+      BuildContext context, {
+      required String userId,
+      required String contentType,
+      required String contentId,
+      required List<String> mediaUrls,
+      String? title,
+    });
 
 class InfluencerVideoFormScreen extends StatefulWidget {
   const InfluencerVideoFormScreen({
@@ -170,8 +171,7 @@ class _InfluencerVideoFormScreenState extends State<InfluencerVideoFormScreen> {
   // ── Picking ─────────────────────────────────────────────────────────────
 
   Future<void> _pickVideo() async {
-    final XFile? picked =
-        await _picker.pickVideo(source: ImageSource.gallery);
+    final XFile? picked = await _picker.pickVideo(source: ImageSource.gallery);
     if (picked == null || !mounted) return;
     setState(() {
       _videoFile = picked;
@@ -288,8 +288,9 @@ class _InfluencerVideoFormScreenState extends State<InfluencerVideoFormScreen> {
 
       if (!mounted) return;
       if (createdId != null) {
-        final mediaUrls =
-            (thumbnailUrl?.isNotEmpty ?? false) ? [thumbnailUrl!] : const <String>[];
+        final mediaUrls = (thumbnailUrl?.isNotEmpty ?? false)
+            ? [thumbnailUrl!]
+            : const <String>[];
         await _publishDialogLauncher(
           context,
           userId: userId,
@@ -329,10 +330,10 @@ class _InfluencerVideoFormScreenState extends State<InfluencerVideoFormScreen> {
   }
 
   static String _message(Object error) => switch (error) {
-        InfluencerMediaException(:final message) => message,
-        InfluencerVideoException(:final message) => message,
-        _ => 'Could not save this video: $error',
-      };
+    InfluencerMediaException(:final message) => message,
+    InfluencerVideoException(:final message) => message,
+    _ => 'Could not save this video: $error',
+  };
 
   // ── Build ───────────────────────────────────────────────────────────────
 
@@ -384,7 +385,8 @@ class _InfluencerVideoFormScreenState extends State<InfluencerVideoFormScreen> {
                   PortalLabelledField(
                     label: 'Video',
                     required: true,
-                    helper: 'Compressed to 1080p before upload. '
+                    helper:
+                        'Compressed to 1080p before upload. '
                         'Maximum 50 MB after compression.',
                     child: _VideoPickerTile(
                       preview: _videoPreview,
@@ -396,7 +398,8 @@ class _InfluencerVideoFormScreenState extends State<InfluencerVideoFormScreen> {
                   const SizedBox(height: 14),
                   PortalLabelledField(
                     label: 'Thumbnail',
-                    helper: 'Optional. A frame from the video is used if you '
+                    helper:
+                        'Optional. A frame from the video is used if you '
                         'skip this.',
                     child: _ThumbnailPickerTile(
                       preview: _thumbnailPreview,
@@ -416,10 +419,7 @@ class _InfluencerVideoFormScreenState extends State<InfluencerVideoFormScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const PortalSectionDivider(
-                    icon: 'type',
-                    title: 'Video Type',
-                  ),
+                  const PortalSectionDivider(icon: 'type', title: 'Video Type'),
                   const SizedBox(height: 4),
                   // A radio list, not a Select. The portal's SelectItem rows carry
                   // a title and a description each (:47-50), and a dropdown that
@@ -457,7 +457,8 @@ class _InfluencerVideoFormScreenState extends State<InfluencerVideoFormScreen> {
                       hint: 'Give your video a title',
                       hasError: _issues.any((i) => i.contains('title')),
                       onChanged: (_) {
-                        if (_issues.isNotEmpty) setState(() => _issues = const []);
+                        if (_issues.isNotEmpty)
+                          setState(() => _issues = const []);
                       },
                     ),
                   ),
@@ -601,13 +602,15 @@ class _VideoPickerTileState extends State<_VideoPickerTile> {
     _controller = controller;
     controller
       ..setLooping(true)
-      ..initialize().then((_) {
-        if (mounted && _controller == controller) setState(() {});
-      }).catchError((_) {
-        if (mounted && _controller == controller) {
-          setState(() => _initFailed = true);
-        }
-      });
+      ..initialize()
+          .then((_) {
+            if (mounted && _controller == controller) setState(() {});
+          })
+          .catchError((_) {
+            if (mounted && _controller == controller) {
+              setState(() => _initFailed = true);
+            }
+          });
     previous?.dispose();
   }
 
@@ -697,26 +700,24 @@ class _VideoPickerTileState extends State<_VideoPickerTile> {
                         ],
                       )
                     : !widget.enabled
-                        ? const Center(
-                            child: Icon(
-                              Icons.videocam_outlined,
-                              color: Colors.white54,
-                              size: 32,
-                            ),
-                          )
-                        : _initFailed
-                            ? const Center(
-                                child: Icon(
-                                  Icons.videocam_off_outlined,
-                                  color: Colors.white70,
-                                  size: 32,
-                                ),
-                              )
-                            : const Center(
-                                child: CircularProgressIndicator(
-                                  color: Colors.white,
-                                ),
-                              ),
+                    ? const Center(
+                        child: Icon(
+                          Icons.videocam_outlined,
+                          color: Colors.white54,
+                          size: 32,
+                        ),
+                      )
+                    : _initFailed
+                    ? const Center(
+                        child: Icon(
+                          Icons.videocam_off_outlined,
+                          color: Colors.white70,
+                          size: 32,
+                        ),
+                      )
+                    : const Center(
+                        child: CircularProgressIndicator(color: Colors.white),
+                      ),
               ),
             ),
           ),
@@ -756,8 +757,9 @@ class _VideoPickerTileState extends State<_VideoPickerTile> {
                 ),
                 Text(
                   'Change',
-                  style:
-                      PortalTheme.helperText.copyWith(color: PortalTheme.accent),
+                  style: PortalTheme.helperText.copyWith(
+                    color: PortalTheme.accent,
+                  ),
                 ),
               ],
             ),
@@ -807,12 +809,10 @@ class _ThumbnailPickerTile extends StatelessWidget {
           ),
           child: Row(
             children: [
-              PortalIcon('image-plus',
-                  size: 20, color: PortalTheme.radioIdle),
+              PortalIcon('image-plus', size: 20, color: PortalTheme.radioIdle),
               const SizedBox(width: 12),
               Expanded(
-                child: Text('Choose a thumbnail',
-                    style: PortalTheme.inputText),
+                child: Text('Choose a thumbnail', style: PortalTheme.inputText),
               ),
             ],
           ),
@@ -840,8 +840,11 @@ class _ThumbnailPickerTile extends StatelessWidget {
                     errorBuilder: (_, _, _) => ColoredBox(
                       color: const Color(0xFFEEECF8),
                       child: Center(
-                        child: PortalIcon('image',
-                            size: 32, color: PortalTheme.radioIdle),
+                        child: PortalIcon(
+                          'image',
+                          size: 32,
+                          color: PortalTheme.radioIdle,
+                        ),
                       ),
                     ),
                   ),
@@ -944,8 +947,9 @@ class _SubmitBar extends StatelessWidget {
             style: ElevatedButton.styleFrom(
               backgroundColor: PortalTheme.accent,
               foregroundColor: Colors.white,
-              disabledBackgroundColor:
-                  PortalTheme.accent.withValues(alpha: 0.5),
+              disabledBackgroundColor: PortalTheme.accent.withValues(
+                alpha: 0.5,
+              ),
               disabledForegroundColor: Colors.white70,
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(8),

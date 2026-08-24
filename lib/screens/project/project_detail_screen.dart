@@ -306,10 +306,10 @@ class _ProjectDetailScreenState extends State<ProjectDetailScreen> {
                     onOpenBuilder: _builder == null
                         ? null
                         : () => Navigator.pushNamed(
-                              context,
-                              AppConstants.publicProfileScreen,
-                              arguments: {'userId': project.builderId},
-                            ),
+                            context,
+                            AppConstants.publicProfileScreen,
+                            arguments: {'userId': project.builderId},
+                          ),
                   ),
                   // Owner-only. Delete lives on the dashboard card, not here:
                   // deleting the row you are looking at would leave this screen
@@ -355,17 +355,17 @@ class _Shell extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Scaffold(
-        backgroundColor: AppColors.background,
-        appBar: AppBar(
-          backgroundColor: AppColors.background,
-          elevation: 0,
-          leading: IconButton(
-            icon: const Icon(Icons.arrow_back, color: AppColors.textPrimary),
-            onPressed: () => Navigator.of(context).maybePop(),
-          ),
-        ),
-        body: child,
-      );
+    backgroundColor: AppColors.background,
+    appBar: AppBar(
+      backgroundColor: AppColors.background,
+      elevation: 0,
+      leading: IconButton(
+        icon: const Icon(Icons.arrow_back, color: AppColors.textPrimary),
+        onPressed: () => Navigator.of(context).maybePop(),
+      ),
+    ),
+    body: child,
+  );
 }
 
 class _GalleryHeader extends StatefulWidget {
@@ -459,9 +459,8 @@ class _GalleryHeaderState extends State<_GalleryHeader> {
                 itemBuilder: (context, i) => CachedNetworkImage(
                   imageUrl: images[i],
                   fit: BoxFit.cover,
-                  placeholder: (_, _) => const ColoredBox(
-                    color: AppColors.primaryLight,
-                  ),
+                  placeholder: (_, _) =>
+                      const ColoredBox(color: AppColors.primaryLight),
                   errorWidget: (_, _, _) => const DecoratedBox(
                     decoration: BoxDecoration(gradient: AppColors.heroGradient),
                   ),
@@ -483,12 +482,15 @@ class _GalleryHeaderState extends State<_GalleryHeader> {
                 right: 12,
                 bottom: 12,
                 child: Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 9,
+                    vertical: 4,
+                  ),
                   decoration: BoxDecoration(
                     color: Colors.black.withValues(alpha: 0.55),
-                    borderRadius:
-                        BorderRadius.circular(AppConstants.pillRadius),
+                    borderRadius: BorderRadius.circular(
+                      AppConstants.pillRadius,
+                    ),
                   ),
                   child: Text(
                     '${_page + 1} / ${images.length}',
@@ -528,8 +530,11 @@ class _Header extends StatelessWidget {
         const SizedBox(height: 5),
         Row(
           children: [
-            const Icon(Icons.location_on_outlined, size: 14,
-                color: AppColors.textHint),
+            const Icon(
+              Icons.location_on_outlined,
+              size: 14,
+              color: AppColors.textHint,
+            ),
             const SizedBox(width: 4),
             Expanded(
               child: Text(
@@ -588,14 +593,17 @@ class _KeyFacts extends StatelessWidget {
 
     final facts = <(String, String)>[
       if (project.totalUnits > 0)
-        ('Units', '${project.availableUnits} of ${project.totalUnits} available'),
+        (
+          'Units',
+          '${project.availableUnits} of ${project.totalUnits} available',
+        ),
       if (project.hasAreaRange)
         (
           'Unit sizes',
           project.areaSqftMin == project.areaSqftMax
               ? '${project.areaSqftMax.toStringAsFixed(0)} sq ft'
               : '${project.areaSqftMin.toStringAsFixed(0)} – '
-                  '${project.areaSqftMax.toStringAsFixed(0)} sq ft'
+                    '${project.areaSqftMax.toStringAsFixed(0)} sq ft',
         ),
       if (dateLabel(project.completionDate) != null)
         ('Completion', dateLabel(project.completionDate)!),
@@ -691,7 +699,8 @@ class _ContactCard extends StatelessWidget {
                       shape: BoxShape.circle,
                     ),
                     child: ClipOval(
-                      child: builder!.avatarUrl == null ||
+                      child:
+                          builder!.avatarUrl == null ||
                               builder!.avatarUrl!.isEmpty
                           ? Center(
                               child: Text(
@@ -722,17 +731,17 @@ class _ContactCard extends StatelessWidget {
                       ),
                     ),
                   ),
-                  const Icon(Icons.chevron_right_rounded,
-                      size: 20, color: AppColors.textHint),
+                  const Icon(
+                    Icons.chevron_right_rounded,
+                    size: 20,
+                    color: AppColors.textHint,
+                  ),
                 ],
               ),
             ),
           if (project.contactNumber.isNotEmpty) ...[
             const SizedBox(height: 12),
-            _InfoRow(
-              icon: Icons.phone_outlined,
-              value: project.contactNumber,
-            ),
+            _InfoRow(icon: Icons.phone_outlined, value: project.contactNumber),
           ],
           if (project.websiteUrl.isNotEmpty) ...[
             const SizedBox(height: 10),
@@ -776,16 +785,13 @@ class _LayoutStrip extends StatelessWidget {
             width: 190,
             height: 130,
             fit: BoxFit.cover,
-            placeholder: (_, _) => Container(
-              width: 190,
-              color: AppColors.primaryLight,
-            ),
+            placeholder: (_, _) =>
+                Container(width: 190, color: AppColors.primaryLight),
             errorWidget: (_, _, _) => Container(
               width: 190,
               color: AppColors.primaryLight,
               alignment: Alignment.center,
-              child: const Icon(Icons.map_outlined,
-                  color: AppColors.primary),
+              child: const Icon(Icons.map_outlined, color: AppColors.primary),
             ),
           ),
         ),
@@ -828,10 +834,8 @@ class _SectionTitle extends StatelessWidget {
   final String text;
 
   @override
-  Widget build(BuildContext context) => Text(
-        text,
-        style: AppTextStyles.heading3.copyWith(fontSize: 15),
-      );
+  Widget build(BuildContext context) =>
+      Text(text, style: AppTextStyles.heading3.copyWith(fontSize: 15));
 }
 
 class _TypePill extends StatelessWidget {
@@ -841,20 +845,20 @@ class _TypePill extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Container(
-        padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
-        decoration: BoxDecoration(
-          color: AppColors.primaryLight,
-          borderRadius: BorderRadius.circular(AppConstants.pillRadius),
-        ),
-        child: Text(
-          label,
-          style: AppTextStyles.chip.copyWith(
-            fontSize: 10.5,
-            fontWeight: FontWeight.w700,
-            color: AppColors.primary,
-          ),
-        ),
-      );
+    padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
+    decoration: BoxDecoration(
+      color: AppColors.primaryLight,
+      borderRadius: BorderRadius.circular(AppConstants.pillRadius),
+    ),
+    child: Text(
+      label,
+      style: AppTextStyles.chip.copyWith(
+        fontSize: 10.5,
+        fontWeight: FontWeight.w700,
+        color: AppColors.primary,
+      ),
+    ),
+  );
 }
 
 class _WarnPill extends StatelessWidget {
@@ -864,20 +868,20 @@ class _WarnPill extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Container(
-        padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
-        decoration: BoxDecoration(
-          color: AppColors.warning.withValues(alpha: 0.14),
-          borderRadius: BorderRadius.circular(AppConstants.pillRadius),
-        ),
-        child: Text(
-          label,
-          style: AppTextStyles.chip.copyWith(
-            fontSize: 10.5,
-            fontWeight: FontWeight.w700,
-            color: AppColors.warning,
-          ),
-        ),
-      );
+    padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
+    decoration: BoxDecoration(
+      color: AppColors.warning.withValues(alpha: 0.14),
+      borderRadius: BorderRadius.circular(AppConstants.pillRadius),
+    ),
+    child: Text(
+      label,
+      style: AppTextStyles.chip.copyWith(
+        fontSize: 10.5,
+        fontWeight: FontWeight.w700,
+        color: AppColors.warning,
+      ),
+    ),
+  );
 }
 
 class _AmenityChip extends StatelessWidget {
@@ -887,21 +891,21 @@ class _AmenityChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Container(
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-        decoration: BoxDecoration(
-          color: AppColors.cardBackground,
-          borderRadius: BorderRadius.circular(AppConstants.pillRadius),
-          border: Border.all(color: AppColors.hairline),
-        ),
-        child: Text(
-          label,
-          style: AppTextStyles.caption.copyWith(
-            fontSize: 11.5,
-            fontWeight: FontWeight.w600,
-            color: AppColors.textSecondary,
-          ),
-        ),
-      );
+    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+    decoration: BoxDecoration(
+      color: AppColors.cardBackground,
+      borderRadius: BorderRadius.circular(AppConstants.pillRadius),
+      border: Border.all(color: AppColors.hairline),
+    ),
+    child: Text(
+      label,
+      style: AppTextStyles.caption.copyWith(
+        fontSize: 11.5,
+        fontWeight: FontWeight.w600,
+        color: AppColors.textSecondary,
+      ),
+    ),
+  );
 }
 
 class _InfoRow extends StatelessWidget {
@@ -912,17 +916,14 @@ class _InfoRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Row(
-        children: [
-          Icon(icon, size: 15, color: AppColors.textHint),
-          const SizedBox(width: 8),
-          Expanded(
-            child: Text(
-              value,
-              style: AppTextStyles.body.copyWith(fontSize: 13),
-            ),
-          ),
-        ],
-      );
+    children: [
+      Icon(icon, size: 15, color: AppColors.textHint),
+      const SizedBox(width: 8),
+      Expanded(
+        child: Text(value, style: AppTextStyles.body.copyWith(fontSize: 13)),
+      ),
+    ],
+  );
 }
 
 class _LinkRow extends StatelessWidget {
@@ -938,25 +939,28 @@ class _LinkRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => GestureDetector(
-        onTap: onTap,
-        behavior: HitTestBehavior.opaque,
-        child: Row(
-          children: [
-            Icon(icon, size: 15, color: AppColors.primary),
-            const SizedBox(width: 8),
-            Expanded(
-              child: Text(
-                label,
-                style: AppTextStyles.body.copyWith(
-                  fontSize: 13,
-                  fontWeight: FontWeight.w600,
-                  color: AppColors.primary,
-                ),
-              ),
+    onTap: onTap,
+    behavior: HitTestBehavior.opaque,
+    child: Row(
+      children: [
+        Icon(icon, size: 15, color: AppColors.primary),
+        const SizedBox(width: 8),
+        Expanded(
+          child: Text(
+            label,
+            style: AppTextStyles.body.copyWith(
+              fontSize: 13,
+              fontWeight: FontWeight.w600,
+              color: AppColors.primary,
             ),
-            const Icon(Icons.open_in_new_rounded,
-                size: 13, color: AppColors.primary),
-          ],
+          ),
         ),
-      );
+        const Icon(
+          Icons.open_in_new_rounded,
+          size: 13,
+          color: AppColors.primary,
+        ),
+      ],
+    ),
+  );
 }

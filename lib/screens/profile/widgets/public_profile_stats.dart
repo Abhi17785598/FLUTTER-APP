@@ -30,11 +30,7 @@ class ProfileStatTile {
 
   final VoidCallback? onTap;
 
-  const ProfileStatTile({
-    required this.label,
-    required this.value,
-    this.onTap,
-  });
+  const ProfileStatTile({required this.label, required this.value, this.onTap});
 }
 
 /// Two or three stats in one divided card.
@@ -88,12 +84,12 @@ class _StatDivider extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => const VerticalDivider(
-        width: 1,
-        thickness: 1,
-        color: AppColors.hairlineStrong,
-        indent: 2,
-        endIndent: 2,
-      );
+    width: 1,
+    thickness: 1,
+    color: AppColors.hairlineStrong,
+    indent: 2,
+    endIndent: 2,
+  );
 }
 
 class _StatTile extends StatelessWidget {

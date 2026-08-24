@@ -151,7 +151,9 @@ class ProfileContactCard extends StatelessWidget {
           Row(
             children: [
               Icon(
-                unlocked ? Icons.contact_page_outlined : Icons.lock_outline_rounded,
+                unlocked
+                    ? Icons.contact_page_outlined
+                    : Icons.lock_outline_rounded,
                 size: 16,
                 color: unlocked ? AppColors.primary : AppColors.textHint,
               ),
@@ -178,7 +180,10 @@ class ProfileContactCard extends StatelessWidget {
               ),
             ),
             child: unlocked
-                ? _UnlockedBody(profile: profile, key: const ValueKey('unlocked'))
+                ? _UnlockedBody(
+                    profile: profile,
+                    key: const ValueKey('unlocked'),
+                  )
                 : _LockedBody(
                     profile: profile,
                     onConnect: onConnect,
@@ -494,7 +499,8 @@ class ProfileDetailRow {
     this.linkUrl,
   });
 
-  bool get hasContent => (value != null && value!.isNotEmpty) || chips.isNotEmpty;
+  bool get hasContent =>
+      (value != null && value!.isNotEmpty) || chips.isNotEmpty;
 }
 
 /// A titled group of rows inside the Details card.
@@ -539,8 +545,7 @@ class _ProfileDetailsCardState extends State<ProfileDetailsCard> {
         .where((g) => g.populated.isNotEmpty)
         .toList(growable: false);
 
-    final totalRows =
-        groups.fold<int>(0, (acc, g) => acc + g.populated.length);
+    final totalRows = groups.fold<int>(0, (acc, g) => acc + g.populated.length);
     final needsDisclosure = totalRows > _collapsedRowBudget;
 
     final children = <Widget>[];
@@ -671,12 +676,15 @@ class _DetailRowView extends StatelessWidget {
             children: [
               for (final chip in row.chips)
                 Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 8,
+                    vertical: 3,
+                  ),
                   decoration: BoxDecoration(
                     color: AppColors.primaryLight,
-                    borderRadius:
-                        BorderRadius.circular(AppConstants.chipRadius),
+                    borderRadius: BorderRadius.circular(
+                      AppConstants.chipRadius,
+                    ),
                   ),
                   child: Text(
                     chip,
@@ -748,17 +756,20 @@ class _DetailRowView extends StatelessWidget {
 
     return ScaleTap(
       onTap: () => _openLink(row.linkUrl!),
-      child: Semantics(button: true, label: '${row.label} ${row.value}', child: body),
+      child: Semantics(
+        button: true,
+        label: '${row.label} ${row.value}',
+        child: body,
+      ),
     );
   }
 
   /// Normalises a scheme-less value, exactly as the portal does
   /// (UserProfile.tsx:1321: `startsWith('http') ? value : 'https://$value'`).
   Future<void> _openLink(String raw) async {
-    final normalised =
-        raw.startsWith('http://') || raw.startsWith('https://')
-            ? raw
-            : 'https://$raw';
+    final normalised = raw.startsWith('http://') || raw.startsWith('https://')
+        ? raw
+        : 'https://$raw';
     try {
       await launchUrl(
         Uri.parse(normalised),
@@ -793,26 +804,54 @@ class ProfileSocialLinksRow extends StatelessWidget {
 
     final links = <_SocialLink>[
       if (sm.facebook != null)
-        _SocialLink('Facebook', Icons.facebook_rounded, const Color(0xFF1877F2),
-            sm.facebook!),
+        _SocialLink(
+          'Facebook',
+          Icons.facebook_rounded,
+          const Color(0xFF1877F2),
+          sm.facebook!,
+        ),
       if (sm.instagram != null)
-        _SocialLink('Instagram', Icons.camera_alt_rounded,
-            const Color(0xFFE4405F), sm.instagram!),
+        _SocialLink(
+          'Instagram',
+          Icons.camera_alt_rounded,
+          const Color(0xFFE4405F),
+          sm.instagram!,
+        ),
       if (sm.linkedin != null)
-        _SocialLink('LinkedIn', Icons.work_rounded, const Color(0xFF0A66C2),
-            sm.linkedin!),
+        _SocialLink(
+          'LinkedIn',
+          Icons.work_rounded,
+          const Color(0xFF0A66C2),
+          sm.linkedin!,
+        ),
       if (sm.youtube != null)
-        _SocialLink('YouTube', Icons.play_arrow_rounded,
-            const Color(0xFFFF0000), sm.youtube!),
+        _SocialLink(
+          'YouTube',
+          Icons.play_arrow_rounded,
+          const Color(0xFFFF0000),
+          sm.youtube!,
+        ),
       if (sm.whatsapp != null)
-        _SocialLink('WhatsApp', Icons.chat_rounded, const Color(0xFF25D366),
-            sm.whatsapp!),
+        _SocialLink(
+          'WhatsApp',
+          Icons.chat_rounded,
+          const Color(0xFF25D366),
+          sm.whatsapp!,
+        ),
       if (sm.telegram != null)
-        _SocialLink('Telegram', Icons.send_rounded, const Color(0xFF229ED9),
-            sm.telegram!),
+        _SocialLink(
+          'Telegram',
+          Icons.send_rounded,
+          const Color(0xFF229ED9),
+          sm.telegram!,
+        ),
       if (sm.twitter != null)
-        _SocialLink('X', Icons.alternate_email_rounded,
-            const Color(0xFF1A1A2E), sm.twitter!),
+        _SocialLink(
+          'X',
+          Icons.alternate_email_rounded,
+          const Color(0xFF1A1A2E),
+          sm.twitter!,
+        ),
     ];
 
     if (links.isEmpty) return const SizedBox.shrink();

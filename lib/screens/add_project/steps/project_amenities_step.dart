@@ -64,8 +64,9 @@ class _ProjectAmenitiesStepState extends State<ProjectAmenitiesStep> {
 
         if (provider.stepIssues.isNotEmpty) ...[
           PortalValidationSummary(
-            messages:
-                provider.stepIssues.map((issue) => issue.message).toList(),
+            messages: provider.stepIssues
+                .map((issue) => issue.message)
+                .toList(),
           ),
           const SizedBox(height: 16),
         ],
@@ -149,7 +150,7 @@ class _ProjectAmenitiesStepState extends State<ProjectAmenitiesStep> {
                 selected.isEmpty
                     ? 'Select at least one amenity to continue.'
                     : '${selected.length} '
-                        'amenit${selected.length == 1 ? 'y' : 'ies'} selected',
+                          'amenit${selected.length == 1 ? 'y' : 'ies'} selected',
                 style: AppTextStyles.caption.copyWith(
                   fontSize: 11.5,
                   color: selected.isEmpty

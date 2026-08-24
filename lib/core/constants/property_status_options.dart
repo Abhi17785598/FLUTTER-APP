@@ -37,12 +37,12 @@ const List<PropertyStatusOption> propertyStatusOptions = [
 /// still has to read correctly on the card. Falls back to `Pending` for anything
 /// unrecognised, matching the badge this replaces.
 String propertyStatusLabel(String? status) => switch (status) {
-      'active' => 'Active',
-      'sold' => 'Sold',
-      'inactive' => 'Inactive',
-      'rented' => 'Rented',
-      _ => 'Pending',
-    };
+  'active' => 'Active',
+  'sold' => 'Sold',
+  'inactive' => 'Inactive',
+  'rented' => 'Rented',
+  _ => 'Pending',
+};
 
 /// Whether [status] is one the owner may switch between.
 ///

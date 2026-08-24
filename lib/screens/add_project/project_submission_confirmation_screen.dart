@@ -83,8 +83,9 @@ class ProjectSubmissionConfirmationScreen extends StatelessWidget {
                       foregroundColor: Colors.white,
                       elevation: 0,
                       shape: RoundedRectangleBorder(
-                        borderRadius:
-                            BorderRadius.circular(AppConstants.buttonRadius),
+                        borderRadius: BorderRadius.circular(
+                          AppConstants.buttonRadius,
+                        ),
                       ),
                     ),
                     child: const Text('Back to Dashboard'),

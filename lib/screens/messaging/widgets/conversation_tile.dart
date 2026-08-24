@@ -43,9 +43,7 @@ class ConversationTile extends StatelessWidget {
           child: Container(
             padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 4),
             decoration: const BoxDecoration(
-              border: Border(
-                bottom: BorderSide(color: Color(0xFFEDEDF2)),
-              ),
+              border: Border(bottom: BorderSide(color: Color(0xFFEDEDF2))),
             ),
             child: Row(
               children: [
@@ -143,8 +141,8 @@ class ConversationTile extends StatelessWidget {
                               conversation.isPendingRequest
                                   ? 'Wants to send you a message'
                                   : (conversation.lastMessage.isEmpty
-                                      ? 'No messages yet'
-                                      : conversation.lastMessage),
+                                        ? 'No messages yet'
+                                        : conversation.lastMessage),
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
                               style: AppTextStyles.caption.copyWith(

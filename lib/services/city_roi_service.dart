@@ -12,7 +12,7 @@ import '../models/city_roi.dart';
 
 class CityRoiService {
   CityRoiService({SupabaseClient? client})
-      : _supabase = client ?? Supabase.instance.client;
+    : _supabase = client ?? Supabase.instance.client;
 
   final SupabaseClient _supabase;
 

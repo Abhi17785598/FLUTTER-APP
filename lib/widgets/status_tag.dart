@@ -6,18 +6,12 @@ import '../core/constants/app_constants.dart';
 class StatusTag extends StatelessWidget {
   final String label;
 
-  const StatusTag({
-    super.key,
-    required this.label,
-  });
+  const StatusTag({super.key, required this.label});
 
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.symmetric(
-        horizontal: 10,
-        vertical: 4,
-      ),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
       decoration: BoxDecoration(
         color: AppColors.getStatusChipBg(label),
         borderRadius: BorderRadius.circular(AppConstants.chipRadius),

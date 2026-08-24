@@ -108,8 +108,9 @@ class _CampaignsViewState extends State<_CampaignsView>
 
   void _showSuccess(String message) {
     if (!mounted) return;
-    ScaffoldMessenger.of(context)
-        .showSnackBar(SnackBar(content: Text(message)));
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text(message)));
   }
 
   @override
@@ -185,7 +186,8 @@ class _CampaignsViewState extends State<_CampaignsView>
       case 'resume':
         confirmed = await _confirm(
           title: 'Launch campaign?',
-          message: 'Launching "${campaign.name}" makes it active immediately '
+          message:
+              'Launching "${campaign.name}" makes it active immediately '
               'and it may start spending up to '
               '${campaign.dailyBudgetDisplay}/day.',
           confirmLabel: 'Launch',
@@ -194,7 +196,8 @@ class _CampaignsViewState extends State<_CampaignsView>
       case 'pause':
         confirmed = await _confirm(
           title: 'Pause campaign?',
-          message: 'Pausing "${campaign.name}" stops it from spending '
+          message:
+              'Pausing "${campaign.name}" stops it from spending '
               "further until you launch it again.",
           confirmLabel: 'Pause',
         );
@@ -202,7 +205,8 @@ class _CampaignsViewState extends State<_CampaignsView>
       case 'archive':
         confirmed = await _confirm(
           title: 'Archive campaign?',
-          message: 'Archiving "${campaign.name}" stops it permanently. '
+          message:
+              'Archiving "${campaign.name}" stops it permanently. '
               "Archived campaigns can't be launched again.",
           confirmLabel: 'Archive',
           danger: true,
@@ -418,7 +422,8 @@ class SocialCampaignsBody extends StatelessWidget {
           DashboardCard(
             child: EmptyStateView(
               icon: Icons.campaign_outlined,
-              message: 'No campaigns yet. Boost a property, project, article '
+              message:
+                  'No campaigns yet. Boost a property, project, article '
                   'or reel — campaigns you create will show up here.',
               iconCircleSize: 56,
               padding: const EdgeInsets.symmetric(vertical: 8),
@@ -497,7 +502,11 @@ class _CampaignCard extends StatelessWidget {
             Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Icon(Icons.error_outline, size: 14, color: AppColors.error),
+                const Icon(
+                  Icons.error_outline,
+                  size: 14,
+                  color: AppColors.error,
+                ),
                 const SizedBox(width: 6),
                 Expanded(
                   child: Text(

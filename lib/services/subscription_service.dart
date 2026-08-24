@@ -76,8 +76,10 @@ class SubscriptionService {
 
       return items
           .whereType<Map>()
-          .map((item) =>
-              BillingHistoryItem.fromJson(Map<String, dynamic>.from(item)))
+          .map(
+            (item) =>
+                BillingHistoryItem.fromJson(Map<String, dynamic>.from(item)),
+          )
           .toList();
     } catch (e) {
       debugPrint('SubscriptionService.getBillingHistory failed: $e');

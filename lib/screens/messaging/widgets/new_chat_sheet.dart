@@ -111,8 +111,10 @@ class _NewChatSheetState extends State<_NewChatSheet> {
     // the *full* screen height, which ignored how much the keyboard had
     // already eaten into the available space — sizing off the keyboard-
     // adjusted height instead keeps the sheet from overflowing once it's up.
-    final resultsMaxHeight =
-        (screenHeight - bottomInset - 220).clamp(80.0, screenHeight * 0.4);
+    final resultsMaxHeight = (screenHeight - bottomInset - 220).clamp(
+      80.0,
+      screenHeight * 0.4,
+    );
 
     return Padding(
       padding: EdgeInsets.only(bottom: bottomInset),
@@ -137,8 +139,9 @@ class _NewChatSheetState extends State<_NewChatSheet> {
                   height: 4,
                   decoration: BoxDecoration(
                     color: const Color(0xFFEDEDF2),
-                    borderRadius:
-                        BorderRadius.circular(AppConstants.pillRadius),
+                    borderRadius: BorderRadius.circular(
+                      AppConstants.pillRadius,
+                    ),
                   ),
                 ),
               ),
@@ -315,11 +318,7 @@ class MessagesSearchField extends StatelessWidget {
                 onTap: onClear,
                 child: const Padding(
                   padding: EdgeInsets.only(left: 6),
-                  child: Icon(
-                    Icons.close,
-                    size: 16,
-                    color: AppColors.textHint,
-                  ),
+                  child: Icon(Icons.close, size: 16, color: AppColors.textHint),
                 ),
               ),
             ),

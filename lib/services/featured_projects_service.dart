@@ -24,7 +24,7 @@ import '../models/project_model.dart';
 
 class FeaturedProjectsService {
   FeaturedProjectsService({SupabaseClient? client})
-      : _supabase = client ?? Supabase.instance.client;
+    : _supabase = client ?? Supabase.instance.client;
 
   final SupabaseClient _supabase;
 

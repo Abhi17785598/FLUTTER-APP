@@ -142,15 +142,19 @@ class _PropertyDimensionsStepState extends State<PropertyDimensionsStep> {
     _surveyNumber = TextEditingController(text: p.text('surveyNumber'));
     _fsiFarAllowed = TextEditingController(text: p.text('fsiFarAllowed'));
     _floorAllowed = TextEditingController(text: p.text('floorAllowed'));
-    _heightRestriction =
-        TextEditingController(text: p.text('heightRestriction'));
+    _heightRestriction = TextEditingController(
+      text: p.text('heightRestriction'),
+    );
 
-    _buildingName =
-        TextEditingController(text: p.buildingInventoryText('buildingName'));
-    _buildingCode =
-        TextEditingController(text: p.buildingInventoryText('buildingCode'));
+    _buildingName = TextEditingController(
+      text: p.buildingInventoryText('buildingName'),
+    );
+    _buildingCode = TextEditingController(
+      text: p.buildingInventoryText('buildingCode'),
+    );
     _totalFloorsBuilding = TextEditingController(
-        text: p.buildingInventoryText('totalFloorsBuilding'));
+      text: p.buildingInventoryText('totalFloorsBuilding'),
+    );
     _plotArea = TextEditingController(text: p.text('plotArea'));
     _superBuiltUpArea = TextEditingController(text: p.text('superBuiltUpArea'));
   }
@@ -214,22 +218,22 @@ class _PropertyDimensionsStepState extends State<PropertyDimensionsStep> {
   }
 
   List<Widget> _body(PostPropertyProvider p) => switch (p.category) {
-        PropertyCategory.land => [
-            ..._landArea(p),
-            ..._landDimensions(p),
-            ..._availableFrom(p),
-          ],
-        PropertyCategory.residential => [
-            if (kApartmentSubtypes.contains(p.residentialSubType ?? ''))
-              ..._apartmentDimensions(p)
-            else
-              ..._houseDimensions(p),
-            ..._availableFrom(p),
-          ],
-        PropertyCategory.commercial => _commercialDimensions(p),
-        PropertyCategory.pg => [..._areaBlock(p), ..._pgDimensions(p)],
-        _ => _areaBlock(p),
-      };
+    PropertyCategory.land => [
+      ..._landArea(p),
+      ..._landDimensions(p),
+      ..._availableFrom(p),
+    ],
+    PropertyCategory.residential => [
+      if (kApartmentSubtypes.contains(p.residentialSubType ?? ''))
+        ..._apartmentDimensions(p)
+      else
+        ..._houseDimensions(p),
+      ..._availableFrom(p),
+    ],
+    PropertyCategory.commercial => _commercialDimensions(p),
+    PropertyCategory.pg => [..._areaBlock(p), ..._pgDimensions(p)],
+    _ => _areaBlock(p),
+  };
 
   // ------------------------------------------------------------------ pieces
 
@@ -276,12 +280,12 @@ class _PropertyDimensionsStepState extends State<PropertyDimensionsStep> {
   /// `gap-3` between the cells of a `grid-cols-1` block, which is what every
   /// `md:grid-cols-N` on this step collapses to at mobile width.
   List<Widget> _stack(List<Widget> fields, {double top = 0}) => [
-        if (top > 0) SizedBox(height: top),
-        for (int i = 0; i < fields.length; i++) ...[
-          if (i > 0) const SizedBox(height: 12),
-          fields[i],
-        ],
-      ];
+    if (top > 0) SizedBox(height: top),
+    for (int i = 0; i < fields.length; i++) ...[
+      if (i > 0) const SizedBox(height: 12),
+      fields[i],
+    ],
+  ];
 
   // ------------------------------------------------------------------- Area
 
@@ -329,26 +333,26 @@ class _PropertyDimensionsStepState extends State<PropertyDimensionsStep> {
   // --------------------------------------------------------------- Land area
 
   List<Widget> _landArea(PostPropertyProvider p) => _stack([
-        PortalLabelledField(
-          // The portal ternaries on propertyType; this component only renders
-          // for land, so the land wording is the live branch.
-          label: 'Total Land Area',
-          required: true,
-          icon: 'square',
-          iconColor: _cArea,
-          child: _withUnit(
-            controller: _area,
-            hint: 'e.g. 1500',
-            prefix: const PortalIconTint('square', color: _cArea),
-            inputFormatters: _kNumericish,
-            onChanged: p.setArea,
-            unit: p.areaUnit,
-            units: areaUnitsFor(p.category, p.areaUnit),
-            onUnitChanged: p.setAreaUnit,
-            unitWidth: 128,
-          ),
-        ),
-      ]);
+    PortalLabelledField(
+      // The portal ternaries on propertyType; this component only renders
+      // for land, so the land wording is the live branch.
+      label: 'Total Land Area',
+      required: true,
+      icon: 'square',
+      iconColor: _cArea,
+      child: _withUnit(
+        controller: _area,
+        hint: 'e.g. 1500',
+        prefix: const PortalIconTint('square', color: _cArea),
+        inputFormatters: _kNumericish,
+        onChanged: p.setArea,
+        unit: p.areaUnit,
+        units: areaUnitsFor(p.category, p.areaUnit),
+        onUnitChanged: p.setAreaUnit,
+        unitWidth: 128,
+      ),
+    ),
+  ]);
 
   // --------------------------------------------------------- Land dimensions
 
@@ -475,69 +479,69 @@ class _PropertyDimensionsStepState extends State<PropertyDimensionsStep> {
   // ------------------------------------------------------ Residential layouts
 
   Widget _bhkTypeField(PostPropertyProvider p) => PortalLabelledSelect(
-        label: 'BHK Type',
-        required: true,
-        icon: 'layout-grid',
-        iconColor: _cLayout,
-        value: p.bhkType,
-        placeholder: 'Select',
-        options: kBhkTypes,
-        onChanged: p.setBhkType,
-      );
+    label: 'BHK Type',
+    required: true,
+    icon: 'layout-grid',
+    iconColor: _cLayout,
+    value: p.bhkType,
+    placeholder: 'Select',
+    options: kBhkTypes,
+    onChanged: p.setBhkType,
+  );
 
   /// Bedrooms and Bathrooms — the label icon and the prefix icon differ in
   /// colour in the portal (pink/cyan on the labels, blue on both prefixes).
   List<Widget> _bedBathFields(PostPropertyProvider p) => [
-        PortalLabelledField(
-          label: 'Bedrooms',
-          required: true,
-          icon: 'bed-double',
-          iconColor: _cRooms,
-          child: PortalTextField(
-            controller: _bedrooms,
-            prefix: const PortalIconTint('bed-double', color: _cArea),
-            keyboardType: TextInputType.number,
-            onChanged: p.setBedrooms,
-          ),
-        ),
-        PortalLabelledField(
-          label: 'Bathrooms',
-          required: true,
-          icon: 'bath',
-          iconColor: _cWater,
-          child: PortalTextField(
-            controller: _bathrooms,
-            prefix: const PortalIconTint('bath', color: _cArea),
-            keyboardType: TextInputType.number,
-            onChanged: p.setBathrooms,
-          ),
-        ),
-      ];
+    PortalLabelledField(
+      label: 'Bedrooms',
+      required: true,
+      icon: 'bed-double',
+      iconColor: _cRooms,
+      child: PortalTextField(
+        controller: _bedrooms,
+        prefix: const PortalIconTint('bed-double', color: _cArea),
+        keyboardType: TextInputType.number,
+        onChanged: p.setBedrooms,
+      ),
+    ),
+    PortalLabelledField(
+      label: 'Bathrooms',
+      required: true,
+      icon: 'bath',
+      iconColor: _cWater,
+      child: PortalTextField(
+        controller: _bathrooms,
+        prefix: const PortalIconTint('bath', color: _cArea),
+        keyboardType: TextInputType.number,
+        onChanged: p.setBathrooms,
+      ),
+    ),
+  ];
 
   Widget _balconiesField(PostPropertyProvider p) => PortalLabelledField(
-        label: 'Balconies',
-        icon: 'wind',
-        iconColor: _cAir,
-        child: PortalTextField(
-          controller: _balconies,
-          prefix: const PortalIconTint('wind', color: _cArea),
-          keyboardType: TextInputType.number,
-          onChanged: p.setBalconies,
-        ),
-      );
+    label: 'Balconies',
+    icon: 'wind',
+    iconColor: _cAir,
+    child: PortalTextField(
+      controller: _balconies,
+      prefix: const PortalIconTint('wind', color: _cArea),
+      keyboardType: TextInputType.number,
+      onChanged: p.setBalconies,
+    ),
+  );
 
   Widget _totalFloorsField(PostPropertyProvider p) => PortalLabelledField(
-        label: 'Total Floors',
-        icon: 'layers',
-        iconColor: _cFloors,
-        child: PortalTextField(
-          controller: _totalFloors,
-          prefix: const PortalIconTint('layers', color: _cFloors),
-          keyboardType: TextInputType.number,
-          inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-          onChanged: p.setTotalFloors,
-        ),
-      );
+    label: 'Total Floors',
+    icon: 'layers',
+    iconColor: _cFloors,
+    child: PortalTextField(
+      controller: _totalFloors,
+      prefix: const PortalIconTint('layers', color: _cFloors),
+      keyboardType: TextInputType.number,
+      inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+      onChanged: p.setTotalFloors,
+    ),
+  );
 
   Widget _propertyConditionField(PostPropertyProvider p) =>
       PortalLabelledSelect(
@@ -680,163 +684,159 @@ class _PropertyDimensionsStepState extends State<PropertyDimensionsStep> {
   // --------------------------------------------------- Commercial dimensions
 
   List<Widget> _commercialDimensions(PostPropertyProvider p) => [
-        const PortalBlockHeading('Building Level Details'),
-        ..._stack(top: 8, [
-          PortalLabelledField(
-            label: 'Building Name',
-            required: true,
-            icon: 'building-2',
-            iconColor: _cLayout,
-            child: PortalTextField(
-              controller: _buildingName,
-              hint: 'Enter building name',
-              inputFormatters: [
-                FilteringTextInputFormatter.allow(RegExp(r'[a-zA-Z\s]')),
-              ],
-              onChanged: (v) => p.setBuildingInventoryValue('buildingName', v),
-            ),
-          ),
-          PortalLabelledField(
-            // id="buildingCode", labelled "Building Number".
-            label: 'Building Number',
-            required: true,
-            icon: 'hash',
-            iconColor: _cFloors,
-            child: PortalTextField(
-              controller: _buildingCode,
-              hint: 'Enter building Number',
-              keyboardType: TextInputType.number,
-              inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-              onChanged: (v) => p.setBuildingInventoryValue('buildingCode', v),
-            ),
-          ),
-          // The one label on this step the portal gives no icon.
-          PortalLabelledSelect(
-            label: 'Building Type',
-            required: true,
-            value: p.buildingInventoryText('buildingType'),
-            placeholder: 'Select building type',
-            options: _kCommercialBuildingTypes,
-            onChanged: (v) => p.setBuildingInventoryValue('buildingType', v),
-          ),
-        ]),
-        ..._stack(top: 8, [
-          PortalLabelledField(
-            label: 'Total Floors',
-            required: true,
-            icon: 'layers',
-            iconColor: _cFloors,
-            child: PortalTextField(
-              controller: _totalFloorsBuilding,
-              hint: 'e.g. 10',
-              keyboardType: TextInputType.number,
-              inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-              onChanged: (v) =>
-                  p.setBuildingInventoryValue('totalFloorsBuilding', v),
-            ),
-          ),
-        ]),
-        const PortalBlockHeading('Area Details'),
-        ..._stack(top: 8, [
-          PortalLabelledField(
-            label: 'Plot Area',
-            required: true,
-            icon: 'square',
-            iconColor: _cArea,
-            child: _withUnit(
-              controller: _plotArea,
-              hint: 'e.g. 2000',
-              prefix: const PortalIconTint('square', color: _cArea),
-              inputFormatters: _kNumericish,
-              onChanged: (v) => p.setText('plotArea', v),
-              unit: p.text('plotAreaUnit').isEmpty
-                  ? kPlotAreaUnits.first
-                  : p.text('plotAreaUnit'),
-              units: [
-                for (final u in kPlotAreaUnits)
-                  (u, _kPlotAreaUnitLabels[u] ?? u),
-              ],
-              onUnitChanged: (v) => p.setText('plotAreaUnit', v),
-              unitWidth: 112, // w-28
-            ),
-          ),
-          PortalLabelledField(
-            label: 'Super Built-up Area',
-            required: true,
-            icon: 'maximize',
-            iconColor: _cAreaAlt,
-            child: _withUnit(
-              controller: _superBuiltUpArea,
-              hint: 'e.g. 1800',
-              prefix: const PortalIconTint('maximize', color: _cAreaAlt),
-              inputFormatters: _kNumericish,
-              // Commercial has no separate Total Area box, so the portal keeps
-              // `area` — the figure shown on cards — in step with this one.
-              onChanged: (v) {
-                p.setText('superBuiltUpArea', v);
-                p.setArea(v);
-              },
-              unit: p.areaUnit,
-              units: areaUnitsFor(PropertyCategory.commercial, p.areaUnit),
-              onUnitChanged: p.setAreaUnit,
-              unitWidth: 112,
-            ),
-          ),
-        ]),
-        const PortalBlockHeading('Floor-wise Inventory Management'),
-        const _BuildingFloorInventory(),
-      ];
+    const PortalBlockHeading('Building Level Details'),
+    ..._stack(top: 8, [
+      PortalLabelledField(
+        label: 'Building Name',
+        required: true,
+        icon: 'building-2',
+        iconColor: _cLayout,
+        child: PortalTextField(
+          controller: _buildingName,
+          hint: 'Enter building name',
+          inputFormatters: [
+            FilteringTextInputFormatter.allow(RegExp(r'[a-zA-Z\s]')),
+          ],
+          onChanged: (v) => p.setBuildingInventoryValue('buildingName', v),
+        ),
+      ),
+      PortalLabelledField(
+        // id="buildingCode", labelled "Building Number".
+        label: 'Building Number',
+        required: true,
+        icon: 'hash',
+        iconColor: _cFloors,
+        child: PortalTextField(
+          controller: _buildingCode,
+          hint: 'Enter building Number',
+          keyboardType: TextInputType.number,
+          inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+          onChanged: (v) => p.setBuildingInventoryValue('buildingCode', v),
+        ),
+      ),
+      // The one label on this step the portal gives no icon.
+      PortalLabelledSelect(
+        label: 'Building Type',
+        required: true,
+        value: p.buildingInventoryText('buildingType'),
+        placeholder: 'Select building type',
+        options: _kCommercialBuildingTypes,
+        onChanged: (v) => p.setBuildingInventoryValue('buildingType', v),
+      ),
+    ]),
+    ..._stack(top: 8, [
+      PortalLabelledField(
+        label: 'Total Floors',
+        required: true,
+        icon: 'layers',
+        iconColor: _cFloors,
+        child: PortalTextField(
+          controller: _totalFloorsBuilding,
+          hint: 'e.g. 10',
+          keyboardType: TextInputType.number,
+          inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+          onChanged: (v) =>
+              p.setBuildingInventoryValue('totalFloorsBuilding', v),
+        ),
+      ),
+    ]),
+    const PortalBlockHeading('Area Details'),
+    ..._stack(top: 8, [
+      PortalLabelledField(
+        label: 'Plot Area',
+        required: true,
+        icon: 'square',
+        iconColor: _cArea,
+        child: _withUnit(
+          controller: _plotArea,
+          hint: 'e.g. 2000',
+          prefix: const PortalIconTint('square', color: _cArea),
+          inputFormatters: _kNumericish,
+          onChanged: (v) => p.setText('plotArea', v),
+          unit: p.text('plotAreaUnit').isEmpty
+              ? kPlotAreaUnits.first
+              : p.text('plotAreaUnit'),
+          units: [
+            for (final u in kPlotAreaUnits) (u, _kPlotAreaUnitLabels[u] ?? u),
+          ],
+          onUnitChanged: (v) => p.setText('plotAreaUnit', v),
+          unitWidth: 112, // w-28
+        ),
+      ),
+      PortalLabelledField(
+        label: 'Super Built-up Area',
+        required: true,
+        icon: 'maximize',
+        iconColor: _cAreaAlt,
+        child: _withUnit(
+          controller: _superBuiltUpArea,
+          hint: 'e.g. 1800',
+          prefix: const PortalIconTint('maximize', color: _cAreaAlt),
+          inputFormatters: _kNumericish,
+          // Commercial has no separate Total Area box, so the portal keeps
+          // `area` — the figure shown on cards — in step with this one.
+          onChanged: (v) {
+            p.setText('superBuiltUpArea', v);
+            p.setArea(v);
+          },
+          unit: p.areaUnit,
+          units: areaUnitsFor(PropertyCategory.commercial, p.areaUnit),
+          onUnitChanged: p.setAreaUnit,
+          unitWidth: 112,
+        ),
+      ),
+    ]),
+    const PortalBlockHeading('Floor-wise Inventory Management'),
+    const _BuildingFloorInventory(),
+  ];
 
   // ----------------------------------------------------------- PG dimensions
 
   List<Widget> _pgDimensions(PostPropertyProvider p) => [
-        const PortalBlockHeading('PG Structure & Capacity'),
-        ..._stack(top: 8, [
-          _totalFloorsField(p),
-          // No label icon in the portal.
-          PortalLabelledSelect(
-            label: 'Facing',
-            value: p.facing,
-            placeholder: 'Select',
-            options: _kPgFacing,
-            onChanged: p.setFacing,
-          ),
-          PortalLabelledField(
-            label: 'Total Rooms',
-            // Derived, not typed: the sum of every floor's room count.
-            child: PortalReadOnlyBox('${p.totalRoomsAcrossFloors}'),
-          ),
-        ]),
-        _FloorWiseRoomDetails(totalFloors: p.totalFloors),
-      ];
+    const PortalBlockHeading('PG Structure & Capacity'),
+    ..._stack(top: 8, [
+      _totalFloorsField(p),
+      // No label icon in the portal.
+      PortalLabelledSelect(
+        label: 'Facing',
+        value: p.facing,
+        placeholder: 'Select',
+        options: _kPgFacing,
+        onChanged: p.setFacing,
+      ),
+      PortalLabelledField(
+        label: 'Total Rooms',
+        // Derived, not typed: the sum of every floor's room count.
+        child: PortalReadOnlyBox('${p.totalRoomsAcrossFloors}'),
+      ),
+    ]),
+    _FloorWiseRoomDetails(totalFloors: p.totalFloors),
+  ];
 
   // --------------------------------------------------------- Available from
 
   List<Widget> _availableFrom(PostPropertyProvider p) => _stack(top: 8, [
-        PortalLabelledField(
-          label: 'Available From',
-          required: true,
-          icon: 'calendar-days',
-          iconColor: _cDate,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              PortalCheckbox(
-                value: p.availableImmediately,
-                label: 'Immediately',
-                onChanged: p.setAvailableImmediately,
-              ),
-              if (!p.availableImmediately) ...[
-                const SizedBox(height: 8), // gap-2
-                _DateField(
-                  value: p.availableFrom,
-                  onChanged: p.setAvailableFrom,
-                ),
-              ],
-            ],
+    PortalLabelledField(
+      label: 'Available From',
+      required: true,
+      icon: 'calendar-days',
+      iconColor: _cDate,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          PortalCheckbox(
+            value: p.availableImmediately,
+            label: 'Immediately',
+            onChanged: p.setAvailableImmediately,
           ),
-        ),
-      ]);
+          if (!p.availableImmediately) ...[
+            const SizedBox(height: 8), // gap-2
+            _DateField(value: p.availableFrom, onChanged: p.setAvailableFrom),
+          ],
+        ],
+      ),
+    ),
+  ]);
 }
 
 /// `<Input type="date">` with the calendar prefix the portal puts inside it.
@@ -855,8 +855,8 @@ class _DateField extends StatelessWidget {
     final text = d == null
         ? ''
         : '${d.year.toString().padLeft(4, '0')}-'
-            '${d.month.toString().padLeft(2, '0')}-'
-            '${d.day.toString().padLeft(2, '0')}';
+              '${d.month.toString().padLeft(2, '0')}-'
+              '${d.day.toString().padLeft(2, '0')}';
     return GestureDetector(
       onTap: () async {
         final now = DateTime.now();
@@ -885,8 +885,9 @@ class _DateField extends StatelessWidget {
               child: Text(
                 text.isEmpty ? 'yyyy-mm-dd' : text,
                 style: text.isEmpty
-                    ? PortalTheme.inputText
-                        .copyWith(color: PortalTheme.radioIdle)
+                    ? PortalTheme.inputText.copyWith(
+                        color: PortalTheme.radioIdle,
+                      )
                     : PortalTheme.inputText,
               ),
             ),
@@ -978,7 +979,8 @@ class _FloorWiseRoomDetailsState extends State<_FloorWiseRoomDetails> {
   Widget _floorCard(PostPropertyProvider p, int floorNumber) {
     final entry = p.floorRoomDetails(floorNumber);
     final totalRooms = (entry?['totalRooms'] as int?) ?? 0;
-    final rooms = (entry?['rooms'] as List?)?.cast<Map<String, dynamic>>() ??
+    final rooms =
+        (entry?['rooms'] as List?)?.cast<Map<String, dynamic>>() ??
         const <Map<String, dynamic>>[];
 
     return Container(
@@ -997,9 +999,12 @@ class _FloorWiseRoomDetailsState extends State<_FloorWiseRoomDetails> {
               const PortalIconTint('layers', color: _cFloors),
               const SizedBox(width: 6),
               Expanded(
-                child: Text('Floor $floorNumber',
-                    style: PortalTheme.inputLabel
-                        .copyWith(fontWeight: FontWeight.w600)),
+                child: Text(
+                  'Floor $floorNumber',
+                  style: PortalTheme.inputLabel.copyWith(
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
               ),
               Text('Total Rooms:', style: PortalTheme.blockSubtitle),
               const SizedBox(width: 6),
@@ -1028,15 +1033,19 @@ class _FloorWiseRoomDetailsState extends State<_FloorWiseRoomDetails> {
                     width: 168,
                     child: Row(
                       children: [
-                        Text('Room $roomNumber:',
-                            style: PortalTheme.inputLabel),
+                        Text(
+                          'Room $roomNumber:',
+                          style: PortalTheme.inputLabel,
+                        ),
                         const SizedBox(width: 6),
                         Expanded(
                           child: PortalSelect(
-                            value: (rooms.firstWhere(
-                                  (r) => r['roomNumber'] == roomNumber,
-                                  orElse: () => const <String, dynamic>{},
-                                )['roomType'] as String?) ??
+                            value:
+                                (rooms.firstWhere(
+                                      (r) => r['roomNumber'] == roomNumber,
+                                      orElse: () => const <String, dynamic>{},
+                                    )['roomType']
+                                    as String?) ??
                                 'Single Sharing',
                             placeholder: 'Single Sharing',
                             options: _kPgRoomTypes,
@@ -1097,7 +1106,9 @@ class _BuildingFloorInventoryState extends State<_BuildingFloorInventory> {
 
   TextEditingController _ctrl(String key, String initial) {
     return _controllers.putIfAbsent(
-        key, () => TextEditingController(text: initial));
+      key,
+      () => TextEditingController(text: initial),
+    );
   }
 
   @override
@@ -1171,9 +1182,12 @@ class _BuildingFloorInventoryState extends State<_BuildingFloorInventory> {
             children: [
               const PortalIconTint('layers', color: _cFloors),
               const SizedBox(width: 6),
-              Text('Floor $floorNumber',
-                  style: PortalTheme.inputLabel
-                      .copyWith(fontWeight: FontWeight.w600)),
+              Text(
+                'Floor $floorNumber',
+                style: PortalTheme.inputLabel.copyWith(
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
             ],
           ),
           const SizedBox(height: 10),
@@ -1183,7 +1197,10 @@ class _BuildingFloorInventoryState extends State<_BuildingFloorInventory> {
                 child: PortalLabelledField(
                   label: 'Floor Name',
                   child: PortalTextField(
-                    controller: _ctrl('$floorNumber:floorName', text('floorName')),
+                    controller: _ctrl(
+                      '$floorNumber:floorName',
+                      text('floorName'),
+                    ),
                     hint: 'e.g. Ground Floor',
                     inputFormatters: [
                       FilteringTextInputFormatter.allow(RegExp(r'[a-zA-Z\s]')),
@@ -1198,7 +1215,10 @@ class _BuildingFloorInventoryState extends State<_BuildingFloorInventory> {
                 child: PortalLabelledField(
                   label: 'Floor Area (Sq Ft)',
                   child: PortalTextField(
-                    controller: _ctrl('$floorNumber:floorArea', text('floorArea')),
+                    controller: _ctrl(
+                      '$floorNumber:floorArea',
+                      text('floorArea'),
+                    ),
                     hint: 'e.g. 5000',
                     keyboardType: TextInputType.number,
                     inputFormatters: _kNumericish,
@@ -1216,13 +1236,18 @@ class _BuildingFloorInventoryState extends State<_BuildingFloorInventory> {
                 child: PortalLabelledField(
                   label: 'Super Built-up Area (Sq Ft)',
                   child: PortalTextField(
-                    controller: _ctrl('$floorNumber:superBuiltUpArea',
-                        text('superBuiltUpArea')),
+                    controller: _ctrl(
+                      '$floorNumber:superBuiltUpArea',
+                      text('superBuiltUpArea'),
+                    ),
                     hint: 'e.g. 6000',
                     keyboardType: TextInputType.number,
                     inputFormatters: _kNumericish,
                     onChanged: (v) => p.setBuildingFloorField(
-                        floorNumber, 'superBuiltUpArea', v),
+                      floorNumber,
+                      'superBuiltUpArea',
+                      v,
+                    ),
                   ),
                 ),
               ),
@@ -1231,13 +1256,18 @@ class _BuildingFloorInventoryState extends State<_BuildingFloorInventory> {
                 child: PortalLabelledField(
                   label: 'Occupancy %',
                   child: PortalTextField(
-                    controller: _ctrl('$floorNumber:floorOccupancyPercentage',
-                        text('floorOccupancyPercentage')),
+                    controller: _ctrl(
+                      '$floorNumber:floorOccupancyPercentage',
+                      text('floorOccupancyPercentage'),
+                    ),
                     hint: 'e.g. 75',
                     keyboardType: TextInputType.number,
                     inputFormatters: _kNumericish,
                     onChanged: (v) => p.setBuildingFloorField(
-                        floorNumber, 'floorOccupancyPercentage', v),
+                      floorNumber,
+                      'floorOccupancyPercentage',
+                      v,
+                    ),
                   ),
                 ),
               ),
@@ -1263,19 +1293,28 @@ class _BuildingFloorInventoryState extends State<_BuildingFloorInventory> {
                 value: entry?['commonReceptionAvailable'] == true,
                 label: 'Common Reception',
                 onChanged: (v) => p.setBuildingFloorField(
-                    floorNumber, 'commonReceptionAvailable', v),
+                  floorNumber,
+                  'commonReceptionAvailable',
+                  v,
+                ),
               ),
               PortalCheckbox(
                 value: entry?['commonWashroomAvailable'] == true,
                 label: 'Common Washroom',
                 onChanged: (v) => p.setBuildingFloorField(
-                    floorNumber, 'commonWashroomAvailable', v),
+                  floorNumber,
+                  'commonWashroomAvailable',
+                  v,
+                ),
               ),
               PortalCheckbox(
                 value: entry?['commonPantryAvailable'] == true,
                 label: 'Common Pantry',
                 onChanged: (v) => p.setBuildingFloorField(
-                    floorNumber, 'commonPantryAvailable', v),
+                  floorNumber,
+                  'commonPantryAvailable',
+                  v,
+                ),
               ),
             ],
           ),
@@ -1291,19 +1330,27 @@ class _BuildingFloorInventoryState extends State<_BuildingFloorInventory> {
                 width: 100,
                 child: PortalTextField(
                   controller: _ctrl(
-                      '$floorNumber:numberOfCompanies', text('numberOfCompanies')),
+                    '$floorNumber:numberOfCompanies',
+                    text('numberOfCompanies'),
+                  ),
                   hint: 'e.g. 3',
                   keyboardType: TextInputType.number,
                   inputFormatters: [FilteringTextInputFormatter.digitsOnly],
                   onChanged: (v) => p.setBuildingNumberOfCompanies(
-                      floorNumber, int.tryParse(v) ?? 0),
+                    floorNumber,
+                    int.tryParse(v) ?? 0,
+                  ),
                 ),
               ),
             ),
           ),
           for (var i = 0; i < numberOfCompanies && i < companies.length; i++)
-            _officeCard(p, floorNumber, i,
-                (companies[i] as Map?) ?? const <String, dynamic>{}),
+            _officeCard(
+              p,
+              floorNumber,
+              i,
+              (companies[i] as Map?) ?? const <String, dynamic>{},
+            ),
         ],
       ),
     );
@@ -1346,11 +1393,16 @@ class _BuildingFloorInventoryState extends State<_BuildingFloorInventory> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text('Office ${companyIndex + 1}',
-                          style: PortalTheme.inputLabel
-                              .copyWith(fontWeight: FontWeight.w600)),
-                      Text(name.isEmpty ? 'Not filled yet' : name,
-                          style: PortalTheme.blockSubtitle),
+                      Text(
+                        'Office ${companyIndex + 1}',
+                        style: PortalTheme.inputLabel.copyWith(
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                      Text(
+                        name.isEmpty ? 'Not filled yet' : name,
+                        style: PortalTheme.blockSubtitle,
+                      ),
                     ],
                   ),
                 ),
@@ -1367,10 +1419,13 @@ class _BuildingFloorInventoryState extends State<_BuildingFloorInventory> {
               label: 'Office Name',
               required: true,
               child: PortalTextField(
-                controller:
-                    _ctrl('$key:companyName', text('companyName')),
+                controller: _ctrl('$key:companyName', text('companyName')),
                 onChanged: (v) => p.setBuildingOfficeField(
-                    floorNumber, companyIndex, 'companyName', v),
+                  floorNumber,
+                  companyIndex,
+                  'companyName',
+                  v,
+                ),
               ),
             ),
             const SizedBox(height: 10),
@@ -1381,9 +1436,15 @@ class _BuildingFloorInventoryState extends State<_BuildingFloorInventory> {
                     label: 'Office Number',
                     child: PortalTextField(
                       controller: _ctrl(
-                          '$key:officeNumber', text('officeNumber')),
+                        '$key:officeNumber',
+                        text('officeNumber'),
+                      ),
                       onChanged: (v) => p.setBuildingOfficeField(
-                          floorNumber, companyIndex, 'officeNumber', v),
+                        floorNumber,
+                        companyIndex,
+                        'officeNumber',
+                        v,
+                      ),
                     ),
                   ),
                 ),
@@ -1393,9 +1454,15 @@ class _BuildingFloorInventoryState extends State<_BuildingFloorInventory> {
                     label: 'Contact Person',
                     child: PortalTextField(
                       controller: _ctrl(
-                          '$key:contactPerson', text('contactPerson')),
+                        '$key:contactPerson',
+                        text('contactPerson'),
+                      ),
                       onChanged: (v) => p.setBuildingOfficeField(
-                          floorNumber, companyIndex, 'contactPerson', v),
+                        floorNumber,
+                        companyIndex,
+                        'contactPerson',
+                        v,
+                      ),
                     ),
                   ),
                 ),
@@ -1409,10 +1476,16 @@ class _BuildingFloorInventoryState extends State<_BuildingFloorInventory> {
                     label: 'Phone Number',
                     child: PortalTextField(
                       controller: _ctrl(
-                          '$key:phoneNumber', text('phoneNumber')),
+                        '$key:phoneNumber',
+                        text('phoneNumber'),
+                      ),
                       keyboardType: TextInputType.phone,
                       onChanged: (v) => p.setBuildingOfficeField(
-                          floorNumber, companyIndex, 'phoneNumber', v),
+                        floorNumber,
+                        companyIndex,
+                        'phoneNumber',
+                        v,
+                      ),
                     ),
                   ),
                 ),
@@ -1422,11 +1495,17 @@ class _BuildingFloorInventoryState extends State<_BuildingFloorInventory> {
                     label: 'Monthly Rent',
                     child: PortalTextField(
                       controller: _ctrl(
-                          '$key:monthlyRent', text('monthlyRent')),
+                        '$key:monthlyRent',
+                        text('monthlyRent'),
+                      ),
                       keyboardType: TextInputType.number,
                       inputFormatters: _kNumericish,
                       onChanged: (v) => p.setBuildingOfficeField(
-                          floorNumber, companyIndex, 'monthlyRent', v),
+                        floorNumber,
+                        companyIndex,
+                        'monthlyRent',
+                        v,
+                      ),
                     ),
                   ),
                 ),

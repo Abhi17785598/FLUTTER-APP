@@ -36,7 +36,8 @@ class VoiceSearchService {
     if (!available) return false;
 
     await _speech.listen(
-      onResult: (result) => onResult(result.recognizedWords, result.finalResult),
+      onResult: (result) =>
+          onResult(result.recognizedWords, result.finalResult),
       listenFor: const Duration(seconds: 15),
       pauseFor: const Duration(seconds: 3),
     );

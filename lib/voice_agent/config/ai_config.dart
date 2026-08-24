@@ -8,11 +8,11 @@ class AiConfig {
 
   /// Intents that still require user confirmation even in autonomous mode.
   static Set<Intent> get alwaysConfirmIntents => {
-        Intent.delete_account,
-        Intent.delete_listing,
-        Intent.publish_listing,
-        Intent.logout,
-      };
+    Intent.delete_account,
+    Intent.delete_listing,
+    Intent.publish_listing,
+    Intent.logout,
+  };
 
   /// Phase 3: set true to enable RAG grounding calls to ai-knowledge Edge Function.
   static bool get isRagGroundingEnabled => false;

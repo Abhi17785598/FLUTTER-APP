@@ -102,15 +102,18 @@ class HomeHeader extends StatelessWidget {
                   // Real logged-in avatar when available; falls back to the
                   // existing placeholder otherwise — same fallback as before,
                   // just no longer used when a real photo exists.
-                  final String? avatarUrl =
-                      context.watch<AuthProvider>().avatarUrl;
+                  final String? avatarUrl = context
+                      .watch<AuthProvider>()
+                      .avatarUrl;
                   final String imageUrl =
                       (avatarUrl != null && avatarUrl.isNotEmpty)
-                          ? avatarUrl
-                          : 'https://picsum.photos/seed/avatar/100/100';
+                      ? avatarUrl
+                      : 'https://picsum.photos/seed/avatar/100/100';
                   return GestureDetector(
                     onTap: () => Navigator.pushNamed(
-                        context, AppConstants.profileScreen),
+                      context,
+                      AppConstants.profileScreen,
+                    ),
                     child: Container(
                       width: 42,
                       height: 42,

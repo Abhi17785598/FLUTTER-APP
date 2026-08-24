@@ -11,8 +11,10 @@ import 'listing_constants.dart';
 /// area), which is exactly how React shares it. [stored] is appended when it is
 /// not part of the canonical set, so a value written by an older build cannot
 /// crash a DropdownButton, which asserts when its value has no matching item.
-List<(String, String)> areaUnitsFor(PropertyCategory? category,
-    [String stored = '']) {
+List<(String, String)> areaUnitsFor(
+  PropertyCategory? category, [
+  String stored = '',
+]) {
   final String key = switch (category) {
     PropertyCategory.land => 'land',
     PropertyCategory.commercial => 'commercial',

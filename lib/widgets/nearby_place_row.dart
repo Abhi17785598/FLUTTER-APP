@@ -34,11 +34,7 @@ class NearbyPlaceRow extends StatelessWidget {
               color: color.withOpacity(0.1),
               borderRadius: BorderRadius.circular(12),
             ),
-            child: Icon(
-              icon,
-              color: color,
-              size: 20,
-            ),
+            child: Icon(icon, color: color, size: 20),
           ),
           const SizedBox(width: 12),
           Expanded(
@@ -52,10 +48,7 @@ class NearbyPlaceRow extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(height: 2),
-                Text(
-                  '$type • $distance',
-                  style: AppTextStyles.caption,
-                ),
+                Text('$type • $distance', style: AppTextStyles.caption),
               ],
             ),
           ),
@@ -74,10 +67,7 @@ class NearbyPlaceRow extends StatelessWidget {
                   color: AppColors.textSecondary,
                 ),
                 const SizedBox(width: 4),
-                Text(
-                  duration,
-                  style: AppTextStyles.caption,
-                ),
+                Text(duration, style: AppTextStyles.caption),
               ],
             ),
           ),

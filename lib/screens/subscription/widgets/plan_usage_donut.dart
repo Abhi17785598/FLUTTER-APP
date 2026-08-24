@@ -99,13 +99,7 @@ class _DonutPainter extends CustomPainter {
 
     // CSS conic-gradient starts at 12 o'clock and sweeps clockwise; Canvas
     // angles start at 3 o'clock, hence the -90° offset.
-    canvas.drawArc(
-      rect,
-      -math.pi / 2,
-      fraction * 2 * math.pi,
-      false,
-      progress,
-    );
+    canvas.drawArc(rect, -math.pi / 2, fraction * 2 * math.pi, false, progress);
   }
 
   @override

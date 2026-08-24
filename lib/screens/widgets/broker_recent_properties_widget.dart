@@ -6,10 +6,7 @@ import '../../services/broker_property_service.dart';
 class BrokerRecentPropertiesWidget extends StatelessWidget {
   final String brokerId;
 
-  const BrokerRecentPropertiesWidget({
-    super.key,
-    required this.brokerId,
-  });
+  const BrokerRecentPropertiesWidget({super.key, required this.brokerId});
 
   @override
   Widget build(BuildContext context) {
@@ -17,9 +14,7 @@ class BrokerRecentPropertiesWidget extends StatelessWidget {
       future: BrokerPropertyService().getProperties(brokerId),
 
       builder: (context, snapshot) {
-
-        if (snapshot.connectionState ==
-            ConnectionState.waiting) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
           return const Center(
             child: Padding(
               padding: EdgeInsets.all(20),
@@ -47,29 +42,23 @@ class BrokerRecentPropertiesWidget extends StatelessWidget {
         }
 
         return Column(
-          crossAxisAlignment:
-              CrossAxisAlignment.start,
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             ...properties.map(
               (property) => Card(
-                margin:
-                    const EdgeInsets.only(bottom: 16),
+                margin: const EdgeInsets.only(bottom: 16),
 
                 shape: RoundedRectangleBorder(
-                  borderRadius:
-                      BorderRadius.circular(18),
+                  borderRadius: BorderRadius.circular(18),
                 ),
 
                 child: Column(
-                  crossAxisAlignment:
-                      CrossAxisAlignment.start,
+                  crossAxisAlignment: CrossAxisAlignment.start,
 
                   children: [
-
                     if (property.image.isNotEmpty)
                       ClipRRect(
-                        borderRadius:
-                            const BorderRadius.vertical(
+                        borderRadius: const BorderRadius.vertical(
                           top: Radius.circular(18),
                         ),
 
@@ -82,21 +71,17 @@ class BrokerRecentPropertiesWidget extends StatelessWidget {
                       ),
 
                     Padding(
-                      padding:
-                          const EdgeInsets.all(16),
+                      padding: const EdgeInsets.all(16),
 
                       child: Column(
-                        crossAxisAlignment:
-                            CrossAxisAlignment.start,
+                        crossAxisAlignment: CrossAxisAlignment.start,
 
                         children: [
-
                           Text(
                             property.title,
                             style: const TextStyle(
                               fontSize: 20,
-                              fontWeight:
-                                  FontWeight.bold,
+                              fontWeight: FontWeight.bold,
                             ),
                           ),
 
@@ -108,38 +93,23 @@ class BrokerRecentPropertiesWidget extends StatelessWidget {
 
                           Row(
                             children: [
-
-                              Chip(
-                                label:
-                                    Text(property.status),
-                              ),
+                              Chip(label: Text(property.status)),
 
                               const Spacer(),
 
-                              const Icon(
-                                Icons.visibility,
-                              ),
+                              const Icon(Icons.visibility),
 
                               const SizedBox(width: 4),
 
-                              Text(
-                                property.views
-                                    .toString(),
-                              ),
+                              Text(property.views.toString()),
 
                               const SizedBox(width: 16),
 
-                              const Icon(
-                                Icons.favorite,
-                                color: Colors.red,
-                              ),
+                              const Icon(Icons.favorite, color: Colors.red),
 
                               const SizedBox(width: 4),
 
-                              Text(
-                                property.likes
-                                    .toString(),
-                              ),
+                              Text(property.likes.toString()),
                             ],
                           ),
 
@@ -147,11 +117,9 @@ class BrokerRecentPropertiesWidget extends StatelessWidget {
 
                           Text(
                             "₹${property.price.toStringAsFixed(0)}",
-                            style:
-                                const TextStyle(
+                            style: const TextStyle(
                               fontSize: 20,
-                              fontWeight:
-                                  FontWeight.bold,
+                              fontWeight: FontWeight.bold,
                             ),
                           ),
                         ],

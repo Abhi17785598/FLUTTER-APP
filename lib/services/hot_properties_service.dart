@@ -27,7 +27,7 @@ import '../models/property_model.dart';
 
 class HotPropertiesService {
   HotPropertiesService({SupabaseClient? client})
-      : _supabase = client ?? Supabase.instance.client;
+    : _supabase = client ?? Supabase.instance.client;
 
   final SupabaseClient _supabase;
 

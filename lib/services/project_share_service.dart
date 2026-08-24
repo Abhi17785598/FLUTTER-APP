@@ -57,7 +57,7 @@ class ProjectShareResult {
 
 class ProjectShareService {
   ProjectShareService({SupabaseClient? client})
-      : _supabase = client ?? Supabase.instance.client;
+    : _supabase = client ?? Supabase.instance.client;
 
   final SupabaseClient _supabase;
 

@@ -8,7 +8,9 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_text_styles.dart';
 import '../../core/constants/app_constants.dart';
+import '../../core/utils/compare_toggle_handler.dart';
 import '../../providers/chat_thread_provider.dart';
+import '../../providers/compare_provider.dart';
 import '../../providers/property_provider.dart';
 import '../../models/reel_comment.dart';
 import '../../services/comment_service.dart';
@@ -118,13 +120,13 @@ class _PropertyDetailScreenState extends State<PropertyDetailScreen>
       parent: _entranceController,
       curve: Curves.easeOut,
     );
-    _slideAnim = Tween<Offset>(
-      begin: const Offset(0, 0.03),
-      end: Offset.zero,
-    ).animate(CurvedAnimation(
-      parent: _entranceController,
-      curve: Curves.easeOutCubic,
-    ));
+    _slideAnim = Tween<Offset>(begin: const Offset(0, 0.03), end: Offset.zero)
+        .animate(
+          CurvedAnimation(
+            parent: _entranceController,
+            curve: Curves.easeOutCubic,
+          ),
+        );
     _entranceController.forward();
 
     _loadProperty();
@@ -144,16 +146,18 @@ class _PropertyDetailScreenState extends State<PropertyDetailScreen>
   /// paginated-away property still load correctly, unlike the old pure
   /// in-memory `getPropertyById` lookup.
   Future<void> _loadProperty() async {
-    final PropertyProvider propertyProvider =
-        Provider.of<PropertyProvider>(context, listen: false);
+    final PropertyProvider propertyProvider = Provider.of<PropertyProvider>(
+      context,
+      listen: false,
+    );
     final cached = propertyProvider.findCached(widget.propertyId);
     if (cached != null && mounted) {
       setState(() => _property = cached);
     }
 
     try {
-      final PropertyDetailBundle bundle =
-          await _propertyService.getPropertyDetail(widget.propertyId);
+      final PropertyDetailBundle bundle = await _propertyService
+          .getPropertyDetail(widget.propertyId);
       if (!mounted) return;
       setState(() {
         _property = bundle.property;
@@ -186,11 +190,11 @@ class _PropertyDetailScreenState extends State<PropertyDetailScreen>
     }
 
     try {
-      final List<NearbyPlace> results =
-          await _nearbyPlacesService.fetchNearbyPlaces(
-        latitude: property.latitude,
-        longitude: property.longitude,
-      );
+      final List<NearbyPlace> results = await _nearbyPlacesService
+          .fetchNearbyPlaces(
+            latitude: property.latitude,
+            longitude: property.longitude,
+          );
       if (!mounted) return;
       setState(() {
         _nearbyPlaces = results;
@@ -217,7 +221,9 @@ class _PropertyDetailScreenState extends State<PropertyDetailScreen>
   /// city, approved, excluding self.
   Future<void> _loadRelatedProperties() async {
     final property = _property;
-    if (property == null || property.propertyType == null || property.category == null) {
+    if (property == null ||
+        property.propertyType == null ||
+        property.category == null) {
       if (mounted) setState(() => _isLoadingRelated = false);
       return;
     }
@@ -292,15 +298,14 @@ class _PropertyDetailScreenState extends State<PropertyDetailScreen>
         );
       }
       return Scaffold(
-        body: Center(
-          child: Text(_loadError ?? 'Property not found'),
-        ),
+        body: Center(child: Text(_loadError ?? 'Property not found')),
       );
     }
 
     final property = _property!;
-    final PropertyProvider propertyProvider =
-        Provider.of<PropertyProvider>(context);
+    final PropertyProvider propertyProvider = Provider.of<PropertyProvider>(
+      context,
+    );
 
     return Scaffold(
       backgroundColor: AppColors.background,
@@ -382,14 +387,14 @@ class _PropertyDetailScreenState extends State<PropertyDetailScreen>
 
                             // Title + Price row
                             Row(
-                              mainAxisAlignment:
-                                  MainAxisAlignment.spaceBetween,
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
                               children: [
                                 Expanded(
                                   child: Text(
                                     property.title,
-                                    style: AppTextStyles.heading2
-                                        .copyWith(fontSize: 18),
+                                    style: AppTextStyles.heading2.copyWith(
+                                      fontSize: 18,
+                                    ),
                                   ),
                                 ),
                                 Text(
@@ -472,8 +477,10 @@ class _PropertyDetailScreenState extends State<PropertyDetailScreen>
                             // amount, matching the website exactly.
                             if (property.propertyType == 'sell') ...[
                               const SizedBox(height: 20),
-                              Text('EMI Calculator',
-                                  style: AppTextStyles.heading3),
+                              Text(
+                                'EMI Calculator',
+                                style: AppTextStyles.heading3,
+                              ),
                               const SizedBox(height: 12),
                               const EmiCalculatorWidget(),
                             ],
@@ -496,8 +503,7 @@ class _PropertyDetailScreenState extends State<PropertyDetailScreen>
         ],
       ),
 
-      bottomNavigationBar:
-          _buildBottomBar(context, property, propertyProvider),
+      bottomNavigationBar: _buildBottomBar(context, property, propertyProvider),
     );
   }
 
@@ -515,8 +521,11 @@ class _PropertyDetailScreenState extends State<PropertyDetailScreen>
       return Container(
         color: AppColors.textHint.withOpacity(0.1),
         child: const Center(
-          child: Icon(Icons.broken_image,
-              color: AppColors.textSecondary, size: 48),
+          child: Icon(
+            Icons.broken_image,
+            color: AppColors.textSecondary,
+            size: 48,
+          ),
         ),
       );
     }
@@ -535,18 +544,21 @@ class _PropertyDetailScreenState extends State<PropertyDetailScreen>
             child: CachedNetworkImage(
               imageUrl: images[index],
               fit: BoxFit.cover,
-              placeholder: (BuildContext ctx, String url) => Container(
-                color: AppColors.textHint.withOpacity(0.1),
-              ),
+              placeholder: (BuildContext ctx, String url) =>
+                  Container(color: AppColors.textHint.withOpacity(0.1)),
               errorWidget: (BuildContext ctx, String url, Object error) {
                 debugPrint(
-                    '[PropertyDetail] Image load error for ${property.id} '
-                    '(index $index): $error');
+                  '[PropertyDetail] Image load error for ${property.id} '
+                  '(index $index): $error',
+                );
                 return Container(
                   color: AppColors.textHint.withOpacity(0.1),
                   child: const Center(
-                    child: Icon(Icons.broken_image,
-                        color: AppColors.textSecondary, size: 48),
+                    child: Icon(
+                      Icons.broken_image,
+                      color: AppColors.textSecondary,
+                      size: 48,
+                    ),
                   ),
                 );
               },
@@ -564,10 +576,7 @@ class _PropertyDetailScreenState extends State<PropertyDetailScreen>
           gradient: LinearGradient(
             begin: Alignment.topCenter,
             end: Alignment.bottomCenter,
-            colors: [
-              Colors.transparent,
-              Colors.black.withOpacity(0.3),
-            ],
+            colors: [Colors.transparent, Colors.black.withOpacity(0.3)],
           ),
         ),
       ),
@@ -590,6 +599,9 @@ class _PropertyDetailScreenState extends State<PropertyDetailScreen>
     final String propertyId = property.id as String;
     final bool isShortlisted = propertyProvider.isShortlisted(propertyId);
     final bool isLiked = propertyProvider.isLiked(propertyId);
+    final bool isInCompare = context.watch<CompareProvider>().isSelected(
+      propertyId,
+    );
 
     return Positioned(
       top: MediaQuery.of(context).padding.top + 12,
@@ -651,11 +663,7 @@ class _PropertyDetailScreenState extends State<PropertyDetailScreen>
                 onTap: () => _shareProperty(property),
                 child: _buildCircleButton(
                   backgroundColor: Colors.black.withOpacity(0.5),
-                  child: const Icon(
-                    Icons.share,
-                    color: Colors.white,
-                    size: 20,
-                  ),
+                  child: const Icon(Icons.share, color: Colors.white, size: 20),
                 ),
               ),
               const SizedBox(width: 8),
@@ -670,7 +678,25 @@ class _PropertyDetailScreenState extends State<PropertyDetailScreen>
                   backgroundColor: Colors.white,
                   child: Icon(
                     isShortlisted ? Icons.bookmark : Icons.bookmark_border,
-                    color: isShortlisted ? AppColors.primary : AppColors.textSecondary,
+                    color: isShortlisted
+                        ? AppColors.primary
+                        : AppColors.textSecondary,
+                    size: 20,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 8),
+              GestureDetector(
+                onTap: () => handleCompareToggle(context, property),
+                child: _buildCircleButton(
+                  backgroundColor: Colors.white,
+                  child: Icon(
+                    isInCompare
+                        ? Icons.check_circle
+                        : Icons.compare_arrows_rounded,
+                    color: isInCompare
+                        ? AppColors.primary
+                        : AppColors.textSecondary,
                     size: 20,
                   ),
                 ),
@@ -800,8 +826,10 @@ class _PropertyDetailScreenState extends State<PropertyDetailScreen>
     final images = _resolveImages(property);
     if (images.isEmpty) return;
 
-    debugPrint('[PropertyDetail] Opening gallery for property '
-        '${property.id} at index $initialIndex of ${images.length}');
+    debugPrint(
+      '[PropertyDetail] Opening gallery for property '
+      '${property.id} at index $initialIndex of ${images.length}',
+    );
 
     Navigator.push(
       context,
@@ -816,8 +844,10 @@ class _PropertyDetailScreenState extends State<PropertyDetailScreen>
   }
 
   void _handleVirtualTour(BuildContext context, dynamic property) {
-    debugPrint('[PropertyDetail] Virtual Tour tapped for property: '
-        '${property.id}');
+    debugPrint(
+      '[PropertyDetail] Virtual Tour tapped for property: '
+      '${property.id}',
+    );
 
     final String? tourUrl = property.videoUrl;
     if (tourUrl != null && tourUrl.isNotEmpty) {
@@ -848,17 +878,20 @@ class _PropertyDetailScreenState extends State<PropertyDetailScreen>
     final List<_Highlight> highlights = [];
 
     if (property.isVerified == true) {
-      highlights.add(_Highlight('Verified', Icons.verified,
-          AppColors.verifiedBadge));
+      highlights.add(
+        _Highlight('Verified', Icons.verified, AppColors.verifiedBadge),
+      );
     }
     if (property.isTrending == true) {
-      highlights.add(_Highlight('Trending', Icons.trending_up,
-          AppColors.warning));
+      highlights.add(
+        _Highlight('Trending', Icons.trending_up, AppColors.warning),
+      );
     }
     final String? possession = property.possessionStatus as String?;
     if (possession != null && possession.toLowerCase().contains('ready')) {
-      highlights.add(_Highlight('Ready To Move', Icons.home_work,
-          AppColors.success));
+      highlights.add(
+        _Highlight('Ready To Move', Icons.home_work, AppColors.success),
+      );
     }
     if (property.isFeatured == true) {
       highlights.add(_Highlight('Featured', Icons.star, AppColors.primary));
@@ -872,30 +905,34 @@ class _PropertyDetailScreenState extends State<PropertyDetailScreen>
         spacing: 8,
         runSpacing: 8,
         children: highlights
-            .map((h) => AnimatedContainer(
-                  duration: const Duration(milliseconds: 250),
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                  decoration: BoxDecoration(
-                    color: h.color.withOpacity(0.1),
-                    borderRadius: BorderRadius.circular(20),
-                    border: Border.all(color: h.color.withOpacity(0.3)),
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(h.icon, size: 14, color: h.color),
-                      const SizedBox(width: 6),
-                      Text(
-                        h.label,
-                        style: AppTextStyles.chip.copyWith(
-                          color: h.color,
-                          fontWeight: FontWeight.w600,
-                        ),
+            .map(
+              (h) => AnimatedContainer(
+                duration: const Duration(milliseconds: 250),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 6,
+                ),
+                decoration: BoxDecoration(
+                  color: h.color.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(20),
+                  border: Border.all(color: h.color.withOpacity(0.3)),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(h.icon, size: 14, color: h.color),
+                    const SizedBox(width: 6),
+                    Text(
+                      h.label,
+                      style: AppTextStyles.chip.copyWith(
+                        color: h.color,
+                        fontWeight: FontWeight.w600,
                       ),
-                    ],
-                  ),
-                ))
+                    ),
+                  ],
+                ),
+              ),
+            )
             .toList(),
       ),
     );
@@ -910,8 +947,8 @@ class _PropertyDetailScreenState extends State<PropertyDetailScreen>
     final int crossAxisCount = width >= 900
         ? 4
         : width >= 600
-            ? 3
-            : 2;
+        ? 3
+        : 2;
 
     // Land/Plot has no bedroom/bathroom concept (mirrors the portal's
     // `property.category === 'land'` branch in PropertyDetails.tsx, which
@@ -944,7 +981,11 @@ class _PropertyDetailScreenState extends State<PropertyDetailScreen>
     final DateTime? availableFrom = property.availableFrom as DateTime?;
     if (availableFrom != null) {
       items.add(
-        _InfoItem(Icons.event, 'Available From', _formatShortDate(availableFrom)),
+        _InfoItem(
+          Icons.event,
+          'Available From',
+          _formatShortDate(availableFrom),
+        ),
       );
     }
     // Mirrors the portal's "Price Negotiable" chip (renderExtendedDetails'
@@ -979,8 +1020,18 @@ class _PropertyDetailScreenState extends State<PropertyDetailScreen>
   }
 
   static const List<String> _monthAbbreviations = [
-    'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
-    'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
+    'Jan',
+    'Feb',
+    'Mar',
+    'Apr',
+    'May',
+    'Jun',
+    'Jul',
+    'Aug',
+    'Sep',
+    'Oct',
+    'Nov',
+    'Dec',
   ];
 
   String _formatShortDate(DateTime date) =>
@@ -1157,8 +1208,7 @@ class _PropertyDetailScreenState extends State<PropertyDetailScreen>
         if (str('openParking') != null)
           _DetailRow('Open Parking', str('openParking')!),
         if (isTrue('gasPipeline')) _DetailRow('Gas Pipeline', 'Yes'),
-        if (isTrue('internetAvailability'))
-          _DetailRow('Internet', 'Available'),
+        if (isTrue('internetAvailability')) _DetailRow('Internet', 'Available'),
         if (isTrue('solarBackup')) _DetailRow('Solar Backup', 'Yes'),
         if (isTrue('guardRoom')) _DetailRow('Guard Room', 'Yes'),
       ]),
@@ -1177,10 +1227,8 @@ class _PropertyDetailScreenState extends State<PropertyDetailScreen>
         if (isTrue('unregisteredAgreement'))
           _DetailRow('Unregistered Agreement', 'Yes'),
         if (isTrue('nocAvailable')) _DetailRow('NOC', 'Available'),
-        if (isTrue('encumbranceFree'))
-          _DetailRow('Encumbrance Free', 'Yes'),
-        if (isTrue('propertyApproved'))
-          _DetailRow('Property Approved', 'Yes'),
+        if (isTrue('encumbranceFree')) _DetailRow('Encumbrance Free', 'Yes'),
+        if (isTrue('propertyApproved')) _DetailRow('Property Approved', 'Yes'),
         if (isTrue('approvedByAuthority'))
           _DetailRow('Approved By Authority', 'Yes'),
         if (isTrue('khataAvailable')) _DetailRow('Khata Available', 'Yes'),
@@ -1189,22 +1237,20 @@ class _PropertyDetailScreenState extends State<PropertyDetailScreen>
           _DetailRow('Jamabandi Available', 'Yes'),
         if (isTrue('mutationAvailable'))
           _DetailRow('Mutation Available', 'Yes'),
-        if (isTrue('ocCertificate'))
-          _DetailRow('Occupancy Certificate', 'Yes'),
+        if (isTrue('ocCertificate')) _DetailRow('Occupancy Certificate', 'Yes'),
         if (isTrue('completionCertificate'))
           _DetailRow('Completion Certificate', 'Yes'),
-        if (isTrue('buildingApproval'))
-          _DetailRow('Building Approval', 'Yes'),
+        if (isTrue('buildingApproval')) _DetailRow('Building Approval', 'Yes'),
         if (isTrue('taxReceipt')) _DetailRow('Tax Receipt', 'Available'),
-        if (isTrue('propertyTaxPaid'))
-          _DetailRow('Property Tax Paid', 'Yes'),
-        if (isTrue('courtCasePending'))
-          _DetailRow('Court Case Pending', 'Yes'),
+        if (isTrue('propertyTaxPaid')) _DetailRow('Property Tax Paid', 'Yes'),
+        if (isTrue('courtCasePending')) _DetailRow('Court Case Pending', 'Yes'),
         if (isTrue('loanApproved') || isTrue('bankLoanApproved'))
           _DetailRow('Bank Loan Approved', 'Yes'),
         if (strList('approvedByBanks').isNotEmpty)
           _DetailRow(
-              'Approved By Banks', strList('approvedByBanks').join(', ')),
+            'Approved By Banks',
+            strList('approvedByBanks').join(', '),
+          ),
         if (isTrue('fireLicense')) _DetailRow('Fire License', 'Yes'),
         if (isTrue('tradeLicense')) _DetailRow('Trade License', 'Yes'),
         if (isTrue('foodLicense')) _DetailRow('Food License', 'Yes'),
@@ -1216,8 +1262,7 @@ class _PropertyDetailScreenState extends State<PropertyDetailScreen>
         if (isTrue('dispute')) _DetailRow('Under Dispute', 'Yes'),
         if (str('registrationTitle') != null)
           _DetailRow('Registration Title', str('registrationTitle')!),
-        if (str('mutation') != null)
-          _DetailRow('Mutation', str('mutation')!),
+        if (str('mutation') != null) _DetailRow('Mutation', str('mutation')!),
         if (str('ownershipType') != null)
           _DetailRow('Ownership Type', str('ownershipType')!),
         if (str('ownerName') != null)
@@ -1233,14 +1278,11 @@ class _PropertyDetailScreenState extends State<PropertyDetailScreen>
           _DetailRow('Finance Status', str('financeStatus')!),
         if (str('priceType') != null)
           _DetailRow('Price Type', str('priceType')!),
-        if (isTrue('priceNegotiable'))
-          _DetailRow('Price Negotiable', 'Yes'),
+        if (isTrue('priceNegotiable')) _DetailRow('Price Negotiable', 'Yes'),
         if (str('propertyTax') != null)
           _DetailRow('Property Tax', str('propertyTax')!),
-        if (str('waterTax') != null)
-          _DetailRow('Water Tax', str('waterTax')!),
-        if (str('otherTax') != null)
-          _DetailRow('Other Tax', str('otherTax')!),
+        if (str('waterTax') != null) _DetailRow('Water Tax', str('waterTax')!),
+        if (str('otherTax') != null) _DetailRow('Other Tax', str('otherTax')!),
         if (str('societyMaintenance') != null)
           _DetailRow('Society Maintenance', str('societyMaintenance')!),
         if (str('maintenanceCharges') != null)
@@ -1284,9 +1326,10 @@ class _PropertyDetailScreenState extends State<PropertyDetailScreen>
         if (str('plotArea') != null)
           _DetailRow(
             'Plot Area',
-            [str('plotArea'), str('plotAreaUnit')]
-                .whereType<String>()
-                .join(' '),
+            [
+              str('plotArea'),
+              str('plotAreaUnit'),
+            ].whereType<String>().join(' '),
           ),
         if (str('spaceDetails') != null)
           _DetailRow('Space Details', str('spaceDetails')!),
@@ -1295,14 +1338,13 @@ class _PropertyDetailScreenState extends State<PropertyDetailScreen>
         if (str('landSize') != null)
           _DetailRow(
             'Land Size',
-            [str('landSize'), str('landSizeUnit')]
-                .whereType<String>()
-                .join(' '),
+            [
+              str('landSize'),
+              str('landSizeUnit'),
+            ].whereType<String>().join(' '),
           ),
-        if (str('landType') != null)
-          _DetailRow('Land Type', str('landType')!),
-        if (str('boundary') != null)
-          _DetailRow('Boundary', str('boundary')!),
+        if (str('landType') != null) _DetailRow('Land Type', str('landType')!),
+        if (str('boundary') != null) _DetailRow('Boundary', str('boundary')!),
       ]),
       _DetailGroup('Contact Preferences', [
         if (str('contactName') != null)
@@ -1406,10 +1448,7 @@ class _PropertyDetailScreenState extends State<PropertyDetailScreen>
               builderName,
               style: AppTextStyles.body.copyWith(fontWeight: FontWeight.w600),
             ),
-          Text(
-            property.location as String,
-            style: AppTextStyles.caption,
-          ),
+          Text(property.location as String, style: AppTextStyles.caption),
           const SizedBox(height: 12),
           PropertyMapWidget(
             latitude: latitude,
@@ -1468,7 +1507,10 @@ class _PropertyDetailScreenState extends State<PropertyDetailScreen>
   }
 
   Future<void> _openInGoogleMaps(
-      BuildContext context, double latitude, double longitude) async {
+    BuildContext context,
+    double latitude,
+    double longitude,
+  ) async {
     final Uri uri = Uri.parse(
       'https://www.google.com/maps/search/?api=1&query=$latitude,$longitude',
     );
@@ -1476,7 +1518,10 @@ class _PropertyDetailScreenState extends State<PropertyDetailScreen>
   }
 
   Future<void> _getDirections(
-      BuildContext context, double latitude, double longitude) async {
+    BuildContext context,
+    double latitude,
+    double longitude,
+  ) async {
     final Uri uri = Uri.parse(
       'https://www.google.com/maps/dir/?api=1&destination=$latitude,$longitude',
     );
@@ -1484,21 +1529,26 @@ class _PropertyDetailScreenState extends State<PropertyDetailScreen>
   }
 
   Future<void> _launchMapsUri(
-      BuildContext context, Uri uri, String failureMessage) async {
+    BuildContext context,
+    Uri uri,
+    String failureMessage,
+  ) async {
     try {
-      final bool launched =
-          await launchUrl(uri, mode: LaunchMode.externalApplication);
+      final bool launched = await launchUrl(
+        uri,
+        mode: LaunchMode.externalApplication,
+      );
       if (!launched && context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(failureMessage)),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(failureMessage)));
       }
     } catch (e) {
       debugPrint('[PropertyDetail] Maps launch error: $e');
       if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(failureMessage)),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(failureMessage)));
       }
     }
   }
@@ -1519,8 +1569,8 @@ class _PropertyDetailScreenState extends State<PropertyDetailScreen>
     final String name = (owner.companyName?.isNotEmpty ?? false)
         ? owner.companyName!
         : (owner.displayName?.isNotEmpty ?? false)
-            ? owner.displayName!
-            : 'Property Owner';
+        ? owner.displayName!
+        : 'Property Owner';
     final String role = (owner.userType?.isNotEmpty ?? false)
         ? owner.userType![0].toUpperCase() + owner.userType!.substring(1)
         : 'Contact for details';
@@ -1554,7 +1604,10 @@ class _PropertyDetailScreenState extends State<PropertyDetailScreen>
                             : null,
                         child: (owner.avatarUrl?.isNotEmpty ?? false)
                             ? null
-                            : const Icon(Icons.person, color: AppColors.primary),
+                            : const Icon(
+                                Icons.person,
+                                color: AppColors.primary,
+                              ),
                       ),
                       const SizedBox(width: 12),
                       Expanded(
@@ -1563,7 +1616,9 @@ class _PropertyDetailScreenState extends State<PropertyDetailScreen>
                           children: [
                             Text(
                               name,
-                              style: AppTextStyles.heading3.copyWith(fontSize: 15),
+                              style: AppTextStyles.heading3.copyWith(
+                                fontSize: 15,
+                              ),
                             ),
                             const SizedBox(height: 2),
                             Text(role, style: AppTextStyles.caption),
@@ -1574,10 +1629,14 @@ class _PropertyDetailScreenState extends State<PropertyDetailScreen>
                   ),
                 ),
               ),
-              if (_property?.userId != Supabase.instance.client.auth.currentUser?.id)
+              if (_property?.userId !=
+                  Supabase.instance.client.auth.currentUser?.id)
                 IconButton(
                   onPressed: () => _messageOwner(context),
-                  icon: const Icon(Icons.chat_bubble_outline, color: AppColors.primary),
+                  icon: const Icon(
+                    Icons.chat_bubble_outline,
+                    color: AppColors.primary,
+                  ),
                   style: IconButton.styleFrom(
                     backgroundColor: AppColors.primaryLight,
                     shape: const CircleBorder(),
@@ -1638,13 +1697,14 @@ class _PropertyDetailScreenState extends State<PropertyDetailScreen>
             title: (owner?.companyName?.isNotEmpty ?? false)
                 ? owner!.companyName!
                 : (owner?.displayName?.isNotEmpty ?? false)
-                    ? owner!.displayName!
-                    : 'Property Owner',
+                ? owner!.displayName!
+                : 'Property Owner',
             avatarUrl: owner?.avatarUrl,
-            initials: ((owner?.displayName?.isNotEmpty ?? false)
-                    ? owner!.displayName![0]
-                    : 'P')
-                .toUpperCase(),
+            initials:
+                ((owner?.displayName?.isNotEmpty ?? false)
+                        ? owner!.displayName![0]
+                        : 'P')
+                    .toUpperCase(),
             participantUserId: ownerId,
           ),
         ),
@@ -1672,8 +1732,10 @@ class _PropertyDetailScreenState extends State<PropertyDetailScreen>
 
     final links = <_SocialLink>[
       if (str('facebook') != null || str('facebook_page_link') != null)
-        _SocialLink(Icons.facebook,
-            str('facebook_page_link') ?? str('facebook')!),
+        _SocialLink(
+          Icons.facebook,
+          str('facebook_page_link') ?? str('facebook')!,
+        ),
       if (str('instagram') != null)
         _SocialLink(Icons.camera_alt, str('instagram')!),
       if (str('linkedin') != null)
@@ -1772,8 +1834,9 @@ class _PropertyDetailScreenState extends State<PropertyDetailScreen>
     // widget's flat icon row has no per-category grouping to slice by.
     const int previewCount = 6;
     final bool canExpand = amenities.length > previewCount;
-    final List visibleAmenities =
-        _showAllAmenities || !canExpand ? amenities : amenities.sublist(0, previewCount);
+    final List visibleAmenities = _showAllAmenities || !canExpand
+        ? amenities
+        : amenities.sublist(0, previewCount);
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -1803,9 +1866,7 @@ class _PropertyDetailScreenState extends State<PropertyDetailScreen>
             itemBuilder: (BuildContext context, int index) {
               final amenity = visibleAmenities[index];
               final Color color = Color(
-                int.parse(
-                  (amenity.color as String).replaceAll('#', '0xFF'),
-                ),
+                int.parse((amenity.color as String).replaceAll('#', '0xFF')),
               );
               return Padding(
                 padding: const EdgeInsets.only(right: 14),
@@ -1885,15 +1946,13 @@ class _PropertyDetailScreenState extends State<PropertyDetailScreen>
       return Padding(
         padding: const EdgeInsets.symmetric(vertical: 24),
         child: Center(
-          child: Text(
-            'No nearby places found',
-            style: AppTextStyles.caption,
-          ),
+          child: Text('No nearby places found', style: AppTextStyles.caption),
         ),
       );
     }
 
-    final List<NearbyPlace> visiblePlaces = _showAllNearby || _nearbyPlaces.length <= 4
+    final List<NearbyPlace> visiblePlaces =
+        _showAllNearby || _nearbyPlaces.length <= 4
         ? _nearbyPlaces
         : _nearbyPlaces.sublist(0, 4);
 
@@ -1910,9 +1969,7 @@ class _PropertyDetailScreenState extends State<PropertyDetailScreen>
           decoration: BoxDecoration(
             color: AppColors.cardBackground,
             borderRadius: BorderRadius.circular(14),
-            border: Border.all(
-              color: AppColors.textHint.withOpacity(0.2),
-            ),
+            border: Border.all(color: AppColors.textHint.withOpacity(0.2)),
           ),
           child: NearbyPlaceRow(
             name: place.name,
@@ -1932,6 +1989,7 @@ class _PropertyDetailScreenState extends State<PropertyDetailScreen>
   // ===========================================================================
 
   Widget _buildRelatedPropertiesSection(BuildContext context) {
+    final compareProvider = context.watch<CompareProvider>();
     if (_isLoadingRelated) {
       return const Padding(
         padding: EdgeInsets.symmetric(vertical: 24),
@@ -1970,9 +2028,13 @@ class _PropertyDetailScreenState extends State<PropertyDetailScreen>
                   );
                 },
                 onFavoriteToggle: () {
-                  Provider.of<PropertyProvider>(context, listen: false)
-                      .toggleShortlist(related.id);
+                  Provider.of<PropertyProvider>(
+                    context,
+                    listen: false,
+                  ).toggleShortlist(related.id);
                 },
+                isInCompare: compareProvider.isSelected(related.id),
+                onCompareToggle: () => handleCompareToggle(context, related),
               );
             },
           ),
@@ -2001,9 +2063,7 @@ class _PropertyDetailScreenState extends State<PropertyDetailScreen>
       padding: EdgeInsets.fromLTRB(16, 10, 16, 10 + bottomInset),
       decoration: const BoxDecoration(
         color: AppColors.surface,
-        border: Border(
-          top: BorderSide(color: AppColors.textHint, width: 0.5),
-        ),
+        border: Border(top: BorderSide(color: AppColors.textHint, width: 0.5)),
       ),
       child: Row(
         children: [
@@ -2056,8 +2116,10 @@ class _PropertyDetailScreenState extends State<PropertyDetailScreen>
     dynamic property,
     PropertyProvider propertyProvider,
   ) {
-    final AuthProvider authProvider =
-        Provider.of<AuthProvider>(context, listen: false);
+    final AuthProvider authProvider = Provider.of<AuthProvider>(
+      context,
+      listen: false,
+    );
     final User? currentUser = Supabase.instance.client.auth.currentUser;
 
     if (currentUser == null) {
@@ -2071,7 +2133,15 @@ class _PropertyDetailScreenState extends State<PropertyDetailScreen>
     // `preferred_time` — not 24-hour labels, so kept exactly as the portal
     // writes them rather than "corrected".
     const List<String> timeSlots = [
-      '10:00', '11:00', '12:00', '01:00', '02:00', '03:00', '04:00', '05:00', '06:00',
+      '10:00',
+      '11:00',
+      '12:00',
+      '01:00',
+      '02:00',
+      '03:00',
+      '04:00',
+      '05:00',
+      '06:00',
     ];
 
     final TextEditingController nameController = TextEditingController(
@@ -2080,7 +2150,8 @@ class _PropertyDetailScreenState extends State<PropertyDetailScreen>
           : (currentUser.userMetadata?['full_name']?.toString() ?? ''),
     );
     final TextEditingController phoneController = TextEditingController(
-      text: currentUser.phone ??
+      text:
+          currentUser.phone ??
           authProvider.profileRow?['phone']?.toString() ??
           '',
     );
@@ -2108,7 +2179,10 @@ class _PropertyDetailScreenState extends State<PropertyDetailScreen>
               final DateTime? date = selectedDate;
               if (date == null) return false;
               return VisitFormValidation.isSlotDisabled(
-                  time, date, DateTime.now());
+                time,
+                date,
+                DateTime.now(),
+              );
             }
 
             Future<void> pickDate() async {
@@ -2206,8 +2280,9 @@ class _PropertyDetailScreenState extends State<PropertyDetailScreen>
                     const SizedBox(height: 4),
                     Text(
                       property.title as String,
-                      style: AppTextStyles.body
-                          .copyWith(color: AppColors.textSecondary),
+                      style: AppTextStyles.body.copyWith(
+                        color: AppColors.textSecondary,
+                      ),
                     ),
                     const SizedBox(height: 20),
                     TextField(
@@ -2252,8 +2327,13 @@ class _PropertyDetailScreenState extends State<PropertyDetailScreen>
                     if (dateError != null)
                       Padding(
                         padding: const EdgeInsets.only(top: 4),
-                        child: Text(dateError!,
-                            style: const TextStyle(color: Colors.red, fontSize: 12)),
+                        child: Text(
+                          dateError!,
+                          style: const TextStyle(
+                            color: Colors.red,
+                            fontSize: 12,
+                          ),
+                        ),
                       ),
                     const SizedBox(height: 20),
                     Text(
@@ -2278,8 +2358,8 @@ class _PropertyDetailScreenState extends State<PropertyDetailScreen>
                             color: isSelected
                                 ? Colors.white
                                 : (disabled
-                                    ? AppColors.textHint
-                                    : AppColors.textSecondary),
+                                      ? AppColors.textHint
+                                      : AppColors.textSecondary),
                           ),
                           onSelected: disabled
                               ? null
@@ -2297,8 +2377,13 @@ class _PropertyDetailScreenState extends State<PropertyDetailScreen>
                     if (timeError != null)
                       Padding(
                         padding: const EdgeInsets.only(top: 4),
-                        child: Text(timeError!,
-                            style: const TextStyle(color: Colors.red, fontSize: 12)),
+                        child: Text(
+                          timeError!,
+                          style: const TextStyle(
+                            color: Colors.red,
+                            fontSize: 12,
+                          ),
+                        ),
                       ),
                     const SizedBox(height: 20),
                     Text(
@@ -2339,7 +2424,10 @@ class _PropertyDetailScreenState extends State<PropertyDetailScreen>
                               )
                             : const Text(
                                 'Confirm Schedule',
-                                style: TextStyle(color: Colors.white, fontSize: 16),
+                                style: TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 16,
+                                ),
                               ),
                       ),
                     ),
@@ -2358,8 +2446,7 @@ class _PropertyDetailScreenState extends State<PropertyDetailScreen>
     showDialog(
       context: context,
       builder: (BuildContext dialogContext) => AlertDialog(
-        shape:
-            RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         title: const Row(
           children: [
             Icon(Icons.check_circle, color: Colors.green, size: 28),
@@ -2368,7 +2455,8 @@ class _PropertyDetailScreenState extends State<PropertyDetailScreen>
           ],
         ),
         content: Text(
-            'Your visit is successfully scheduled for $formattedDate at $time.'),
+          'Your visit is successfully scheduled for $formattedDate at $time.',
+        ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(dialogContext),
@@ -2433,7 +2521,9 @@ class _PropertyDetailScreenState extends State<PropertyDetailScreen>
               if (isSubmitting) return; // guards against a double tap
               final String message = messageController.text.trim();
               setModalState(() {
-                messageError = message.isEmpty ? 'Please enter a message' : null;
+                messageError = message.isEmpty
+                    ? 'Please enter a message'
+                    : null;
               });
               if (messageError != null) return;
 
@@ -2458,8 +2548,9 @@ class _PropertyDetailScreenState extends State<PropertyDetailScreen>
               } on DuplicateInquiryException catch (e) {
                 if (!mounted) return;
                 setModalState(() => isSubmitting = false);
-                ScaffoldMessenger.of(context)
-                    .showSnackBar(SnackBar(content: Text(e.toString())));
+                ScaffoldMessenger.of(
+                  context,
+                ).showSnackBar(SnackBar(content: Text(e.toString())));
               } catch (e) {
                 if (!mounted) return;
                 setModalState(() => isSubmitting = false);
@@ -2502,8 +2593,9 @@ class _PropertyDetailScreenState extends State<PropertyDetailScreen>
                   const SizedBox(height: 4),
                   Text(
                     property.title as String,
-                    style: AppTextStyles.body
-                        .copyWith(color: AppColors.textSecondary),
+                    style: AppTextStyles.body.copyWith(
+                      color: AppColors.textSecondary,
+                    ),
                   ),
                   const SizedBox(height: 20),
                   TextField(
@@ -2515,7 +2607,8 @@ class _PropertyDetailScreenState extends State<PropertyDetailScreen>
                       border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(12),
                         borderSide: BorderSide(
-                            color: AppColors.textHint.withOpacity(0.3)),
+                          color: AppColors.textHint.withOpacity(0.3),
+                        ),
                       ),
                       focusedBorder: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(12),
@@ -2564,7 +2657,10 @@ class _PropertyDetailScreenState extends State<PropertyDetailScreen>
                             )
                           : const Text(
                               'Send Enquiry',
-                              style: TextStyle(color: Colors.white, fontSize: 16),
+                              style: TextStyle(
+                                color: Colors.white,
+                                fontSize: 16,
+                              ),
                             ),
                     ),
                   ),
@@ -2714,8 +2810,10 @@ class _PropertyCommentsSheetState extends State<_PropertyCommentsSheet> {
 
   Future<void> _load() async {
     try {
-      final comments =
-          await _service.fetchComments(widget.propertyId, _kPostType);
+      final comments = await _service.fetchComments(
+        widget.propertyId,
+        _kPostType,
+      );
       if (!mounted) return;
       setState(() {
         _comments = comments;
@@ -2734,9 +2832,9 @@ class _PropertyCommentsSheetState extends State<_PropertyCommentsSheet> {
 
     final userId = Supabase.instance.client.auth.currentUser?.id;
     if (userId == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Sign in to comment')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Sign in to comment')));
       return;
     }
 
@@ -2756,9 +2854,9 @@ class _PropertyCommentsSheetState extends State<_PropertyCommentsSheet> {
     } catch (e) {
       debugPrint('[PropertyDetail] submitComment failed: $e');
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text("Couldn't post comment")),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text("Couldn't post comment")));
       }
     } finally {
       if (mounted) setState(() => _submitting = false);
@@ -2793,7 +2891,10 @@ class _PropertyCommentsSheetState extends State<_PropertyCommentsSheet> {
                   Text('Comments', style: AppTextStyles.heading3),
                   const Spacer(),
                   IconButton(
-                    icon: const Icon(Icons.close, color: AppColors.textSecondary),
+                    icon: const Icon(
+                      Icons.close,
+                      color: AppColors.textSecondary,
+                    ),
                     onPressed: () => Navigator.pop(context),
                   ),
                 ],
@@ -2824,7 +2925,11 @@ class _PropertyCommentsSheetState extends State<_PropertyCommentsSheet> {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Icon(Icons.wifi_off_rounded, size: 48, color: AppColors.textHint),
+            const Icon(
+              Icons.wifi_off_rounded,
+              size: 48,
+              color: AppColors.textHint,
+            ),
             const SizedBox(height: 12),
             Text('Could not load comments', style: AppTextStyles.body),
             const SizedBox(height: 8),
@@ -2844,8 +2949,11 @@ class _PropertyCommentsSheetState extends State<_PropertyCommentsSheet> {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(Icons.mode_comment_outlined,
-                size: 56, color: AppColors.textHint.withOpacity(0.5)),
+            Icon(
+              Icons.mode_comment_outlined,
+              size: 56,
+              color: AppColors.textHint.withOpacity(0.5),
+            ),
             const SizedBox(height: 12),
             Text('No comments yet', style: AppTextStyles.body),
           ],
@@ -2862,8 +2970,9 @@ class _PropertyCommentsSheetState extends State<_PropertyCommentsSheet> {
   }
 
   Widget _buildCommentRow(ReelComment comment) {
-    final name =
-        (comment.authorName?.isNotEmpty ?? false) ? comment.authorName! : 'User';
+    final name = (comment.authorName?.isNotEmpty ?? false)
+        ? comment.authorName!
+        : 'User';
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -2875,20 +2984,31 @@ class _PropertyCommentsSheetState extends State<_PropertyCommentsSheet> {
               : null,
           child: (comment.authorAvatarUrl?.isNotEmpty ?? false)
               ? null
-              : Text(name[0].toUpperCase(),
-                  style: const TextStyle(color: AppColors.primary, fontSize: 12)),
+              : Text(
+                  name[0].toUpperCase(),
+                  style: const TextStyle(
+                    color: AppColors.primary,
+                    fontSize: 12,
+                  ),
+                ),
         ),
         const SizedBox(width: 10),
         Expanded(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(name,
-                  style: AppTextStyles.body
-                      .copyWith(fontWeight: FontWeight.w600, fontSize: 13)),
+              Text(
+                name,
+                style: AppTextStyles.body.copyWith(
+                  fontWeight: FontWeight.w600,
+                  fontSize: 13,
+                ),
+              ),
               const SizedBox(height: 2),
-              Text(comment.content,
-                  style: AppTextStyles.body.copyWith(fontSize: 13)),
+              Text(
+                comment.content,
+                style: AppTextStyles.body.copyWith(fontSize: 13),
+              ),
             ],
           ),
         ),
@@ -2910,8 +3030,10 @@ class _PropertyCommentsSheetState extends State<_PropertyCommentsSheet> {
                   hintText: 'Add a comment...',
                   filled: true,
                   fillColor: AppColors.cardBackground,
-                  contentPadding:
-                      const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                  contentPadding: const EdgeInsets.symmetric(
+                    horizontal: 14,
+                    vertical: 10,
+                  ),
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(24),
                     borderSide: BorderSide.none,

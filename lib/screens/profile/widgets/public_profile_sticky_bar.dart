@@ -77,9 +77,7 @@ class ProfileStickyActionBar extends StatelessWidget {
       ),
       decoration: const BoxDecoration(
         color: AppColors.cardBackground,
-        border: Border(
-          top: BorderSide(color: AppColors.textHint, width: 0.5),
-        ),
+        border: Border(top: BorderSide(color: AppColors.textHint, width: 0.5)),
       ),
       child: _buildActions(),
     );

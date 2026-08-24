@@ -27,11 +27,13 @@ class SavedPropertiesService {
 
   Future<void> save(String userId, String propertyId) async {
     try {
-      await _supabase.from('saved_properties').upsert(
-        {'user_id': userId, 'property_id': propertyId},
-        onConflict: 'user_id,property_id',
-        ignoreDuplicates: true,
-      );
+      await _supabase
+          .from('saved_properties')
+          .upsert(
+            {'user_id': userId, 'property_id': propertyId},
+            onConflict: 'user_id,property_id',
+            ignoreDuplicates: true,
+          );
     } catch (e) {
       debugPrint('SavedPropertiesService.save failed: $e');
       rethrow;

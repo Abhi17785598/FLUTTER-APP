@@ -23,11 +23,8 @@ class BuilderProjectModel {
     required this.maxPrice,
   });
 
-  factory BuilderProjectModel.fromSupabase(
-      Map<String, dynamic> json) {
-    final images = List<String>.from(
-      json['media_urls'] ?? [],
-    );
+  factory BuilderProjectModel.fromSupabase(Map<String, dynamic> json) {
+    final images = List<String>.from(json['media_urls'] ?? []);
 
     return BuilderProjectModel(
       id: json['id'] ?? '',
@@ -38,10 +35,8 @@ class BuilderProjectModel {
       views: json['views'] ?? 0,
       likes: json['likes'] ?? 0,
       availableUnits: json['available_units'] ?? 0,
-      minPrice:
-          (json['price_range_min'] as num?)?.toDouble() ?? 0,
-      maxPrice:
-          (json['price_range_max'] as num?)?.toDouble() ?? 0,
+      minPrice: (json['price_range_min'] as num?)?.toDouble() ?? 0,
+      maxPrice: (json['price_range_max'] as num?)?.toDouble() ?? 0,
     );
   }
 }

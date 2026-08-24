@@ -154,8 +154,10 @@ class ReelModel {
       videoType: json['video_type'] ?? 'property_listing',
       views: (json['views'] as num?)?.toInt() ?? 0,
       likes: (json['likes'] as num?)?.toInt() ?? 0,
-      hashtags: (json['hashtags'] as List<dynamic>?)?.cast<String>() ?? const [],
-      builderName: _str(profile?['display_name']) ?? _str(profile?['company_name']),
+      hashtags:
+          (json['hashtags'] as List<dynamic>?)?.cast<String>() ?? const [],
+      builderName:
+          _str(profile?['display_name']) ?? _str(profile?['company_name']),
       builderAvatarUrl:
           _str(profile?['avatar_url']) ?? _str(profile?['company_logo_url']),
       builderPhone: _str(profile?['phone']),
@@ -163,8 +165,9 @@ class ReelModel {
       isVerified: profile?['verification_status'] == 'verified',
       propertyId: _str(json['property_id']),
       // Same parse `PropertyModel.fromSupabase` runs on the same column.
-      propertyImageUrl:
-          PropertyModel.parseMediaUrls(property?['media_urls']).firstOrNull,
+      propertyImageUrl: PropertyModel.parseMediaUrls(
+        property?['media_urls'],
+      ).firstOrNull,
       price: _str(property?['price']),
       location: _str(property?['location']),
       beds: beds,
@@ -193,8 +196,7 @@ class ReelModel {
 
   bool get hasPrice => price != null && price!.trim().isNotEmpty;
   bool get hasLocation => location != null && location!.trim().isNotEmpty;
-  bool get hasBuilder =>
-      builderName != null && builderName!.trim().isNotEmpty;
+  bool get hasBuilder => builderName != null && builderName!.trim().isNotEmpty;
   bool get hasPossessionStatus =>
       possessionStatus != null && possessionStatus!.trim().isNotEmpty;
   bool get hasSpecs =>
@@ -260,7 +262,9 @@ class ReelModel {
   /// same shape [profileShareMessage] already uses for profile sharing.
   String get shareMessage {
     final buffer = StringBuffer();
-    buffer.writeln('🏡 ${title.isNotEmpty ? title : 'Check out this property'}');
+    buffer.writeln(
+      '🏡 ${title.isNotEmpty ? title : 'Check out this property'}',
+    );
 
     if (hasPrice) buffer.writeln('💰 $price');
     if (hasLocation) buffer.writeln('📍 $location');

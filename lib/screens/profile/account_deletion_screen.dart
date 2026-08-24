@@ -117,164 +117,160 @@ class _AccountDeletionScreenState extends State<AccountDeletionScreen> {
   }
 
   Widget _success() => DashboardCard(
+    child: Column(
+      children: [
+        Container(
+          width: 56,
+          height: 56,
+          decoration: BoxDecoration(
+            color: AppColors.success.withValues(alpha: 0.12),
+            shape: BoxShape.circle,
+          ),
+          child: const Icon(
+            Icons.check_rounded,
+            size: 26,
+            color: AppColors.success,
+          ),
+        ),
+        const SizedBox(height: AppConstants.spacingL),
+        Text(
+          'Request submitted',
+          style: AppTextStyles.heading3.copyWith(fontSize: 15),
+        ),
+        const SizedBox(height: AppConstants.spacingS),
+        Text(
+          'Your request will be processed within 30 days. Some records may '
+          'be retained where the law requires it.',
+          textAlign: TextAlign.center,
+          style: AppTextStyles.caption.copyWith(fontSize: 12.5, height: 1.5),
+        ),
+      ],
+    ),
+  );
+
+  Widget _form() => Column(
+    crossAxisAlignment: CrossAxisAlignment.start,
+    children: [
+      DashboardCard(
         child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Container(
-              width: 56,
-              height: 56,
-              decoration: BoxDecoration(
-                color: AppColors.success.withValues(alpha: 0.12),
-                shape: BoxShape.circle,
-              ),
-              child: const Icon(
-                Icons.check_rounded,
-                size: 26,
-                color: AppColors.success,
+            Row(
+              children: [
+                const Icon(
+                  Icons.warning_amber_rounded,
+                  size: 16,
+                  color: AppColors.warning,
+                ),
+                const SizedBox(width: 6),
+                Text(
+                  'This action is permanent',
+                  style: AppTextStyles.caption.copyWith(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                    color: AppColors.warning,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: AppConstants.spacingM),
+            const DashboardCardTitle('Request account deletion'),
+            const SizedBox(height: 6),
+            Text(
+              'Confirm the email or phone number you registered with. We will '
+              'use it to find your account.',
+              style: AppTextStyles.caption.copyWith(
+                fontSize: 12.5,
+                height: 1.5,
               ),
             ),
             const SizedBox(height: AppConstants.spacingL),
-            Text(
-              'Request submitted',
-              style: AppTextStyles.heading3.copyWith(fontSize: 15),
+            _label('Registered email'),
+            const SizedBox(height: 6),
+            TextField(
+              controller: _email,
+              keyboardType: TextInputType.emailAddress,
+              style: AppTextStyles.body.copyWith(fontSize: 14),
+              decoration: const InputDecoration(hintText: 'you@example.com'),
             ),
-            const SizedBox(height: AppConstants.spacingS),
-            Text(
-              'Your request will be processed within 30 days. Some records may '
-              'be retained where the law requires it.',
-              textAlign: TextAlign.center,
-              style: AppTextStyles.caption.copyWith(fontSize: 12.5, height: 1.5),
+            const SizedBox(height: AppConstants.spacingL),
+            Center(
+              child: Text(
+                'OR',
+                style: AppTextStyles.caption.copyWith(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w600,
+                  color: AppColors.textHint,
+                  letterSpacing: 0.6,
+                ),
+              ),
+            ),
+            const SizedBox(height: AppConstants.spacingL),
+            _label('Registered phone'),
+            const SizedBox(height: 6),
+            TextField(
+              controller: _phone,
+              keyboardType: TextInputType.phone,
+              style: AppTextStyles.body.copyWith(fontSize: 14),
+              decoration: const InputDecoration(hintText: 'Phone number'),
             ),
           ],
         ),
-      );
-
-  Widget _form() => Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          DashboardCard(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
+      ),
+      const SizedBox(height: AppConstants.spacingL),
+      DashboardCard(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const DashboardSectionLabel('What happens next'),
+            const SizedBox(height: AppConstants.spacingS),
+            // AccountDeletion.tsx:142-147, same four points.
+            for (final line in const [
+              'Your request is reviewed by our team.',
+              'Processing takes up to 30 days.',
+              'You will receive a confirmation once it is done.',
+              'Some data may be retained where the law requires it.',
+            ])
+              Padding(
+                padding: const EdgeInsets.only(bottom: 6),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Icon(
-                      Icons.warning_amber_rounded,
-                      size: 16,
-                      color: AppColors.warning,
-                    ),
-                    const SizedBox(width: 6),
                     Text(
-                      'This action is permanent',
-                      style: AppTextStyles.caption.copyWith(
-                        fontSize: 12,
-                        fontWeight: FontWeight.w600,
-                        color: AppColors.warning,
+                      '•  ',
+                      style: AppTextStyles.caption.copyWith(fontSize: 12.5),
+                    ),
+                    Expanded(
+                      child: Text(
+                        line,
+                        style: AppTextStyles.caption.copyWith(
+                          fontSize: 12.5,
+                          height: 1.45,
+                        ),
                       ),
                     ),
                   ],
                 ),
-                const SizedBox(height: AppConstants.spacingM),
-                const DashboardCardTitle('Request account deletion'),
-                const SizedBox(height: 6),
-                Text(
-                  'Confirm the email or phone number you registered with. We will '
-                  'use it to find your account.',
-                  style: AppTextStyles.caption.copyWith(
-                    fontSize: 12.5,
-                    height: 1.5,
-                  ),
-                ),
-                const SizedBox(height: AppConstants.spacingL),
-                _label('Registered email'),
-                const SizedBox(height: 6),
-                TextField(
-                  controller: _email,
-                  keyboardType: TextInputType.emailAddress,
-                  style: AppTextStyles.body.copyWith(fontSize: 14),
-                  decoration: const InputDecoration(
-                    hintText: 'you@example.com',
-                  ),
-                ),
-                const SizedBox(height: AppConstants.spacingL),
-                Center(
-                  child: Text(
-                    'OR',
-                    style: AppTextStyles.caption.copyWith(
-                      fontSize: 11,
-                      fontWeight: FontWeight.w600,
-                      color: AppColors.textHint,
-                      letterSpacing: 0.6,
-                    ),
-                  ),
-                ),
-                const SizedBox(height: AppConstants.spacingL),
-                _label('Registered phone'),
-                const SizedBox(height: 6),
-                TextField(
-                  controller: _phone,
-                  keyboardType: TextInputType.phone,
-                  style: AppTextStyles.body.copyWith(fontSize: 14),
-                  decoration: const InputDecoration(
-                    hintText: 'Phone number',
-                  ),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(height: AppConstants.spacingL),
-          DashboardCard(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const DashboardSectionLabel('What happens next'),
-                const SizedBox(height: AppConstants.spacingS),
-                // AccountDeletion.tsx:142-147, same four points.
-                for (final line in const [
-                  'Your request is reviewed by our team.',
-                  'Processing takes up to 30 days.',
-                  'You will receive a confirmation once it is done.',
-                  'Some data may be retained where the law requires it.',
-                ])
-                  Padding(
-                    padding: const EdgeInsets.only(bottom: 6),
-                    child: Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          '•  ',
-                          style: AppTextStyles.caption.copyWith(fontSize: 12.5),
-                        ),
-                        Expanded(
-                          child: Text(
-                            line,
-                            style: AppTextStyles.caption.copyWith(
-                              fontSize: 12.5,
-                              height: 1.45,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-              ],
-            ),
-          ),
-          const SizedBox(height: AppConstants.spacingL),
-          AppActionButton(
-            label: _submitting ? 'Submitting…' : 'Submit request',
-            variant: AppActionButtonVariant.danger,
-            height: 46,
-            onTap: _submitting ? null : _submit,
-          ),
-        ],
-      );
+              ),
+          ],
+        ),
+      ),
+      const SizedBox(height: AppConstants.spacingL),
+      AppActionButton(
+        label: _submitting ? 'Submitting…' : 'Submit request',
+        variant: AppActionButtonVariant.danger,
+        height: 46,
+        onTap: _submitting ? null : _submit,
+      ),
+    ],
+  );
 
   Widget _label(String text) => Text(
-        text,
-        style: AppTextStyles.caption.copyWith(
-          fontSize: 12,
-          fontWeight: FontWeight.w600,
-          color: AppColors.textSecondary,
-        ),
-      );
+    text,
+    style: AppTextStyles.caption.copyWith(
+      fontSize: 12,
+      fontWeight: FontWeight.w600,
+      color: AppColors.textSecondary,
+    ),
+  );
 }

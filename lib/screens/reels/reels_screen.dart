@@ -73,7 +73,7 @@ class _ReelsScreenState extends State<ReelsScreen> {
   /// stay on the texture path.
   final ReelControllerManager _manager = ReelControllerManager(
     windowRadius: 1,
-  viewType: VideoViewType.textureView,
+    viewType: VideoViewType.textureView,
   );
 
   int _currentIndex = 0;

@@ -12,7 +12,8 @@ import '../../../models/article_summary.dart';
 import '../../../models/influencer_video_model.dart';
 import '../../../models/property_model.dart';
 import '../../../widgets/property_card_compact.dart';
-import '../../dashboard/widgets/my_videos_section.dart' show InfluencerApprovalPill;
+import '../../dashboard/widgets/my_videos_section.dart'
+    show InfluencerApprovalPill;
 
 /// "My Content" — All / Properties / Articles tabs over the user's own
 /// listings and article submissions (blueprint §4.1, §16.4), plus a Videos
@@ -102,7 +103,8 @@ class _MyContentSectionState extends State<MyContentSection> {
     }
 
     final selectedLabel = _tabs[_selected];
-    final showProperties = selectedLabel == 'All' || selectedLabel == 'Properties';
+    final showProperties =
+        selectedLabel == 'All' || selectedLabel == 'Properties';
     final showVideos = selectedLabel == 'All' || selectedLabel == 'Videos';
     final showArticles = selectedLabel == 'All' || selectedLabel == 'Articles';
 
@@ -127,10 +129,7 @@ class _MyContentSectionState extends State<MyContentSection> {
           const SizedBox(height: AppConstants.spacingM),
         ],
         for (final video in videos) ...[
-          _VideoRow(
-            video: video,
-            onTap: () => widget.onVideoTap(video),
-          ),
+          _VideoRow(video: video, onTap: () => widget.onVideoTap(video)),
           const SizedBox(height: AppConstants.spacingM),
         ],
         for (final article in articles) ...[
@@ -204,8 +203,7 @@ class _ContentShimmer extends StatelessWidget {
               height: 95,
               decoration: BoxDecoration(
                 color: Colors.white,
-                borderRadius:
-                    BorderRadius.circular(AppConstants.cardRadius),
+                borderRadius: BorderRadius.circular(AppConstants.cardRadius),
               ),
             ),
           ),
@@ -372,7 +370,9 @@ class _VideoRow extends StatelessWidget {
                         ),
                       ),
                       const SizedBox(height: 6),
-                      InfluencerApprovalPill(approvalStatus: video.approvalStatus),
+                      InfluencerApprovalPill(
+                        approvalStatus: video.approvalStatus,
+                      ),
                     ],
                   ),
                 ),

@@ -168,8 +168,9 @@ class _ContactMediaStepState extends State<ContactMediaStep> {
 
         if (provider.stepIssues.isNotEmpty) ...[
           PortalValidationSummary(
-            messages:
-                provider.stepIssues.map((issue) => issue.message).toList(),
+            messages: provider.stepIssues
+                .map((issue) => issue.message)
+                .toList(),
           ),
           const SizedBox(height: 16),
         ],
@@ -238,7 +239,8 @@ class _ContactMediaStepState extends State<ContactMediaStep> {
               _AssetList(
                 label: 'Master Plan Layout',
                 icon: 'map',
-                helper: 'The first layout you add becomes the project\'s master '
+                helper:
+                    'The first layout you add becomes the project\'s master '
                     'plan.',
                 urls: draft.mapImages,
                 hasError: provider.hasIssue(kProjectMapImages),
@@ -327,11 +329,7 @@ class _SingleAsset extends StatelessWidget {
       required: true,
       icon: icon,
       child: hasAsset
-          ? _FilledSlot(
-              url: url,
-              isDocument: isDocument,
-              onClear: onClear,
-            )
+          ? _FilledSlot(url: url, isDocument: isDocument, onClear: onClear)
           : _UploadButton(
               label: isDocument ? 'Choose PDF' : 'Upload',
               busy: busy,
@@ -450,8 +448,11 @@ class _UploadButton extends StatelessWidget {
             : Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  const PortalIcon('upload', size: 15,
-                      color: AppColors.primary),
+                  const PortalIcon(
+                    'upload',
+                    size: 15,
+                    color: AppColors.primary,
+                  ),
                   const SizedBox(width: 7),
                   Text(
                     label,
@@ -501,8 +502,11 @@ class _FilledSlot extends StatelessWidget {
                 color: AppColors.primaryLight,
                 borderRadius: BorderRadius.circular(8),
               ),
-              child: const PortalIcon('file-text', size: 18,
-                  color: AppColors.primary),
+              child: const PortalIcon(
+                'file-text',
+                size: 18,
+                color: AppColors.primary,
+              ),
             )
           else
             ClipRRect(
@@ -564,8 +568,11 @@ class _Thumb extends StatelessWidget {
                   ? Container(
                       color: AppColors.primaryLight,
                       alignment: Alignment.center,
-                      child: const PortalIcon('video', size: 20,
-                          color: AppColors.primary),
+                      child: const PortalIcon(
+                        'video',
+                        size: 20,
+                        color: AppColors.primary,
+                      ),
                     )
                   : _RemoteThumb(url: url, size: 76),
             ),
@@ -581,8 +588,7 @@ class _Thumb extends StatelessWidget {
                 height: 20,
                 decoration: BoxDecoration(
                   color: AppColors.textPrimary.withValues(alpha: 0.65),
-                  borderRadius:
-                      BorderRadius.circular(AppConstants.pillRadius),
+                  borderRadius: BorderRadius.circular(AppConstants.pillRadius),
                 ),
                 child: const Icon(
                   Icons.close_rounded,
@@ -608,12 +614,12 @@ class _RemoteThumb extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     Widget placeholder() => Container(
-          width: size,
-          height: size,
-          color: AppColors.primaryLight,
-          alignment: Alignment.center,
-          child: const PortalIcon('image', size: 16, color: AppColors.primary),
-        );
+      width: size,
+      height: size,
+      color: AppColors.primaryLight,
+      alignment: Alignment.center,
+      child: const PortalIcon('image', size: 16, color: AppColors.primary),
+    );
 
     if (url.isEmpty) return placeholder();
 

@@ -67,7 +67,7 @@ class InfluencerMediaException implements Exception {
 
 class InfluencerMediaService {
   InfluencerMediaService({SupabaseClient? client})
-      : _supabase = client ?? Supabase.instance.client;
+    : _supabase = client ?? Supabase.instance.client;
 
   final SupabaseClient _supabase;
 
@@ -200,8 +200,10 @@ class InfluencerMediaService {
       if (compressedBytes.length >= originalBytes.length) return originalBytes;
       return compressedBytes;
     } catch (e) {
-      debugPrint('InfluencerMediaService compression failed, '
-          'uploading original: $e');
+      debugPrint(
+        'InfluencerMediaService compression failed, '
+        'uploading original: $e',
+      );
       return originalBytes;
     }
   }
@@ -212,7 +214,9 @@ class InfluencerMediaService {
     required String fileName,
   }) async {
     try {
-      await _supabase.storage.from(bucket).uploadBinary(
+      await _supabase.storage
+          .from(bucket)
+          .uploadBinary(
             path,
             bytes,
             fileOptions: FileOptions(contentType: mimeFromName(fileName)),
@@ -239,8 +243,9 @@ class InfluencerMediaService {
   @visibleForTesting
   static String sanitizeFileName(String pathOrName) {
     final separator = pathOrName.lastIndexOf(RegExp(r'[/\\]'));
-    final name =
-        separator < 0 ? pathOrName : pathOrName.substring(separator + 1);
+    final name = separator < 0
+        ? pathOrName
+        : pathOrName.substring(separator + 1);
 
     final dot = name.lastIndexOf('.');
     final base = dot <= 0 ? name : name.substring(0, dot);
@@ -260,8 +265,7 @@ class InfluencerMediaService {
   @visibleForTesting
   static String mimeFromName(String fileName) {
     final dot = fileName.lastIndexOf('.');
-    final ext =
-        dot < 0 ? '' : fileName.substring(dot + 1).toLowerCase();
+    final ext = dot < 0 ? '' : fileName.substring(dot + 1).toLowerCase();
     return switch (ext) {
       'jpg' || 'jpeg' => 'image/jpeg',
       'png' => 'image/png',

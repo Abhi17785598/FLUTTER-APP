@@ -28,7 +28,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 class PropertyVerificationService {
   PropertyVerificationService({SupabaseClient? client})
-      : _supabase = client ?? Supabase.instance.client;
+    : _supabase = client ?? Supabase.instance.client;
 
   final SupabaseClient _supabase;
 
@@ -66,7 +66,9 @@ class PropertyVerificationService {
     String? inquiryDetails,
   }) async {
     try {
-      await _supabase.from(_table).insert(
+      await _supabase
+          .from(_table)
+          .insert(
             buildPayload(
               userId: _supabase.auth.currentUser?.id,
               requesterName: requesterName,

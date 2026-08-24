@@ -163,11 +163,7 @@ class NetworkDetailRow extends StatelessWidget {
   final String label;
   final String value;
 
-  const NetworkDetailRow({
-    super.key,
-    required this.label,
-    required this.value,
-  });
+  const NetworkDetailRow({super.key, required this.label, required this.value});
 
   @override
   Widget build(BuildContext context) {

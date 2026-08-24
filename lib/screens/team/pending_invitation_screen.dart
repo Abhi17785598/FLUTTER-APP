@@ -191,7 +191,8 @@ class _InvitationCardState extends State<_InvitationCard> {
           _status = _CardStatus.accepted;
         } else {
           _status = _CardStatus.error;
-          _errorMessage = "Accepted, but we couldn't confirm your access "
+          _errorMessage =
+              "Accepted, but we couldn't confirm your access "
               'yet. Pull to refresh and try again in a moment.';
         }
       });
@@ -281,8 +282,7 @@ class _InvitationCardState extends State<_InvitationCard> {
             SizedBox(
               width: double.infinity,
               child: ElevatedButton(
-                onPressed:
-                    _status == _CardStatus.accepting ? null : _accept,
+                onPressed: _status == _CardStatus.accepting ? null : _accept,
                 child: _status == _CardStatus.accepting
                     ? const SizedBox(
                         height: 18,
@@ -308,8 +308,9 @@ class _InvitationCardState extends State<_InvitationCard> {
                 // `PendingInvitationGate`'s own auto-push, so leaving an
                 // already-accepted card behind in the back stack would be a
                 // dead end, not a screen worth returning to.
-                onPressed: () => Navigator.of(context)
-                    .pushReplacementNamed(AppConstants.teamWorkspaceScreen),
+                onPressed: () => Navigator.of(
+                  context,
+                ).pushReplacementNamed(AppConstants.teamWorkspaceScreen),
                 child: const Text('Continue'),
               ),
             ),

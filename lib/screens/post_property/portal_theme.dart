@@ -38,7 +38,8 @@ class PortalTheme {
   static const Color accentSurface = AppColors.primaryLight;
 
   /// Soft accent border.
-  static Color get accentBorderSoft => AppColors.primary.withValues(alpha: 0.25);
+  static Color get accentBorderSoft =>
+      AppColors.primary.withValues(alpha: 0.25);
 
   static const Color cardSurface = AppColors.cardBackground;
 
@@ -98,12 +99,12 @@ class PortalTheme {
   ];
 
   static List<BoxShadow> get cardShadowActive => [
-        BoxShadow(
-          color: AppColors.primary.withValues(alpha: 0.15),
-          blurRadius: 12,
-          offset: const Offset(0, 4),
-        ),
-      ];
+    BoxShadow(
+      color: AppColors.primary.withValues(alpha: 0.15),
+      blurRadius: 12,
+      offset: const Offset(0, 4),
+    ),
+  ];
 
   // ── Radii & spacing (from the portal) ──────────────────────────────────
   static const double cardRadius = 16;
@@ -116,12 +117,16 @@ class PortalTheme {
   static const double gapLg = 10;
 
   /// `[class*="card-content"] { padding: 10px 12px }`
-  static const EdgeInsets cardContentPadding =
-      EdgeInsets.symmetric(horizontal: 12, vertical: 10);
+  static const EdgeInsets cardContentPadding = EdgeInsets.symmetric(
+    horizontal: 12,
+    vertical: 10,
+  );
 
   /// `[class*="card-header"] { padding: 8px 12px }`
-  static const EdgeInsets cardHeaderPadding =
-      EdgeInsets.symmetric(horizontal: 12, vertical: 8);
+  static const EdgeInsets cardHeaderPadding = EdgeInsets.symmetric(
+    horizontal: 12,
+    vertical: 8,
+  );
 
   /// Form fields are 34px tall in the portal.
   static const double inputHeight = 34;
@@ -132,81 +137,79 @@ class PortalTheme {
 
   /// Step heading — portal `h2 { 20px / 700 }`.
   static TextStyle get stepHeading => AppTextStyles.heading1.copyWith(
-        fontSize: 20,
-        letterSpacing: -0.4,
-        height: 1.25,
-      );
+    fontSize: 20,
+    letterSpacing: -0.4,
+    height: 1.25,
+  );
 
   /// Step subheading — portal `p { 13px }`.
   static TextStyle get stepSubheading => AppTextStyles.body.copyWith(
-        fontSize: 13,
-        color: AppColors.textSecondary,
-        height: 1.4,
-      );
+    fontSize: 13,
+    color: AppColors.textSecondary,
+    height: 1.4,
+  );
 
   /// Uppercase group label — portal `12px / 800 / 0.08em`.
   static TextStyle get groupLabel => AppTextStyles.caption.copyWith(
-        fontSize: 12,
-        fontWeight: FontWeight.w700,
-        letterSpacing: 0.96,
-      );
+    fontSize: 12,
+    fontWeight: FontWeight.w700,
+    letterSpacing: 0.96,
+  );
 
   /// Selection-card title — portal `18px / 500`.
   static TextStyle cardTitle(bool active) => AppTextStyles.heading3.copyWith(
-        fontSize: 18,
-        fontWeight: FontWeight.w500,
-        color: active ? AppColors.primary : AppColors.textPrimary,
-        letterSpacing: -0.18,
-        height: 1.2,
-      );
+    fontSize: 18,
+    fontWeight: FontWeight.w500,
+    color: active ? AppColors.primary : AppColors.textPrimary,
+    letterSpacing: -0.18,
+    height: 1.2,
+  );
 
   /// Selection-card description — portal `10px`.
   static TextStyle get cardDescription =>
       AppTextStyles.caption.copyWith(fontSize: 10, height: 1.35);
 
   /// Form field label — portal `13px / 500`.
-  static TextStyle get inputLabel => AppTextStyles.body.copyWith(
-        fontSize: 13,
-        fontWeight: FontWeight.w500,
-      );
+  static TextStyle get inputLabel =>
+      AppTextStyles.body.copyWith(fontSize: 13, fontWeight: FontWeight.w500);
 
   /// Form input text — portal `14px`.
   static TextStyle get inputText => AppTextStyles.body;
 
   /// Footer step counter — portal `12px / 500`.
-  static TextStyle get footerCounter => AppTextStyles.caption.copyWith(
-        fontSize: 12,
-        fontWeight: FontWeight.w500,
-      );
+  static TextStyle get footerCounter =>
+      AppTextStyles.caption.copyWith(fontSize: 12, fontWeight: FontWeight.w500);
 
   /// Footer buttons.
   static TextStyle get navButton => AppTextStyles.button;
 
   /// StepHeader title — portal `15px / 700`.
-  static TextStyle get stepHeaderTitle =>
-      AppTextStyles.heading3.copyWith(fontSize: 15, fontWeight: FontWeight.w700);
+  static TextStyle get stepHeaderTitle => AppTextStyles.heading3.copyWith(
+    fontSize: 15,
+    fontWeight: FontWeight.w700,
+  );
 
   /// StepHeader subtitle — portal `12px`.
   static TextStyle get stepHeaderSubtitle => AppTextStyles.caption;
 
   /// StepHeader badge — portal `10px uppercase / 500`.
   static TextStyle pill(Color color) => AppTextStyles.chip.copyWith(
-        fontSize: 10,
-        fontWeight: FontWeight.w500,
-        color: color,
-      );
+    fontSize: 10,
+    fontWeight: FontWeight.w500,
+    color: color,
+  );
 
   /// SectionDivider title — portal `13px / 700`.
-  static TextStyle get sectionDividerTitle =>
-      AppTextStyles.heading3.copyWith(fontSize: 13, fontWeight: FontWeight.w700);
+  static TextStyle get sectionDividerTitle => AppTextStyles.heading3.copyWith(
+    fontSize: 13,
+    fontWeight: FontWeight.w700,
+  );
 
   /// The bare `<h4 className="text-lg font-semibold tracking-tight">` heading
   /// PropertyDimensionsStep opens each block with ("Land Specfication",
   /// "Building Level Details", "Area Details", "PG Structure & Capacity", …).
-  static TextStyle get blockHeading => AppTextStyles.heading2.copyWith(
-        fontSize: 18,
-        letterSpacing: -0.45,
-      );
+  static TextStyle get blockHeading =>
+      AppTextStyles.heading2.copyWith(fontSize: 18, letterSpacing: -0.45);
 
   /// The `<p className="text-sm text-muted-foreground">` under a block heading.
   static TextStyle get blockSubtitle =>
@@ -214,10 +217,10 @@ class PortalTheme {
 
   /// SelectGroup label — portal `12px / 700 uppercase`.
   static TextStyle get selectGroupLabel => AppTextStyles.caption.copyWith(
-        fontSize: 12,
-        fontWeight: FontWeight.w700,
-        letterSpacing: 0.6,
-      );
+    fontSize: 12,
+    fontWeight: FontWeight.w700,
+    letterSpacing: 0.6,
+  );
 
   /// Small grey note under a control — portal `11px`.
   static TextStyle get helperText =>
@@ -225,47 +228,47 @@ class PortalTheme {
 
   /// ValidationSummary heading — portal `13px / 600`.
   static TextStyle get errorTitle => AppTextStyles.body.copyWith(
-        fontSize: 13,
-        fontWeight: FontWeight.w600,
-        color: AppColors.error,
-      );
+    fontSize: 13,
+    fontWeight: FontWeight.w600,
+    color: AppColors.error,
+  );
 
   /// ValidationSummary item — portal `12px`, dotted underline.
   static TextStyle get errorItem => AppTextStyles.caption.copyWith(
-        fontSize: 12,
-        color: AppColors.error,
-        decoration: TextDecoration.underline,
-        decorationStyle: TextDecorationStyle.dotted,
-      );
+    fontSize: 12,
+    color: AppColors.error,
+    decoration: TextDecoration.underline,
+    decorationStyle: TextDecorationStyle.dotted,
+  );
 
   /// Stepper node title — portal `15px / 800`.
   static TextStyle stepperTitle(Color color) => AppTextStyles.heading3.copyWith(
-        fontSize: 15,
-        fontWeight: FontWeight.w800,
-        color: color,
-        height: 1.15,
-      );
+    fontSize: 15,
+    fontWeight: FontWeight.w800,
+    color: color,
+    height: 1.15,
+  );
 
   /// Stepper node sub-label — portal `12px / 500`.
   static TextStyle get stepperCounter => AppTextStyles.caption.copyWith(
-        fontSize: 12,
-        fontWeight: FontWeight.w500,
-        color: AppColors.textHint,
-      );
+    fontSize: 12,
+    fontWeight: FontWeight.w500,
+    color: AppColors.textHint,
+  );
 
   /// "Progress" card heading — portal `16px / 800`.
   static TextStyle get progressHeading => AppTextStyles.heading3.copyWith(
-        fontSize: 16,
-        fontWeight: FontWeight.w800,
-        color: AppColors.primary,
-      );
+    fontSize: 16,
+    fontWeight: FontWeight.w800,
+    color: AppColors.primary,
+  );
 
   /// Percentage inside the ring — portal `11px / 900`.
   static TextStyle get progressPercent => AppTextStyles.caption.copyWith(
-        fontSize: 11,
-        fontWeight: FontWeight.w900,
-        color: AppColors.textPrimary,
-      );
+    fontSize: 11,
+    fontWeight: FontWeight.w900,
+    color: AppColors.textPrimary,
+  );
 }
 
 /// The wizard's selection indicator: a filled primary check when selected, an
@@ -307,9 +310,9 @@ class PortalGroupLabel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Padding(
-        padding: const EdgeInsets.only(bottom: 6),
-        child: Text(text.toUpperCase(), style: PortalTheme.groupLabel),
-      );
+    padding: const EdgeInsets.only(bottom: 6),
+    child: Text(text.toUpperCase(), style: PortalTheme.groupLabel),
+  );
 }
 
 /// The step's own heading block, as each portal step renders it.
@@ -325,14 +328,14 @@ class PortalStepHeading extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Padding(
-        padding: const EdgeInsets.only(bottom: 14),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(title, style: PortalTheme.stepHeading),
-            const SizedBox(height: 4),
-            Text(subtitle, style: PortalTheme.stepSubheading),
-          ],
-        ),
-      );
+    padding: const EdgeInsets.only(bottom: 14),
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(title, style: PortalTheme.stepHeading),
+        const SizedBox(height: 4),
+        Text(subtitle, style: PortalTheme.stepSubheading),
+      ],
+    ),
+  );
 }

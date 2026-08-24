@@ -9,11 +9,7 @@ class BottomNavBar extends StatelessWidget {
   final int currentIndex;
   final Function(int)? onTap;
 
-  const BottomNavBar({
-    super.key,
-    required this.currentIndex,
-    this.onTap,
-  });
+  const BottomNavBar({super.key, required this.currentIndex, this.onTap});
 
   // How far the "+" button visually floats above the nav bar center line.
   // Derived from the original design: a 56 dp button with a 20 dp bottom
@@ -139,9 +135,7 @@ class BottomNavBar extends StatelessWidget {
       height: AppConstants.bottomNavHeight + bottomSafePadding,
       decoration: const BoxDecoration(
         color: AppColors.surface,
-        border: Border(
-          top: BorderSide(color: AppColors.textHint, width: 0.5),
-        ),
+        border: Border(top: BorderSide(color: AppColors.textHint, width: 0.5)),
       ),
       // Shift the content upward by the safe padding so the visible nav area
       // stays at AppConstants.bottomNavHeight and the padding appears below it
@@ -234,11 +228,7 @@ class BottomNavBar extends StatelessWidget {
                   shape: BoxShape.circle,
                   boxShadow: AppColors.primaryGlow,
                 ),
-                child: const Icon(
-                  Icons.add,
-                  color: Colors.white,
-                  size: 28,
-                ),
+                child: const Icon(Icons.add, color: Colors.white, size: 28),
               ),
             ),
           ),

@@ -36,103 +36,119 @@ class ReelInfoPanel extends StatelessWidget {
     if (!reel.hasBuilder) return const SizedBox.shrink();
 
     return ClipRRect(
-      borderRadius: BorderRadius.circular(24),
-      child: BackdropFilter(
-        filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
-        child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-          decoration: BoxDecoration(
-            color: Colors.black.withOpacity(0.32),
-            borderRadius: BorderRadius.circular(24),
-            border: Border.all(color: Colors.white.withOpacity(0.18)),
-          ),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Flexible(
-                child: GestureDetector(
-                  onTap: onTapProfile,
-                  behavior: HitTestBehavior.opaque,
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      CircleAvatar(
-                        radius: 16,
-                        backgroundColor: Colors.white24,
-                        backgroundImage: (reel.builderAvatarUrl != null &&
-                                reel.builderAvatarUrl!.isNotEmpty)
-                            ? NetworkImage(reel.builderAvatarUrl!)
-                            : null,
-                        child: (reel.builderAvatarUrl == null ||
-                                reel.builderAvatarUrl!.isEmpty)
-                            ? const Icon(Icons.apartment_rounded,
-                                color: Colors.white, size: 16)
-                            : null,
-                      ),
-                      const SizedBox(width: 8),
-                      Flexible(
-                        child: Column(
-                          mainAxisSize: MainAxisSize.min,
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Row(
+          borderRadius: BorderRadius.circular(24),
+          child: BackdropFilter(
+            filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+              decoration: BoxDecoration(
+                color: Colors.black.withOpacity(0.32),
+                borderRadius: BorderRadius.circular(24),
+                border: Border.all(color: Colors.white.withOpacity(0.18)),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Flexible(
+                    child: GestureDetector(
+                      onTap: onTapProfile,
+                      behavior: HitTestBehavior.opaque,
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          CircleAvatar(
+                            radius: 16,
+                            backgroundColor: Colors.white24,
+                            backgroundImage:
+                                (reel.builderAvatarUrl != null &&
+                                    reel.builderAvatarUrl!.isNotEmpty)
+                                ? NetworkImage(reel.builderAvatarUrl!)
+                                : null,
+                            child:
+                                (reel.builderAvatarUrl == null ||
+                                    reel.builderAvatarUrl!.isEmpty)
+                                ? const Icon(
+                                    Icons.apartment_rounded,
+                                    color: Colors.white,
+                                    size: 16,
+                                  )
+                                : null,
+                          ),
+                          const SizedBox(width: 8),
+                          Flexible(
+                            child: Column(
                               mainAxisSize: MainAxisSize.min,
+                              crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                Flexible(
-                                  child: Text(
-                                    reel.builderName!,
-                                    style: AppTextStyles.body.copyWith(
-                                      color: Colors.white,
-                                      fontWeight: FontWeight.w700,
-                                      fontSize: 13,
+                                Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Flexible(
+                                      child: Text(
+                                        reel.builderName!,
+                                        style: AppTextStyles.body.copyWith(
+                                          color: Colors.white,
+                                          fontWeight: FontWeight.w700,
+                                          fontSize: 13,
+                                        ),
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                      ),
                                     ),
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
-                                  ),
+                                    if (reel.isVerified) ...[
+                                      const SizedBox(width: 4),
+                                      const Icon(
+                                        Icons.verified_rounded,
+                                        color: AppColors.verifiedBadge,
+                                        size: 14,
+                                      ),
+                                    ],
+                                  ],
                                 ),
-                                if (reel.isVerified) ...[
-                                  const SizedBox(width: 4),
-                                  const Icon(Icons.verified_rounded,
-                                      color: AppColors.verifiedBadge, size: 14),
+                                if (reel.hasLocation) ...[
+                                  const SizedBox(height: 2),
+                                  Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      const Icon(
+                                        Icons.location_on_rounded,
+                                        color: Colors.white70,
+                                        size: 12,
+                                      ),
+                                      const SizedBox(width: 2),
+                                      Flexible(
+                                        child: Text(
+                                          reel.location!,
+                                          style: AppTextStyles.caption.copyWith(
+                                            color: Colors.white.withOpacity(
+                                              0.85,
+                                            ),
+                                            fontSize: 11,
+                                          ),
+                                          maxLines: 1,
+                                          overflow: TextOverflow.ellipsis,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
                                 ],
                               ],
                             ),
-                            if (reel.hasLocation) ...[
-                              const SizedBox(height: 2),
-                              Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  const Icon(Icons.location_on_rounded,
-                                      color: Colors.white70, size: 12),
-                                  const SizedBox(width: 2),
-                                  Flexible(
-                                    child: Text(
-                                      reel.location!,
-                                      style: AppTextStyles.caption.copyWith(
-                                        color: Colors.white.withOpacity(0.85),
-                                        fontSize: 11,
-                                      ),
-                                      maxLines: 1,
-                                      overflow: TextOverflow.ellipsis,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ],
-                          ],
-                        ),
+                          ),
+                        ],
                       ),
-                    ],
+                    ),
                   ),
-                ),
+                  const SizedBox(width: 10),
+                  _FollowButton(isFollowing: isFollowing, onTap: onFollow),
+                ],
               ),
-              const SizedBox(width: 10),
-              _FollowButton(isFollowing: isFollowing, onTap: onFollow),
-            ],
+            ),
           ),
-        ),
-      ),
-    ).animate().fadeIn(duration: 300.ms).slideX(begin: -0.1, curve: Curves.easeOutCubic);
+        )
+        .animate()
+        .fadeIn(duration: 300.ms)
+        .slideX(begin: -0.1, curve: Curves.easeOutCubic);
   }
 }
 

@@ -122,19 +122,24 @@ class _PropertySearchMapWidgetState extends State<PropertySearchMapWidget> {
   Future<void> _fitToProperties() async {
     final controller = _controller;
     if (controller == null) return;
-    final points =
-        _plottable.map((p) => LatLng(p.latitude!, p.longitude!)).toList();
+    final points = _plottable
+        .map((p) => LatLng(p.latitude!, p.longitude!))
+        .toList();
 
     if (points.isEmpty) {
-      await controller.animateCamera(CameraUpdate.newCameraPosition(
-        const CameraPosition(target: _indiaCenter, zoom: _indiaZoom),
-      ));
+      await controller.animateCamera(
+        CameraUpdate.newCameraPosition(
+          const CameraPosition(target: _indiaCenter, zoom: _indiaZoom),
+        ),
+      );
       return;
     }
     if (points.length == 1) {
-      await controller.animateCamera(CameraUpdate.newCameraPosition(
-        CameraPosition(target: points.first, zoom: _singlePropertyZoom),
-      ));
+      await controller.animateCamera(
+        CameraUpdate.newCameraPosition(
+          CameraPosition(target: points.first, zoom: _singlePropertyZoom),
+        ),
+      );
       return;
     }
     await controller.animateCamera(
@@ -150,12 +155,14 @@ class _PropertySearchMapWidgetState extends State<PropertySearchMapWidget> {
         selected?.longitude == null) {
       return;
     }
-    await controller.animateCamera(CameraUpdate.newCameraPosition(
-      CameraPosition(
-        target: LatLng(selected!.latitude!, selected.longitude!),
-        zoom: _singlePropertyZoom,
+    await controller.animateCamera(
+      CameraUpdate.newCameraPosition(
+        CameraPosition(
+          target: LatLng(selected!.latitude!, selected.longitude!),
+          zoom: _singlePropertyZoom,
+        ),
       ),
-    ));
+    );
   }
 
   /// Port of the website's addListenerOnce(map, "idle", clamp-to-15) — only
@@ -173,8 +180,10 @@ class _PropertySearchMapWidgetState extends State<PropertySearchMapWidget> {
   @override
   Widget build(BuildContext context) {
     return GoogleMap(
-      initialCameraPosition:
-          const CameraPosition(target: _indiaCenter, zoom: _indiaZoom),
+      initialCameraPosition: const CameraPosition(
+        target: _indiaCenter,
+        zoom: _indiaZoom,
+      ),
       onMapCreated: (controller) {
         _controller = controller;
         // Let the platform view finish mounting before animating the

@@ -24,7 +24,11 @@ class ChatMediaService {
   static const Duration maxVoiceDuration = Duration(minutes: 5);
 
   static const Set<String> allowedImageExtensions = {
-    'jpg', 'jpeg', 'png', 'webp', 'heic',
+    'jpg',
+    'jpeg',
+    'png',
+    'webp',
+    'heic',
   };
 
   final Map<String, _CachedUrl> _urlCache = {};
@@ -54,7 +58,9 @@ class ChatMediaService {
     final path = '$senderId/${_uuid.v4()}.$ext';
 
     try {
-      await _supabase.storage.from('chat-media').uploadBinary(
+      await _supabase.storage
+          .from('chat-media')
+          .uploadBinary(
             path,
             stripped,
             fileOptions: FileOptions(contentType: _contentTypeFor(ext)),
@@ -85,11 +91,13 @@ class ChatMediaService {
       throw StateError('Image message insert returned no id');
     }
 
-    unawaited(requestModeration(
-      storagePath: path,
-      messageId: messageId,
-      surface: surface,
-    ));
+    unawaited(
+      requestModeration(
+        storagePath: path,
+        messageId: messageId,
+        surface: surface,
+      ),
+    );
 
     return messageId;
   }
@@ -114,7 +122,9 @@ class ChatMediaService {
         },
       );
     } catch (e) {
-      debugPrint('ChatMediaService.requestModeration failed (will retry later): $e');
+      debugPrint(
+        'ChatMediaService.requestModeration failed (will retry later): $e',
+      );
     }
   }
 
@@ -131,17 +141,25 @@ class ChatMediaService {
     const allowedExt = {'webm', 'm4a', 'mp4', 'ogg', 'wav', 'aac'};
     final ext = extension.toLowerCase().replaceFirst('.', '');
     if (!allowedExt.contains(ext)) {
-      throw ChatMediaValidationError('"$ext" isn\'t a supported recording format.');
+      throw ChatMediaValidationError(
+        '"$ext" isn\'t a supported recording format.',
+      );
     }
     if (bytes.lengthInBytes > maxVoiceBytes) {
-      throw const ChatMediaValidationError('Voice note must be 10MB or smaller.');
+      throw const ChatMediaValidationError(
+        'Voice note must be 10MB or smaller.',
+      );
     }
     if (duration > maxVoiceDuration) {
-      throw const ChatMediaValidationError('Voice notes are limited to 5 minutes.');
+      throw const ChatMediaValidationError(
+        'Voice notes are limited to 5 minutes.',
+      );
     }
 
     final path = '$senderId/${_uuid.v4()}.$ext';
-    await _supabase.storage.from('chat-media').uploadBinary(
+    await _supabase.storage
+        .from('chat-media')
+        .uploadBinary(
           path,
           bytes,
           fileOptions: FileOptions(contentType: _contentTypeFor(ext)),
@@ -181,7 +199,10 @@ class ChatMediaService {
     if (url == null) {
       throw StateError('get-chat-media-url returned no url');
     }
-    _urlCache[path] = _CachedUrl(url, DateTime.now().add(const Duration(minutes: 4)));
+    _urlCache[path] = _CachedUrl(
+      url,
+      DateTime.now().add(const Duration(minutes: 4)),
+    );
     return url;
   }
 

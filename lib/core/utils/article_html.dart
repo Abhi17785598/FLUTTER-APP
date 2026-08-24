@@ -72,10 +72,10 @@ bool isRichHtml(String? html) {
   final source = html.trim();
   if (source.isEmpty) return false;
 
-  final tags = RegExp(r'<\s*/?\s*([a-zA-Z][a-zA-Z0-9]*)', caseSensitive: false)
-      .allMatches(source)
-      .map((m) => m.group(1)!.toLowerCase())
-      .toSet();
+  final tags = RegExp(
+    r'<\s*/?\s*([a-zA-Z][a-zA-Z0-9]*)',
+    caseSensitive: false,
+  ).allMatches(source).map((m) => m.group(1)!.toLowerCase()).toSet();
 
   const representable = {'p', 'br'};
   if (tags.difference(representable).isNotEmpty) return true;

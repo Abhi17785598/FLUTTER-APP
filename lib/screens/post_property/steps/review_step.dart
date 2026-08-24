@@ -192,7 +192,7 @@ class ReviewStep extends StatelessWidget {
             // number than what's actually required/saved.
             (
               'Images Selected',
-              '${provider.mediaItems.length + provider.existingMedia.length}'
+              '${provider.mediaItems.length + provider.existingMedia.length}',
             ),
             ('Contact Name', _dash(provider.contactName)),
             ('Contact Phone', _dash(provider.contactPhone)),

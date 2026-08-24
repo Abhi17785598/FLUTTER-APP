@@ -127,14 +127,9 @@ class NetworkHubProvider extends ChangeNotifier {
   /// already renders as an em dash for a user who simply has no leads or
   /// ratings yet — rather than failing [load] itself.
   Future<
-      ({
-        double? successRate,
-        double? avgResponseTimeHours,
-        double? networkRating,
-      })> _loadPerformanceSummary(
-    String userId, {
-    required bool isBuilder,
-  }) async {
+    ({double? successRate, double? avgResponseTimeHours, double? networkRating})
+  >
+  _loadPerformanceSummary(String userId, {required bool isBuilder}) async {
     try {
       final results = await Future.wait([
         _network.getPerformanceMetrics(userId, isBuilder: isBuilder),
@@ -150,7 +145,11 @@ class NetworkHubProvider extends ChangeNotifier {
         networkRating: ratingSummary.count == 0 ? null : ratingSummary.average,
       );
     } catch (_) {
-      return (successRate: null, avgResponseTimeHours: null, networkRating: null);
+      return (
+        successRate: null,
+        avgResponseTimeHours: null,
+        networkRating: null,
+      );
     }
   }
 

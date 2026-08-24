@@ -19,28 +19,82 @@ class ConditionStep extends StatelessWidget {
   // Per-meal item pickers, shown when that meal is ticked in Meals Included
   // (ConditionStep.tsx:254-337) — previously missing in Flutter entirely.
   static const _breakfastItems = [
-    'Paratha', 'Bread & Butter', 'Eggs', 'Omelette', 'Poha', 'Upma', 'Idli',
-    'Dosa', 'Cereal', 'Milk', 'Tea', 'Coffee', 'Fruits', 'Sandwich',
+    'Paratha',
+    'Bread & Butter',
+    'Eggs',
+    'Omelette',
+    'Poha',
+    'Upma',
+    'Idli',
+    'Dosa',
+    'Cereal',
+    'Milk',
+    'Tea',
+    'Coffee',
+    'Fruits',
+    'Sandwich',
   ];
 
   static const _lunchItems = [
-    'Rice', 'Dal', 'Roti/Chapati', 'Vegetable Curry', 'Dal Makhani', 'Paneer',
-    'Chicken', 'Fish', 'Curry', 'Salad', 'Yogurt', 'Pickle',
+    'Rice',
+    'Dal',
+    'Roti/Chapati',
+    'Vegetable Curry',
+    'Dal Makhani',
+    'Paneer',
+    'Chicken',
+    'Fish',
+    'Curry',
+    'Salad',
+    'Yogurt',
+    'Pickle',
   ];
 
   static const _dinnerItems = [
-    'Rice', 'Dal', 'Roti/Chapati', 'Vegetable Curry', 'Dal Makhani', 'Paneer',
-    'Chicken', 'Fish', 'Curry', 'Salad', 'Yogurt', 'Pickle', 'Soup',
+    'Rice',
+    'Dal',
+    'Roti/Chapati',
+    'Vegetable Curry',
+    'Dal Makhani',
+    'Paneer',
+    'Chicken',
+    'Fish',
+    'Curry',
+    'Salad',
+    'Yogurt',
+    'Pickle',
+    'Soup',
   ];
 
   static const _teaSnacksItems = [
-    'Tea', 'Coffee', 'Biscuits', 'Cookies', 'Chips', 'Namkeen', 'Samosa',
-    'Pakora', 'Sandwich', 'Maggi', 'Fruits', 'Juice', 'Milk',
+    'Tea',
+    'Coffee',
+    'Biscuits',
+    'Cookies',
+    'Chips',
+    'Namkeen',
+    'Samosa',
+    'Pakora',
+    'Sandwich',
+    'Maggi',
+    'Fruits',
+    'Juice',
+    'Milk',
   ];
 
-  static const _cleaningFrequencies = ['Daily', 'Alternate Days', 'Weekly', 'On Demand'];
+  static const _cleaningFrequencies = [
+    'Daily',
+    'Alternate Days',
+    'Weekly',
+    'On Demand',
+  ];
 
-  static const _linenFrequencies = ['Daily', 'Alternate Days', 'Weekly', 'Fortnightly'];
+  static const _linenFrequencies = [
+    'Daily',
+    'Alternate Days',
+    'Weekly',
+    'Fortnightly',
+  ];
 
   @override
   Widget build(BuildContext context) {
@@ -130,8 +184,9 @@ class ConditionStep extends StatelessWidget {
                     WizardCheckboxTile(
                       label: 'Veg Food Available',
                       value: provider.boolVal('vegFoodPg'),
-                      onChanged: (v) =>
-                          context.read<PostPropertyProvider>().setBoolVal('vegFoodPg', v),
+                      onChanged: (v) => context
+                          .read<PostPropertyProvider>()
+                          .setBoolVal('vegFoodPg', v),
                     ),
                     WizardCheckboxTile(
                       label: 'Non-Veg Food Available',
@@ -162,11 +217,14 @@ class ConditionStep extends StatelessWidget {
                   child: WizardMultiChipGroup(
                     options: _mealOptions,
                     selected: provider.listVal('mealsIncluded'),
-                    onChanged: (v) =>
-                        context.read<PostPropertyProvider>().setListVal('mealsIncluded', v),
+                    onChanged: (v) => context
+                        .read<PostPropertyProvider>()
+                        .setListVal('mealsIncluded', v),
                   ),
                 ),
-                if (provider.listVal('mealsIncluded').contains('Breakfast')) ...[
+                if (provider
+                    .listVal('mealsIncluded')
+                    .contains('Breakfast')) ...[
                   const SizedBox(height: 12),
                   WizardField(
                     label: 'Breakfast Items',
@@ -205,7 +263,9 @@ class ConditionStep extends StatelessWidget {
                     ),
                   ),
                 ],
-                if (provider.listVal('mealsIncluded').contains('Tea / Snacks')) ...[
+                if (provider
+                    .listVal('mealsIncluded')
+                    .contains('Tea / Snacks')) ...[
                   const SizedBox(height: 12),
                   WizardField(
                     label: 'Tea / Snacks Items',
@@ -315,9 +375,9 @@ class _BuildingConditionCardState extends State<_BuildingConditionCard> {
   void initState() {
     super.initState();
     _buildingAgeController = TextEditingController(
-      text: context
-          .read<PostPropertyProvider>()
-          .buildingInventoryText('buildingAge'),
+      text: context.read<PostPropertyProvider>().buildingInventoryText(
+        'buildingAge',
+      ),
     );
   }
 
@@ -353,9 +413,11 @@ class _BuildingConditionCardState extends State<_BuildingConditionCard> {
             child: WizardChipGroup(
               options: _kBuildingOwnershipTypes,
               selected:
-                  provider.buildingInventoryText('ownershipTypeBuilding').isEmpty
-                      ? null
-                      : provider.buildingInventoryText('ownershipTypeBuilding'),
+                  provider
+                      .buildingInventoryText('ownershipTypeBuilding')
+                      .isEmpty
+                  ? null
+                  : provider.buildingInventoryText('ownershipTypeBuilding'),
               onSelected: (v) => context
                   .read<PostPropertyProvider>()
                   .setBuildingInventoryValue('ownershipTypeBuilding', v),
@@ -365,8 +427,9 @@ class _BuildingConditionCardState extends State<_BuildingConditionCard> {
           WizardCheckboxTile(
             label: 'Corner Property',
             value:
-                (provider.buildingInventoryValue('cornerPropertyBuilding') as bool?) ??
-                    false,
+                (provider.buildingInventoryValue('cornerPropertyBuilding')
+                    as bool?) ??
+                false,
             onChanged: (v) => context
                 .read<PostPropertyProvider>()
                 .setBuildingInventoryValue('cornerPropertyBuilding', v),
@@ -391,8 +454,8 @@ class _AvailableFromField extends StatelessWidget {
     final text = d == null
         ? 'Select a date'
         : '${d.year.toString().padLeft(4, '0')}-'
-            '${d.month.toString().padLeft(2, '0')}-'
-            '${d.day.toString().padLeft(2, '0')}';
+              '${d.month.toString().padLeft(2, '0')}-'
+              '${d.day.toString().padLeft(2, '0')}';
 
     return WizardField(
       label: 'Available From *',
@@ -402,9 +465,8 @@ class _AvailableFromField extends StatelessWidget {
           WizardCheckboxTile(
             label: 'Immediately',
             value: p.availableImmediately,
-            onChanged: (v) => context
-                .read<PostPropertyProvider>()
-                .setAvailableImmediately(v),
+            onChanged: (v) =>
+                context.read<PostPropertyProvider>().setAvailableImmediately(v),
           ),
           if (!p.availableImmediately) ...[
             const SizedBox(height: 8),
@@ -423,16 +485,21 @@ class _AvailableFromField extends StatelessWidget {
               },
               borderRadius: BorderRadius.circular(12),
               child: Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 14,
+                  vertical: 12,
+                ),
                 decoration: BoxDecoration(
                   color: AppColors.background,
                   borderRadius: BorderRadius.circular(12),
                 ),
                 child: Row(
                   children: [
-                    const Icon(Icons.calendar_today_outlined,
-                        size: 16, color: AppColors.textSecondary),
+                    const Icon(
+                      Icons.calendar_today_outlined,
+                      size: 16,
+                      color: AppColors.textSecondary,
+                    ),
                     const SizedBox(width: 8),
                     Text(
                       text,

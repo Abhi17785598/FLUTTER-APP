@@ -55,8 +55,5 @@ class PropertyDetailBundle {
   final PropertyModel property;
   final PropertyOwnerProfile? ownerProfile;
 
-  const PropertyDetailBundle({
-    required this.property,
-    this.ownerProfile,
-  });
+  const PropertyDetailBundle({required this.property, this.ownerProfile});
 }

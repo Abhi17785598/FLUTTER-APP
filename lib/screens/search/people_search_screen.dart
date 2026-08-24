@@ -70,8 +70,9 @@ class _PeopleSearchView extends StatefulWidget {
 }
 
 class _PeopleSearchViewState extends State<_PeopleSearchView> {
-  late final TextEditingController _controller =
-      TextEditingController(text: widget.initialQuery);
+  late final TextEditingController _controller = TextEditingController(
+    text: widget.initialQuery,
+  );
   final FocusNode _focusNode = FocusNode();
   final ScrollController _scroll = ScrollController();
 
@@ -192,10 +193,7 @@ class _PeopleSearchViewState extends State<_PeopleSearchView> {
     }
 
     if (provider.isEmptyResult) {
-      return _NoResults(
-        query: provider.query.trim(),
-        onClear: _clear,
-      );
+      return _NoResults(query: provider.query.trim(), onClear: _clear);
     }
 
     final results = provider.results;
@@ -275,8 +273,9 @@ class _Header extends StatelessWidget {
               ),
               decoration: BoxDecoration(
                 color: AppColors.cardBackground,
-                borderRadius:
-                    BorderRadius.circular(AppConstants.searchBarRadius),
+                borderRadius: BorderRadius.circular(
+                  AppConstants.searchBarRadius,
+                ),
                 boxShadow: AppColors.surfaceCardShadow,
               ),
               child: Row(
@@ -443,9 +442,7 @@ class _RoleChip extends StatelessWidget {
               vertical: 7,
             ),
             decoration: BoxDecoration(
-              color: isSelected
-                  ? AppColors.primary
-                  : AppColors.cardBackground,
+              color: isSelected ? AppColors.primary : AppColors.cardBackground,
               borderRadius: BorderRadius.circular(AppConstants.pillRadius),
               border: Border.all(
                 color: isSelected ? AppColors.primary : AppColors.hairline,
@@ -517,7 +514,8 @@ class _IdlePrompt extends StatelessWidget {
         child: EmptyStateView(
           icon: Icons.group_outlined,
           title: 'Find people on PropCid',
-          message: 'Search builders, brokers, influencers and members by name, '
+          message:
+              'Search builders, brokers, influencers and members by name, '
               'company or bio.',
           titleFontSize: 18,
         ),

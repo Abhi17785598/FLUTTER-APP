@@ -81,10 +81,7 @@ class PublicProfileAvatar extends StatelessWidget {
           clipBehavior: Clip.none,
           children: [
             hasImage
-                ? ScaleTap(
-                    onTap: () => _openFullScreen(context),
-                    child: avatar,
-                  )
+                ? ScaleTap(onTap: () => _openFullScreen(context), child: avatar)
                 : avatar,
             if (isVerified)
               Positioned(
@@ -98,8 +95,10 @@ class PublicProfileAvatar extends StatelessWidget {
                     decoration: BoxDecoration(
                       color: AppColors.primary,
                       shape: BoxShape.circle,
-                      border:
-                          Border.all(color: AppColors.background, width: 2.5),
+                      border: Border.all(
+                        color: AppColors.background,
+                        width: 2.5,
+                      ),
                     ),
                     child: const Icon(
                       Icons.check,
@@ -116,15 +115,15 @@ class PublicProfileAvatar extends StatelessWidget {
   }
 
   Widget _fallback() => Center(
-        child: Text(
-          initials,
-          style: AppTextStyles.heading1.copyWith(
-            fontSize: 30,
-            fontWeight: FontWeight.w700,
-            color: AppColors.primary,
-          ),
-        ),
-      );
+    child: Text(
+      initials,
+      style: AppTextStyles.heading1.copyWith(
+        fontSize: 30,
+        fontWeight: FontWeight.w700,
+        color: AppColors.primary,
+      ),
+    ),
+  );
 
   /// Full-screen viewer. `photo_view` is already a dependency and is used the
   /// same way by the gallery, so no new package is needed for this.
@@ -156,8 +155,9 @@ class _FullScreenAvatar extends StatelessWidget {
               onTap: () => Navigator.of(context).maybePop(),
               child: PhotoView(
                 imageProvider: CachedNetworkImageProvider(imageUrl),
-                backgroundDecoration:
-                    const BoxDecoration(color: Colors.transparent),
+                backgroundDecoration: const BoxDecoration(
+                  color: Colors.transparent,
+                ),
                 minScale: PhotoViewComputedScale.contained,
                 maxScale: PhotoViewComputedScale.covered * 3,
               ),
@@ -315,7 +315,8 @@ class RatingInlineRow extends StatelessWidget {
     // One label for the whole row. Five separate star icons would be announced
     // individually, which is noise.
     final labelled = Semantics(
-      label: 'Rated ${rating.average.toStringAsFixed(1)} out of 5 '
+      label:
+          'Rated ${rating.average.toStringAsFixed(1)} out of 5 '
           'from ${rating.count} reviews',
       button: onTap != null,
       child: ExcludeSemantics(child: row),
@@ -375,17 +376,21 @@ class IdentityMetaStrip extends StatelessWidget {
 
     if (profile.hasExperienceField) {
       final years = profile.effectiveExperience ?? 0;
-      cells.add(_MetaCell(
-        icon: Icons.work_outline_rounded,
-        label: '$years ${years == 1 ? 'yr' : 'yrs'} experience',
-      ));
+      cells.add(
+        _MetaCell(
+          icon: Icons.work_outline_rounded,
+          label: '$years ${years == 1 ? 'yr' : 'yrs'} experience',
+        ),
+      );
     }
 
     if (profile.specialization.isNotEmpty) {
-      cells.add(_MetaCell(
-        icon: Icons.apartment_rounded,
-        label: profile.specialization.take(2).join(', '),
-      ));
+      cells.add(
+        _MetaCell(
+          icon: Icons.apartment_rounded,
+          label: profile.specialization.take(2).join(', '),
+        ),
+      );
     }
 
     if (cells.isEmpty) return const SizedBox.shrink();
@@ -475,42 +480,50 @@ class TrustChipStrip extends StatelessWidget {
     final chips = <Widget>[];
 
     if (profile.verificationStatus?.toLowerCase() == 'verified') {
-      chips.add(const _TrustChip(
-        icon: Icons.verified_rounded,
-        label: 'Verified',
-        foreground: AppColors.verifiedBadge,
-        background: Color(0x1F10B981),
-      ));
+      chips.add(
+        const _TrustChip(
+          icon: Icons.verified_rounded,
+          label: 'Verified',
+          foreground: AppColors.verifiedBadge,
+          background: Color(0x1F10B981),
+        ),
+      );
     }
 
     final rera = profile.effectiveRera;
     if (rera != null) {
-      chips.add(_TrustChip(
-        icon: Icons.shield_outlined,
-        label: 'RERA $rera',
-        foreground: AppColors.primary,
-        background: AppColors.primaryLight,
-      ));
+      chips.add(
+        _TrustChip(
+          icon: Icons.shield_outlined,
+          label: 'RERA $rera',
+          foreground: AppColors.primary,
+          background: AppColors.primaryLight,
+        ),
+      );
     }
 
     final created = profile.createdAt;
     if (created != null) {
-      chips.add(_TrustChip(
-        icon: Icons.calendar_today_outlined,
-        label: 'Member since ${created.year}',
-        foreground: AppColors.textSecondary,
-        background: AppColors.surfaceMuted,
-      ));
+      chips.add(
+        _TrustChip(
+          icon: Icons.calendar_today_outlined,
+          label: 'Member since ${created.year}',
+          foreground: AppColors.textSecondary,
+          background: AppColors.surfaceMuted,
+        ),
+      );
     }
 
     final company = profile.companyName;
     if (company != null && !profile.isIndividual) {
-      chips.add(_TrustChip(
-        icon: Icons.business_outlined,
-        label: company,
-        foreground: AppColors.primary,
-        background: AppColors.primaryLight,
-      ));
+      chips.add(
+        _TrustChip(
+          icon: Icons.business_outlined,
+          label: company,
+          foreground: AppColors.primary,
+          background: AppColors.primaryLight,
+        ),
+      );
     }
 
     if (chips.isEmpty) return const SizedBox.shrink();

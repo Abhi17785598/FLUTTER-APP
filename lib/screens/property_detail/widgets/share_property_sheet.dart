@@ -252,10 +252,7 @@ class _SocialButton extends StatelessWidget {
                 child: Icon(icon, color: Colors.white, size: 20),
               ),
               const SizedBox(height: 6),
-              Text(
-                label,
-                style: AppTextStyles.caption.copyWith(fontSize: 11),
-              ),
+              Text(label, style: AppTextStyles.caption.copyWith(fontSize: 11)),
             ],
           ),
         ),

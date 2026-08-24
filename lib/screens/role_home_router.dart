@@ -19,11 +19,7 @@ class RoleHomeRouter extends StatelessWidget {
     }
 
     if (auth.userType == null) {
-      return const Scaffold(
-        body: Center(
-          child: CircularProgressIndicator(),
-        ),
-      );
+      return const Scaffold(body: Center(child: CircularProgressIndicator()));
     }
 
     return const HomeScreen();

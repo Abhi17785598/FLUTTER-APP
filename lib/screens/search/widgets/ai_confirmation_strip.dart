@@ -44,88 +44,84 @@ class AiConfirmationStrip extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      margin: const EdgeInsets.fromLTRB(
-        AppConstants.spacingXL,
-        0,
-        AppConstants.spacingXL,
-        AppConstants.spacingM,
-      ),
-      padding: const EdgeInsets.all(AppConstants.spacingM),
-      decoration: BoxDecoration(
-        color: AppColors.primaryLight,
-        borderRadius: BorderRadius.circular(AppConstants.buttonRadius),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
+          margin: const EdgeInsets.fromLTRB(
+            AppConstants.spacingXL,
+            0,
+            AppConstants.spacingXL,
+            AppConstants.spacingM,
+          ),
+          padding: const EdgeInsets.all(AppConstants.spacingM),
+          decoration: BoxDecoration(
+            color: AppColors.primaryLight,
+            borderRadius: BorderRadius.circular(AppConstants.buttonRadius),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Icon(
-                Icons.auto_awesome,
-                size: 14,
-                color: AppColors.primary,
-              ),
-              const SizedBox(width: 7),
-              Expanded(
-                child: Text(
-                  'Searched for',
-                  style: AppTextStyles.caption.copyWith(
-                    fontSize: 11.5,
-                    fontWeight: FontWeight.w600,
+              Row(
+                children: [
+                  const Icon(
+                    Icons.auto_awesome,
+                    size: 14,
                     color: AppColors.primary,
                   ),
-                ),
+                  const SizedBox(width: 7),
+                  Expanded(
+                    child: Text(
+                      'Searched for',
+                      style: AppTextStyles.caption.copyWith(
+                        fontSize: 11.5,
+                        fontWeight: FontWeight.w600,
+                        color: AppColors.primary,
+                      ),
+                    ),
+                  ),
+                  Semantics(
+                    label: 'Dismiss search interpretation',
+                    button: true,
+                    child: GestureDetector(
+                      onTap: onDismiss,
+                      behavior: HitTestBehavior.opaque,
+                      child: const Icon(
+                        Icons.close,
+                        size: 15,
+                        color: AppColors.primary,
+                      ),
+                    ),
+                  ),
+                ],
               ),
+              const SizedBox(height: AppConstants.spacingS),
+              Wrap(
+                spacing: 6,
+                runSpacing: 6,
+                children: [for (final facet in facets) _buildPill(facet)],
+              ),
+              const SizedBox(height: AppConstants.spacingS),
               Semantics(
-                label: 'Dismiss search interpretation',
+                label: 'Edit filters',
                 button: true,
                 child: GestureDetector(
-                  onTap: onDismiss,
+                  onTap: onEditFilters,
                   behavior: HitTestBehavior.opaque,
-                  child: const Icon(
-                    Icons.close,
-                    size: 15,
-                    color: AppColors.primary,
+                  child: Text(
+                    'Not quite right? Edit filters',
+                    style: AppTextStyles.caption.copyWith(
+                      fontSize: 11.5,
+                      fontWeight: FontWeight.w600,
+                      color: AppColors.primary,
+                      decoration: TextDecoration.underline,
+                      decorationColor: AppColors.primary,
+                    ),
                   ),
                 ),
               ),
             ],
           ),
-          const SizedBox(height: AppConstants.spacingS),
-          Wrap(
-            spacing: 6,
-            runSpacing: 6,
-            children: [
-              for (final facet in facets) _buildPill(facet),
-            ],
-          ),
-          const SizedBox(height: AppConstants.spacingS),
-          Semantics(
-            label: 'Edit filters',
-            button: true,
-            child: GestureDetector(
-              onTap: onEditFilters,
-              behavior: HitTestBehavior.opaque,
-              child: Text(
-                'Not quite right? Edit filters',
-                style: AppTextStyles.caption.copyWith(
-                  fontSize: 11.5,
-                  fontWeight: FontWeight.w600,
-                  color: AppColors.primary,
-                  decoration: TextDecoration.underline,
-                  decorationColor: AppColors.primary,
-                ),
-              ),
-            ),
-          ),
-        ],
-      ),
-    ).animate().fadeIn(duration: 220.ms).slideY(
-          begin: -0.15,
-          end: 0,
-          duration: 220.ms,
-          curve: Curves.easeOut,
-        );
+        )
+        .animate()
+        .fadeIn(duration: 220.ms)
+        .slideY(begin: -0.15, end: 0, duration: 220.ms, curve: Curves.easeOut);
   }
 
   Widget _buildPill(String label) {

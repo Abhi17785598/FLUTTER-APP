@@ -60,9 +60,9 @@ class ProfileMediaService {
     ImagePicker? picker,
     SupabaseClient? client,
     AuthService? authService,
-  })  : _picker = picker ?? ImagePicker(),
-        _supabase = client ?? Supabase.instance.client,
-        _authService = authService ?? AuthService();
+  }) : _picker = picker ?? ImagePicker(),
+       _supabase = client ?? Supabase.instance.client,
+       _authService = authService ?? AuthService();
 
   final ImagePicker _picker;
   final SupabaseClient _supabase;
@@ -155,8 +155,7 @@ class ProfileMediaService {
     ProfileDocumentKind kind,
     String ext,
     int timestamp,
-  ) =>
-      '$userId/${kind.slug}_$timestamp.$ext';
+  ) => '$userId/${kind.slug}_$timestamp.$ext';
 
   /// Lowercased extension, defaulting to `jpg`.
   ///
@@ -180,14 +179,14 @@ class ProfileMediaService {
   /// Only image types, since only images can be picked.
   @visibleForTesting
   static String mimeFromExtension(String ext) => switch (ext.toLowerCase()) {
-        'jpg' || 'jpeg' => 'image/jpeg',
-        'png' => 'image/png',
-        'webp' => 'image/webp',
-        'heic' => 'image/heic',
-        'heif' => 'image/heif',
-        'gif' => 'image/gif',
-        _ => 'application/octet-stream',
-      };
+    'jpg' || 'jpeg' => 'image/jpeg',
+    'png' => 'image/png',
+    'webp' => 'image/webp',
+    'heic' => 'image/heic',
+    'heif' => 'image/heif',
+    'gif' => 'image/gif',
+    _ => 'application/octet-stream',
+  };
 
   // ── Uploading ─────────────────────────────────────────────────────────────
 
@@ -203,7 +202,9 @@ class ProfileMediaService {
     final bytes = await file.readAsBytes();
     final ext = extensionOf(file.name);
 
-    await _supabase.storage.from(bucket).uploadBinary(
+    await _supabase.storage
+        .from(bucket)
+        .uploadBinary(
           path,
           bytes,
           fileOptions: FileOptions(
@@ -256,10 +257,9 @@ class ProfileMediaService {
       file: file,
     );
 
-    await _authService.updateProfileFields(
-      userId,
-      {'background_image_url': url},
-    );
+    await _authService.updateProfileFields(userId, {
+      'background_image_url': url,
+    });
     return url;
   }
 

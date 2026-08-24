@@ -86,18 +86,18 @@ class BrokerLead {
   }
 
   BrokerLead withStatus(String status) => BrokerLead(
-        id: id,
-        propertyId: propertyId,
-        status: status,
-        propertyTitle: propertyTitle,
-        inquirerId: inquirerId,
-        contactEmail: contactEmail,
-        contactPhone: contactPhone,
-        preferredContactTime: preferredContactTime,
-        message: message,
-        createdAt: createdAt,
-        updatedAt: updatedAt,
-      );
+    id: id,
+    propertyId: propertyId,
+    status: status,
+    propertyTitle: propertyTitle,
+    inquirerId: inquirerId,
+    contactEmail: contactEmail,
+    contactPhone: contactPhone,
+    preferredContactTime: preferredContactTime,
+    message: message,
+    createdAt: createdAt,
+    updatedAt: updatedAt,
+  );
 
   bool get isActive => kActiveBrokerLeadStatuses.contains(status);
 }
@@ -205,7 +205,8 @@ class PropertyVisitBooking {
       userId: json['user_id']?.toString() ?? '',
       visitorName: json['visitor_name']?.toString() ?? '',
       visitorPhone: json['visitor_phone']?.toString() ?? '',
-      preferredDate: _date(json['preferred_date']) ??
+      preferredDate:
+          _date(json['preferred_date']) ??
           DateTime.fromMillisecondsSinceEpoch(0),
       propertyTitle: propertyTitle,
       preferredTime: _nullIfEmpty(json['preferred_time']),
@@ -227,8 +228,9 @@ class PropertyVisitBooking {
   }) {
     final property = json['properties'] as Map<String, dynamic>?;
     final mediaUrls = property?['media_urls'];
-    final firstImage =
-        (mediaUrls is List && mediaUrls.isNotEmpty) ? mediaUrls.first : null;
+    final firstImage = (mediaUrls is List && mediaUrls.isNotEmpty)
+        ? mediaUrls.first
+        : null;
 
     return PropertyVisitBooking(
       id: json['id']?.toString() ?? '',
@@ -236,7 +238,8 @@ class PropertyVisitBooking {
       userId: json['user_id']?.toString() ?? '',
       visitorName: json['visitor_name']?.toString() ?? '',
       visitorPhone: json['visitor_phone']?.toString() ?? '',
-      preferredDate: _date(json['preferred_date']) ??
+      preferredDate:
+          _date(json['preferred_date']) ??
           DateTime.fromMillisecondsSinceEpoch(0),
       propertyTitle: _nullIfEmpty(property?['title']?.toString()),
       propertyImageUrl: _nullIfEmpty(firstImage?.toString()),
@@ -350,53 +353,53 @@ class UnifiedLead {
   final DateTime? updatedAt;
 
   factory UnifiedLead.fromInquiry(BrokerLead lead) => UnifiedLead(
-        id: lead.id,
-        source: UnifiedLeadSource.inquiry,
-        propertyId: lead.propertyId,
-        propertyTitle: lead.propertyTitle,
-        buyerName: lead.buyerName,
-        buyerEmail: lead.contactEmail,
-        buyerPhone: lead.contactPhone,
-        message: lead.message,
-        status: lead.status,
-        preferredContactTime: lead.preferredContactTime,
-        requesterUserId: lead.inquirerId,
-        createdAt: lead.createdAt,
-        updatedAt: lead.updatedAt,
-      );
+    id: lead.id,
+    source: UnifiedLeadSource.inquiry,
+    propertyId: lead.propertyId,
+    propertyTitle: lead.propertyTitle,
+    buyerName: lead.buyerName,
+    buyerEmail: lead.contactEmail,
+    buyerPhone: lead.contactPhone,
+    message: lead.message,
+    status: lead.status,
+    preferredContactTime: lead.preferredContactTime,
+    requesterUserId: lead.inquirerId,
+    createdAt: lead.createdAt,
+    updatedAt: lead.updatedAt,
+  );
 
   factory UnifiedLead.fromVisit(PropertyVisitBooking booking) => UnifiedLead(
-        id: booking.id,
-        source: UnifiedLeadSource.visit,
-        propertyId: booking.propertyId,
-        propertyTitle: booking.propertyTitle,
-        buyerName: booking.visitorName,
-        buyerPhone: booking.visitorPhone,
-        message: booking.message,
-        status: visitLeadStatusFromDb(booking.status),
-        preferredVisitDate: booking.preferredDate,
-        preferredVisitTime: booking.preferredTime,
-        requesterUserId: booking.userId,
-        createdAt: booking.createdAt,
-      );
+    id: booking.id,
+    source: UnifiedLeadSource.visit,
+    propertyId: booking.propertyId,
+    propertyTitle: booking.propertyTitle,
+    buyerName: booking.visitorName,
+    buyerPhone: booking.visitorPhone,
+    message: booking.message,
+    status: visitLeadStatusFromDb(booking.status),
+    preferredVisitDate: booking.preferredDate,
+    preferredVisitTime: booking.preferredTime,
+    requesterUserId: booking.userId,
+    createdAt: booking.createdAt,
+  );
 
   UnifiedLead withStatus(String status) => UnifiedLead(
-        id: id,
-        source: source,
-        propertyId: propertyId,
-        propertyTitle: propertyTitle,
-        buyerName: buyerName,
-        buyerEmail: buyerEmail,
-        buyerPhone: buyerPhone,
-        message: message,
-        status: status,
-        preferredContactTime: preferredContactTime,
-        preferredVisitDate: preferredVisitDate,
-        preferredVisitTime: preferredVisitTime,
-        requesterUserId: requesterUserId,
-        createdAt: createdAt,
-        updatedAt: updatedAt,
-      );
+    id: id,
+    source: source,
+    propertyId: propertyId,
+    propertyTitle: propertyTitle,
+    buyerName: buyerName,
+    buyerEmail: buyerEmail,
+    buyerPhone: buyerPhone,
+    message: message,
+    status: status,
+    preferredContactTime: preferredContactTime,
+    preferredVisitDate: preferredVisitDate,
+    preferredVisitTime: preferredVisitTime,
+    requesterUserId: requesterUserId,
+    createdAt: createdAt,
+    updatedAt: updatedAt,
+  );
 }
 
 /// One `broker_profiles` row.
@@ -494,11 +497,11 @@ String? _nullIfEmpty(Object? value) {
 }
 
 int? _int(Object? value) => switch (value) {
-      final int v => v,
-      final num v => v.toInt(),
-      final String v => int.tryParse(v),
-      _ => null,
-    };
+  final int v => v,
+  final num v => v.toInt(),
+  final String v => int.tryParse(v),
+  _ => null,
+};
 
 List<String> _stringList(Object? value) {
   if (value is! List) return const [];

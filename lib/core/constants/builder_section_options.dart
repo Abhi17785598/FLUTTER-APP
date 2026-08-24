@@ -42,12 +42,12 @@ bool isSettableProjectStatus(String? status) =>
 
 /// Label for a stored `project_inventory.status`.
 String inventoryUnitStatusLabel(String? status) => switch (status) {
-      'available' => 'Available',
-      'booked' => 'Booked',
-      'sold' => 'Sold',
-      'blocked' => 'Blocked',
-      _ => 'Unknown',
-    };
+  'available' => 'Available',
+  'booked' => 'Booked',
+  'sold' => 'Sold',
+  'blocked' => 'Blocked',
+  _ => 'Unknown',
+};
 
 /// The CHECK constraint's four values, for a unit-status picker.
 ///
@@ -142,11 +142,7 @@ class BuilderTeamModule {
 
 /// The four values the CHECK constraint accepts.
 const List<BuilderTeamModule> kBuilderTeamModules = [
-  BuilderTeamModule(
-    'inventory',
-    'Inventory',
-    'View and update project status',
-  ),
+  BuilderTeamModule('inventory', 'Inventory', 'View and update project status'),
   BuilderTeamModule(
     'offers',
     'Marketed Offers',
@@ -184,10 +180,10 @@ const int kMaxBuilderTeamMembers = 10;
 /// Members: ('active','revoked'). Invitations:
 /// ('pending','accepted','revoked','expired') — 20270201000000:28 and :51.
 String builderTeamStatusLabel(String? status) => switch (status) {
-      'active' => 'Active',
-      'revoked' => 'Revoked',
-      'pending' => 'Pending',
-      'accepted' => 'Accepted',
-      'expired' => 'Expired',
-      _ => 'Unknown',
-    };
+  'active' => 'Active',
+  'revoked' => 'Revoked',
+  'pending' => 'Pending',
+  'accepted' => 'Accepted',
+  'expired' => 'Expired',
+  _ => 'Unknown',
+};

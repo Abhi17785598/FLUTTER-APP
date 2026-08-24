@@ -25,7 +25,7 @@ import 'people_search_service.dart';
 
 class TopBuildersService {
   TopBuildersService({SupabaseClient? client})
-      : _supabase = client ?? Supabase.instance.client;
+    : _supabase = client ?? Supabase.instance.client;
 
   final SupabaseClient _supabase;
 
@@ -45,7 +45,9 @@ class TopBuildersService {
       for (final row in List<Map<String, dynamic>>.from(curatedRows)) {
         final profileRow = row['profiles'] as Map<String, dynamic>?;
         if (profileRow == null) continue;
-        final profile = UserProfile.fromMap(Map<String, dynamic>.from(profileRow));
+        final profile = UserProfile.fromMap(
+          Map<String, dynamic>.from(profileRow),
+        );
         if (profile.userId.isNotEmpty) curated.add(profile);
       }
       if (curated.isNotEmpty) return curated;

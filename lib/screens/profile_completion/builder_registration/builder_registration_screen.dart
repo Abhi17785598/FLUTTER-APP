@@ -51,8 +51,9 @@ final RegExp _reraPattern = RegExp(r'^[A-Z]{2}\d{4}\d{4}$');
 final RegExp _websitePattern = RegExp(
   r'^https?:\/\/(www\.)?[-a-zA-Z0-9@:%._+~#=]{1,256}\.[a-zA-Z0-9()]{1,6}\b',
 );
-final RegExp _gstPattern =
-    RegExp(r'^\d{2}[A-Z]{5}\d{4}[A-Z]{1}[A-Z\d]{1}[Z]{1}[A-Z\d]{1}$');
+final RegExp _gstPattern = RegExp(
+  r'^\d{2}[A-Z]{5}\d{4}[A-Z]{1}[A-Z\d]{1}[Z]{1}[A-Z\d]{1}$',
+);
 final RegExp _panPattern = RegExp(r'^[A-Z]{5}\d{4}[A-Z]{1}$');
 
 const List<String> _kCompanyTypes = [
@@ -98,8 +99,7 @@ class BuilderRegistrationScreen extends StatefulWidget {
       _BuilderRegistrationScreenState();
 }
 
-class _BuilderRegistrationScreenState
-    extends State<BuilderRegistrationScreen> {
+class _BuilderRegistrationScreenState extends State<BuilderRegistrationScreen> {
   int currentStep = 0;
   bool _isSubmitting = false;
   final Map<String, String> _errors = {};
@@ -207,18 +207,21 @@ class _BuilderRegistrationScreenState
     final rawEmail = authUser?.email;
     final rawPhone = authUser?.phone;
 
-    _isEmailUser = rawEmail != null &&
+    _isEmailUser =
+        rawEmail != null &&
         rawEmail.isNotEmpty &&
         !rawEmail.endsWith('@propcid.app');
-    _isPhoneUser = (rawPhone != null && rawPhone.isNotEmpty) ||
+    _isPhoneUser =
+        (rawPhone != null && rawPhone.isNotEmpty) ||
         (rawEmail != null && rawEmail.endsWith('@propcid.app'));
 
     if (_isEmailUser) _emailCtrl.text = rawEmail!;
     if (_isPhoneUser) {
       if (rawPhone != null && rawPhone.isNotEmpty) {
         final digits = rawPhone.replaceAll(RegExp(r'\D'), '');
-        _mobileCtrl.text =
-            digits.length > 10 ? digits.substring(digits.length - 10) : digits;
+        _mobileCtrl.text = digits.length > 10
+            ? digits.substring(digits.length - 10)
+            : digits;
       } else if (rawEmail != null) {
         final m = RegExp(r'u(\d+)@').firstMatch(rawEmail);
         if (m != null) _mobileCtrl.text = m.group(1)!;
@@ -235,12 +238,28 @@ class _BuilderRegistrationScreenState
   // RegistrationDraftStore for the save/load/expiry mechanics.
   void _wireDraftAutoSave() {
     for (final c in [
-      _companyNameCtrl, _emailCtrl, _mobileCtrl, _altMobileCtrl, _dobCtrl,
-      _reraNumberCtrl, _gstNumberCtrl, _panNumberCtrl, _yearsOfExpCtrl,
-      _websiteCtrl, _aboutCompanyCtrl,
-      _officeAddressCtrl, _cityCtrl, _stateCtrl, _pincodeCtrl, _landmarkCtrl,
-      _facebookCtrl, _instagramCtrl, _linkedinCtrl, _youtubeCtrl,
-      _whatsappCtrl, _telegramCtrl,
+      _companyNameCtrl,
+      _emailCtrl,
+      _mobileCtrl,
+      _altMobileCtrl,
+      _dobCtrl,
+      _reraNumberCtrl,
+      _gstNumberCtrl,
+      _panNumberCtrl,
+      _yearsOfExpCtrl,
+      _websiteCtrl,
+      _aboutCompanyCtrl,
+      _officeAddressCtrl,
+      _cityCtrl,
+      _stateCtrl,
+      _pincodeCtrl,
+      _landmarkCtrl,
+      _facebookCtrl,
+      _instagramCtrl,
+      _linkedinCtrl,
+      _youtubeCtrl,
+      _whatsappCtrl,
+      _telegramCtrl,
       _usernameCtrl,
     ]) {
       c.addListener(_scheduleDraftSave);
@@ -250,58 +269,60 @@ class _BuilderRegistrationScreenState
   void _scheduleDraftSave() => _draftStore.scheduleSave(_draftToJson);
 
   Map<String, dynamic> _draftToJson() => {
-        'currentStep': currentStep,
-        'companyName': _companyNameCtrl.text,
-        'email': _emailCtrl.text,
-        'mobileNumber': _mobileCtrl.text,
-        'countryCode': _countryCode,
-        'alternateMobileNumber': _altMobileCtrl.text,
-        'alternateCountryCode': _alternateCountryCode,
-        'gender': _gender ?? '',
-        'dob': _dobCtrl.text,
-        'avatarUrl': _avatarUrl ?? '',
-        'companyLogoUrl': _companyLogoUrl ?? '',
-        'companyType': _companyType ?? '',
-        'reraNumber': _reraNumberCtrl.text,
-        'gstNumber': _gstNumberCtrl.text,
-        'panNumber': _panNumberCtrl.text,
-        'yearsOfExperience': _yearsOfExpCtrl.text,
-        'websiteUrl': _websiteCtrl.text,
-        'aboutCompany': _aboutCompanyCtrl.text,
-        'areasOfExpertise': _areasOfExpertise,
-        'languagesKnown': _languagesKnown,
-        'officeAddress': _officeAddressCtrl.text,
-        'city': _cityCtrl.text,
-        'state': _stateCtrl.text,
-        'pincode': _pincodeCtrl.text,
-        'landmark': _landmarkCtrl.text,
-        'pickedLat': _pickedLat,
-        'pickedLng': _pickedLng,
-        'reraCertificateUrl': _reraCertificateUrl ?? '',
-        'gstCertificateUrl': _gstCertificateUrl ?? '',
-        'panCardUrl': _panCardUrl ?? '',
-        'registrationProofUrl': _registrationProofUrl ?? '',
-        'facebookUrl': _facebookCtrl.text,
-        'instagramUrl': _instagramCtrl.text,
-        'linkedinUrl': _linkedinCtrl.text,
-        'youtubeUrl': _youtubeCtrl.text,
-        'whatsappNumber': _whatsappCtrl.text,
-        'telegramUrl': _telegramCtrl.text,
-        'username': _usernameCtrl.text,
-        'termsAccepted': _termsAccepted,
-        'privacyAccepted': _privacyAccepted,
-      };
+    'currentStep': currentStep,
+    'companyName': _companyNameCtrl.text,
+    'email': _emailCtrl.text,
+    'mobileNumber': _mobileCtrl.text,
+    'countryCode': _countryCode,
+    'alternateMobileNumber': _altMobileCtrl.text,
+    'alternateCountryCode': _alternateCountryCode,
+    'gender': _gender ?? '',
+    'dob': _dobCtrl.text,
+    'avatarUrl': _avatarUrl ?? '',
+    'companyLogoUrl': _companyLogoUrl ?? '',
+    'companyType': _companyType ?? '',
+    'reraNumber': _reraNumberCtrl.text,
+    'gstNumber': _gstNumberCtrl.text,
+    'panNumber': _panNumberCtrl.text,
+    'yearsOfExperience': _yearsOfExpCtrl.text,
+    'websiteUrl': _websiteCtrl.text,
+    'aboutCompany': _aboutCompanyCtrl.text,
+    'areasOfExpertise': _areasOfExpertise,
+    'languagesKnown': _languagesKnown,
+    'officeAddress': _officeAddressCtrl.text,
+    'city': _cityCtrl.text,
+    'state': _stateCtrl.text,
+    'pincode': _pincodeCtrl.text,
+    'landmark': _landmarkCtrl.text,
+    'pickedLat': _pickedLat,
+    'pickedLng': _pickedLng,
+    'reraCertificateUrl': _reraCertificateUrl ?? '',
+    'gstCertificateUrl': _gstCertificateUrl ?? '',
+    'panCardUrl': _panCardUrl ?? '',
+    'registrationProofUrl': _registrationProofUrl ?? '',
+    'facebookUrl': _facebookCtrl.text,
+    'instagramUrl': _instagramCtrl.text,
+    'linkedinUrl': _linkedinCtrl.text,
+    'youtubeUrl': _youtubeCtrl.text,
+    'whatsappNumber': _whatsappCtrl.text,
+    'telegramUrl': _telegramCtrl.text,
+    'username': _usernameCtrl.text,
+    'termsAccepted': _termsAccepted,
+    'privacyAccepted': _privacyAccepted,
+  };
 
   Future<void> _restoreDraft() async {
     final data = await _draftStore.load();
     if (!mounted || data == null) return;
 
     String s(String key) => data[key] as String? ?? '';
-    List<String> l(String key) => (data[key] as List<dynamic>?)?.cast<String>() ?? const [];
+    List<String> l(String key) =>
+        (data[key] as List<dynamic>?)?.cast<String>() ?? const [];
 
     setState(() {
       final step = data['currentStep'] as int?;
-      if (step != null && step >= 0 && step < _stepTitles.length) currentStep = step;
+      if (step != null && step >= 0 && step < _stepTitles.length)
+        currentStep = step;
 
       if (s('companyName').isNotEmpty) _companyNameCtrl.text = s('companyName');
       if (s('email').isNotEmpty) _emailCtrl.text = s('email');
@@ -326,7 +347,8 @@ class _BuilderRegistrationScreenState
         _yearsOfExpCtrl.text = s('yearsOfExperience');
       }
       if (s('websiteUrl').isNotEmpty) _websiteCtrl.text = s('websiteUrl');
-      if (s('aboutCompany').isNotEmpty) _aboutCompanyCtrl.text = s('aboutCompany');
+      if (s('aboutCompany').isNotEmpty)
+        _aboutCompanyCtrl.text = s('aboutCompany');
       final expertise = l('areasOfExpertise');
       if (expertise.isNotEmpty) {
         _areasOfExpertise
@@ -340,7 +362,8 @@ class _BuilderRegistrationScreenState
           ..addAll(languages);
       }
 
-      if (s('officeAddress').isNotEmpty) _officeAddressCtrl.text = s('officeAddress');
+      if (s('officeAddress').isNotEmpty)
+        _officeAddressCtrl.text = s('officeAddress');
       if (s('city').isNotEmpty) _cityCtrl.text = s('city');
       if (s('state').isNotEmpty) _stateCtrl.text = s('state');
       if (s('pincode').isNotEmpty) _pincodeCtrl.text = s('pincode');
@@ -363,7 +386,8 @@ class _BuilderRegistrationScreenState
       if (s('instagramUrl').isNotEmpty) _instagramCtrl.text = s('instagramUrl');
       if (s('linkedinUrl').isNotEmpty) _linkedinCtrl.text = s('linkedinUrl');
       if (s('youtubeUrl').isNotEmpty) _youtubeCtrl.text = s('youtubeUrl');
-      if (s('whatsappNumber').isNotEmpty) _whatsappCtrl.text = s('whatsappNumber');
+      if (s('whatsappNumber').isNotEmpty)
+        _whatsappCtrl.text = s('whatsappNumber');
       if (s('telegramUrl').isNotEmpty) _telegramCtrl.text = s('telegramUrl');
 
       if (s('username').isNotEmpty) _usernameCtrl.text = s('username');
@@ -392,8 +416,9 @@ class _BuilderRegistrationScreenState
     if (stepErrors.isNotEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content:
-              Text('Please fill all required fields and verify formats correctly.'),
+          content: Text(
+            'Please fill all required fields and verify formats correctly.',
+          ),
           backgroundColor: Colors.red,
         ),
       );
@@ -420,7 +445,8 @@ class _BuilderRegistrationScreenState
   // BuilderRegistration.tsx:786-875 ─────────────────────────────────────────
   Map<String, String> _validateStep0() {
     final e = <String, String>{};
-    if (_isBlank(_companyNameCtrl.text)) e['companyName'] = 'Company name is required.';
+    if (_isBlank(_companyNameCtrl.text))
+      e['companyName'] = 'Company name is required.';
     if (_isBlank(_emailCtrl.text)) {
       e['email'] = 'Email address is required.';
     } else if (!_emailPattern.hasMatch(_emailCtrl.text.trim())) {
@@ -446,12 +472,15 @@ class _BuilderRegistrationScreenState
               'Alternate number must be a valid 10-digit Indian mobile number.';
         }
       } else if (digits.length < 8 || digits.length > 12) {
-        e['alternateMobileNumber'] = 'Alternate number must be between 8 and 12 digits.';
+        e['alternateMobileNumber'] =
+            'Alternate number must be between 8 and 12 digits.';
       }
     }
-    if (_gender == null || _gender!.isEmpty) e['gender'] = 'Gender is required.';
+    if (_gender == null || _gender!.isEmpty)
+      e['gender'] = 'Gender is required.';
     if (_isBlank(_dobCtrl.text)) e['dob'] = 'Date of birth is required.';
-    if ((_avatarUrl ?? '').isEmpty) e['avatarUrl'] = 'Profile photo is required.';
+    if ((_avatarUrl ?? '').isEmpty)
+      e['avatarUrl'] = 'Profile photo is required.';
     if ((_companyLogoUrl ?? '').isEmpty) {
       e['companyLogoUrl'] = 'Company logo is required.';
     }
@@ -484,8 +513,10 @@ class _BuilderRegistrationScreenState
     if (_areasOfExpertise.isEmpty) {
       e['areasOfExpertise'] = 'Areas of expertise is required.';
     }
-    if (_languagesKnown.isEmpty) e['languagesKnown'] = 'Languages known is required.';
-    if (_isBlank(_websiteCtrl.text)) e['websiteUrl'] = 'Website URL is required.';
+    if (_languagesKnown.isEmpty)
+      e['languagesKnown'] = 'Languages known is required.';
+    if (_isBlank(_websiteCtrl.text))
+      e['websiteUrl'] = 'Website URL is required.';
     if (_isBlank(_aboutCompanyCtrl.text)) {
       e['aboutCompany'] = 'About the company is required.';
     }
@@ -494,7 +525,8 @@ class _BuilderRegistrationScreenState
 
   Map<String, String> _validateStep2() {
     final e = <String, String>{};
-    if (_isBlank(_officeAddressCtrl.text)) e['officeAddress'] = 'Office address is required.';
+    if (_isBlank(_officeAddressCtrl.text))
+      e['officeAddress'] = 'Office address is required.';
     if (_isBlank(_cityCtrl.text)) e['city'] = 'City is required.';
     if (_isBlank(_stateCtrl.text)) e['state'] = 'State is required.';
     if (_isBlank(_pincodeCtrl.text)) {
@@ -513,7 +545,8 @@ class _BuilderRegistrationScreenState
     if ((_gstCertificateUrl ?? '').isEmpty) {
       e['gstCertificateUrl'] = 'GST certificate is required.';
     }
-    if ((_panCardUrl ?? '').isEmpty) e['panCardUrl'] = 'PAN card copy is required.';
+    if ((_panCardUrl ?? '').isEmpty)
+      e['panCardUrl'] = 'PAN card copy is required.';
     if ((_registrationProofUrl ?? '').isEmpty) {
       e['registrationProofUrl'] = 'Company registration proof is required.';
     }
@@ -563,7 +596,8 @@ class _BuilderRegistrationScreenState
     if (_passwordCtrl.text.length < 6) {
       return 'Password must be at least 6 characters.';
     }
-    if (_confirmPasswordCtrl.text.isEmpty) return 'Please confirm your password.';
+    if (_confirmPasswordCtrl.text.isEmpty)
+      return 'Please confirm your password.';
     if (_passwordCtrl.text != _confirmPasswordCtrl.text) {
       return 'Passwords do not match.';
     }
@@ -572,8 +606,9 @@ class _BuilderRegistrationScreenState
 
   // ─── Username availability — mirrors BuilderRegistration.tsx:493-528 ─────
   void _onUsernameChanged(String value) {
-    final cleaned =
-        value.replaceAll(RegExp(r'[^a-zA-Z0-9_]'), '').toLowerCase();
+    final cleaned = value
+        .replaceAll(RegExp(r'[^a-zA-Z0-9_]'), '')
+        .toLowerCase();
     if (cleaned != value) {
       _usernameCtrl.value = TextEditingValue(
         text: cleaned,
@@ -590,8 +625,10 @@ class _BuilderRegistrationScreenState
       });
       return;
     }
-    _usernameDebounce =
-        Timer(const Duration(milliseconds: 500), () => _checkUsername(cleaned));
+    _usernameDebounce = Timer(
+      const Duration(milliseconds: 500),
+      () => _checkUsername(cleaned),
+    );
     setState(() {}); // repaint the suffix icon while the debounce is pending
   }
 
@@ -650,8 +687,11 @@ class _BuilderRegistrationScreenState
     try {
       final file = await _mediaService.pickDocument();
       if (file == null) return;
-      final url =
-          await _mediaService.uploadDocument(userId: userId, kind: kind, file: file);
+      final url = await _mediaService.uploadDocument(
+        userId: userId,
+        kind: kind,
+        file: file,
+      );
       if (!mounted) return;
       setState(() {
         switch (fieldKey) {
@@ -739,7 +779,8 @@ class _BuilderRegistrationScreenState
     );
     if (picked != null) {
       setState(() {
-        _dobCtrl.text = '${picked.year.toString().padLeft(4, '0')}-'
+        _dobCtrl.text =
+            '${picked.year.toString().padLeft(4, '0')}-'
             '${picked.month.toString().padLeft(2, '0')}-'
             '${picked.day.toString().padLeft(2, '0')}';
       });
@@ -770,8 +811,10 @@ class _BuilderRegistrationScreenState
       }
       if ((address?.city ?? '').isNotEmpty) _cityCtrl.text = address!.city!;
       if ((address?.state ?? '').isNotEmpty) _stateCtrl.text = address!.state!;
-      if ((address?.pincode ?? '').isNotEmpty) _pincodeCtrl.text = address!.pincode!;
-      if ((address?.landmark ?? '').isNotEmpty) _landmarkCtrl.text = address!.landmark!;
+      if ((address?.pincode ?? '').isNotEmpty)
+        _pincodeCtrl.text = address!.pincode!;
+      if ((address?.landmark ?? '').isNotEmpty)
+        _landmarkCtrl.text = address!.landmark!;
       _errors.remove('officeAddress');
       _errors.remove('city');
       _errors.remove('state');
@@ -785,7 +828,9 @@ class _BuilderRegistrationScreenState
     if (!_termsAccepted || !_privacyAccepted) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Please accept the Terms & Conditions and Privacy Policy.'),
+          content: Text(
+            'Please accept the Terms & Conditions and Privacy Policy.',
+          ),
           backgroundColor: Colors.red,
         ),
       );
@@ -886,9 +931,9 @@ class _BuilderRegistrationScreenState
       child: Text(
         title,
         style: Theme.of(context).textTheme.titleMedium?.copyWith(
-              fontWeight: FontWeight.w600,
-              color: Theme.of(context).colorScheme.primary,
-            ),
+          fontWeight: FontWeight.w600,
+          color: Theme.of(context).colorScheme.primary,
+        ),
       ),
     );
   }
@@ -927,7 +972,8 @@ class _BuilderRegistrationScreenState
         ),
       ),
       contentPadding:
-          contentPadding ?? const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+          contentPadding ??
+          const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
     );
   }
 
@@ -942,7 +988,10 @@ class _BuilderRegistrationScreenState
           const Icon(Icons.error_outline, size: 14, color: Colors.red),
           const SizedBox(width: 4),
           Expanded(
-            child: Text(msg, style: const TextStyle(fontSize: 12, color: Colors.red)),
+            child: Text(
+              msg,
+              style: const TextStyle(fontSize: 12, color: Colors.red),
+            ),
           ),
         ],
       ),
@@ -958,7 +1007,10 @@ class _BuilderRegistrationScreenState
           style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13.5),
           children: [
             if (required)
-              const TextSpan(text: ' *', style: TextStyle(color: Colors.red)),
+              const TextSpan(
+                text: ' *',
+                style: TextStyle(color: Colors.red),
+              ),
           ],
         ),
       ),
@@ -1064,13 +1116,21 @@ class _BuilderRegistrationScreenState
                   icon: const Icon(Icons.arrow_drop_down, size: 18),
                   decoration: _inputDecoration(
                     '',
-                    contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 14),
+                    contentPadding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 14,
+                    ),
                   ),
                   items: _kCountryCodes
-                      .map((c) => DropdownMenuItem(
-                            value: c['code'],
-                            child: Text(c['code']!, overflow: TextOverflow.ellipsis),
-                          ))
+                      .map(
+                        (c) => DropdownMenuItem(
+                          value: c['code'],
+                          child: Text(
+                            c['code']!,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                      )
                       .toList(),
                   onChanged: enabled
                       ? (v) {
@@ -1123,7 +1183,10 @@ class _BuilderRegistrationScreenState
               padding: const EdgeInsets.only(bottom: 6),
               child: Text(
                 subtitle,
-                style: TextStyle(fontSize: 11.5, color: scheme.onSurfaceVariant),
+                style: TextStyle(
+                  fontSize: 11.5,
+                  color: scheme.onSurfaceVariant,
+                ),
               ),
             ),
           GestureDetector(
@@ -1136,7 +1199,9 @@ class _BuilderRegistrationScreenState
                 border: Border.all(
                   color: _errors.containsKey(fieldKey)
                       ? scheme.error
-                      : (has ? scheme.primary : scheme.outline.withOpacity(0.4)),
+                      : (has
+                            ? scheme.primary
+                            : scheme.outline.withOpacity(0.4)),
                   width: has ? 2 : 1,
                 ),
                 borderRadius: BorderRadius.circular(12),
@@ -1156,32 +1221,45 @@ class _BuilderRegistrationScreenState
                         ],
                       )
                     : has
-                        ? (isImagePreview
-                            ? ClipRRect(
-                                borderRadius: BorderRadius.circular(8),
-                                child: Image.network(
-                                  url!,
-                                  height: 64,
-                                  width: 64,
-                                  fit: BoxFit.cover,
+                    ? (isImagePreview
+                          ? ClipRRect(
+                              borderRadius: BorderRadius.circular(8),
+                              child: Image.network(
+                                url!,
+                                height: 64,
+                                width: 64,
+                                fit: BoxFit.cover,
+                              ),
+                            )
+                          : Column(
+                              mainAxisSize: MainAxisSize.min,
+                              children: const [
+                                Icon(
+                                  Icons.check_circle,
+                                  color: Colors.green,
+                                  size: 30,
                                 ),
-                              )
-                            : Column(
-                                mainAxisSize: MainAxisSize.min,
-                                children: const [
-                                  Icon(Icons.check_circle, color: Colors.green, size: 30),
-                                  SizedBox(height: 6),
-                                  Text('Uploaded', style: TextStyle(fontSize: 12)),
-                                ],
-                              ))
-                        : Column(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Icon(Icons.upload_file, color: scheme.onSurfaceVariant),
-                              const SizedBox(height: 6),
-                              const Text('Tap to upload', style: TextStyle(fontSize: 12)),
-                            ],
+                                SizedBox(height: 6),
+                                Text(
+                                  'Uploaded',
+                                  style: TextStyle(fontSize: 12),
+                                ),
+                              ],
+                            ))
+                    : Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(
+                            Icons.upload_file,
+                            color: scheme.onSurfaceVariant,
                           ),
+                          const SizedBox(height: 6),
+                          const Text(
+                            'Tap to upload',
+                            style: TextStyle(fontSize: 12),
+                          ),
+                        ],
+                      ),
               ),
             ),
           ),
@@ -1219,23 +1297,28 @@ class _BuilderRegistrationScreenState
             child: selected.isEmpty
                 ? Text(
                     'Select from below or add a custom entry',
-                    style: TextStyle(fontSize: 12, color: scheme.onSurfaceVariant),
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: scheme.onSurfaceVariant,
+                    ),
                   )
                 : Wrap(
                     spacing: 6,
                     runSpacing: 6,
                     children: selected
-                        .map((s) => Chip(
-                              label: Text(
-                                s,
-                                style: const TextStyle(
-                                  fontSize: 12,
-                                  color: Colors.black87,
-                                ),
+                        .map(
+                          (s) => Chip(
+                            label: Text(
+                              s,
+                              style: const TextStyle(
+                                fontSize: 12,
+                                color: Colors.black87,
                               ),
-                              onDeleted: () => onRemove(s),
-                              deleteIcon: const Icon(Icons.close, size: 14),
-                            ))
+                            ),
+                            onDeleted: () => onRemove(s),
+                            deleteIcon: const Icon(Icons.close, size: 14),
+                          ),
+                        )
                         .toList(),
                   ),
           ),
@@ -1262,16 +1345,18 @@ class _BuilderRegistrationScreenState
             runSpacing: 6,
             children: options
                 .where((o) => !selected.contains(o))
-                .map((o) => ActionChip(
-                      label: Text(
-                        '+ $o',
-                        style: const TextStyle(
-                          fontSize: 11,
-                          color: Colors.black87,
-                        ),
+                .map(
+                  (o) => ActionChip(
+                    label: Text(
+                      '+ $o',
+                      style: const TextStyle(
+                        fontSize: 11,
+                        color: Colors.black87,
                       ),
-                      onPressed: () => onToggle(o),
-                    ))
+                    ),
+                    onPressed: () => onToggle(o),
+                  ),
+                )
                 .toList(),
           ),
           _errorText(fieldKey),
@@ -1290,9 +1375,9 @@ class _BuilderRegistrationScreenState
           children: [
             Text(
               _stepTitles[currentStep],
-              style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                    fontWeight: FontWeight.bold,
-                  ),
+              style: Theme.of(
+                context,
+              ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
             ),
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
@@ -1407,8 +1492,10 @@ class _BuilderRegistrationScreenState
           fieldKey: 'companyLogoUrl',
           label: 'Company Logo',
           url: _companyLogoUrl,
-          onTap: () =>
-              _pickAndUploadDocument('companyLogoUrl', ProfileDocumentKind.companyLogo),
+          onTap: () => _pickAndUploadDocument(
+            'companyLogoUrl',
+            ProfileDocumentKind.companyLogo,
+          ),
           required: true,
           isImagePreview: true,
         ),
@@ -1549,8 +1636,18 @@ class _BuilderRegistrationScreenState
             ],
           ),
         ),
-        _field(fieldKey: 'city', controller: _cityCtrl, label: 'Work City', required: true),
-        _field(fieldKey: 'state', controller: _stateCtrl, label: 'State', required: true),
+        _field(
+          fieldKey: 'city',
+          controller: _cityCtrl,
+          label: 'Work City',
+          required: true,
+        ),
+        _field(
+          fieldKey: 'state',
+          controller: _stateCtrl,
+          label: 'State',
+          required: true,
+        ),
         _field(
           fieldKey: 'pincode',
           controller: _pincodeCtrl,
@@ -1589,8 +1686,10 @@ class _BuilderRegistrationScreenState
           fieldKey: 'reraCertificateUrl',
           label: 'RERA Registration Certificate',
           url: _reraCertificateUrl,
-          onTap: () =>
-              _pickAndUploadDocument('reraCertificateUrl', ProfileDocumentKind.rera),
+          onTap: () => _pickAndUploadDocument(
+            'reraCertificateUrl',
+            ProfileDocumentKind.rera,
+          ),
           required: true,
           subtitle: 'Government approved RERA copy.',
         ),
@@ -1598,8 +1697,10 @@ class _BuilderRegistrationScreenState
           fieldKey: 'gstCertificateUrl',
           label: 'GST Certificate',
           url: _gstCertificateUrl,
-          onTap: () =>
-              _pickAndUploadDocument('gstCertificateUrl', ProfileDocumentKind.gst),
+          onTap: () => _pickAndUploadDocument(
+            'gstCertificateUrl',
+            ProfileDocumentKind.gst,
+          ),
           required: true,
           subtitle: 'Corporate GST identification copy.',
         ),
@@ -1607,7 +1708,8 @@ class _BuilderRegistrationScreenState
           fieldKey: 'panCardUrl',
           label: 'Company/Owner PAN Card',
           url: _panCardUrl,
-          onTap: () => _pickAndUploadDocument('panCardUrl', ProfileDocumentKind.pan),
+          onTap: () =>
+              _pickAndUploadDocument('panCardUrl', ProfileDocumentKind.pan),
           required: true,
           subtitle: 'Government approved PAN Card.',
         ),
@@ -1699,16 +1801,19 @@ class _BuilderRegistrationScreenState
           onChanged: _onUsernameChanged,
           suffixIcon: usernameLen >= 3
               ? (_usernameTaken
-                  ? const Icon(Icons.close, color: Colors.red)
-                  : (_usernameAvailable == true
-                      ? const Icon(Icons.check, color: Colors.green)
-                      : null))
+                    ? const Icon(Icons.close, color: Colors.red)
+                    : (_usernameAvailable == true
+                          ? const Icon(Icons.check, color: Colors.green)
+                          : null))
               : null,
         ),
         if (usernameLen >= 3 && !_usernameTaken && _usernameAvailable == true)
           const Padding(
             padding: EdgeInsets.only(bottom: 8),
-            child: Text('Username is available!', style: TextStyle(fontSize: 12, color: Colors.green)),
+            child: Text(
+              'Username is available!',
+              style: TextStyle(fontSize: 12, color: Colors.green),
+            ),
           ),
         _field(
           fieldKey: 'password',
@@ -1718,8 +1823,11 @@ class _BuilderRegistrationScreenState
           hint: 'Min. 6 characters',
           obscureText: !_passwordVisible,
           suffixIcon: IconButton(
-            icon: Icon(_passwordVisible ? Icons.visibility_off : Icons.visibility),
-            onPressed: () => setState(() => _passwordVisible = !_passwordVisible),
+            icon: Icon(
+              _passwordVisible ? Icons.visibility_off : Icons.visibility,
+            ),
+            onPressed: () =>
+                setState(() => _passwordVisible = !_passwordVisible),
           ),
         ),
         _field(
@@ -1730,9 +1838,12 @@ class _BuilderRegistrationScreenState
           hint: 'Re-enter your password',
           obscureText: !_confirmPasswordVisible,
           suffixIcon: IconButton(
-            icon: Icon(_confirmPasswordVisible ? Icons.visibility_off : Icons.visibility),
-            onPressed: () =>
-                setState(() => _confirmPasswordVisible = !_confirmPasswordVisible),
+            icon: Icon(
+              _confirmPasswordVisible ? Icons.visibility_off : Icons.visibility,
+            ),
+            onPressed: () => setState(
+              () => _confirmPasswordVisible = !_confirmPasswordVisible,
+            ),
           ),
         ),
       ],
@@ -1783,7 +1894,10 @@ class _BuilderRegistrationScreenState
         initiallyExpanded: initiallyExpanded,
         tilePadding: const EdgeInsets.symmetric(horizontal: 12),
         childrenPadding: const EdgeInsets.fromLTRB(12, 0, 12, 10),
-        title: Text(title, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+        title: Text(
+          title,
+          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+        ),
         children: rows.map((r) => _reviewRow(r.key, r.value)).toList(),
       ),
     );
@@ -1797,22 +1911,20 @@ class _BuilderRegistrationScreenState
     return Container(
       margin: const EdgeInsets.only(bottom: 16),
       decoration: BoxDecoration(
-        border: Border.all(color: Theme.of(context).colorScheme.outline.withOpacity(0.3)),
+        border: Border.all(
+          color: Theme.of(context).colorScheme.outline.withOpacity(0.3),
+        ),
         borderRadius: BorderRadius.circular(12),
       ),
       clipBehavior: Clip.antiAlias,
       child: Column(
         children: [
-          _reviewSection(
-            'Personal Information',
-            [
-              MapEntry('Company Name', _companyNameCtrl.text),
-              MapEntry('Email', _emailCtrl.text),
-              MapEntry('Phone', '$_countryCode ${_mobileCtrl.text}'),
-              MapEntry('DOB', _dobCtrl.text),
-            ],
-            initiallyExpanded: true,
-          ),
+          _reviewSection('Personal Information', [
+            MapEntry('Company Name', _companyNameCtrl.text),
+            MapEntry('Email', _emailCtrl.text),
+            MapEntry('Phone', '$_countryCode ${_mobileCtrl.text}'),
+            MapEntry('DOB', _dobCtrl.text),
+          ], initiallyExpanded: true),
           divider,
           _reviewSection('Company Details', [
             MapEntry('Company Type', _companyType ?? ''),
@@ -1839,7 +1951,9 @@ class _BuilderRegistrationScreenState
         Container(
           padding: const EdgeInsets.all(14),
           decoration: BoxDecoration(
-            color: Theme.of(context).colorScheme.surfaceVariant.withOpacity(0.4),
+            color: Theme.of(
+              context,
+            ).colorScheme.surfaceVariant.withOpacity(0.4),
             borderRadius: BorderRadius.circular(12),
           ),
           child: Column(
@@ -1882,7 +1996,10 @@ class _BuilderRegistrationScreenState
             _scheduleDraftSave();
           },
           controlAffinity: ListTileControlAffinity.leading,
-          title: const Text('I accept the Terms & Conditions.', style: TextStyle(fontSize: 13)),
+          title: const Text(
+            'I accept the Terms & Conditions.',
+            style: TextStyle(fontSize: 13),
+          ),
         ),
         CheckboxListTile(
           contentPadding: EdgeInsets.zero,
@@ -1932,60 +2049,71 @@ class _BuilderRegistrationScreenState
     return SafeArea(
       top: false,
       child: Container(
-      padding: const EdgeInsets.fromLTRB(20, 12, 20, 20),
-      decoration: BoxDecoration(
-        color: Theme.of(context).colorScheme.surface,
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.06),
-            blurRadius: 12,
-            offset: const Offset(0, -4),
-          ),
-        ],
-      ),
-      child: Row(
-        children: [
-          if (currentStep > 0)
+        padding: const EdgeInsets.fromLTRB(20, 12, 20, 20),
+        decoration: BoxDecoration(
+          color: Theme.of(context).colorScheme.surface,
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.06),
+              blurRadius: 12,
+              offset: const Offset(0, -4),
+            ),
+          ],
+        ),
+        child: Row(
+          children: [
+            if (currentStep > 0)
+              Expanded(
+                flex: 1,
+                child: OutlinedButton.icon(
+                  onPressed: _isSubmitting ? null : _previousStep,
+                  icon: const Icon(Icons.arrow_back, size: 18),
+                  label: const Text('Back'),
+                  style: OutlinedButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
+                ),
+              ),
+            if (currentStep > 0) const SizedBox(width: 12),
             Expanded(
-              flex: 1,
-              child: OutlinedButton.icon(
-                onPressed: _isSubmitting ? null : _previousStep,
-                icon: const Icon(Icons.arrow_back, size: 18),
-                label: const Text('Back'),
-                style: OutlinedButton.styleFrom(
+              flex: 2,
+              child: FilledButton.icon(
+                onPressed: _isSubmitting
+                    ? null
+                    : (isLastStep ? _onSubmit : _nextStep),
+                icon: _isSubmitting
+                    ? const SizedBox(
+                        width: 16,
+                        height: 16,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          color: Colors.white,
+                        ),
+                      )
+                    : Icon(
+                        isLastStep
+                            ? Icons.check_circle_outline
+                            : Icons.arrow_forward,
+                        size: 18,
+                      ),
+                label: Text(
+                  _isSubmitting
+                      ? 'Submitting...'
+                      : (isLastStep ? 'Submit Registration' : 'Continue'),
+                ),
+                style: FilledButton.styleFrom(
                   padding: const EdgeInsets.symmetric(vertical: 14),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
                 ),
               ),
             ),
-          if (currentStep > 0) const SizedBox(width: 12),
-          Expanded(
-            flex: 2,
-            child: FilledButton.icon(
-              onPressed: _isSubmitting ? null : (isLastStep ? _onSubmit : _nextStep),
-              icon: _isSubmitting
-                  ? const SizedBox(
-                      width: 16,
-                      height: 16,
-                      child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
-                    )
-                  : Icon(
-                      isLastStep ? Icons.check_circle_outline : Icons.arrow_forward,
-                      size: 18,
-                    ),
-              label: Text(
-                _isSubmitting
-                    ? 'Submitting...'
-                    : (isLastStep ? 'Submit Registration' : 'Continue'),
-              ),
-              style: FilledButton.styleFrom(
-                padding: const EdgeInsets.symmetric(vertical: 14),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-              ),
-            ),
-          ),
-        ],
-      ),
+          ],
+        ),
       ),
     );
   }

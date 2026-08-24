@@ -26,17 +26,11 @@ class _ScaleTapState extends State<ScaleTap>
   @override
   void initState() {
     super.initState();
-    _controller = AnimationController(
-      vsync: this,
-      duration: widget.duration,
-    );
+    _controller = AnimationController(vsync: this, duration: widget.duration);
     _scaleAnimation = Tween<double>(
       begin: 1.0,
       end: widget.scaleDown,
-    ).animate(CurvedAnimation(
-      parent: _controller,
-      curve: Curves.easeOut,
-    ));
+    ).animate(CurvedAnimation(parent: _controller, curve: Curves.easeOut));
   }
 
   @override
@@ -58,10 +52,7 @@ class _ScaleTapState extends State<ScaleTap>
       onTapCancel: () {
         _controller.reverse();
       },
-      child: ScaleTransition(
-        scale: _scaleAnimation,
-        child: widget.child,
-      ),
+      child: ScaleTransition(scale: _scaleAnimation, child: widget.child),
     );
   }
 }

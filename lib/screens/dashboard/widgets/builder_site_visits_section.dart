@@ -158,13 +158,15 @@ class _BuilderSiteVisitsSectionState extends State<BuilderSiteVisitsSection> {
       if (!mounted) return;
       setState(() {
         _items = _items
-            ?.map((b) => b.id == booking.id
-                ? b.copyWith(
-                    preferredDate: result.date,
-                    preferredTime: result.time,
-                    status: result.status,
-                  )
-                : b)
+            ?.map(
+              (b) => b.id == booking.id
+                  ? b.copyWith(
+                      preferredDate: result.date,
+                      preferredTime: result.time,
+                      status: result.status,
+                    )
+                  : b,
+            )
             .toList();
       });
       _toast(
@@ -307,13 +309,13 @@ class _VisitCard extends StatelessWidget {
   final VoidCallback onEdit;
 
   static Color _tint(String status) => switch (status) {
-        'pending' => AppColors.warning,
-        'confirmed' => AppColors.success,
-        'completed' => AppColors.primary,
-        'cancelled' => AppColors.error,
-        'rescheduled' => AppColors.statusNewLaunch,
-        _ => AppColors.textHint,
-      };
+    'pending' => AppColors.warning,
+    'confirmed' => AppColors.success,
+    'completed' => AppColors.primary,
+    'cancelled' => AppColors.error,
+    'rescheduled' => AppColors.statusNewLaunch,
+    _ => AppColors.textHint,
+  };
 
   @override
   Widget build(BuildContext context) {
@@ -415,8 +417,18 @@ class _VisitCard extends StatelessWidget {
 
   static String _formatDate(DateTime dt) {
     const months = [
-      'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
-      'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
+      'Jan',
+      'Feb',
+      'Mar',
+      'Apr',
+      'May',
+      'Jun',
+      'Jul',
+      'Aug',
+      'Sep',
+      'Oct',
+      'Nov',
+      'Dec',
     ];
     return '${months[dt.month - 1]} ${dt.day}, ${dt.year}';
   }
@@ -443,7 +455,11 @@ class _Meta extends StatelessWidget {
 
 /// What the edit sheet hands back.
 class _VisitEdit {
-  const _VisitEdit({required this.date, required this.time, required this.status});
+  const _VisitEdit({
+    required this.date,
+    required this.time,
+    required this.status,
+  });
 
   final DateTime date;
   final String? time;
@@ -464,8 +480,9 @@ class _EditVisitSheet extends StatefulWidget {
 
 class _EditVisitSheetState extends State<_EditVisitSheet> {
   late DateTime _date = widget.booking.preferredDate;
-  late final TextEditingController _time =
-      TextEditingController(text: widget.booking.preferredTime ?? '');
+  late final TextEditingController _time = TextEditingController(
+    text: widget.booking.preferredTime ?? '',
+  );
   late String _status = widget.booking.status;
 
   @override
@@ -533,16 +550,21 @@ class _EditVisitSheetState extends State<_EditVisitSheet> {
               onTap: _pickDate,
               borderRadius: BorderRadius.circular(10),
               child: Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 12,
+                ),
                 decoration: BoxDecoration(
                   borderRadius: BorderRadius.circular(10),
                   border: Border.all(color: AppColors.hairline),
                 ),
                 child: Row(
                   children: [
-                    const Icon(Icons.event_outlined,
-                        size: 16, color: AppColors.textSecondary),
+                    const Icon(
+                      Icons.event_outlined,
+                      size: 16,
+                      color: AppColors.textSecondary,
+                    ),
                     const SizedBox(width: 8),
                     Text(
                       '${_date.year}-${_date.month.toString().padLeft(2, '0')}'
@@ -565,8 +587,10 @@ class _EditVisitSheetState extends State<_EditVisitSheet> {
               decoration: InputDecoration(
                 hintText: 'e.g. 11:00 AM — optional',
                 isDense: true,
-                contentPadding:
-                    const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                contentPadding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 12,
+                ),
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(10),
                   borderSide: const BorderSide(color: AppColors.hairline),
@@ -597,8 +621,9 @@ class _EditVisitSheetState extends State<_EditVisitSheet> {
                         color: _status == option.value
                             ? AppColors.primary
                             : AppColors.primary.withValues(alpha: 0.08),
-                        borderRadius:
-                            BorderRadius.circular(AppConstants.pillRadius),
+                        borderRadius: BorderRadius.circular(
+                          AppConstants.pillRadius,
+                        ),
                       ),
                       child: Text(
                         option.label,
@@ -618,8 +643,11 @@ class _EditVisitSheetState extends State<_EditVisitSheet> {
               const SizedBox(height: 10),
               Row(
                 children: [
-                  const Icon(Icons.notifications_active_outlined,
-                      size: 14, color: AppColors.textSecondary),
+                  const Icon(
+                    Icons.notifications_active_outlined,
+                    size: 14,
+                    color: AppColors.textSecondary,
+                  ),
                   const SizedBox(width: 6),
                   Expanded(
                     child: Text(

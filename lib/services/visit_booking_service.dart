@@ -43,7 +43,7 @@ import '../models/broker_section_models.dart';
 
 class VisitBookingService {
   VisitBookingService({SupabaseClient? client})
-      : _supabase = client ?? Supabase.instance.client;
+    : _supabase = client ?? Supabase.instance.client;
 
   final SupabaseClient _supabase;
 
@@ -180,7 +180,9 @@ class VisitBookingService {
   /// `PropertyVisitBookingService.updateBooking` uses — see the file-level
   /// doc comment for why this currently fails under RLS for a buyer's own
   /// booking, and why that is not weakened here.
-  Future<PropertyVisitBooking> cancelBooking(PropertyVisitBooking booking) async {
+  Future<PropertyVisitBooking> cancelBooking(
+    PropertyVisitBooking booking,
+  ) async {
     final row = await _supabase
         .from(table)
         .update({

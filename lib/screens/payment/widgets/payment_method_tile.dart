@@ -107,8 +107,11 @@ class PaymentMethodTile extends StatelessWidget {
 
   Widget _selectionIndicator(bool enabled) {
     if (!enabled) {
-      return Icon(Icons.lock_outline_rounded,
-          size: 20, color: AppColors.textHint);
+      return Icon(
+        Icons.lock_outline_rounded,
+        size: 20,
+        color: AppColors.textHint,
+      );
     }
     return AnimatedContainer(
       duration: const Duration(milliseconds: 200),

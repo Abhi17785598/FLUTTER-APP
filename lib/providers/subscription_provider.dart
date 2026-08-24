@@ -41,17 +41,17 @@ class SubscriptionProvider extends ChangeNotifier {
   /// Completed payments only, newest first — what the Payments and Invoices
   /// tabs list.
   List<BillingHistoryItem> get completedPayments => List.unmodifiable(
-        _history.where((i) => i.paymentStatus == 'completed').toList(),
-      );
+    _history.where((i) => i.paymentStatus == 'completed').toList(),
+  );
 
   List<BillingHistoryItem> get refunds =>
       List.unmodifiable(_history.where((i) => i.hasRefund).toList());
 
   /// Total billed across all completed payments, in rupees.
   double get totalBilled => completedPayments.fold<double>(
-        0,
-        (sum, item) => sum + (item.finalAmount ?? item.amount),
-      );
+    0,
+    (sum, item) => sum + (item.finalAmount ?? item.amount),
+  );
 
   Future<void> load(String userId) async {
     _userId = userId;

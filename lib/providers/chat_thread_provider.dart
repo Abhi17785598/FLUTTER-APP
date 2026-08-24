@@ -40,8 +40,8 @@ class ChatThreadProvider extends ChangeNotifier {
     this.participantUserId,
     MessagingService? service,
     ChatMediaService? mediaService,
-  })  : _service = service ?? MessagingService(),
-        _mediaService = mediaService ?? ChatMediaService();
+  }) : _service = service ?? MessagingService(),
+       _mediaService = mediaService ?? ChatMediaService();
 
   final ChatThreadKind kind;
 
@@ -186,8 +186,10 @@ class ChatThreadProvider extends ChangeNotifier {
       if (isChannel) {
         _blockedSenderIds = await _service.myBlockedUserIds(userId);
       } else if (participantUserId != null) {
-        _isBlockedByMe =
-            await _service.haveIBlocked(userId, participantUserId!);
+        _isBlockedByMe = await _service.haveIBlocked(
+          userId,
+          participantUserId!,
+        );
       }
     } catch (e) {
       debugPrint('ChatThreadProvider._loadBlockState failed: $e');
@@ -258,7 +260,9 @@ class ChatThreadProvider extends ChangeNotifier {
 
       if (requestId != _fetchRequestId) return; // superseded by a newer call
 
-      _messages = isFirstLoad ? _filterHidden(loaded) : _mergeIntoMessages(loaded);
+      _messages = isFirstLoad
+          ? _filterHidden(loaded)
+          : _mergeIntoMessages(loaded);
       if (isFirstLoad) {
         _hasMoreOlder = loaded.length >= MessagingService.messagePageSize;
       }
@@ -305,8 +309,8 @@ class ChatThreadProvider extends ChangeNotifier {
       final older = oldest == null
           ? const <ChatMessage>[]
           : isChannel
-              ? await _service.listChannelMessages(threadId, before: oldest)
-              : await _service.listMessages(threadId, before: oldest);
+          ? await _service.listChannelMessages(threadId, before: oldest)
+          : await _service.listMessages(threadId, before: oldest);
 
       _hasMoreOlder = older.length >= MessagingService.messagePageSize;
       final visible = _filterHidden(older);
@@ -522,7 +526,9 @@ class ChatThreadProvider extends ChangeNotifier {
   /// Shares a property picked from [showSharePropertySheet] into this
   /// thread. Reuses [MessagingService.sendPropertyShare] (which had zero
   /// callers before this repair pass) for either surface.
-  Future<String?> sharePropertyFromPicker(SharedPropertyPreview property) async {
+  Future<String?> sharePropertyFromPicker(
+    SharedPropertyPreview property,
+  ) async {
     if (_uploadingMedia) return null;
     _uploadingMedia = true;
     _safeNotify();
@@ -642,7 +648,10 @@ class ChatThreadProvider extends ChangeNotifier {
 
   Future<String?> deleteForMe(String messageId) async {
     try {
-      await _service.deleteMessageForMe(messageId: messageId, surface: _surface);
+      await _service.deleteMessageForMe(
+        messageId: messageId,
+        surface: _surface,
+      );
       _messages = _messages.where((m) => m.id != messageId).toList();
       _safeNotify();
       return null;
@@ -697,10 +706,7 @@ class ChatThreadProvider extends ChangeNotifier {
     final now = DateTime.now();
     if (now.difference(_lastTypingSentAt) < const Duration(seconds: 2)) return;
     _lastTypingSentAt = now;
-    channel.sendBroadcastMessage(
-      event: 'typing',
-      payload: {'userId': userId},
-    );
+    channel.sendBroadcastMessage(event: 'typing', payload: {'userId': userId});
   }
 
   // ── Realtime (messages + reactions) ──────────────────────────────────────
@@ -733,8 +739,9 @@ class ChatThreadProvider extends ChangeNotifier {
           column: 'surface',
           value: _surface,
         ),
-        callback: (_) => _refreshReactions(_messages.map((m) => m.id).toList())
-            .then((_) => _safeNotify()),
+        callback: (_) => _refreshReactions(
+          _messages.map((m) => m.id).toList(),
+        ).then((_) => _safeNotify()),
       )
       ..subscribe();
   }

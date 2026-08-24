@@ -85,8 +85,10 @@ class _PropertyReelsSectionState extends State<PropertyReelsSection>
 
   /// Shared with the full-screen feed — same sliding window, same decoder
   /// ordering, same disposal rules — in its muted rail mode.
-  final ReelControllerManager _videos =
-      ReelControllerManager(windowRadius: 1, previewMode: true);
+  final ReelControllerManager _videos = ReelControllerManager(
+    windowRadius: 1,
+    previewMode: true,
+  );
 
   Timer? _windowTimer;
   int _centreIndex = 0;
@@ -302,8 +304,7 @@ class _PropertyReelsSectionState extends State<PropertyReelsSection>
                   builder: (context, _) => ListView.builder(
                     controller: _scrollController,
                     scrollDirection: Axis.horizontal,
-                    padding:
-                        const EdgeInsets.symmetric(
+                    padding: const EdgeInsets.symmetric(
                       horizontal: PropertyReelsSection.listPadding,
                     ),
                     // Fixed extent: the list scrolls without measuring
@@ -407,7 +408,8 @@ class _PropertyReelsSectionState extends State<PropertyReelsSection>
   /// Poster underneath, video on top once it has a frame — `<video poster>`.
   Widget _cover(ReelModel reel, int index) {
     final controller = _videos.controllerAt(index);
-    final ready = controller != null &&
+    final ready =
+        controller != null &&
         controller.value.isInitialized &&
         !controller.value.hasError;
 

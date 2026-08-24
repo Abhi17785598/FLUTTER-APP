@@ -19,11 +19,7 @@ import '../../services/visit_booking_service.dart';
 import '../../widgets/bottom_nav_bar.dart';
 
 class VisitsScreen extends StatefulWidget {
-  const VisitsScreen({
-    super.key,
-    this.service,
-    this.enableRealtime = true,
-  });
+  const VisitsScreen({super.key, this.service, this.enableRealtime = true});
 
   /// Injectable for tests — defaults to a real [VisitBookingService] backed
   /// by the live Supabase client.
@@ -69,9 +65,7 @@ class _VisitsScreenState extends State<VisitsScreen>
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
       Provider.of<NavigationProvider>(context, listen: false).setIndex(3);
-      _syncForUser(
-        Provider.of<AuthProvider>(context, listen: false).userId,
-      );
+      _syncForUser(Provider.of<AuthProvider>(context, listen: false).userId);
     });
   }
 
@@ -151,9 +145,9 @@ class _VisitsScreenState extends State<VisitsScreen>
             .map((b) => b.id == updated.id ? updated : b)
             .toList();
       });
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Visit cancelled.')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Visit cancelled.')));
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
@@ -188,11 +182,17 @@ class _VisitsScreenState extends State<VisitsScreen>
     }
 
     final upcoming = _bookings.where((b) => _isUpcoming(b.status)).toList()
-      ..sort((a, b) => (b.createdAt ?? b.preferredDate)
-          .compareTo(a.createdAt ?? a.preferredDate));
+      ..sort(
+        (a, b) => (b.createdAt ?? b.preferredDate).compareTo(
+          a.createdAt ?? a.preferredDate,
+        ),
+      );
     final completed = _bookings.where((b) => !_isUpcoming(b.status)).toList()
-      ..sort((a, b) => (b.createdAt ?? b.preferredDate)
-          .compareTo(a.createdAt ?? a.preferredDate));
+      ..sort(
+        (a, b) => (b.createdAt ?? b.preferredDate).compareTo(
+          a.createdAt ?? a.preferredDate,
+        ),
+      );
 
     return Scaffold(
       backgroundColor: AppColors.background,
@@ -282,10 +282,7 @@ class _VisitsScreenState extends State<VisitsScreen>
         indicator: BoxDecoration(
           borderRadius: BorderRadius.circular(14),
           gradient: LinearGradient(
-            colors: [
-              AppColors.primary,
-              AppColors.primary.withOpacity(0.8),
-            ],
+            colors: [AppColors.primary, AppColors.primary.withOpacity(0.8)],
           ),
           boxShadow: [
             BoxShadow(
@@ -341,9 +338,14 @@ class _VisitsScreenState extends State<VisitsScreen>
     );
   }
 
-  Widget _buildList(List<PropertyVisitBooking> bookings, {required bool isUpcoming}) {
+  Widget _buildList(
+    List<PropertyVisitBooking> bookings, {
+    required bool isUpcoming,
+  }) {
     if (_isLoading && bookings.isEmpty) {
-      return const Center(child: CircularProgressIndicator(color: AppColors.primary));
+      return const Center(
+        child: CircularProgressIndicator(color: AppColors.primary),
+      );
     }
 
     if (_error != null && bookings.isEmpty) {
@@ -353,9 +355,17 @@ class _VisitsScreenState extends State<VisitsScreen>
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Icon(Icons.error_outline, size: 64, color: AppColors.textHint.withOpacity(0.6)),
+              Icon(
+                Icons.error_outline,
+                size: 64,
+                color: AppColors.textHint.withOpacity(0.6),
+              ),
               const SizedBox(height: 16),
-              Text(_error!, style: AppTextStyles.body, textAlign: TextAlign.center),
+              Text(
+                _error!,
+                style: AppTextStyles.body,
+                textAlign: TextAlign.center,
+              ),
               const SizedBox(height: 16),
               ElevatedButton(
                 onPressed: () {
@@ -393,7 +403,10 @@ class _VisitsScreenState extends State<VisitsScreen>
     );
   }
 
-  Widget _buildVisitCard(PropertyVisitBooking booking, {required bool isUpcoming}) {
+  Widget _buildVisitCard(
+    PropertyVisitBooking booking, {
+    required bool isUpcoming,
+  }) {
     final status = booking.status;
     final isCancelling = _cancellingId == booking.id;
     return Container(
@@ -428,7 +441,9 @@ class _VisitsScreenState extends State<VisitsScreen>
               Expanded(
                 child: Text(
                   booking.propertyTitle ?? 'Property',
-                  style: AppTextStyles.body.copyWith(fontWeight: FontWeight.w600),
+                  style: AppTextStyles.body.copyWith(
+                    fontWeight: FontWeight.w600,
+                  ),
                 ),
               ),
               _buildStatusChip(status),
@@ -438,10 +453,17 @@ class _VisitsScreenState extends State<VisitsScreen>
             const SizedBox(height: 12),
             Row(
               children: [
-                const Icon(Icons.location_on, size: 16, color: AppColors.textSecondary),
+                const Icon(
+                  Icons.location_on,
+                  size: 16,
+                  color: AppColors.textSecondary,
+                ),
                 const SizedBox(width: 4),
                 Expanded(
-                  child: Text(booking.propertyLocation!, style: AppTextStyles.caption),
+                  child: Text(
+                    booking.propertyLocation!,
+                    style: AppTextStyles.caption,
+                  ),
                 ),
               ],
             ),
@@ -449,7 +471,10 @@ class _VisitsScreenState extends State<VisitsScreen>
           const SizedBox(height: 12),
           Row(
             children: [
-              _buildInfoChip(Icons.calendar_today, _formatDate(booking.preferredDate)),
+              _buildInfoChip(
+                Icons.calendar_today,
+                _formatDate(booking.preferredDate),
+              ),
               if ((booking.preferredTime ?? '').isNotEmpty) ...[
                 const SizedBox(width: 8),
                 _buildInfoChip(Icons.access_time, booking.preferredTime!),
@@ -460,7 +485,11 @@ class _VisitsScreenState extends State<VisitsScreen>
             const SizedBox(height: 12),
             Row(
               children: [
-                const Icon(Icons.person, size: 16, color: AppColors.textSecondary),
+                const Icon(
+                  Icons.person,
+                  size: 16,
+                  color: AppColors.textSecondary,
+                ),
                 const SizedBox(width: 4),
                 Expanded(
                   child: Text(booking.ownerName!, style: AppTextStyles.caption),
@@ -480,7 +509,9 @@ class _VisitsScreenState extends State<VisitsScreen>
               children: [
                 Expanded(
                   child: OutlinedButton(
-                    onPressed: isCancelling ? null : () => _confirmCancel(booking),
+                    onPressed: isCancelling
+                        ? null
+                        : () => _confirmCancel(booking),
                     style: OutlinedButton.styleFrom(
                       side: const BorderSide(color: Colors.red),
                       shape: RoundedRectangleBorder(
@@ -491,9 +522,15 @@ class _VisitsScreenState extends State<VisitsScreen>
                         ? const SizedBox(
                             width: 16,
                             height: 16,
-                            child: CircularProgressIndicator(strokeWidth: 2, color: Colors.red),
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              color: Colors.red,
+                            ),
                           )
-                        : const Text('Cancel Visit', style: TextStyle(color: Colors.red)),
+                        : const Text(
+                            'Cancel Visit',
+                            style: TextStyle(color: Colors.red),
+                          ),
                   ),
                 ),
                 const SizedBox(width: 12),
@@ -521,7 +558,9 @@ class _VisitsScreenState extends State<VisitsScreen>
                 ),
                 style: OutlinedButton.styleFrom(
                   side: const BorderSide(color: AppColors.primary),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(8),
+                  ),
                 ),
                 child: const Text('View Property'),
               ),
@@ -533,11 +572,11 @@ class _VisitsScreenState extends State<VisitsScreen>
   }
 
   Widget _imagePlaceholder() => Container(
-        width: 48,
-        height: 48,
-        color: AppColors.primaryLight.withOpacity(0.15),
-        child: const Icon(Icons.home_outlined, size: 22, color: AppColors.primary),
-      );
+    width: 48,
+    height: 48,
+    color: AppColors.primaryLight.withOpacity(0.15),
+    child: const Icon(Icons.home_outlined, size: 22, color: AppColors.primary),
+  );
 
   Widget _buildStatusChip(String status) {
     final Color color = switch (status) {
@@ -554,7 +593,10 @@ class _VisitsScreenState extends State<VisitsScreen>
       ),
       child: Text(
         _capitalize(status),
-        style: AppTextStyles.caption.copyWith(color: color, fontWeight: FontWeight.w600),
+        style: AppTextStyles.caption.copyWith(
+          color: color,
+          fontWeight: FontWeight.w600,
+        ),
       ),
     );
   }
@@ -572,7 +614,10 @@ class _VisitsScreenState extends State<VisitsScreen>
           const SizedBox(width: 4),
           Text(
             text,
-            style: AppTextStyles.caption.copyWith(color: AppColors.primary, fontWeight: FontWeight.w500),
+            style: AppTextStyles.caption.copyWith(
+              color: AppColors.primary,
+              fontWeight: FontWeight.w500,
+            ),
           ),
         ],
       ),
@@ -592,10 +637,15 @@ class _VisitsScreenState extends State<VisitsScreen>
           const SizedBox(height: 16),
           Text(title, style: AppTextStyles.heading3),
           const SizedBox(height: 8),
-          Text(subtitle, style: AppTextStyles.caption, textAlign: TextAlign.center),
+          Text(
+            subtitle,
+            style: AppTextStyles.caption,
+            textAlign: TextAlign.center,
+          ),
           const SizedBox(height: 24),
           ElevatedButton.icon(
-            onPressed: () => Navigator.pushNamed(context, AppConstants.homeScreen),
+            onPressed: () =>
+                Navigator.pushNamed(context, AppConstants.homeScreen),
             icon: const Icon(Icons.search),
             label: const Text('Browse Properties'),
           ),
@@ -638,8 +688,18 @@ class _VisitsScreenState extends State<VisitsScreen>
 
   String _formatDate(DateTime date) {
     const months = [
-      'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
-      'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
+      'Jan',
+      'Feb',
+      'Mar',
+      'Apr',
+      'May',
+      'Jun',
+      'Jul',
+      'Aug',
+      'Sep',
+      'Oct',
+      'Nov',
+      'Dec',
     ];
     return '${date.day} ${months[date.month - 1]} ${date.year}';
   }

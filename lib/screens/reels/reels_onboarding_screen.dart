@@ -16,7 +16,7 @@ class ReelsOnboardingScreen extends StatefulWidget {
 class _ReelsOnboardingScreenState extends State<ReelsOnboardingScreen> {
   int _currentStep = 0;
   late PageController _pageController;
-  
+
   final List<String> _cities = [
     'Mumbai',
     'Delhi NCR',
@@ -27,7 +27,7 @@ class _ReelsOnboardingScreenState extends State<ReelsOnboardingScreen> {
     'Kolkata',
     'Ahmedabad',
   ];
-  
+
   final List<String> _budgets = [
     'Under ₹50L',
     '₹50L – ₹1Cr',
@@ -35,7 +35,7 @@ class _ReelsOnboardingScreenState extends State<ReelsOnboardingScreen> {
     '₹2Cr – ₹5Cr',
     '₹5Cr+',
   ];
-  
+
   final List<String> _propertyTypes = [
     'Apartment',
     'Villa',
@@ -43,7 +43,7 @@ class _ReelsOnboardingScreenState extends State<ReelsOnboardingScreen> {
     'Commercial',
     'Studio',
   ];
-  
+
   String? _selectedCity;
   String? _selectedBudget;
   String? _selectedPropertyType;
@@ -69,7 +69,7 @@ class _ReelsOnboardingScreenState extends State<ReelsOnboardingScreen> {
           children: [
             // Progress indicator
             _buildProgressIndicator(),
-            
+
             // Content
             Expanded(
               child: PageView(
@@ -87,7 +87,7 @@ class _ReelsOnboardingScreenState extends State<ReelsOnboardingScreen> {
                 ],
               ),
             ),
-            
+
             // Navigation buttons
             _buildNavigationButtons(),
           ],
@@ -106,8 +106,8 @@ class _ReelsOnboardingScreenState extends State<ReelsOnboardingScreen> {
               margin: EdgeInsets.only(right: index < 2 ? 8 : 0),
               height: 4,
               decoration: BoxDecoration(
-                color: index <= _currentStep 
-                    ? AppColors.primary 
+                color: index <= _currentStep
+                    ? AppColors.primary
                     : AppColors.primary.withOpacity(0.2),
                 borderRadius: BorderRadius.circular(2),
               ),
@@ -125,7 +125,7 @@ class _ReelsOnboardingScreenState extends State<ReelsOnboardingScreen> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           const SizedBox(height: 40),
-          
+
           // Header
           Container(
             padding: const EdgeInsets.all(20),
@@ -168,9 +168,9 @@ class _ReelsOnboardingScreenState extends State<ReelsOnboardingScreen> {
               ],
             ),
           ),
-          
+
           const SizedBox(height: 32),
-          
+
           // City grid
           Expanded(
             child: GridView.builder(
@@ -184,7 +184,7 @@ class _ReelsOnboardingScreenState extends State<ReelsOnboardingScreen> {
               itemBuilder: (context, index) {
                 final city = _cities[index];
                 final isSelected = _selectedCity == city;
-                
+
                 return GestureDetector(
                   onTap: () {
                     setState(() {
@@ -231,8 +231,12 @@ class _ReelsOnboardingScreenState extends State<ReelsOnboardingScreen> {
                         Text(
                           city,
                           style: AppTextStyles.body.copyWith(
-                            color: isSelected ? Colors.white : Colors.white.withOpacity(0.7),
-                            fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                            color: isSelected
+                                ? Colors.white
+                                : Colors.white.withOpacity(0.7),
+                            fontWeight: isSelected
+                                ? FontWeight.bold
+                                : FontWeight.normal,
                           ),
                           textAlign: TextAlign.center,
                         ),
@@ -255,7 +259,7 @@ class _ReelsOnboardingScreenState extends State<ReelsOnboardingScreen> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           const SizedBox(height: 40),
-          
+
           // Header
           Container(
             padding: const EdgeInsets.all(20),
@@ -298,9 +302,9 @@ class _ReelsOnboardingScreenState extends State<ReelsOnboardingScreen> {
               ],
             ),
           ),
-          
+
           const SizedBox(height: 32),
-          
+
           // Budget list
           Expanded(
             child: ListView.builder(
@@ -308,72 +312,84 @@ class _ReelsOnboardingScreenState extends State<ReelsOnboardingScreen> {
               itemBuilder: (context, index) {
                 final budget = _budgets[index];
                 final isSelected = _selectedBudget == budget;
-                
+
                 return Padding(
                   padding: const EdgeInsets.only(bottom: 12),
-                  child: GestureDetector(
-                    onTap: () {
-                      setState(() {
-                        _selectedBudget = budget;
-                      });
-                    },
-                    child: AnimatedContainer(
-                      duration: const Duration(milliseconds: 300),
-                      padding: const EdgeInsets.all(20),
-                      decoration: BoxDecoration(
-                        gradient: isSelected
-                            ? AppColors.primaryGradient
-                            : LinearGradient(
-                                colors: [
-                                  Colors.white.withOpacity(0.05),
-                                  Colors.white.withOpacity(0.02),
+                  child:
+                      GestureDetector(
+                            onTap: () {
+                              setState(() {
+                                _selectedBudget = budget;
+                              });
+                            },
+                            child: AnimatedContainer(
+                              duration: const Duration(milliseconds: 300),
+                              padding: const EdgeInsets.all(20),
+                              decoration: BoxDecoration(
+                                gradient: isSelected
+                                    ? AppColors.primaryGradient
+                                    : LinearGradient(
+                                        colors: [
+                                          Colors.white.withOpacity(0.05),
+                                          Colors.white.withOpacity(0.02),
+                                        ],
+                                      ),
+                                borderRadius: BorderRadius.circular(16),
+                                border: Border.all(
+                                  color: isSelected
+                                      ? AppColors.primary
+                                      : Colors.white.withOpacity(0.1),
+                                  width: 2,
+                                ),
+                                boxShadow: isSelected
+                                    ? [
+                                        BoxShadow(
+                                          color: AppColors.primary.withOpacity(
+                                            0.3,
+                                          ),
+                                          blurRadius: 20,
+                                          spreadRadius: 2,
+                                        ),
+                                      ]
+                                    : null,
+                              ),
+                              child: Row(
+                                children: [
+                                  Icon(
+                                    Icons.payments_rounded,
+                                    size: 28,
+                                    color: isSelected
+                                        ? Colors.white
+                                        : AppColors.primary,
+                                  ),
+                                  const SizedBox(width: 16),
+                                  Expanded(
+                                    child: Text(
+                                      budget,
+                                      style: AppTextStyles.body.copyWith(
+                                        color: isSelected
+                                            ? Colors.white
+                                            : Colors.white.withOpacity(0.7),
+                                        fontWeight: isSelected
+                                            ? FontWeight.bold
+                                            : FontWeight.normal,
+                                        fontSize: 16,
+                                      ),
+                                    ),
+                                  ),
+                                  if (isSelected)
+                                    const Icon(
+                                      Icons.check_circle_rounded,
+                                      color: Colors.white,
+                                      size: 24,
+                                    ),
                                 ],
                               ),
-                        borderRadius: BorderRadius.circular(16),
-                        border: Border.all(
-                          color: isSelected
-                              ? AppColors.primary
-                              : Colors.white.withOpacity(0.1),
-                          width: 2,
-                        ),
-                        boxShadow: isSelected
-                            ? [
-                                BoxShadow(
-                                  color: AppColors.primary.withOpacity(0.3),
-                                  blurRadius: 20,
-                                  spreadRadius: 2,
-                                ),
-                              ]
-                            : null,
-                      ),
-                      child: Row(
-                        children: [
-                          Icon(
-                            Icons.payments_rounded,
-                            size: 28,
-                            color: isSelected ? Colors.white : AppColors.primary,
-                          ),
-                          const SizedBox(width: 16),
-                          Expanded(
-                            child: Text(
-                              budget,
-                              style: AppTextStyles.body.copyWith(
-                                color: isSelected ? Colors.white : Colors.white.withOpacity(0.7),
-                                fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-                                fontSize: 16,
-                              ),
                             ),
-                          ),
-                          if (isSelected)
-                            const Icon(
-                              Icons.check_circle_rounded,
-                              color: Colors.white,
-                              size: 24,
-                            ),
-                        ],
-                      ),
-                    ),
-                  ).animate().fadeIn(delay: (index * 100).ms).slideX(begin: -0.2),
+                          )
+                          .animate()
+                          .fadeIn(delay: (index * 100).ms)
+                          .slideX(begin: -0.2),
                 );
               },
             ),
@@ -390,7 +406,7 @@ class _ReelsOnboardingScreenState extends State<ReelsOnboardingScreen> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           const SizedBox(height: 40),
-          
+
           // Header
           Container(
             padding: const EdgeInsets.all(20),
@@ -433,9 +449,9 @@ class _ReelsOnboardingScreenState extends State<ReelsOnboardingScreen> {
               ],
             ),
           ),
-          
+
           const SizedBox(height: 32),
-          
+
           // Property type grid
           Expanded(
             child: GridView.builder(
@@ -449,7 +465,7 @@ class _ReelsOnboardingScreenState extends State<ReelsOnboardingScreen> {
               itemBuilder: (context, index) {
                 final type = _propertyTypes[index];
                 final isSelected = _selectedPropertyType == type;
-                
+
                 return GestureDetector(
                   onTap: () {
                     setState(() {
@@ -496,8 +512,12 @@ class _ReelsOnboardingScreenState extends State<ReelsOnboardingScreen> {
                         Text(
                           type,
                           style: AppTextStyles.body.copyWith(
-                            color: isSelected ? Colors.white : Colors.white.withOpacity(0.7),
-                            fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                            color: isSelected
+                                ? Colors.white
+                                : Colors.white.withOpacity(0.7),
+                            fontWeight: isSelected
+                                ? FontWeight.bold
+                                : FontWeight.normal,
                           ),
                           textAlign: TextAlign.center,
                         ),
@@ -549,9 +569,7 @@ class _ReelsOnboardingScreenState extends State<ReelsOnboardingScreen> {
                   decoration: BoxDecoration(
                     color: Colors.white.withOpacity(0.1),
                     borderRadius: BorderRadius.circular(12),
-                    border: Border.all(
-                      color: Colors.white.withOpacity(0.2),
-                    ),
+                    border: Border.all(color: Colors.white.withOpacity(0.2)),
                   ),
                   child: const Text(
                     'Back',
@@ -589,7 +607,9 @@ class _ReelsOnboardingScreenState extends State<ReelsOnboardingScreen> {
                 child: Text(
                   _currentStep < 2 ? 'Next' : 'Start Watching',
                   style: TextStyle(
-                    color: _canProceed() ? Colors.white : Colors.white.withOpacity(0.4),
+                    color: _canProceed()
+                        ? Colors.white
+                        : Colors.white.withOpacity(0.4),
                     fontSize: 16,
                     fontWeight: FontWeight.w600,
                   ),
@@ -630,13 +650,11 @@ class _ReelsOnboardingScreenState extends State<ReelsOnboardingScreen> {
         budget: _selectedBudget!,
         propertyType: _selectedPropertyType!,
       );
-      
+
       Navigator.push(
-  context,
-  MaterialPageRoute(
-    builder: (_) => const ReelsScreen(),
-  ),
-);
+        context,
+        MaterialPageRoute(builder: (_) => const ReelsScreen()),
+      );
     }
   }
 }

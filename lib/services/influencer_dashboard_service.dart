@@ -6,12 +6,13 @@ class InfluencerDashboardService {
   final _supabase = Supabase.instance.client;
 
   Future<InfluencerDashboardModel> getDashboardStats(
-      String influencerId) async {
+    String influencerId,
+  ) async {
     try {
-    final videos = await _supabase
-    .from('influencer_videos')
-    .select('views,status')
-    .eq('user_id', influencerId);
+      final videos = await _supabase
+          .from('influencer_videos')
+          .select('views,status')
+          .eq('user_id', influencerId);
 
       final totalVideos = videos.length;
 

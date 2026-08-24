@@ -4,6 +4,8 @@ import 'package:provider/provider.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_text_styles.dart';
 import '../../core/constants/app_constants.dart';
+import '../../core/utils/compare_toggle_handler.dart';
+import '../../providers/compare_provider.dart';
 import '../../providers/property_provider.dart';
 import '../../providers/filter_provider.dart';
 import '../../providers/available_locations_provider.dart';
@@ -61,8 +63,9 @@ class _SearchResultsScreenState extends State<SearchResultsScreen> {
       final filterProvider = context.read<FilterProvider>();
 
       // Bridge: apply voice agent filters from IntentStash before running search.
-      final vaFilters =
-          IntentStash.get<Map<String, dynamic>>('va_search_filters');
+      final vaFilters = IntentStash.get<Map<String, dynamic>>(
+        'va_search_filters',
+      );
       if (vaFilters != null) {
         filterProvider.resetFilters();
 
@@ -72,8 +75,9 @@ class _SearchResultsScreenState extends State<SearchResultsScreen> {
         final listingTypeRaw = vaFilters['listing_type'] as String?;
         if (listingTypeRaw != null) {
           // AI emits "sale"; FilterProvider expects "sell".
-          final listingType =
-              listingTypeRaw == 'sale' ? 'sell' : listingTypeRaw;
+          final listingType = listingTypeRaw == 'sale'
+              ? 'sell'
+              : listingTypeRaw;
           filterProvider.setListingType(listingType);
         }
 
@@ -89,10 +93,10 @@ class _SearchResultsScreenState extends State<SearchResultsScreen> {
 
         final minPrice =
             double.tryParse(vaFilters['min_price']?.toString() ?? '') ??
-                AppConstants.priceMin;
+            AppConstants.priceMin;
         final maxPrice =
             double.tryParse(vaFilters['max_price']?.toString() ?? '') ??
-                AppConstants.priceMax;
+            AppConstants.priceMax;
         filterProvider.setBudgetRange(RangeValues(minPrice, maxPrice));
 
         IntentStash.remove('va_search_filters');
@@ -101,8 +105,7 @@ class _SearchResultsScreenState extends State<SearchResultsScreen> {
       // Read-and-remove, the same contract the voice-agent key above uses, so
       // the strip shows once for the search that produced it and does not
       // resurface on a later visit.
-      final aiResult =
-          IntentStash.get<SmartQueryResult>(kAiUnderstandingKey);
+      final aiResult = IntentStash.get<SmartQueryResult>(kAiUnderstandingKey);
       if (aiResult != null) {
         IntentStash.remove(kAiUnderstandingKey);
         setState(() => _aiUnderstanding = aiResult);
@@ -155,9 +158,9 @@ class _SearchResultsScreenState extends State<SearchResultsScreen> {
     if (controller.position.pixels >=
         controller.position.maxScrollExtent - 300) {
       final filterProvider = context.read<FilterProvider>();
-      context
-          .read<PropertyProvider>()
-          .loadMoreResults(filterProvider.toQueryParams());
+      context.read<PropertyProvider>().loadMoreResults(
+        filterProvider.toQueryParams(),
+      );
     }
   }
 
@@ -172,9 +175,9 @@ class _SearchResultsScreenState extends State<SearchResultsScreen> {
       // showing stale pins that no longer matched the active search. Every
       // switch into map view now re-fetches with the current filters.
       final filterProvider = context.read<FilterProvider>();
-      context
-          .read<PropertyProvider>()
-          .loadMapResults(filterProvider.toQueryParams());
+      context.read<PropertyProvider>().loadMapResults(
+        filterProvider.toQueryParams(),
+      );
     }
   }
 
@@ -229,8 +232,9 @@ class _SearchResultsScreenState extends State<SearchResultsScreen> {
     } else {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content:
-              Text('Location access is needed to show properties near you.'),
+          content: Text(
+            'Location access is needed to show properties near you.',
+          ),
         ),
       );
     }
@@ -335,8 +339,9 @@ class _SearchResultsScreenState extends State<SearchResultsScreen> {
                     for (final location in locationsProvider.locations)
                       ListTile(
                         title: Text(location.city),
-                        subtitle:
-                            location.state != null ? Text(location.state!) : null,
+                        subtitle: location.state != null
+                            ? Text(location.state!)
+                            : null,
                         trailing: filterProvider.cities.contains(location.city)
                             ? const Icon(Icons.check, color: AppColors.primary)
                             : null,
@@ -419,8 +424,9 @@ class _SearchResultsScreenState extends State<SearchResultsScreen> {
         !_isDefaultBudget(filterProvider) || filterProvider.nearMeEnabled;
     final bool capped =
         isCappedBranch && count >= AppConstants.mapResultsSafetyCap;
-    final String value =
-        capped ? '${AppConstants.mapResultsSafetyCap}+' : '$count';
+    final String value = capped
+        ? '${AppConstants.mapResultsSafetyCap}+'
+        : '$count';
     return '$value Properties';
   }
 
@@ -430,69 +436,81 @@ class _SearchResultsScreenState extends State<SearchResultsScreen> {
     final chips = <ActiveFilterChip>[];
 
     if (filterProvider.category != null) {
-      chips.add(ActiveFilterChip(
-        label: _categoryDisplayName(filterProvider.category!),
-        onRemove: () {
-          // Subtype only has meaning underneath a category, so it goes with it.
-          // Clearing the category alone would leave a residential subtype
-          // filtering the next query with no category behind it.
-          filterProvider.setCategory(null);
-          filterProvider.setSubtype(null);
-          _runSearchAndSyncMap();
-        },
-      ));
+      chips.add(
+        ActiveFilterChip(
+          label: _categoryDisplayName(filterProvider.category!),
+          onRemove: () {
+            // Subtype only has meaning underneath a category, so it goes with it.
+            // Clearing the category alone would leave a residential subtype
+            // filtering the next query with no category behind it.
+            filterProvider.setCategory(null);
+            filterProvider.setSubtype(null);
+            _runSearchAndSyncMap();
+          },
+        ),
+      );
     }
 
     if (filterProvider.listingType != null) {
-      chips.add(ActiveFilterChip(
-        label: _listingTypeDisplayName(filterProvider.listingType!),
-        onRemove: () {
-          filterProvider.setListingType(null);
-          _runSearchAndSyncMap();
-        },
-      ));
+      chips.add(
+        ActiveFilterChip(
+          label: _listingTypeDisplayName(filterProvider.listingType!),
+          onRemove: () {
+            filterProvider.setListingType(null);
+            _runSearchAndSyncMap();
+          },
+        ),
+      );
     }
 
     if (!_isDefaultBudget(filterProvider)) {
-      chips.add(ActiveFilterChip(
-        label: _budgetLabel(filterProvider),
-        onRemove: () {
-          filterProvider.setBudgetRange(
-            const RangeValues(AppConstants.priceMin, AppConstants.priceMax),
-          );
-          _runSearchAndSyncMap();
-        },
-      ));
+      chips.add(
+        ActiveFilterChip(
+          label: _budgetLabel(filterProvider),
+          onRemove: () {
+            filterProvider.setBudgetRange(
+              const RangeValues(AppConstants.priceMin, AppConstants.priceMax),
+            );
+            _runSearchAndSyncMap();
+          },
+        ),
+      );
     }
 
     if (filterProvider.bhk != null) {
-      chips.add(ActiveFilterChip(
-        label: _bhkLabel(filterProvider.bhk!),
-        onRemove: () {
-          filterProvider.setBhk(null);
-          _runSearchAndSyncMap();
-        },
-      ));
+      chips.add(
+        ActiveFilterChip(
+          label: _bhkLabel(filterProvider.bhk!),
+          onRemove: () {
+            filterProvider.setBhk(null);
+            _runSearchAndSyncMap();
+          },
+        ),
+      );
     }
 
     if (filterProvider.subtype != null) {
-      chips.add(ActiveFilterChip(
-        label: filterProvider.subtype!,
-        onRemove: () {
-          filterProvider.setSubtype(null);
-          _runSearchAndSyncMap();
-        },
-      ));
+      chips.add(
+        ActiveFilterChip(
+          label: filterProvider.subtype!,
+          onRemove: () {
+            filterProvider.setSubtype(null);
+            _runSearchAndSyncMap();
+          },
+        ),
+      );
     }
 
     if (filterProvider.postedBy != null) {
-      chips.add(ActiveFilterChip(
-        label: 'Posted by ${filterProvider.postedBy}',
-        onRemove: () {
-          filterProvider.setPostedBy(null);
-          _runSearchAndSyncMap();
-        },
-      ));
+      chips.add(
+        ActiveFilterChip(
+          label: 'Posted by ${filterProvider.postedBy}',
+          onRemove: () {
+            filterProvider.setPostedBy(null);
+            _runSearchAndSyncMap();
+          },
+        ),
+      );
     }
 
     return chips;
@@ -516,8 +534,10 @@ class _SearchResultsScreenState extends State<SearchResultsScreen> {
               onFilterTap: _openFiltersScreen,
               nearMeEnabled: filterProvider.nearMeEnabled,
               onNearMeTap: _handleNearMeTap,
-              resultCountLabel:
-                  _resultCountLabel(filterProvider, propertyProvider),
+              resultCountLabel: _resultCountLabel(
+                filterProvider,
+                propertyProvider,
+              ),
               cityLabel: filterProvider.cities.isNotEmpty
                   ? filterProvider.cities.first
                   : 'All Cities',
@@ -541,9 +561,7 @@ class _SearchResultsScreenState extends State<SearchResultsScreen> {
           ],
         ),
       ),
-      bottomNavigationBar: const BottomNavBar(
-        currentIndex: 1,
-      ),
+      bottomNavigationBar: const BottomNavBar(currentIndex: 1),
     );
   }
 
@@ -559,6 +577,7 @@ class _SearchResultsScreenState extends State<SearchResultsScreen> {
   }
 
   Widget _buildListView() {
+    final compareProvider = context.watch<CompareProvider>();
     return Consumer<PropertyProvider>(
       builder: (context, propertyProvider, child) {
         final properties = propertyProvider.searchResults;
@@ -584,7 +603,8 @@ class _SearchResultsScreenState extends State<SearchResultsScreen> {
             AppConstants.spacingXL,
             AppConstants.spacingM,
           ),
-          itemCount: properties.length + (propertyProvider.isLoadingMore ? 1 : 0),
+          itemCount:
+              properties.length + (propertyProvider.isLoadingMore ? 1 : 0),
           itemBuilder: (context, index) {
             if (index >= properties.length) {
               return _buildLoadMoreIndicator();
@@ -599,6 +619,8 @@ class _SearchResultsScreenState extends State<SearchResultsScreen> {
                   HapticFeedback.lightImpact();
                   propertyProvider.toggleShortlist(property.id);
                 },
+                isInCompare: compareProvider.isSelected(property.id),
+                onCompareToggle: () => handleCompareToggle(context, property),
               ),
             );
           },
@@ -636,23 +658,19 @@ class _SearchResultsScreenState extends State<SearchResultsScreen> {
                 0,
               ),
               sliver: SliverGrid(
-                gridDelegate:
-                    const SliverGridDelegateWithFixedCrossAxisCount(
+                gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
                   crossAxisCount: 2,
                   crossAxisSpacing: AppConstants.spacingS,
                   mainAxisSpacing: AppConstants.spacingL,
                   mainAxisExtent: kSearchGridTileExtent,
                 ),
-                delegate: SliverChildBuilderDelegate(
-                  (context, index) {
-                    final property = properties[index];
-                    return PropertyCardSearchGrid(
-                      property: property,
-                      onTap: () => _openPropertyDetail(property),
-                    );
-                  },
-                  childCount: properties.length,
-                ),
+                delegate: SliverChildBuilderDelegate((context, index) {
+                  final property = properties[index];
+                  return PropertyCardSearchGrid(
+                    property: property,
+                    onTap: () => _openPropertyDetail(property),
+                  );
+                }, childCount: properties.length),
               ),
             ),
             if (propertyProvider.isLoadingMore)
@@ -711,39 +729,45 @@ class _SearchResultsScreenState extends State<SearchResultsScreen> {
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-            const Icon(Icons.search_off_rounded,
-                size: 48, color: AppColors.textSecondary),
-            const SizedBox(height: 16),
-            Text(
-              activeDescriptions.isEmpty
-                  ? 'No properties found'
-                  : 'No properties match these filters',
-              style: AppTextStyles.heading2.copyWith(fontSize: 18),
-              textAlign: TextAlign.center,
-            ),
-            const SizedBox(height: 8),
-            if (activeDescriptions.isNotEmpty) ...[
-              Text(
-                'Currently applied: ${activeDescriptions.join(' • ')}',
-                style: AppTextStyles.body.copyWith(color: AppColors.textSecondary),
-                textAlign: TextAlign.center,
+              const Icon(
+                Icons.search_off_rounded,
+                size: 48,
+                color: AppColors.textSecondary,
               ),
               const SizedBox(height: 16),
-              OutlinedButton(
-                onPressed: () {
-                  filterProvider.resetFilters();
-                  _runSearchAndSyncMap();
-                },
-                style: OutlinedButton.styleFrom(
-                  side: const BorderSide(color: AppColors.primary),
-                ),
-                child: const Text('Clear All Filters'),
+              Text(
+                activeDescriptions.isEmpty
+                    ? 'No properties found'
+                    : 'No properties match these filters',
+                style: AppTextStyles.heading2.copyWith(fontSize: 18),
+                textAlign: TextAlign.center,
               ),
+              const SizedBox(height: 8),
+              if (activeDescriptions.isNotEmpty) ...[
+                Text(
+                  'Currently applied: ${activeDescriptions.join(' • ')}',
+                  style: AppTextStyles.body.copyWith(
+                    color: AppColors.textSecondary,
+                  ),
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 16),
+                OutlinedButton(
+                  onPressed: () {
+                    filterProvider.resetFilters();
+                    _runSearchAndSyncMap();
+                  },
+                  style: OutlinedButton.styleFrom(
+                    side: const BorderSide(color: AppColors.primary),
+                  ),
+                  child: const Text('Clear All Filters'),
+                ),
               ] else
                 Text(
                   'Try adjusting your search or checking back later.',
-                  style:
-                      AppTextStyles.body.copyWith(color: AppColors.textSecondary),
+                  style: AppTextStyles.body.copyWith(
+                    color: AppColors.textSecondary,
+                  ),
                   textAlign: TextAlign.center,
                 ),
             ],
@@ -781,9 +805,9 @@ class _SearchResultsScreenState extends State<SearchResultsScreen> {
   void _recenterMap() {
     setState(() => _selectedMapProperty = null);
     final filterProvider = context.read<FilterProvider>();
-    context
-        .read<PropertyProvider>()
-        .loadMapResults(filterProvider.toQueryParams());
+    context.read<PropertyProvider>().loadMapResults(
+      filterProvider.toQueryParams(),
+    );
   }
 
   Widget _buildMapView() {
@@ -799,8 +823,7 @@ class _SearchResultsScreenState extends State<SearchResultsScreen> {
                   horizontal: AppConstants.spacingXL,
                 ),
                 child: ClipRRect(
-                  borderRadius:
-                      BorderRadius.circular(AppConstants.cardRadius),
+                  borderRadius: BorderRadius.circular(AppConstants.cardRadius),
                   child: Stack(
                     children: [
                       PropertySearchMapWidget(

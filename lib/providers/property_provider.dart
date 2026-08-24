@@ -75,109 +75,112 @@ class PropertyProvider extends ChangeNotifier {
   /// keep their existing silent-failure behaviour.
   bool get hasError => _hasError;
 
- PropertyProvider() {
-  loadProperties();
-  _loadShortlistedIds();
-  _loadLikedPropertyIds();
-}
-
-final PropertyService _propertyService = PropertyService();
-
-Future<void> loadProperties() async {
-  try {
-    final data = await _propertyService.getProperties();
-    _properties = data
-        .map((item) => PropertyModel.fromSupabase(item))
-        .toList();
-    _syncShortlistFlags();
-    notifyListeners();
-  } catch (e) {
-    debugPrint('[PropertyProvider] loadProperties failed: $e');
+  PropertyProvider() {
+    loadProperties();
+    _loadShortlistedIds();
+    _loadLikedPropertyIds();
   }
-}
 
-/// Loads the current user's saved-property ids from the persisted
-/// `saved_properties` table. Silently does nothing when signed out —
-/// mirrors the reference portal redirecting anonymous saves to sign-in
-/// rather than surfacing an error here.
-Future<void> _loadShortlistedIds() async {
-  final userId = Supabase.instance.client.auth.currentUser?.id;
-  if (userId == null) return;
+  final PropertyService _propertyService = PropertyService();
 
-  try {
-    _shortlistedIds = await _savedPropertiesService.fetchSavedPropertyIds(
-      userId,
-    );
-    _syncShortlistFlags();
-    notifyListeners();
-  } catch (e) {
-    debugPrint('[PropertyProvider] _loadShortlistedIds failed: $e');
-  }
-}
-
-/// Loads the current user's liked-property ids from the persisted
-/// `user_likes` table. Silently does nothing when signed out, same as
-/// [_loadShortlistedIds].
-Future<void> _loadLikedPropertyIds() async {
-  final userId = Supabase.instance.client.auth.currentUser?.id;
-  if (userId == null) return;
-
-  try {
-    _likedPropertyIds =
-        await _propertyLikesService.fetchLikedPropertyIds(userId);
-    notifyListeners();
-  } catch (e) {
-    debugPrint('[PropertyProvider] _loadLikedPropertyIds failed: $e');
-  }
-}
-
-bool isLiked(String propertyId) => _likedPropertyIds.contains(propertyId);
-
-/// Optimistically toggles, then persists to `user_likes`; rolls back on
-/// failure. No-ops when signed out.
-Future<void> toggleLike(String propertyId) async {
-  final userId = Supabase.instance.client.auth.currentUser?.id;
-  if (userId == null) return;
-
-  final wasLiked = _likedPropertyIds.contains(propertyId);
-  if (wasLiked) {
-    _likedPropertyIds.remove(propertyId);
-  } else {
-    _likedPropertyIds.add(propertyId);
-  }
-  notifyListeners();
-
-  try {
-    if (wasLiked) {
-      await _propertyLikesService.unlike(userId, propertyId);
-    } else {
-      await _propertyLikesService.like(userId, propertyId);
+  Future<void> loadProperties() async {
+    try {
+      final data = await _propertyService.getProperties();
+      _properties = data
+          .map((item) => PropertyModel.fromSupabase(item))
+          .toList();
+      _syncShortlistFlags();
+      notifyListeners();
+    } catch (e) {
+      debugPrint('[PropertyProvider] loadProperties failed: $e');
     }
-  } catch (e) {
-    debugPrint('[PropertyProvider] toggleLike persistence failed: $e');
+  }
+
+  /// Loads the current user's saved-property ids from the persisted
+  /// `saved_properties` table. Silently does nothing when signed out —
+  /// mirrors the reference portal redirecting anonymous saves to sign-in
+  /// rather than surfacing an error here.
+  Future<void> _loadShortlistedIds() async {
+    final userId = Supabase.instance.client.auth.currentUser?.id;
+    if (userId == null) return;
+
+    try {
+      _shortlistedIds = await _savedPropertiesService.fetchSavedPropertyIds(
+        userId,
+      );
+      _syncShortlistFlags();
+      notifyListeners();
+    } catch (e) {
+      debugPrint('[PropertyProvider] _loadShortlistedIds failed: $e');
+    }
+  }
+
+  /// Loads the current user's liked-property ids from the persisted
+  /// `user_likes` table. Silently does nothing when signed out, same as
+  /// [_loadShortlistedIds].
+  Future<void> _loadLikedPropertyIds() async {
+    final userId = Supabase.instance.client.auth.currentUser?.id;
+    if (userId == null) return;
+
+    try {
+      _likedPropertyIds = await _propertyLikesService.fetchLikedPropertyIds(
+        userId,
+      );
+      notifyListeners();
+    } catch (e) {
+      debugPrint('[PropertyProvider] _loadLikedPropertyIds failed: $e');
+    }
+  }
+
+  bool isLiked(String propertyId) => _likedPropertyIds.contains(propertyId);
+
+  /// Optimistically toggles, then persists to `user_likes`; rolls back on
+  /// failure. No-ops when signed out.
+  Future<void> toggleLike(String propertyId) async {
+    final userId = Supabase.instance.client.auth.currentUser?.id;
+    if (userId == null) return;
+
+    final wasLiked = _likedPropertyIds.contains(propertyId);
     if (wasLiked) {
-      _likedPropertyIds.add(propertyId);
-    } else {
       _likedPropertyIds.remove(propertyId);
+    } else {
+      _likedPropertyIds.add(propertyId);
     }
     notifyListeners();
+
+    try {
+      if (wasLiked) {
+        await _propertyLikesService.unlike(userId, propertyId);
+      } else {
+        await _propertyLikesService.like(userId, propertyId);
+      }
+    } catch (e) {
+      debugPrint('[PropertyProvider] toggleLike persistence failed: $e');
+      if (wasLiked) {
+        _likedPropertyIds.add(propertyId);
+      } else {
+        _likedPropertyIds.remove(propertyId);
+      }
+      notifyListeners();
+    }
   }
-}
 
-/// Stamps `isShortlisted` on every cached PropertyModel from the
-/// authoritative [_shortlistedIds] set, so widgets reading the model field
-/// directly (card grids across Home/Search) reflect persisted state.
-void _syncShortlistFlags() {
-  List<PropertyModel> sync(List<PropertyModel> list) => list
-      .map((p) => p.isShortlisted == _shortlistedIds.contains(p.id)
-          ? p
-          : p.copyWith(isShortlisted: _shortlistedIds.contains(p.id)))
-      .toList();
+  /// Stamps `isShortlisted` on every cached PropertyModel from the
+  /// authoritative [_shortlistedIds] set, so widgets reading the model field
+  /// directly (card grids across Home/Search) reflect persisted state.
+  void _syncShortlistFlags() {
+    List<PropertyModel> sync(List<PropertyModel> list) => list
+        .map(
+          (p) => p.isShortlisted == _shortlistedIds.contains(p.id)
+              ? p
+              : p.copyWith(isShortlisted: _shortlistedIds.contains(p.id)),
+        )
+        .toList();
 
-  _properties = sync(_properties);
-  _searchResults = sync(_searchResults);
-  _mapResults = sync(_mapResults);
-}
+    _properties = sync(_properties);
+    _searchResults = sync(_searchResults);
+    _mapResults = sync(_mapResults);
+  }
 
   /// Runs (or continues, when `reset: false`) a search against the live
   /// backend for the given filter/sort snapshot. Mirrors Search.tsx's own
@@ -233,10 +236,13 @@ void _syncShortlistFlags() {
         }
         final nextCursor = (_budgetBufferCursor + AppConstants.searchPageSize)
             .clamp(0, _budgetBuffer.length);
-        final pageModels =
-            _budgetBuffer.sublist(_budgetBufferCursor, nextCursor);
-        _searchResults =
-            reset ? pageModels : [..._searchResults, ...pageModels];
+        final pageModels = _budgetBuffer.sublist(
+          _budgetBufferCursor,
+          nextCursor,
+        );
+        _searchResults = reset
+            ? pageModels
+            : [..._searchResults, ...pageModels];
         _budgetBufferCursor = nextCursor;
         _totalResultCount = _budgetBuffer.length;
         _hasMoreResults = _budgetBufferCursor < _budgetBuffer.length;
@@ -322,7 +328,8 @@ void _syncShortlistFlags() {
     List<Map<String, dynamic>> rows,
     SearchQueryParams params,
   ) {
-    final bool isDefaultRange = params.budgetMin <= AppConstants.priceMin &&
+    final bool isDefaultRange =
+        params.budgetMin <= AppConstants.priceMin &&
         params.budgetMax >= AppConstants.priceMax;
 
     final filteredRows = isDefaultRange
@@ -335,7 +342,9 @@ void _syncShortlistFlags() {
             return true;
           }).toList();
 
-    final models = filteredRows.map((r) => PropertyModel.fromSupabase(r)).toList();
+    final models = filteredRows
+        .map((r) => PropertyModel.fromSupabase(r))
+        .toList();
 
     if (!params.nearMeEnabled ||
         params.nearMeLat == null ||
@@ -378,8 +387,7 @@ void _syncShortlistFlags() {
   /// Id-based check, independent of whether [propertyId] happens to be
   /// cached in _properties/_searchResults/_mapResults — safe to call for a
   /// deep-linked property that isn't in any of those lists yet.
-  bool isShortlisted(String propertyId) =>
-      _shortlistedIds.contains(propertyId);
+  bool isShortlisted(String propertyId) => _shortlistedIds.contains(propertyId);
 
   /// Optimistically toggles, then persists to `saved_properties`; rolls
   /// back on failure. No-ops when signed out, mirroring the reference
@@ -429,5 +437,4 @@ void _syncShortlistFlags() {
   List<PropertyModel> getFeaturedProperties() {
     return _properties.where((p) => p.isFeatured).toList();
   }
-
 }

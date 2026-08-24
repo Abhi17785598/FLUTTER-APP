@@ -146,13 +146,13 @@ class ChatBubble extends StatelessWidget {
       return Padding(
         padding: const EdgeInsets.only(bottom: 10),
         child: Column(
-          crossAxisAlignment:
-              isMine ? CrossAxisAlignment.end : CrossAxisAlignment.start,
+          crossAxisAlignment: isMine
+              ? CrossAxisAlignment.end
+              : CrossAxisAlignment.start,
           children: [
             Container(
               constraints: BoxConstraints(maxWidth: width * 0.76),
-              padding:
-                  const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
               decoration: BoxDecoration(
                 color: AppColors.cardBackground,
                 borderRadius: bubbleRadius,
@@ -182,8 +182,9 @@ class ChatBubble extends StatelessWidget {
     return Padding(
       padding: const EdgeInsets.only(bottom: 10),
       child: Column(
-        crossAxisAlignment:
-            isMine ? CrossAxisAlignment.end : CrossAxisAlignment.start,
+        crossAxisAlignment: isMine
+            ? CrossAxisAlignment.end
+            : CrossAxisAlignment.start,
         children: [
           if (senderName != null && !isMine) ...[
             Padding(
@@ -214,9 +215,16 @@ class ChatBubble extends StatelessWidget {
                 children: [
                   if (repliedMessage != null) _buildReplyQuote(),
                   if (message.isPropertyShare)
-                    PropertySharePreviewCard(property: sharedProperty, isMine: isMine)
+                    PropertySharePreviewCard(
+                      property: sharedProperty,
+                      isMine: isMine,
+                    )
                   else if (hasMedia || message.isAudio)
-                    ChatMediaView(message: message, surface: surface, isMine: isMine)
+                    ChatMediaView(
+                      message: message,
+                      surface: surface,
+                      isMine: isMine,
+                    )
                   else
                     Text(
                       message.displayContent,
@@ -279,7 +287,9 @@ class ChatBubble extends StatelessWidget {
       margin: const EdgeInsets.only(bottom: 6),
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
       decoration: BoxDecoration(
-        color: (isMine ? Colors.white : AppColors.primary).withValues(alpha: 0.1),
+        color: (isMine ? Colors.white : AppColors.primary).withValues(
+          alpha: 0.1,
+        ),
         borderRadius: BorderRadius.circular(8),
         border: Border(
           left: BorderSide(
@@ -401,14 +411,18 @@ class _ActionSheet extends StatelessWidget {
                 ),
               ),
             const Divider(height: 1),
-            if (onReply != null)
-              _tile(context, Icons.reply, 'Reply', onReply!),
+            if (onReply != null) _tile(context, Icons.reply, 'Reply', onReply!),
             if (onForward != null)
               _tile(context, Icons.forward_outlined, 'Forward', onForward!),
             if (canEdit && onEdit != null)
               _tile(context, Icons.edit_outlined, 'Edit', onEdit!),
             if (onDeleteForMe != null)
-              _tile(context, Icons.delete_outline, 'Delete for me', onDeleteForMe!),
+              _tile(
+                context,
+                Icons.delete_outline,
+                'Delete for me',
+                onDeleteForMe!,
+              ),
             if (isMine && onDeleteForEveryone != null)
               _tile(
                 context,
@@ -418,8 +432,13 @@ class _ActionSheet extends StatelessWidget {
                 destructive: true,
               ),
             if (!isMine && onReport != null)
-              _tile(context, Icons.flag_outlined, 'Report', onReport!,
-                  destructive: true),
+              _tile(
+                context,
+                Icons.flag_outlined,
+                'Report',
+                onReport!,
+                destructive: true,
+              ),
             const SizedBox(height: 8),
           ],
         ),

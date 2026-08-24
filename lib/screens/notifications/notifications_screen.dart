@@ -61,9 +61,9 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
     // fetch and a second channel.
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
-      context
-          .read<NotificationProvider>()
-          .load(context.read<AuthProvider>().userId);
+      context.read<NotificationProvider>().load(
+        context.read<AuthProvider>().userId,
+      );
     });
   }
 
@@ -192,8 +192,11 @@ class _AppBar extends StatelessWidget {
                 borderRadius: BorderRadius.circular(10),
                 boxShadow: AppColors.cardShadow,
               ),
-              child: const Icon(Icons.arrow_back_ios_new,
-                  size: 16, color: AppColors.textPrimary),
+              child: const Icon(
+                Icons.arrow_back_ios_new,
+                size: 16,
+                color: AppColors.textPrimary,
+              ),
             ),
           ),
           const SizedBox(width: 12),
@@ -255,8 +258,11 @@ class _AppBar extends StatelessWidget {
                         ),
                         child: const Row(
                           children: [
-                            Icon(Icons.done_all,
-                                size: 14, color: AppColors.primary),
+                            Icon(
+                              Icons.done_all,
+                              size: 14,
+                              color: AppColors.primary,
+                            ),
                             SizedBox(width: 4),
                             Text(
                               'Mark all read',
@@ -311,10 +317,12 @@ class _FilterRow extends StatelessWidget {
               decoration: BoxDecoration(
                 gradient: isActive ? AppColors.primaryGradient : null,
                 color: isActive ? null : Colors.white,
-                borderRadius:
-                    BorderRadius.circular(AppConstants.chipRadius * 2),
-                boxShadow:
-                    isActive ? AppColors.primaryGlow : AppColors.cardShadow,
+                borderRadius: BorderRadius.circular(
+                  AppConstants.chipRadius * 2,
+                ),
+                boxShadow: isActive
+                    ? AppColors.primaryGlow
+                    : AppColors.cardShadow,
               ),
               child: Text(
                 filter,
@@ -349,7 +357,8 @@ class _NotificationCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final isRead = notification.isRead;
     final style = notification.style;
-    final routable = resolveNotificationDestination(
+    final routable =
+        resolveNotificationDestination(
           type: notification.type,
           data: notification.data,
         ) !=
@@ -357,7 +366,8 @@ class _NotificationCard extends StatelessWidget {
 
     return Semantics(
       button: true,
-      label: '${notification.title}. ${notification.message}. '
+      label:
+          '${notification.title}. ${notification.message}. '
           '${isRead ? 'Read' : 'Unread'}. '
           'Long press to mark as ${isRead ? 'unread' : 'read'}.',
       child: ExcludeSemantics(
@@ -404,8 +414,9 @@ class _NotificationCard extends StatelessWidget {
                               notification.title,
                               style: TextStyle(
                                 fontSize: 13,
-                                fontWeight:
-                                    isRead ? FontWeight.w500 : FontWeight.w700,
+                                fontWeight: isRead
+                                    ? FontWeight.w500
+                                    : FontWeight.w700,
                                 color: AppColors.textPrimary,
                               ),
                             ),
@@ -431,8 +442,11 @@ class _NotificationCard extends StatelessWidget {
                       const SizedBox(height: 8),
                       Row(
                         children: [
-                          const Icon(Icons.access_time_rounded,
-                              size: 11, color: AppColors.textHint),
+                          const Icon(
+                            Icons.access_time_rounded,
+                            size: 11,
+                            color: AppColors.textHint,
+                          ),
                           const SizedBox(width: 3),
                           Flexible(
                             child: Text(
@@ -450,8 +464,11 @@ class _NotificationCard extends StatelessWidget {
                           // showed a "View" button on every card and sent them all
                           // to a hardcoded property id.
                           if (routable)
-                            const Icon(Icons.chevron_right_rounded,
-                                size: 16, color: AppColors.textHint),
+                            const Icon(
+                              Icons.chevron_right_rounded,
+                              size: 16,
+                              color: AppColors.textHint,
+                            ),
                         ],
                       ),
                     ],
@@ -488,8 +505,11 @@ class _EmptyState extends StatelessWidget {
               color: AppColors.primaryLight,
               shape: BoxShape.circle,
             ),
-            child: const Icon(Icons.notifications_none_rounded,
-                size: 38, color: AppColors.primary),
+            child: const Icon(
+              Icons.notifications_none_rounded,
+              size: 38,
+              color: AppColors.primary,
+            ),
           ),
           const SizedBox(height: 16),
           Text(
@@ -527,14 +547,19 @@ class _FailedState extends StatelessWidget {
               color: AppColors.primaryLight,
               shape: BoxShape.circle,
             ),
-            child: const Icon(Icons.cloud_off_rounded,
-                size: 38, color: AppColors.primary),
+            child: const Icon(
+              Icons.cloud_off_rounded,
+              size: 38,
+              color: AppColors.primary,
+            ),
           ),
           const SizedBox(height: 16),
           Text("Couldn't load notifications", style: AppTextStyles.heading3),
           const SizedBox(height: 6),
-          Text('Check your connection and try again.',
-              style: AppTextStyles.caption),
+          Text(
+            'Check your connection and try again.',
+            style: AppTextStyles.caption,
+          ),
           const SizedBox(height: 16),
           ElevatedButton(
             onPressed: onRetry,

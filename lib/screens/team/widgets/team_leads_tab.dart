@@ -200,8 +200,10 @@ class _LeadCard extends StatelessWidget {
                 child: Text(lead.displayName, style: AppTextStyles.heading3),
               ),
               Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 4,
+                ),
                 decoration: BoxDecoration(
                   color: color.withValues(alpha: 0.12),
                   borderRadius: BorderRadius.circular(999),
@@ -221,7 +223,9 @@ class _LeadCard extends StatelessWidget {
             const SizedBox(height: AppConstants.spacingXS),
             Text(
               lead.displayPhone!,
-              style: AppTextStyles.body.copyWith(color: AppColors.textSecondary),
+              style: AppTextStyles.body.copyWith(
+                color: AppColors.textSecondary,
+              ),
             ),
           ],
           const SizedBox(height: AppConstants.spacingXS),
@@ -239,7 +243,9 @@ class _LeadCard extends StatelessWidget {
               lead.notes!,
               maxLines: 2,
               overflow: TextOverflow.ellipsis,
-              style: AppTextStyles.body.copyWith(color: AppColors.textSecondary),
+              style: AppTextStyles.body.copyWith(
+                color: AppColors.textSecondary,
+              ),
             ),
           ],
           const SizedBox(height: AppConstants.spacingM),
@@ -260,8 +266,10 @@ class _LeadCard extends StatelessWidget {
               isDense: true,
               decoration: const InputDecoration(
                 isDense: true,
-                contentPadding:
-                    EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                contentPadding: EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 8,
+                ),
               ),
               items: [
                 for (final option in kTeamLeadStatusOptions)

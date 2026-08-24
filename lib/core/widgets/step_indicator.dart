@@ -26,8 +26,9 @@ class StepIndicator extends StatelessWidget {
       builder: (context, constraints) {
         final slotWidth = constraints.maxWidth / stepCount;
         final lineTop = (_circleDiameter - _lineThickness) / 2;
-        final progressFraction =
-            stepCount > 1 ? currentStep / (stepCount - 1) : 0.0;
+        final progressFraction = stepCount > 1
+            ? currentStep / (stepCount - 1)
+            : 0.0;
         final trackWidth = constraints.maxWidth - slotWidth;
 
         return SizedBox(
@@ -76,8 +77,9 @@ class StepIndicator extends StatelessWidget {
                           height: _circleDiameter,
                           decoration: BoxDecoration(
                             shape: BoxShape.circle,
-                            gradient:
-                                isHighlighted ? AppColors.primaryGradient : null,
+                            gradient: isHighlighted
+                                ? AppColors.primaryGradient
+                                : null,
                             color: isHighlighted ? null : Colors.white,
                             border: Border.all(
                               color: isHighlighted
@@ -85,13 +87,15 @@ class StepIndicator extends StatelessWidget {
                                   : Colors.grey.shade300,
                               width: 1.5,
                             ),
-                            boxShadow:
-                                isActive ? AppColors.primaryGlow : null,
+                            boxShadow: isActive ? AppColors.primaryGlow : null,
                           ),
                           child: Center(
                             child: isCompleted
-                                ? const Icon(Icons.check,
-                                    color: Colors.white, size: 18)
+                                ? const Icon(
+                                    Icons.check,
+                                    color: Colors.white,
+                                    size: 18,
+                                  )
                                 : Text(
                                     '${index + 1}',
                                     style: AppTextStyles.caption.copyWith(
@@ -113,8 +117,9 @@ class StepIndicator extends StatelessWidget {
                             color: isActive
                                 ? AppColors.textPrimary
                                 : AppColors.textSecondary,
-                            fontWeight:
-                                isActive ? FontWeight.w600 : FontWeight.w400,
+                            fontWeight: isActive
+                                ? FontWeight.w600
+                                : FontWeight.w400,
                           ),
                         ),
                       ],

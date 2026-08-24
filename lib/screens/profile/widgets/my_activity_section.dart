@@ -5,8 +5,10 @@ import 'package:provider/provider.dart';
 import '../../../core/constants/app_constants.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_text_styles.dart';
+import '../../../core/utils/compare_toggle_handler.dart';
 import '../../../models/project_model.dart';
 import '../../../models/reel_model.dart';
+import '../../../providers/compare_provider.dart';
 import '../../../providers/projects_provider.dart';
 import '../../../providers/property_provider.dart';
 import '../../../providers/reels_provider.dart';
@@ -38,8 +40,10 @@ enum _ContentFilter { properties, projects, reels }
 
 class _MyActivitySectionState extends State<MyActivitySection>
     with SingleTickerProviderStateMixin {
-  late final TabController _tabController =
-      TabController(length: 2, vsync: this);
+  late final TabController _tabController = TabController(
+    length: 2,
+    vsync: this,
+  );
 
   _ContentFilter _likedFilter = _ContentFilter.properties;
   _ContentFilter _savedFilter = _ContentFilter.properties;
@@ -52,6 +56,7 @@ class _MyActivitySectionState extends State<MyActivitySection>
 
   @override
   Widget build(BuildContext context) {
+    final compareProvider = context.watch<CompareProvider>();
     return Consumer3<PropertyProvider, ReelsProvider, ProjectsProvider>(
       builder: (context, propertyProvider, reelsProvider, projectsProvider, _) {
         final likedProperties = propertyProvider.getLikedProperties();
@@ -115,25 +120,25 @@ class _MyActivitySectionState extends State<MyActivitySection>
                           propertiesCount: likedProperties.length,
                           projectsCount: likedProjects.length,
                           reelsCount: likedReels.length,
-                          onChanged: (f) =>
-                              setState(() => _likedFilter = f),
+                          onChanged: (f) => setState(() => _likedFilter = f),
                         ),
                         Expanded(
                           child: switch (_likedFilter) {
                             _ContentFilter.properties => _ActivityList(
-                                properties: likedProperties,
-                                emptyText: 'No liked properties yet',
-                                onFavoriteToggle: (id) =>
-                                    propertyProvider.toggleLike(id),
-                              ),
+                              properties: likedProperties,
+                              emptyText: 'No liked properties yet',
+                              onFavoriteToggle: (id) =>
+                                  propertyProvider.toggleLike(id),
+                              compareProvider: compareProvider,
+                            ),
                             _ContentFilter.projects => _ProjectsList(
-                                projects: likedProjects,
-                                emptyText: 'No liked projects yet',
-                              ),
+                              projects: likedProjects,
+                              emptyText: 'No liked projects yet',
+                            ),
                             _ContentFilter.reels => _ReelsList(
-                                reels: likedReels,
-                                emptyText: 'No liked reels yet',
-                              ),
+                              reels: likedReels,
+                              emptyText: 'No liked reels yet',
+                            ),
                           },
                         ),
                       ],
@@ -145,25 +150,25 @@ class _MyActivitySectionState extends State<MyActivitySection>
                           propertiesCount: savedProperties.length,
                           projectsCount: savedProjects.length,
                           reelsCount: savedReels.length,
-                          onChanged: (f) =>
-                              setState(() => _savedFilter = f),
+                          onChanged: (f) => setState(() => _savedFilter = f),
                         ),
                         Expanded(
                           child: switch (_savedFilter) {
                             _ContentFilter.properties => _ActivityList(
-                                properties: savedProperties,
-                                emptyText: 'No saved properties yet',
-                                onFavoriteToggle: (id) =>
-                                    propertyProvider.toggleShortlist(id),
-                              ),
+                              properties: savedProperties,
+                              emptyText: 'No saved properties yet',
+                              onFavoriteToggle: (id) =>
+                                  propertyProvider.toggleShortlist(id),
+                              compareProvider: compareProvider,
+                            ),
                             _ContentFilter.projects => _ProjectsList(
-                                projects: savedProjects,
-                                emptyText: 'No saved projects yet',
-                              ),
+                              projects: savedProjects,
+                              emptyText: 'No saved projects yet',
+                            ),
                             _ContentFilter.reels => _ReelsList(
-                                reels: savedReels,
-                                emptyText: 'No saved reels yet',
-                              ),
+                              reels: savedReels,
+                              emptyText: 'No saved reels yet',
+                            ),
                           },
                         ),
                       ],
@@ -497,18 +502,18 @@ class _ActivityList extends StatelessWidget {
     required this.properties,
     required this.emptyText,
     required this.onFavoriteToggle,
+    required this.compareProvider,
   });
 
   final List properties;
   final String emptyText;
   final void Function(String propertyId) onFavoriteToggle;
+  final CompareProvider compareProvider;
 
   @override
   Widget build(BuildContext context) {
     if (properties.isEmpty) {
-      return Center(
-        child: Text(emptyText, style: AppTextStyles.caption),
-      );
+      return Center(child: Text(emptyText, style: AppTextStyles.caption));
     }
 
     return ListView.builder(
@@ -524,6 +529,8 @@ class _ActivityList extends StatelessWidget {
             arguments: {'propertyId': property.id},
           ),
           onFavoriteToggle: () => onFavoriteToggle(property.id),
+          isInCompare: compareProvider.isSelected(property.id),
+          onCompareToggle: () => handleCompareToggle(context, property),
         );
       },
     );

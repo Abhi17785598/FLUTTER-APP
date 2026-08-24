@@ -29,8 +29,8 @@ import 'auth_service.dart';
 
 class UserProfileService {
   UserProfileService({AuthService? authService, SupabaseClient? client})
-      : _authService = authService ?? AuthService(),
-        _supabase = client ?? Supabase.instance.client;
+    : _authService = authService ?? AuthService(),
+      _supabase = client ?? Supabase.instance.client;
 
   final AuthService _authService;
   final SupabaseClient _supabase;
@@ -67,8 +67,7 @@ class UserProfileService {
   static const String contactColumns = 'phone, email, mobile_number';
 
   /// Full column list for a signed-in viewer looking at someone else.
-  static const String authenticatedColumns =
-      '$publicColumns, $contactColumns';
+  static const String authenticatedColumns = '$publicColumns, $contactColumns';
 
   /// Columns needed to label a rater, viewer or reviewer.
   ///

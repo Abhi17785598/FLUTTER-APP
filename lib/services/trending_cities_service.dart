@@ -17,7 +17,7 @@ import '../models/trending_city.dart';
 
 class TrendingCitiesService {
   TrendingCitiesService({SupabaseClient? client})
-      : _supabase = client ?? Supabase.instance.client;
+    : _supabase = client ?? Supabase.instance.client;
 
   final SupabaseClient _supabase;
 
@@ -42,8 +42,9 @@ class TrendingCitiesService {
           .limit(limit);
 
       return rows
-          .map((row) =>
-              TrendingCity.fromSupabase(Map<String, dynamic>.from(row)))
+          .map(
+            (row) => TrendingCity.fromSupabase(Map<String, dynamic>.from(row)),
+          )
           .where((city) => city.id.isNotEmpty && city.cityName.isNotEmpty)
           .toList(growable: false);
     } catch (e) {

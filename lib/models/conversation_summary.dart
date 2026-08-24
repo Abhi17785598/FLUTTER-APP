@@ -34,10 +34,7 @@ class ConversationParticipant {
         age < const Duration(seconds: 90);
   }
 
-  ConversationParticipant copyWith({
-    bool? isOnline,
-    DateTime? lastSeenAt,
-  }) {
+  ConversationParticipant copyWith({bool? isOnline, DateTime? lastSeenAt}) {
     return ConversationParticipant(
       userId: userId,
       displayName: displayName,

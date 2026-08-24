@@ -15,20 +15,20 @@ enum AnalyticsContentSource {
   builderProjects;
 
   String get table => switch (this) {
-        AnalyticsContentSource.properties => 'properties',
-        AnalyticsContentSource.influencerVideos => 'influencer_videos',
-        AnalyticsContentSource.builderProjects => 'builder_projects',
-      };
+    AnalyticsContentSource.properties => 'properties',
+    AnalyticsContentSource.influencerVideos => 'influencer_videos',
+    AnalyticsContentSource.builderProjects => 'builder_projects',
+  };
 
   /// The column holding the owning user's id.
   ///
   /// `builder_projects.builder_id` is a plain uuid to `auth.users`, same as the
   /// other two tables' `user_id` — only the name differs.
   String get ownerColumn => switch (this) {
-        AnalyticsContentSource.properties => 'user_id',
-        AnalyticsContentSource.influencerVideos => 'user_id',
-        AnalyticsContentSource.builderProjects => 'builder_id',
-      };
+    AnalyticsContentSource.properties => 'user_id',
+    AnalyticsContentSource.influencerVideos => 'user_id',
+    AnalyticsContentSource.builderProjects => 'builder_id',
+  };
 
   /// Whether this table has a `price` column.
   ///
@@ -159,8 +159,7 @@ class DashboardAnalytics {
 
   static const DashboardAnalytics empty = DashboardAnalytics();
 
-  bool get hasPerformanceData =>
-      performance.any((p) => p.value > 0);
+  bool get hasPerformanceData => performance.any((p) => p.value > 0);
 }
 
 /// The Audience tab's four metrics, its chart and its insight rows.

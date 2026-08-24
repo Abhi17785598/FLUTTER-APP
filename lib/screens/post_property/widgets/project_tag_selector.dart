@@ -45,8 +45,7 @@ class _ProjectTagSelectorState extends State<ProjectTagSelector> {
   void initState() {
     super.initState();
     final provider = context.read<PostPropertyProvider>();
-    _builderNameController =
-        TextEditingController(text: provider.builderName);
+    _builderNameController = TextEditingController(text: provider.builderName);
     if (provider.projectId.isNotEmpty) _loadTagged(provider.projectId);
   }
 
@@ -116,8 +115,8 @@ class _ProjectTagSelectorState extends State<ProjectTagSelector> {
               title: _tagged?.title.isNotEmpty == true
                   ? _tagged!.title
                   : (provider.projectName.isNotEmpty
-                      ? provider.projectName
-                      : 'Tagged project'),
+                        ? provider.projectName
+                        : 'Tagged project'),
               location: _tagged?.location ?? provider.projectLocation,
               onClear: () {
                 setState(() => _tagged = null);
@@ -286,14 +285,20 @@ class _ProjectRow extends StatelessWidget {
                         fit: BoxFit.cover,
                         errorBuilder: (_, _, _) => Container(
                           color: AppColors.primaryLight,
-                          child: const Icon(Icons.apartment,
-                              size: 18, color: AppColors.primary),
+                          child: const Icon(
+                            Icons.apartment,
+                            size: 18,
+                            color: AppColors.primary,
+                          ),
                         ),
                       )
                     : Container(
                         color: AppColors.primaryLight,
-                        child: const Icon(Icons.apartment,
-                            size: 18, color: AppColors.primary),
+                        child: const Icon(
+                          Icons.apartment,
+                          size: 18,
+                          color: AppColors.primary,
+                        ),
                       ),
               ),
             ),

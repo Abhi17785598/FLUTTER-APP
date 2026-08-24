@@ -93,8 +93,7 @@ class NetworkService {
       final monthlyCommissions = commissionRows.fold<double>(
         0,
         (sum, row) =>
-            sum +
-            (double.tryParse('${(row as Map)['amount'] ?? 0}') ?? 0),
+            sum + (double.tryParse('${(row as Map)['amount'] ?? 0}') ?? 0),
       );
 
       return NetworkStats(
@@ -126,10 +125,12 @@ class NetworkService {
           .order('created_at', ascending: false);
 
       return (rows as List)
-          .map((r) => NetworkMembership.fromJson(
-                Map<String, dynamic>.from(r as Map),
-                viewerId: userId,
-              ))
+          .map(
+            (r) => NetworkMembership.fromJson(
+              Map<String, dynamic>.from(r as Map),
+              viewerId: userId,
+            ),
+          )
           .toList();
     } catch (e) {
       debugPrint('NetworkService.listMemberships failed: $e');
@@ -204,7 +205,7 @@ class NetworkService {
   /// non-null together, which is reused here as the definition of "a lead
   /// that got a real, timed response".
   Future<({double? successRate, double? avgResponseTimeHours})>
-      getPerformanceMetrics(String userId, {required bool isBuilder}) async {
+  getPerformanceMetrics(String userId, {required bool isBuilder}) async {
     try {
       final column = isBuilder ? 'builder_id' : 'assigned_member_id';
       final rows = await _supabase
@@ -232,7 +233,7 @@ class NetworkService {
   /// Both are null on an empty list — "no data", not "0%"/"0 hrs" — matching
   /// [NetworkStats.successRatePercent]'s own null-means-no-data contract.
   static ({double? successRate, double? avgResponseTimeHours})
-      computePerformanceMetrics(List<Map<String, dynamic>> leads) {
+  computePerformanceMetrics(List<Map<String, dynamic>> leads) {
     if (leads.isEmpty) {
       return (successRate: null, avgResponseTimeHours: null);
     }
@@ -298,16 +299,24 @@ class NetworkService {
 
       return ReferralBundle(
         referrals: (results[0] as List)
-            .map((r) =>
-                NetworkReferral.fromJson(Map<String, dynamic>.from(r as Map)))
+            .map(
+              (r) =>
+                  NetworkReferral.fromJson(Map<String, dynamic>.from(r as Map)),
+            )
             .toList(),
         commissions: (results[1] as List)
-            .map((r) =>
-                NetworkCommission.fromJson(Map<String, dynamic>.from(r as Map)))
+            .map(
+              (r) => NetworkCommission.fromJson(
+                Map<String, dynamic>.from(r as Map),
+              ),
+            )
             .toList(),
         performance: (results[2] as List)
-            .map((r) => NetworkPerformance.fromJson(
-                Map<String, dynamic>.from(r as Map)))
+            .map(
+              (r) => NetworkPerformance.fromJson(
+                Map<String, dynamic>.from(r as Map),
+              ),
+            )
             .toList(),
       );
     } catch (e) {
@@ -330,8 +339,9 @@ class NetworkService {
           .order('created_at', ascending: false);
 
       return (rows as List)
-          .map((r) =>
-              NetworkChannel.fromJson(Map<String, dynamic>.from(r as Map)))
+          .map(
+            (r) => NetworkChannel.fromJson(Map<String, dynamic>.from(r as Map)),
+          )
           .toList();
     } catch (e) {
       debugPrint('NetworkService.listChannels failed: $e');

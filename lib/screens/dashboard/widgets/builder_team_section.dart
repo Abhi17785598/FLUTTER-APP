@@ -92,8 +92,9 @@ class _BuilderTeamSectionState extends State<BuilderTeamSection> {
 
   bool get _capReached => _activeMembers.length >= kMaxBuilderTeamMembers;
 
-  void _reportCount() =>
-      widget.onCountChanged?.call(_activeMembers.length + _openInvitations.length);
+  void _reportCount() => widget.onCountChanged?.call(
+    _activeMembers.length + _openInvitations.length,
+  );
 
   Future<void> _load() async {
     setState(() => _failed = false);
@@ -181,7 +182,8 @@ class _BuilderTeamSectionState extends State<BuilderTeamSection> {
   Future<void> _revokeMember(BuilderTeamMember member) async {
     final confirmed = await _confirmRevoke(
       title: 'Revoke Access',
-      body: 'Revoke ${member.email ?? 'this member'}\'s access?\n\n'
+      body:
+          'Revoke ${member.email ?? 'this member'}\'s access?\n\n'
           'They lose it immediately. The record of the grant is kept.',
     );
     if (confirmed != true || !mounted) return;
@@ -206,19 +208,20 @@ class _BuilderTeamSectionState extends State<BuilderTeamSection> {
   }
 
   static BuilderTeamMember _revoked(BuilderTeamMember m) => BuilderTeamMember(
-        id: m.id,
-        memberUserId: m.memberUserId,
-        email: m.email,
-        modules: m.modules,
-        projectIds: m.projectIds,
-        status: 'revoked',
-        createdAt: m.createdAt,
-      );
+    id: m.id,
+    memberUserId: m.memberUserId,
+    email: m.email,
+    modules: m.modules,
+    projectIds: m.projectIds,
+    status: 'revoked',
+    createdAt: m.createdAt,
+  );
 
   Future<void> _revokeInvitation(BuilderTeamInvitation invitation) async {
     final confirmed = await _confirmRevoke(
       title: 'Cancel Invitation',
-      body: 'Cancel the invitation to ${invitation.email}?\n\n'
+      body:
+          'Cancel the invitation to ${invitation.email}?\n\n'
           'Their link stops working.',
     );
     if (confirmed != true || !mounted) return;
@@ -228,23 +231,23 @@ class _BuilderTeamSectionState extends State<BuilderTeamSection> {
       await _team.revokeInvitation(invitation.id);
       if (!mounted) return;
       setState(() {
-        _invitations =
-            _invitations?.where((i) => i.id != invitation.id).toList();
+        _invitations = _invitations
+            ?.where((i) => i.id != invitation.id)
+            .toList();
       });
       _reportCount();
       _toast('Invitation cancelled.');
     } catch (e) {
-      _toast('Could not cancel that invitation. Please try again.',
-          isError: true);
+      _toast(
+        'Could not cancel that invitation. Please try again.',
+        isError: true,
+      );
     } finally {
       if (mounted) setState(() => _busyId = null);
     }
   }
 
-  Future<bool?> _confirmRevoke({
-    required String title,
-    required String body,
-  }) {
+  Future<bool?> _confirmRevoke({required String title, required String body}) {
     return showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
@@ -448,8 +451,11 @@ class _MemberCard extends StatelessWidget {
           const SizedBox(height: 8),
           Row(
             children: [
-              const Icon(Icons.apartment_outlined,
-                  size: 13, color: AppColors.textHint),
+              const Icon(
+                Icons.apartment_outlined,
+                size: 13,
+                color: AppColors.textHint,
+              ),
               const SizedBox(width: 4),
               Expanded(
                 child: Text(
@@ -519,8 +525,11 @@ class _InvitationCard extends StatelessWidget {
             const SizedBox(height: 8),
             Row(
               children: [
-                const Icon(Icons.timer_outlined,
-                    size: 13, color: AppColors.textHint),
+                const Icon(
+                  Icons.timer_outlined,
+                  size: 13,
+                  color: AppColors.textHint,
+                ),
                 const SizedBox(width: 4),
                 // Flexible: "Expires Jan 1, 2099" at 130% text exceeds a 320 dp
                 // card once the icon and padding are taken off.
@@ -554,8 +563,18 @@ class _InvitationCard extends StatelessWidget {
 
   static String _formatDate(DateTime dt) {
     const months = [
-      'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
-      'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
+      'Jan',
+      'Feb',
+      'Mar',
+      'Apr',
+      'May',
+      'Jun',
+      'Jul',
+      'Aug',
+      'Sep',
+      'Oct',
+      'Nov',
+      'Dec',
     ];
     return '${months[dt.month - 1]} ${dt.day}, ${dt.year}';
   }
@@ -727,164 +746,174 @@ class _InviteSheetState extends State<_InviteSheet> {
               const SizedBox(height: 16),
               Text(
                 'Invite a Team Member',
-              style: AppTextStyles.heading2.copyWith(fontSize: 17),
-            ),
-            const SizedBox(height: 2),
-            Text(
-              'They act on your data, limited to what you grant here.',
-              style: AppTextStyles.caption,
-            ),
-            const SizedBox(height: 18),
+                style: AppTextStyles.heading2.copyWith(fontSize: 17),
+              ),
+              const SizedBox(height: 2),
+              Text(
+                'They act on your data, limited to what you grant here.',
+                style: AppTextStyles.caption,
+              ),
+              const SizedBox(height: 18),
 
-            if (_error != null) ...[
-              Container(
-                width: double.infinity,
-                padding: const EdgeInsets.all(10),
-                decoration: BoxDecoration(
-                  color: AppColors.error.withValues(alpha: 0.08),
-                  borderRadius: BorderRadius.circular(10),
+              if (_error != null) ...[
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(
+                    color: AppColors.error.withValues(alpha: 0.08),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Text(
+                    _error!,
+                    style: AppTextStyles.caption.copyWith(
+                      color: AppColors.error,
+                    ),
+                  ),
                 ),
-                child: Text(
-                  _error!,
-                  style: AppTextStyles.caption.copyWith(color: AppColors.error),
+                const SizedBox(height: 14),
+              ],
+
+              Text('Email', style: AppTextStyles.body.copyWith(fontSize: 12.5)),
+              const SizedBox(height: 6),
+              TextField(
+                controller: _email,
+                keyboardType: TextInputType.emailAddress,
+                autocorrect: false,
+                onChanged: (_) {
+                  if (_error != null) setState(() => _error = null);
+                },
+                decoration: InputDecoration(
+                  hintText: 'name@example.com',
+                  isDense: true,
+                  contentPadding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 12,
+                  ),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(10),
+                    borderSide: const BorderSide(color: AppColors.hairline),
+                  ),
+                  enabledBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(10),
+                    borderSide: const BorderSide(color: AppColors.hairline),
+                  ),
                 ),
               ),
-              const SizedBox(height: 14),
-            ],
+              const SizedBox(height: 16),
 
-            Text('Email', style: AppTextStyles.body.copyWith(fontSize: 12.5)),
-            const SizedBox(height: 6),
-            TextField(
-              controller: _email,
-              keyboardType: TextInputType.emailAddress,
-              autocorrect: false,
-              onChanged: (_) {
-                if (_error != null) setState(() => _error = null);
-              },
-              decoration: InputDecoration(
-                hintText: 'name@example.com',
-                isDense: true,
-                contentPadding:
-                    const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(10),
-                  borderSide: const BorderSide(color: AppColors.hairline),
-                ),
-                enabledBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(10),
-                  borderSide: const BorderSide(color: AppColors.hairline),
-                ),
+              Text(
+                'Access',
+                style: AppTextStyles.body.copyWith(fontSize: 12.5),
               ),
-            ),
-            const SizedBox(height: 16),
-
-            Text('Access', style: AppTextStyles.body.copyWith(fontSize: 12.5)),
-            const SizedBox(height: 2),
-            Text(
-              'At least one is required.',
-              style: AppTextStyles.caption.copyWith(fontSize: 11),
-            ),
-            const SizedBox(height: 8),
-            for (final module in kBuilderTeamModules)
-              CheckboxListTile(
-                value: _modules.contains(module.value),
-                onChanged: (checked) => setState(() {
-                  if (checked == true) {
-                    _modules.add(module.value);
-                  } else {
-                    _modules.remove(module.value);
-                  }
-                  _error = null;
-                }),
-                title: Text(
-                  module.label,
-                  style: AppTextStyles.body.copyWith(fontSize: 13),
-                ),
-                subtitle: Text(
-                  module.description,
-                  style: AppTextStyles.caption.copyWith(fontSize: 11),
-                ),
-                contentPadding: EdgeInsets.zero,
-                controlAffinity: ListTileControlAffinity.leading,
-                dense: true,
-                activeColor: AppColors.primary,
+              const SizedBox(height: 2),
+              Text(
+                'At least one is required.',
+                style: AppTextStyles.caption.copyWith(fontSize: 11),
               ),
-            const SizedBox(height: 10),
-
-            Text('Projects', style: AppTextStyles.body.copyWith(fontSize: 12.5)),
-            const SizedBox(height: 8),
-            // Hand-rolled rather than `RadioListTile`: its `groupValue`/`onChanged`
-            // pair is deprecated in favour of a `RadioGroup` ancestor, and this is
-            // the same radio row the influencer video-type picker and both status
-            // pickers already use.
-            _ScopeOption(
-              label: 'All projects',
-              description: 'Includes any project you add later.',
-              selected: _scopeAll,
-              onTap: () => setState(() {
-                _scopeAll = true;
-                _error = null;
-              }),
-            ),
-            _ScopeOption(
-              label: 'Only the projects I pick',
-              description: widget.projects.isEmpty
-                  ? 'You have no projects to pick yet.'
-                  : null,
-              selected: !_scopeAll,
-              onTap: widget.projects.isEmpty
-                  ? null
-                  : () => setState(() {
-                        _scopeAll = false;
-                        _error = null;
-                      }),
-            ),
-            if (!_scopeAll)
-              for (final project in widget.projects)
+              const SizedBox(height: 8),
+              for (final module in kBuilderTeamModules)
                 CheckboxListTile(
-                  value: _projectIds.contains(project.id),
+                  value: _modules.contains(module.value),
                   onChanged: (checked) => setState(() {
                     if (checked == true) {
-                      _projectIds.add(project.id);
+                      _modules.add(module.value);
                     } else {
-                      _projectIds.remove(project.id);
+                      _modules.remove(module.value);
                     }
                     _error = null;
                   }),
                   title: Text(
-                    project.title,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: AppTextStyles.body.copyWith(fontSize: 12.5),
+                    module.label,
+                    style: AppTextStyles.body.copyWith(fontSize: 13),
                   ),
-                  contentPadding: const EdgeInsets.only(left: 16),
+                  subtitle: Text(
+                    module.description,
+                    style: AppTextStyles.caption.copyWith(fontSize: 11),
+                  ),
+                  contentPadding: EdgeInsets.zero,
                   controlAffinity: ListTileControlAffinity.leading,
                   dense: true,
                   activeColor: AppColors.primary,
                 ),
-            const SizedBox(height: 20),
+              const SizedBox(height: 10),
 
-            Row(
-              children: [
-                Expanded(
-                  child: OutlinedButton(
-                    onPressed: () => Navigator.pop(context),
-                    child: const Text('Cancel'),
-                  ),
-                ),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: ElevatedButton(
-                    onPressed: _submit,
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: AppColors.primary,
-                      foregroundColor: Colors.white,
+              Text(
+                'Projects',
+                style: AppTextStyles.body.copyWith(fontSize: 12.5),
+              ),
+              const SizedBox(height: 8),
+              // Hand-rolled rather than `RadioListTile`: its `groupValue`/`onChanged`
+              // pair is deprecated in favour of a `RadioGroup` ancestor, and this is
+              // the same radio row the influencer video-type picker and both status
+              // pickers already use.
+              _ScopeOption(
+                label: 'All projects',
+                description: 'Includes any project you add later.',
+                selected: _scopeAll,
+                onTap: () => setState(() {
+                  _scopeAll = true;
+                  _error = null;
+                }),
+              ),
+              _ScopeOption(
+                label: 'Only the projects I pick',
+                description: widget.projects.isEmpty
+                    ? 'You have no projects to pick yet.'
+                    : null,
+                selected: !_scopeAll,
+                onTap: widget.projects.isEmpty
+                    ? null
+                    : () => setState(() {
+                        _scopeAll = false;
+                        _error = null;
+                      }),
+              ),
+              if (!_scopeAll)
+                for (final project in widget.projects)
+                  CheckboxListTile(
+                    value: _projectIds.contains(project.id),
+                    onChanged: (checked) => setState(() {
+                      if (checked == true) {
+                        _projectIds.add(project.id);
+                      } else {
+                        _projectIds.remove(project.id);
+                      }
+                      _error = null;
+                    }),
+                    title: Text(
+                      project.title,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: AppTextStyles.body.copyWith(fontSize: 12.5),
                     ),
-                    child: const Text('Send Invite'),
+                    contentPadding: const EdgeInsets.only(left: 16),
+                    controlAffinity: ListTileControlAffinity.leading,
+                    dense: true,
+                    activeColor: AppColors.primary,
                   ),
-                ),
-              ],
-            ),
+              const SizedBox(height: 20),
+
+              Row(
+                children: [
+                  Expanded(
+                    child: OutlinedButton(
+                      onPressed: () => Navigator.pop(context),
+                      child: const Text('Cancel'),
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: ElevatedButton(
+                      onPressed: _submit,
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: AppColors.primary,
+                        foregroundColor: Colors.white,
+                      ),
+                      child: const Text('Send Invite'),
+                    ),
+                  ),
+                ],
+              ),
             ],
           ),
         ),

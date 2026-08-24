@@ -79,9 +79,11 @@ class _MessagesListViewState extends State<_MessagesListView> {
     if (_query.isEmpty) return messaging.conversations;
     final q = _query.toLowerCase();
     return messaging.conversations
-        .where((c) =>
-            c.title.toLowerCase().contains(q) ||
-            c.lastMessage.toLowerCase().contains(q))
+        .where(
+          (c) =>
+              c.title.toLowerCase().contains(q) ||
+              c.lastMessage.toLowerCase().contains(q),
+        )
         .toList();
   }
 
@@ -90,9 +92,11 @@ class _MessagesListViewState extends State<_MessagesListView> {
     if (_query.isEmpty) return messaging.channels;
     final q = _query.toLowerCase();
     return messaging.channels
-        .where((c) =>
-            c.name.toLowerCase().contains(q) ||
-            (c.description ?? '').toLowerCase().contains(q))
+        .where(
+          (c) =>
+              c.name.toLowerCase().contains(q) ||
+              (c.description ?? '').toLowerCase().contains(q),
+        )
         .toList();
   }
 
@@ -116,8 +120,10 @@ class _MessagesListViewState extends State<_MessagesListView> {
       // A cold pick from the recipient search carries no property/lead
       // context, so it must be gated like the portal's own cold DMs —
       // the recipient's row starts `pending` until they accept.
-      conversationId = await MessagingService()
-          .startConversation(recipient.userId, skipRequestGate: false);
+      conversationId = await MessagingService().startConversation(
+        recipient.userId,
+        skipRequestGate: false,
+      );
     } catch (_) {
       messenger
         ..hideCurrentSnackBar()
@@ -376,7 +382,11 @@ class _MessagesListViewState extends State<_MessagesListView> {
             ),
           ],
         ),
-        child: const Icon(Icons.more_vert, size: 18, color: AppColors.textPrimary),
+        child: const Icon(
+          Icons.more_vert,
+          size: 18,
+          color: AppColors.textPrimary,
+        ),
       ),
       onSelected: (value) {
         if (value == 'blocked_users') _openBlockedUsers();

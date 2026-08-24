@@ -28,7 +28,13 @@ class _PricingStepState extends State<PricingStep> {
       (p.listingIntent == ListingIntent.rent ||
           p.listingIntent == ListingIntent.lease);
 
-  static const _lockInOptions = ['None', '3 Months', '6 Months', '1 Year', '2 Years'];
+  static const _lockInOptions = [
+    'None',
+    '3 Months',
+    '6 Months',
+    '1 Year',
+    '2 Years',
+  ];
 
   late final TextEditingController _priceController;
   late final TextEditingController _ratePerAreaController;
@@ -62,24 +68,43 @@ class _PricingStepState extends State<PricingStep> {
     _ratePerAreaController = TextEditingController(text: p.ratePerArea);
     _securityDepositController = TextEditingController(text: p.securityDeposit);
     _maintenanceController = TextEditingController(text: p.maintenanceCharges);
-    _societyChargesController =
-        TextEditingController(text: p.text('societyCharges'));
+    _societyChargesController = TextEditingController(
+      text: p.text('societyCharges'),
+    );
     _bookingAmountController = TextEditingController(text: p.bookingAmount);
     _brokerageController = TextEditingController(text: p.brokerage);
 
     _roiEstimateController = TextEditingController(text: p.text('roiEstimate'));
-    _currentRentalIncomeController = TextEditingController(text: p.text('currentRentalIncome'));
-    _leaseDurationController = TextEditingController(text: p.text('leaseDuration'));
-    _leaseEscalationController = TextEditingController(text: p.text('leaseEscalationPercent'));
+    _currentRentalIncomeController = TextEditingController(
+      text: p.text('currentRentalIncome'),
+    );
+    _leaseDurationController = TextEditingController(
+      text: p.text('leaseDuration'),
+    );
+    _leaseEscalationController = TextEditingController(
+      text: p.text('leaseEscalationPercent'),
+    );
     _camChargesController = TextEditingController(text: p.text('camCharges'));
-    _fitOutPeriodController = TextEditingController(text: p.text('fitOutPeriod'));
+    _fitOutPeriodController = TextEditingController(
+      text: p.text('fitOutPeriod'),
+    );
 
-    _monthlyRentPerBedController = TextEditingController(text: p.text('monthlyRentPerBed'));
-    _monthlyRentPerRoomController = TextEditingController(text: p.text('monthlyRentPerRoom'));
+    _monthlyRentPerBedController = TextEditingController(
+      text: p.text('monthlyRentPerBed'),
+    );
+    _monthlyRentPerRoomController = TextEditingController(
+      text: p.text('monthlyRentPerRoom'),
+    );
     _foodChargesController = TextEditingController(text: p.text('foodCharges'));
-    _laundryChargesController = TextEditingController(text: p.text('laundryCharges'));
-    _totalSalePriceController = TextEditingController(text: p.text('totalSalePrice'));
-    _occupancyRateController = TextEditingController(text: p.text('occupancyRate'));
+    _laundryChargesController = TextEditingController(
+      text: p.text('laundryCharges'),
+    );
+    _totalSalePriceController = TextEditingController(
+      text: p.text('totalSalePrice'),
+    );
+    _occupancyRateController = TextEditingController(
+      text: p.text('occupancyRate'),
+    );
   }
 
   @override
@@ -126,7 +151,9 @@ class _PricingStepState extends State<PricingStep> {
   /// Returns null for the two PG branches React gives a different control:
   /// pg/rent uses Monthly Rent Per Bed, pg/sell uses Total Sale Price.
   static String? _askingPriceLabel(
-      PropertyCategory? category, ListingIntent? intent) {
+    PropertyCategory? category,
+    ListingIntent? intent,
+  ) {
     return switch ((category, intent)) {
       (PropertyCategory.land, ListingIntent.rent) => 'Rent amount per month *',
       (PropertyCategory.land, ListingIntent.sell) => 'Asking Price*',
@@ -185,7 +212,8 @@ class _PricingStepState extends State<PricingStep> {
     final provider = context.watch<PostPropertyProvider>();
     final intent = provider.listingIntent;
     final isSell = intent == ListingIntent.sell;
-    final isRentOrLease = intent == ListingIntent.rent || intent == ListingIntent.lease;
+    final isRentOrLease =
+        intent == ListingIntent.rent || intent == ListingIntent.lease;
     final isCommercial = provider.category == PropertyCategory.commercial;
     final isPg = provider.category == PropertyCategory.pg;
 
@@ -215,117 +243,119 @@ class _PricingStepState extends State<PricingStep> {
         ),
         const SizedBox(height: 20),
         WizardCard(
-            icon: Icons.request_quote_outlined,
-            title: 'Pricing Details',
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // React renders PriceInput first in every branch.
-                _priceField(provider),
-                if (isSell && !isPg) ...[
-                  WizardField(
-                    label: 'Rate per Area',
-                    child: Row(
-                      children: [
-                        Expanded(
-                          flex: 2,
-                          child: WizardTextField(
-                            controller: _ratePerAreaController,
-                            hint: '₹0',
-                            keyboardType: TextInputType.number,
-                            onChanged: (v) {
-                              // React writes BOTH keys from this one input
-                              // (PricingStep.tsx:124): ratePerArea is the
-                              // canonical field, pricePerSqFt the mirror the
-                              // web reads on cards. Flutter wrote only the
-                              // former, so metadata.pricePerSqFt was blank on
-                              // every app-created listing.
-                              final p = context.read<PostPropertyProvider>();
-                              p.setRatePerArea(v);
-                              p.setText('pricePerSqFt', v);
-                            },
-                          ),
+          icon: Icons.request_quote_outlined,
+          title: 'Pricing Details',
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // React renders PriceInput first in every branch.
+              _priceField(provider),
+              if (isSell && !isPg) ...[
+                WizardField(
+                  label: 'Rate per Area',
+                  child: Row(
+                    children: [
+                      Expanded(
+                        flex: 2,
+                        child: WizardTextField(
+                          controller: _ratePerAreaController,
+                          hint: '₹0',
+                          keyboardType: TextInputType.number,
+                          onChanged: (v) {
+                            // React writes BOTH keys from this one input
+                            // (PricingStep.tsx:124): ratePerArea is the
+                            // canonical field, pricePerSqFt the mirror the
+                            // web reads on cards. Flutter wrote only the
+                            // former, so metadata.pricePerSqFt was blank on
+                            // every app-created listing.
+                            final p = context.read<PostPropertyProvider>();
+                            p.setRatePerArea(v);
+                            p.setText('pricePerSqFt', v);
+                          },
                         ),
-                        const SizedBox(width: 10),
-                        Expanded(child: _RateUnitDropdown(provider: provider)),
-                      ],
-                    ),
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(child: _RateUnitDropdown(provider: provider)),
+                    ],
                   ),
-                  const WizardDivider(),
-                ],
-                if (isRentOrLease) ...[
-                  WizardField(
-                    label: 'Security Deposit',
-                    child: WizardTextField(
-                      controller: _securityDepositController,
-                      hint: '₹0',
-                      keyboardType: TextInputType.number,
-                      onChanged: (v) =>
-                          context.read<PostPropertyProvider>().setSecurityDeposit(v),
-                    ),
-                  ),
-                  const WizardDivider(),
-                ],
-                // React shows "Society charges" for apartments and
-                // "Maintenance charges" for everything else EXCEPT Land and
-                // EXCEPT sell listings (propertyListingRules.ts: societyCharges
-                // applies isApartment && rent/lease; maintenanceCharges
-                // applies !isApartment && !isLand && rent/lease) — neither
-                // field exists on Land or on a sell listing at all.
-                if (_isApartmentRental(provider))
-                  WizardField(
-                    label: 'Society Charges (Monthly) *',
-                    child: WizardTextField(
-                      controller: _societyChargesController,
-                      hint: '₹0',
-                      keyboardType: TextInputType.number,
-                      onChanged: (v) => context
-                          .read<PostPropertyProvider>()
-                          .setText('societyCharges', v),
-                    ),
-                  )
-                else if (isRentOrLease &&
-                    provider.category != PropertyCategory.land)
-                  WizardField(
-                    label: 'Maintenance Charges (Monthly)',
-                    child: WizardTextField(
-                      controller: _maintenanceController,
-                      hint: '₹0',
-                      keyboardType: TextInputType.number,
-                      onChanged: (v) => context
-                          .read<PostPropertyProvider>()
-                          .setMaintenanceCharges(v),
-                    ),
-                  ),
-                // React renders <TokenAmount> in every one of its 15 branches.
-                ...[
-                  const WizardDivider(),
-                  WizardField(
-                    label: 'Booking / Token Amount',
-                    child: WizardTextField(
-                      controller: _bookingAmountController,
-                      hint: '₹0',
-                      keyboardType: TextInputType.number,
-                      onChanged: (v) =>
-                          context.read<PostPropertyProvider>().setBookingAmount(v),
-                    ),
-                  ),
-                ],
-                if (isRentOrLease) ...[
-                  const WizardDivider(),
-                  WizardField(
-                    label: 'Lock-in Period',
-                    child: WizardChipGroup(
-                      options: _lockInOptions,
-                      selected: provider.lockInPeriod,
-                      onSelected: (v) =>
-                          context.read<PostPropertyProvider>().setLockInPeriod(v),
-                    ),
-                  ),
-                ],
+                ),
+                const WizardDivider(),
               ],
-            ),
+              if (isRentOrLease) ...[
+                WizardField(
+                  label: 'Security Deposit',
+                  child: WizardTextField(
+                    controller: _securityDepositController,
+                    hint: '₹0',
+                    keyboardType: TextInputType.number,
+                    onChanged: (v) => context
+                        .read<PostPropertyProvider>()
+                        .setSecurityDeposit(v),
+                  ),
+                ),
+                const WizardDivider(),
+              ],
+              // React shows "Society charges" for apartments and
+              // "Maintenance charges" for everything else EXCEPT Land and
+              // EXCEPT sell listings (propertyListingRules.ts: societyCharges
+              // applies isApartment && rent/lease; maintenanceCharges
+              // applies !isApartment && !isLand && rent/lease) — neither
+              // field exists on Land or on a sell listing at all.
+              if (_isApartmentRental(provider))
+                WizardField(
+                  label: 'Society Charges (Monthly) *',
+                  child: WizardTextField(
+                    controller: _societyChargesController,
+                    hint: '₹0',
+                    keyboardType: TextInputType.number,
+                    onChanged: (v) => context
+                        .read<PostPropertyProvider>()
+                        .setText('societyCharges', v),
+                  ),
+                )
+              else if (isRentOrLease &&
+                  provider.category != PropertyCategory.land)
+                WizardField(
+                  label: 'Maintenance Charges (Monthly)',
+                  child: WizardTextField(
+                    controller: _maintenanceController,
+                    hint: '₹0',
+                    keyboardType: TextInputType.number,
+                    onChanged: (v) => context
+                        .read<PostPropertyProvider>()
+                        .setMaintenanceCharges(v),
+                  ),
+                ),
+              // React renders <TokenAmount> in every one of its 15 branches.
+              ...[
+                const WizardDivider(),
+                WizardField(
+                  label: 'Booking / Token Amount',
+                  child: WizardTextField(
+                    controller: _bookingAmountController,
+                    hint: '₹0',
+                    keyboardType: TextInputType.number,
+                    onChanged: (v) => context
+                        .read<PostPropertyProvider>()
+                        .setBookingAmount(v),
+                  ),
+                ),
+              ],
+              if (isRentOrLease) ...[
+                const WizardDivider(),
+                WizardField(
+                  label: 'Lock-in Period',
+                  child: WizardChipGroup(
+                    options: _lockInOptions,
+                    selected: provider.lockInPeriod,
+                    onSelected: (v) =>
+                        context.read<PostPropertyProvider>().setLockInPeriod(v),
+                  ),
+                ),
+              ],
+            ],
           ),
+        ),
         if (isCommercial && isSell) ...[
           const SizedBox(height: 20),
           WizardCard(
@@ -342,8 +372,9 @@ class _PricingStepState extends State<PricingStep> {
                         child: WizardTextField(
                           controller: _roiEstimateController,
                           hint: 'e.g., 6%',
-                          onChanged: (v) =>
-                              context.read<PostPropertyProvider>().setText('roiEstimate', v),
+                          onChanged: (v) => context
+                              .read<PostPropertyProvider>()
+                              .setText('roiEstimate', v),
                         ),
                       ),
                     ),
@@ -370,14 +401,16 @@ class _PricingStepState extends State<PricingStep> {
                     WizardCheckboxTile(
                       label: 'Currently Tenant Occupied',
                       value: provider.boolVal('tenantOccupied'),
-                      onChanged: (v) =>
-                          context.read<PostPropertyProvider>().setBoolVal('tenantOccupied', v),
+                      onChanged: (v) => context
+                          .read<PostPropertyProvider>()
+                          .setBoolVal('tenantOccupied', v),
                     ),
                     WizardCheckboxTile(
                       label: 'Lease Running',
                       value: provider.boolVal('leaseRunning'),
-                      onChanged: (v) =>
-                          context.read<PostPropertyProvider>().setBoolVal('leaseRunning', v),
+                      onChanged: (v) => context
+                          .read<PostPropertyProvider>()
+                          .setBoolVal('leaseRunning', v),
                     ),
                   ],
                 ),
@@ -435,8 +468,9 @@ class _PricingStepState extends State<PricingStep> {
                         child: WizardTextField(
                           controller: _camChargesController,
                           hint: '₹ or ₹/sq.ft',
-                          onChanged: (v) =>
-                              context.read<PostPropertyProvider>().setText('camCharges', v),
+                          onChanged: (v) => context
+                              .read<PostPropertyProvider>()
+                              .setText('camCharges', v),
                         ),
                       ),
                     ),
@@ -447,8 +481,9 @@ class _PricingStepState extends State<PricingStep> {
                         child: WizardTextField(
                           controller: _fitOutPeriodController,
                           hint: 'e.g., 1 Month',
-                          onChanged: (v) =>
-                              context.read<PostPropertyProvider>().setText('fitOutPeriod', v),
+                          onChanged: (v) => context
+                              .read<PostPropertyProvider>()
+                              .setText('fitOutPeriod', v),
                         ),
                       ),
                     ),
@@ -506,8 +541,9 @@ class _PricingStepState extends State<PricingStep> {
                           controller: _foodChargesController,
                           hint: '₹0',
                           keyboardType: TextInputType.number,
-                          onChanged: (v) =>
-                              context.read<PostPropertyProvider>().setText('foodCharges', v),
+                          onChanged: (v) => context
+                              .read<PostPropertyProvider>()
+                              .setText('foodCharges', v),
                         ),
                       ),
                     ),
@@ -542,8 +578,9 @@ class _PricingStepState extends State<PricingStep> {
                     WizardCheckboxTile(
                       label: 'Company Tie-Up Allowed',
                       value: provider.boolVal('companyTieUp'),
-                      onChanged: (v) =>
-                          context.read<PostPropertyProvider>().setBoolVal('companyTieUp', v),
+                      onChanged: (v) => context
+                          .read<PostPropertyProvider>()
+                          .setBoolVal('companyTieUp', v),
                     ),
                   ],
                 ),
@@ -582,8 +619,9 @@ class _PricingStepState extends State<PricingStep> {
                           controller: _occupancyRateController,
                           hint: 'e.g., 80',
                           keyboardType: TextInputType.number,
-                          onChanged: (v) =>
-                              context.read<PostPropertyProvider>().setText('occupancyRate', v),
+                          onChanged: (v) => context
+                              .read<PostPropertyProvider>()
+                              .setText('occupancyRate', v),
                         ),
                       ),
                     ),
@@ -597,8 +635,9 @@ class _PricingStepState extends State<PricingStep> {
                     WizardCheckboxTile(
                       label: 'Business Included',
                       value: provider.boolVal('businessIncluded'),
-                      onChanged: (v) =>
-                          context.read<PostPropertyProvider>().setBoolVal('businessIncluded', v),
+                      onChanged: (v) => context
+                          .read<PostPropertyProvider>()
+                          .setBoolVal('businessIncluded', v),
                     ),
                     WizardCheckboxTile(
                       label: 'Furniture Included',
@@ -646,8 +685,9 @@ class _PricingStepState extends State<PricingStep> {
                 WizardCheckboxTile(
                   label: 'Renewable Lease',
                   value: provider.boolVal('renewableLease'),
-                  onChanged: (v) =>
-                      context.read<PostPropertyProvider>().setBoolVal('renewableLease', v),
+                  onChanged: (v) => context
+                      .read<PostPropertyProvider>()
+                      .setBoolVal('renewableLease', v),
                 ),
                 WizardCheckboxTile(
                   label: 'Franchise Operation Allowed',
@@ -676,8 +716,9 @@ class _PricingStepState extends State<PricingStep> {
                 WizardCheckboxTile(
                   label: 'Price is Negotiable',
                   value: provider.priceNegotiable,
-                  onChanged: (v) =>
-                      context.read<PostPropertyProvider>().setPriceNegotiable(v),
+                  onChanged: (v) => context
+                      .read<PostPropertyProvider>()
+                      .setPriceNegotiable(v),
                 ),
                 WizardCheckboxTile(
                   label: 'All Inclusive Price',
@@ -698,8 +739,9 @@ class _PricingStepState extends State<PricingStep> {
                 WizardCheckboxTile(
                   label: 'Loan Available',
                   value: provider.loanAvailability,
-                  onChanged: (v) =>
-                      context.read<PostPropertyProvider>().setLoanAvailability(v),
+                  onChanged: (v) => context
+                      .read<PostPropertyProvider>()
+                      .setLoanAvailability(v),
                 ),
             ],
           ),
@@ -713,7 +755,8 @@ class _PricingStepState extends State<PricingStep> {
             child: WizardTextField(
               controller: _brokerageController,
               hint: 'e.g., 1 Month Rent or 1% of Price',
-              onChanged: (v) => context.read<PostPropertyProvider>().setBrokerage(v),
+              onChanged: (v) =>
+                  context.read<PostPropertyProvider>().setBrokerage(v),
             ),
           ),
         ),
@@ -738,8 +781,8 @@ class _RateUnitDropdown extends StatelessWidget {
     final value = stored.isNotEmpty
         ? stored
         : (provider.areaUnit.isNotEmpty
-            ? provider.areaUnit
-            : defaultAreaUnitFor(provider.category));
+              ? provider.areaUnit
+              : defaultAreaUnitFor(provider.category));
     final units = areaUnitsFor(provider.category, value);
 
     return Container(
@@ -757,7 +800,10 @@ class _RateUnitDropdown extends StatelessWidget {
               .toList(),
           onChanged: (v) {
             if (v != null) {
-              context.read<PostPropertyProvider>().setText('ratePerAreaUnit', v);
+              context.read<PostPropertyProvider>().setText(
+                'ratePerAreaUnit',
+                v,
+              );
             }
           },
         ),

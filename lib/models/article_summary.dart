@@ -37,7 +37,8 @@ class ArticleSummary {
           ? json['title'] as String
           : 'Untitled article',
       // React falls back from featured_image_url to cover_image.
-      imageUrl: (json['featured_image_url'] as String?) ??
+      imageUrl:
+          (json['featured_image_url'] as String?) ??
           (json['cover_image'] as String?),
       slug: json['slug'] as String?,
       status: json['status'] as String?,

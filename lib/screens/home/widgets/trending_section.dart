@@ -2,7 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../../../core/constants/app_constants.dart';
+import '../../../core/utils/compare_toggle_handler.dart';
 import '../../../models/property_model.dart';
+import '../../../providers/compare_provider.dart';
 import '../../../providers/property_provider.dart';
 import '../../../widgets/property_card_vertical.dart';
 import '../../../widgets/section_header.dart';
@@ -30,6 +32,7 @@ class TrendingSection extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final compareProvider = context.watch<CompareProvider>();
     return Consumer<PropertyProvider>(
       builder: (context, propertyProvider, child) {
         final trendingProperties = topTrending(propertyProvider.properties);
@@ -64,6 +67,11 @@ class TrendingSection extends StatelessWidget {
                     onFavoriteToggle: () => propertyProvider.toggleShortlist(
                       trendingProperties[index].id,
                     ),
+                    isInCompare: compareProvider.isSelected(
+                      trendingProperties[index].id,
+                    ),
+                    onCompareToggle: () =>
+                        handleCompareToggle(context, trendingProperties[index]),
                   );
                 },
               ),

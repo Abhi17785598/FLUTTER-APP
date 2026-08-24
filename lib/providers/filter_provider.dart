@@ -23,8 +23,10 @@ class FilterProvider extends ChangeNotifier {
   String? _listingType;
   List<String> _cities = [];
   String? _hashtag;
-  RangeValues _budgetRange =
-      const RangeValues(AppConstants.priceMin, AppConstants.priceMax);
+  RangeValues _budgetRange = const RangeValues(
+    AppConstants.priceMin,
+    AppConstants.priceMax,
+  );
   int? _bhk;
   String? _subtype;
   String? _postedBy;
@@ -53,14 +55,16 @@ class FilterProvider extends ChangeNotifier {
   }
 
   void setCategory(String? value) {
-    _category =
-        (value != null && validCategories.contains(value)) ? value : null;
+    _category = (value != null && validCategories.contains(value))
+        ? value
+        : null;
     notifyListeners();
   }
 
   void setListingType(String? value) {
-    _listingType =
-        (value != null && validListingTypes.contains(value)) ? value : null;
+    _listingType = (value != null && validListingTypes.contains(value))
+        ? value
+        : null;
     notifyListeners();
   }
 
@@ -128,8 +132,10 @@ class FilterProvider extends ChangeNotifier {
     _listingType = null;
     _cities = [];
     _hashtag = null;
-    _budgetRange =
-        const RangeValues(AppConstants.priceMin, AppConstants.priceMax);
+    _budgetRange = const RangeValues(
+      AppConstants.priceMin,
+      AppConstants.priceMax,
+    );
     _bhk = null;
     _subtype = null;
     _postedBy = null;

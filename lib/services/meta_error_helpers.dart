@@ -14,14 +14,14 @@ class MetaErrorAction {
 }
 
 bool isMetaBillingError(String? message) => RegExp(
-      r'payment|billing|funding|spend limit|payment method',
-      caseSensitive: false,
-    ).hasMatch(message ?? '');
+  r'payment|billing|funding|spend limit|payment method',
+  caseSensitive: false,
+).hasMatch(message ?? '');
 
 bool isMetaDevModeError(String? message) => RegExp(
-      r'development mode|must be in public|in public to create',
-      caseSensitive: false,
-    ).hasMatch(message ?? '');
+  r'development mode|must be in public|in public to create',
+  caseSensitive: false,
+).hasMatch(message ?? '');
 
 /// Meta Ads Manager's billing page for a given ad account (`act_<id>` or
 /// `<id>`).

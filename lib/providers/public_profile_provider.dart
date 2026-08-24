@@ -43,16 +43,16 @@ class PublicProfileProvider extends ChangeNotifier {
     NetworkService? networkService,
     ProfileViewService? profileViewService,
     ProfileRatingService? ratingService,
-  })  : _ratingService = ratingService ?? ProfileRatingService(),
-        _profileService = profileService ?? UserProfileService(),
-        _contentService = contentService ?? ProfileContentService(),
-        _connectionService = connectionService ?? ProfileConnectionService(),
-        // The existing NetworkService is REUSED by calling its unchanged
-        // `getAcceptedCount()`. Nothing in that file is modified.
-        _networkService = networkService ?? NetworkService(),
-        // Same for ProfileViewService: Phase 2 appended `recordView()` beside the
-        // untouched `getCount()`.
-        _profileViewService = profileViewService ?? ProfileViewService();
+  }) : _ratingService = ratingService ?? ProfileRatingService(),
+       _profileService = profileService ?? UserProfileService(),
+       _contentService = contentService ?? ProfileContentService(),
+       _connectionService = connectionService ?? ProfileConnectionService(),
+       // The existing NetworkService is REUSED by calling its unchanged
+       // `getAcceptedCount()`. Nothing in that file is modified.
+       _networkService = networkService ?? NetworkService(),
+       // Same for ProfileViewService: Phase 2 appended `recordView()` beside the
+       // untouched `getCount()`.
+       _profileViewService = profileViewService ?? ProfileViewService();
 
   final UserProfileService _profileService;
   final ProfileContentService _contentService;

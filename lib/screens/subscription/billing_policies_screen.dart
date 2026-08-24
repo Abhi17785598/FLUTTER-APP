@@ -244,7 +244,12 @@ class _PolicyCard extends StatelessWidget {
           if (open)
             Padding(
               // Indented to align with the title, past the 36 dp glyph box.
-              padding: const EdgeInsets.fromLTRB(62, 0, 14, AppConstants.spacingL),
+              padding: const EdgeInsets.fromLTRB(
+                62,
+                0,
+                14,
+                AppConstants.spacingL,
+              ),
               child: section.body != null
                   ? Text(
                       section.body!,

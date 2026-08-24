@@ -45,8 +45,7 @@ class ProfileCoverHeader extends StatelessWidget {
   static const double _kAvatarOverhang = 42;
 
   /// Total height the header occupies, including the overhang.
-  static const double totalHeight =
-      _kCoverHeight + _kAvatarOverhang + 4;
+  static const double totalHeight = _kCoverHeight + _kAvatarOverhang + 4;
 
   @override
   Widget build(BuildContext context) {
@@ -68,16 +67,22 @@ class ProfileCoverHeader extends StatelessWidget {
               width: double.infinity,
               child: (coverImageUrl == null || coverImageUrl!.isEmpty)
                   ? const DecoratedBox(
-                      decoration: BoxDecoration(gradient: AppColors.heroGradient),
+                      decoration: BoxDecoration(
+                        gradient: AppColors.heroGradient,
+                      ),
                     )
                   : CachedNetworkImage(
                       imageUrl: coverImageUrl!,
                       fit: BoxFit.cover,
                       placeholder: (_, _) => const DecoratedBox(
-                        decoration: BoxDecoration(gradient: AppColors.heroGradient),
+                        decoration: BoxDecoration(
+                          gradient: AppColors.heroGradient,
+                        ),
                       ),
                       errorWidget: (_, _, _) => const DecoratedBox(
-                        decoration: BoxDecoration(gradient: AppColors.heroGradient),
+                        decoration: BoxDecoration(
+                          gradient: AppColors.heroGradient,
+                        ),
                       ),
                     ),
             ),

@@ -15,11 +15,7 @@
 /// `booked` and `blocked` are in the CHECK constraint but land in neither bucket,
 /// so `sold + available` can be less than `total`. Carried as-is.
 class InventoryCounts {
-  const InventoryCounts({
-    this.total = 0,
-    this.sold = 0,
-    this.available = 0,
-  });
+  const InventoryCounts({this.total = 0, this.sold = 0, this.available = 0});
 
   final int total;
   final int sold;
@@ -369,7 +365,8 @@ class SiteVisitBooking {
       // unreachable in practice and exists so the field can stay non-nullable —
       // every caller sorts and formats it.
       preferredDate:
-          _date(json['preferred_date']) ?? DateTime.fromMillisecondsSinceEpoch(0),
+          _date(json['preferred_date']) ??
+          DateTime.fromMillisecondsSinceEpoch(0),
       preferredTime: _nullIfEmpty(json['preferred_time']),
       message: _nullIfEmpty(json['message']),
       status: json['status']?.toString() ?? 'pending',
@@ -420,18 +417,18 @@ String? _nullIfEmpty(Object? value) {
 }
 
 int? _int(Object? value) => switch (value) {
-      final int v => v,
-      final num v => v.toInt(),
-      final String v => int.tryParse(v),
-      _ => null,
-    };
+  final int v => v,
+  final num v => v.toInt(),
+  final String v => int.tryParse(v),
+  _ => null,
+};
 
 double _double(Object? value) => switch (value) {
-      final double v => v,
-      final num v => v.toDouble(),
-      final String v => double.tryParse(v) ?? 0,
-      _ => 0,
-    };
+  final double v => v,
+  final num v => v.toDouble(),
+  final String v => double.tryParse(v) ?? 0,
+  _ => 0,
+};
 
 List<String> _stringList(Object? value) {
   if (value is! List) return const [];

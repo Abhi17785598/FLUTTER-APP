@@ -41,16 +41,13 @@ Exception mapSendError(Object error) {
   final message = error.toString();
   final code = postgrestErrorCode(error);
 
-  if (code == 'P0001' &&
-      message.contains('sending messages too quickly')) {
+  if (code == 'P0001' && message.contains('sending messages too quickly')) {
     return const MessageSendDeniedError(
       'You are sending messages too quickly. Please slow down.',
     );
   }
   if (code == '42501') {
-    return const MessageSendDeniedError(
-      'This message could not be delivered.',
-    );
+    return const MessageSendDeniedError('This message could not be delivered.');
   }
   return Exception(message);
 }

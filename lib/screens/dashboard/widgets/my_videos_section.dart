@@ -308,16 +308,16 @@ class _Cover extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     Widget placeholder() => Container(
-          width: _kThumbSize,
-          height: _kThumbSize,
-          color: AppColors.primaryLight,
-          alignment: Alignment.center,
-          child: const Icon(
-            Icons.videocam_rounded,
-            size: 24,
-            color: AppColors.primary,
-          ),
-        );
+      width: _kThumbSize,
+      height: _kThumbSize,
+      color: AppColors.primaryLight,
+      alignment: Alignment.center,
+      child: const Icon(
+        Icons.videocam_rounded,
+        size: 24,
+        color: AppColors.primary,
+      ),
+    );
 
     return ClipRRect(
       borderRadius: BorderRadius.circular(AppConstants.imageThumbnailRadius),
@@ -383,7 +383,8 @@ class _Summary extends StatelessWidget {
               if (video.hashtags.isNotEmpty) ...[
                 const SizedBox(width: 6),
                 _Pill(
-                  label: '#${video.hashtags.first}'
+                  label:
+                      '#${video.hashtags.first}'
                       '${video.hashtags.length > 1 ? ' +${video.hashtags.length - 1}' : ''}',
                   tint: AppColors.textSecondary,
                 ),
@@ -402,10 +403,7 @@ class _Summary extends StatelessWidget {
           runSpacing: 2,
           crossAxisAlignment: WrapCrossAlignment.center,
           children: [
-            _Metric(
-              icon: Icons.visibility_outlined,
-              label: '${video.views}',
-            ),
+            _Metric(icon: Icons.visibility_outlined, label: '${video.views}'),
             _Metric(
               icon: Icons.favorite_outline_rounded,
               label: '${video.likes}',
@@ -425,8 +423,18 @@ class _Summary extends StatelessWidget {
   /// (InfluencerContentManager.tsx:205).
   static String _formatDate(DateTime dt) {
     const months = [
-      'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
-      'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
+      'Jan',
+      'Feb',
+      'Mar',
+      'Apr',
+      'May',
+      'Jun',
+      'Jul',
+      'Aug',
+      'Sep',
+      'Oct',
+      'Nov',
+      'Dec',
     ];
     return '${months[dt.month - 1]} ${dt.day}, ${dt.year}';
   }

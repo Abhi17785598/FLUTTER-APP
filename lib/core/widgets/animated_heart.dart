@@ -27,15 +27,14 @@ class _AnimatedHeartState extends State<AnimatedHeart>
     super.initState();
     _controller = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: AppConstants.heartAnimationDurationMs),
+      duration: const Duration(
+        milliseconds: AppConstants.heartAnimationDurationMs,
+      ),
     );
     _scaleAnimation = Tween<double>(
       begin: 0.0,
       end: 1.3,
-    ).animate(CurvedAnimation(
-      parent: _controller,
-      curve: Curves.elasticOut,
-    ));
+    ).animate(CurvedAnimation(parent: _controller, curve: Curves.elasticOut));
   }
 
   @override

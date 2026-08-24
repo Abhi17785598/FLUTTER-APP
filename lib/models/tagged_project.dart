@@ -69,20 +69,20 @@ class TaggedProject {
   }
 
   TaggedProject copyWith({String? builderName}) => TaggedProject(
-        id: id,
-        title: title,
-        location: location,
-        projectType: projectType,
-        status: status,
-        possessionDate: possessionDate,
-        priceRangeMin: priceRangeMin,
-        priceRangeMax: priceRangeMax,
-        logoUrl: logoUrl,
-        mediaUrls: mediaUrls,
-        otherImages: otherImages,
-        builderId: builderId,
-        builderName: builderName ?? this.builderName,
-      );
+    id: id,
+    title: title,
+    location: location,
+    projectType: projectType,
+    status: status,
+    possessionDate: possessionDate,
+    priceRangeMin: priceRangeMin,
+    priceRangeMax: priceRangeMax,
+    logoUrl: logoUrl,
+    mediaUrls: mediaUrls,
+    otherImages: otherImages,
+    builderId: builderId,
+    builderName: builderName ?? this.builderName,
+  );
 
   /// First available image, matching React's `projectThumbnail` fallback order.
   String? get thumbnail {

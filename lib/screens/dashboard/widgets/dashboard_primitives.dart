@@ -135,10 +135,7 @@ class DashboardEmptyState extends StatelessWidget {
           Text(
             message,
             textAlign: TextAlign.center,
-            style: AppTextStyles.caption.copyWith(
-              fontSize: 12.5,
-              height: 1.5,
-            ),
+            style: AppTextStyles.caption.copyWith(fontSize: 12.5, height: 1.5),
           ),
           if (hasAction) ...[
             const SizedBox(height: 18),
@@ -156,8 +153,9 @@ class DashboardEmptyState extends StatelessWidget {
                     ),
                     decoration: BoxDecoration(
                       color: AppColors.primary,
-                      borderRadius:
-                          BorderRadius.circular(AppConstants.buttonRadius),
+                      borderRadius: BorderRadius.circular(
+                        AppConstants.buttonRadius,
+                      ),
                       boxShadow: AppColors.primaryActionShadow,
                     ),
                     child: Center(

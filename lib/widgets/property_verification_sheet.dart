@@ -233,12 +233,12 @@ class _PropertyVerificationSheetState extends State<PropertyVerificationSheet> {
 
   /// The submit gate — see [canSubmitVerification].
   bool get _canSubmit => canSubmitVerification(
-        otpVerified: _otpVerified,
-        name: _nameController.text,
-        useUpid: _useUpid,
-        upid: _upidController.text,
-        propertyAddress: _addressController.text,
-      );
+    otpVerified: _otpVerified,
+    name: _nameController.text,
+    useUpid: _useUpid,
+    upid: _upidController.text,
+    propertyAddress: _addressController.text,
+  );
 
   void _startResendCooldown() {
     _resendTimer?.cancel();
@@ -345,10 +345,7 @@ class _PropertyVerificationSheetState extends State<PropertyVerificationSheet> {
       return;
     }
     if (!_useUpid && _addressController.text.trim().isEmpty) {
-      _toast(
-        'Please provide either UPID or property address',
-        isError: true,
-      );
+      _toast('Please provide either UPID or property address', isError: true);
       return;
     }
     final String name = _nameController.text.trim();
@@ -386,9 +383,7 @@ class _PropertyVerificationSheetState extends State<PropertyVerificationSheet> {
 
       if (!mounted) return;
       Navigator.of(context).maybePop();
-      _toast(
-        'Verification request submitted. We\'ll contact you soon.',
-      );
+      _toast('Verification request submitted. We\'ll contact you soon.');
     } catch (e) {
       // Portal copy, PropertyVerificationModal.tsx:313-315.
       _toast(
@@ -479,7 +474,8 @@ class _PropertyVerificationSheetState extends State<PropertyVerificationSheet> {
                           required: true,
                           controller: _upidController,
                           hint: 'Enter UPID (e.g., R0123456)',
-                          helper: 'UPID can be found on the property details '
+                          helper:
+                              'UPID can be found on the property details '
                               'page for properties listed on PropCID',
                         )
                       else
@@ -491,7 +487,8 @@ class _PropertyVerificationSheetState extends State<PropertyVerificationSheet> {
                       _field(
                         label: 'Your Inquiry',
                         controller: _inquiryController,
-                        hint: 'Describe what you want to verify about this '
+                        hint:
+                            'Describe what you want to verify about this '
                             'property...',
                         maxLines: 3,
                       ),
@@ -641,7 +638,10 @@ class _PropertyVerificationSheetState extends State<PropertyVerificationSheet> {
             const SizedBox(height: 5),
             Text(
               helper,
-              style: AppTextStyles.caption.copyWith(fontSize: 10.5, height: 1.3),
+              style: AppTextStyles.caption.copyWith(
+                fontSize: 10.5,
+                height: 1.3,
+              ),
             ),
           ],
         ],
@@ -664,10 +664,14 @@ class _PropertyVerificationSheetState extends State<PropertyVerificationSheet> {
     return Row(
       children: [
         Flexible(
-          child: Text(text, maxLines: 2, overflow: TextOverflow.ellipsis, style: style),
+          child: Text(
+            text,
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+            style: style,
+          ),
         ),
-        if (required)
-          Text(' *', style: style.copyWith(color: AppColors.error)),
+        if (required) Text(' *', style: style.copyWith(color: AppColors.error)),
       ],
     );
   }
@@ -965,8 +969,9 @@ class _PropertyVerificationSheetState extends State<PropertyVerificationSheet> {
                   decoration: BoxDecoration(
                     gradient: live ? AppColors.primaryGradient : null,
                     color: live ? null : AppColors.hairline,
-                    borderRadius:
-                        BorderRadius.circular(AppConstants.buttonRadius),
+                    borderRadius: BorderRadius.circular(
+                      AppConstants.buttonRadius,
+                    ),
                     boxShadow: live ? AppColors.primaryGlow : null,
                   ),
                   child: _submitting

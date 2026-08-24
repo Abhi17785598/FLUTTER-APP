@@ -6,10 +6,7 @@ import '../../services/influencer_campaign_service.dart';
 class InfluencerRecentCampaignsWidget extends StatelessWidget {
   final String userId;
 
-  const InfluencerRecentCampaignsWidget({
-    super.key,
-    required this.userId,
-  });
+  const InfluencerRecentCampaignsWidget({super.key, required this.userId});
 
   @override
   Widget build(BuildContext context) {
@@ -34,9 +31,7 @@ class InfluencerRecentCampaignsWidget extends StatelessWidget {
         if (videos.isEmpty) {
           return const Padding(
             padding: EdgeInsets.all(20),
-            child: Center(
-              child: Text("No videos uploaded yet"),
-            ),
+            child: Center(child: Text("No videos uploaded yet")),
           );
         }
 

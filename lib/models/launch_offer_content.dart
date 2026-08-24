@@ -38,12 +38,21 @@ class LaunchOfferContent {
   ];
 
   static const List<LaunchOfferBenefit> benefits = [
-    LaunchOfferBenefit('Unlimited Property Listings', Icons.all_inclusive_rounded),
+    LaunchOfferBenefit(
+      'Unlimited Property Listings',
+      Icons.all_inclusive_rounded,
+    ),
     LaunchOfferBenefit('Verified Business Badge', Icons.verified_rounded),
     LaunchOfferBenefit('Priority Search Visibility', Icons.trending_up_rounded),
     LaunchOfferBenefit('Featured Listings', Icons.star_rounded),
-    LaunchOfferBenefit('AI Listing Insights (Coming Soon)', Icons.auto_awesome_rounded),
-    LaunchOfferBenefit('Early Access to New Features', Icons.rocket_launch_rounded),
+    LaunchOfferBenefit(
+      'AI Listing Insights (Coming Soon)',
+      Icons.auto_awesome_rounded,
+    ),
+    LaunchOfferBenefit(
+      'Early Access to New Features',
+      Icons.rocket_launch_rounded,
+    ),
     LaunchOfferBenefit('Premium Customer Support', Icons.support_agent_rounded),
   ];
 }

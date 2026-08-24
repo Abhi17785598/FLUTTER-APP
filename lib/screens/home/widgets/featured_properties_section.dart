@@ -2,8 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../../../core/constants/app_constants.dart';
+import '../../../core/utils/compare_toggle_handler.dart';
 import '../../../core/widgets/shimmer_loader.dart';
 import '../../../models/property_model.dart';
+import '../../../providers/compare_provider.dart';
 import '../../../providers/property_provider.dart';
 import '../../../services/hot_properties_service.dart';
 import '../../../widgets/property_card_vertical.dart';
@@ -43,6 +45,7 @@ class _FeaturedPropertiesSectionState extends State<FeaturedPropertiesSection> {
 
   @override
   Widget build(BuildContext context) {
+    final compareProvider = context.watch<CompareProvider>();
     return Consumer<PropertyProvider>(
       builder: (context, propertyProvider, child) {
         return FutureBuilder<List<PropertyModel>>(
@@ -70,14 +73,16 @@ class _FeaturedPropertiesSectionState extends State<FeaturedPropertiesSection> {
                       scrollDirection: Axis.horizontal,
                       padding: const EdgeInsets.symmetric(horizontal: 16),
                       itemCount: 3,
-                      itemBuilder: (context, index) => const PropertyCardShimmer(),
+                      itemBuilder: (context, index) =>
+                          const PropertyCardShimmer(),
                     ),
                   )
                 else if (featuredProperties.isEmpty)
                   const EmptyRailPlaceholder(
                     height: AppConstants.propertyCardHeight,
                     message: 'No featured listings yet',
-                    detail: 'Our team curates featured listings — check back soon.',
+                    detail:
+                        'Our team curates featured listings — check back soon.',
                   )
                 else
                   SizedBox(
@@ -92,10 +97,18 @@ class _FeaturedPropertiesSectionState extends State<FeaturedPropertiesSection> {
                           onTap: () => Navigator.pushNamed(
                             context,
                             AppConstants.propertyDetailScreen,
-                            arguments: {'propertyId': featuredProperties[index].id},
+                            arguments: {
+                              'propertyId': featuredProperties[index].id,
+                            },
                           ),
-                          onFavoriteToggle: () => propertyProvider.toggleShortlist(
+                          onFavoriteToggle: () => propertyProvider
+                              .toggleShortlist(featuredProperties[index].id),
+                          isInCompare: compareProvider.isSelected(
                             featuredProperties[index].id,
+                          ),
+                          onCompareToggle: () => handleCompareToggle(
+                            context,
+                            featuredProperties[index],
                           ),
                         );
                       },

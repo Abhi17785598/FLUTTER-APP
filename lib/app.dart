@@ -1,11 +1,13 @@
 import 'package:flutter/material.dart';
 import 'app_navigator.dart';
 import 'core/constants/app_constants.dart';
+import 'core/navigation/current_route_notifier.dart';
 import 'core/navigation/manage_dashboard_dispatcher.dart';
 import 'core/navigation/pending_invitation_gate.dart';
 import 'core/theme/app_theme.dart';
 import 'core/animations/page_transitions.dart';
 import 'voice_agent/widgets/floating_ai_orb.dart';
+import 'widgets/compare_floating_bar.dart';
 import 'screens/splash/splash_screen.dart';
 import 'screens/auth/auth_screen.dart';
 import 'screens/auth/otp_screen.dart';
@@ -71,15 +73,20 @@ class PropertyApp extends StatelessWidget {
       debugShowCheckedModeBanner: false,
       theme: AppTheme.lightTheme,
       navigatorKey: appNavigatorKey,
+      navigatorObservers: [CurrentRouteNotifier.instance],
       home: const SplashScreen(),
-      // Inject the draggable AI orb overlay on every screen, and — wrapped
-      // around that, so it sees every screen the same way `TeamInviteGate`
-      // sees every route outside `<Routes>` — the silent pending-invitation
-      // redirect.
+      // Inject the draggable AI orb overlay and the global Compare floating
+      // bar on every screen, and — wrapped around that, so it sees every
+      // screen the same way `TeamInviteGate` sees every route outside
+      // `<Routes>` — the silent pending-invitation redirect.
       builder: (context, child) {
         return PendingInvitationGate(
           child: Stack(
-            children: [child ?? const SizedBox.shrink(), const FloatingAiOrb()],
+            children: [
+              child ?? const SizedBox.shrink(),
+              const CompareFloatingBar(),
+              const FloatingAiOrb(),
+            ],
           ),
         );
       },
@@ -441,7 +448,12 @@ class PropertyApp extends StatelessWidget {
             );
           case '/compare-properties':
             final args = settings.arguments as Map<String, dynamic>?;
+            // `settings` must be forwarded — CompareFloatingBar hides itself
+            // by matching `CurrentRouteNotifier`'s tracked route name against
+            // this route's own `settings.name`; without it that name is null
+            // and the bar never recognizes it's already on this screen.
             return PremiumPageRoute(
+              settings: settings,
               builder: (context) => ComparePropertiesScreen(
                 propertyIds: (args?['propertyIds'] as List<String>?) ?? [],
               ),

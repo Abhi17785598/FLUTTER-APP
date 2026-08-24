@@ -101,8 +101,10 @@ class _SharePropertySheetState extends State<_SharePropertySheet> {
     // keyboard-adjusted height instead — minus a fixed allowance for that
     // fixed header content above it — keeps the whole sheet within whatever
     // room is actually left.
-    final resultsMaxHeight =
-        (screenHeight - bottomInset - 220).clamp(80.0, screenHeight * 0.5);
+    final resultsMaxHeight = (screenHeight - bottomInset - 220).clamp(
+      80.0,
+      screenHeight * 0.5,
+    );
 
     return Padding(
       padding: EdgeInsets.only(bottom: bottomInset),
@@ -127,7 +129,9 @@ class _SharePropertySheetState extends State<_SharePropertySheet> {
                   height: 4,
                   decoration: BoxDecoration(
                     color: const Color(0xFFEDEDF2),
-                    borderRadius: BorderRadius.circular(AppConstants.pillRadius),
+                    borderRadius: BorderRadius.circular(
+                      AppConstants.pillRadius,
+                    ),
                   ),
                 ),
               ),
@@ -203,7 +207,10 @@ class _SharePropertySheetState extends State<_SharePropertySheet> {
                             width: 56,
                             height: 56,
                             color: AppColors.primaryLight,
-                            child: const Icon(Icons.home_work_outlined, color: AppColors.primary),
+                            child: const Icon(
+                              Icons.home_work_outlined,
+                              color: AppColors.primary,
+                            ),
                           )
                         : CachedNetworkImage(
                             imageUrl: property.imageUrl!,
@@ -214,7 +221,10 @@ class _SharePropertySheetState extends State<_SharePropertySheet> {
                               width: 56,
                               height: 56,
                               color: AppColors.primaryLight,
-                              child: const Icon(Icons.home_work_outlined, color: AppColors.primary),
+                              child: const Icon(
+                                Icons.home_work_outlined,
+                                color: AppColors.primary,
+                              ),
                             ),
                           ),
                   ),
@@ -228,7 +238,10 @@ class _SharePropertySheetState extends State<_SharePropertySheet> {
                           property.title,
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
-                          style: AppTextStyles.body.copyWith(fontSize: 13.5, fontWeight: FontWeight.w600),
+                          style: AppTextStyles.body.copyWith(
+                            fontSize: 13.5,
+                            fontWeight: FontWeight.w600,
+                          ),
                         ),
                         if (property.location != null) ...[
                           const SizedBox(height: 2),
@@ -236,7 +249,9 @@ class _SharePropertySheetState extends State<_SharePropertySheet> {
                             property.location!,
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
-                            style: AppTextStyles.caption.copyWith(fontSize: 11.5),
+                            style: AppTextStyles.caption.copyWith(
+                              fontSize: 11.5,
+                            ),
                           ),
                         ],
                         if (property.price != null) ...[

@@ -27,11 +27,13 @@ class SavedReelsService {
 
   Future<void> save(String userId, String reelId) async {
     try {
-      await _supabase.from('saved_reels').upsert(
-        {'user_id': userId, 'reel_id': reelId},
-        onConflict: 'user_id,reel_id',
-        ignoreDuplicates: true,
-      );
+      await _supabase
+          .from('saved_reels')
+          .upsert(
+            {'user_id': userId, 'reel_id': reelId},
+            onConflict: 'user_id,reel_id',
+            ignoreDuplicates: true,
+          );
     } catch (e) {
       debugPrint('SavedReelsService.save failed: $e');
       rethrow;

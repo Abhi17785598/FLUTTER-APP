@@ -4,9 +4,9 @@ import '../providers/auth_provider.dart';
 import '../services/rbac_service.dart';
 
 /// RoleGuard widget - conditionally shows/hides children based on user role
-/// 
+///
 /// Usage examples:
-/// 
+///
 /// Show only for buyers:
 /// ```dart
 /// RoleGuard(
@@ -14,7 +14,7 @@ import '../services/rbac_service.dart';
 ///   child: MyWidget(),
 /// )
 /// ```
-/// 
+///
 /// Show only for sellers:
 /// ```dart
 /// RoleGuard(
@@ -22,7 +22,7 @@ import '../services/rbac_service.dart';
 ///   child: MyWidget(),
 /// )
 /// ```
-/// 
+///
 /// Show only for builders:
 /// ```dart
 /// RoleGuard(
@@ -30,7 +30,7 @@ import '../services/rbac_service.dart';
 ///   child: MyWidget(),
 /// )
 /// ```
-/// 
+///
 /// Show for multiple roles:
 /// ```dart
 /// RoleGuard(
@@ -38,7 +38,7 @@ import '../services/rbac_service.dart';
 ///   child: MyWidget(),
 /// )
 /// ```
-/// 
+///
 /// Show fallback when not allowed:
 /// ```dart
 /// RoleGuard(
@@ -101,19 +101,11 @@ class BuyerOnly extends StatelessWidget {
   final Widget child;
   final Widget? fallback;
 
-  const BuyerOnly({
-    super.key,
-    required this.child,
-    this.fallback,
-  });
+  const BuyerOnly({super.key, required this.child, this.fallback});
 
   @override
   Widget build(BuildContext context) {
-    return RoleGuard(
-      allowedRoles: ['buyer'],
-      child: child,
-      fallback: fallback,
-    );
+    return RoleGuard(allowedRoles: ['buyer'], child: child, fallback: fallback);
   }
 }
 
@@ -122,11 +114,7 @@ class SellerOnly extends StatelessWidget {
   final Widget child;
   final Widget? fallback;
 
-  const SellerOnly({
-    super.key,
-    required this.child,
-    this.fallback,
-  });
+  const SellerOnly({super.key, required this.child, this.fallback});
 
   @override
   Widget build(BuildContext context) {
@@ -143,11 +131,7 @@ class BuilderOnly extends StatelessWidget {
   final Widget child;
   final Widget? fallback;
 
-  const BuilderOnly({
-    super.key,
-    required this.child,
-    this.fallback,
-  });
+  const BuilderOnly({super.key, required this.child, this.fallback});
 
   @override
   Widget build(BuildContext context) {
@@ -164,11 +148,7 @@ class BrokerOnly extends StatelessWidget {
   final Widget child;
   final Widget? fallback;
 
-  const BrokerOnly({
-    super.key,
-    required this.child,
-    this.fallback,
-  });
+  const BrokerOnly({super.key, required this.child, this.fallback});
 
   @override
   Widget build(BuildContext context) {
@@ -185,11 +165,7 @@ class InfluencerOnly extends StatelessWidget {
   final Widget child;
   final Widget? fallback;
 
-  const InfluencerOnly({
-    super.key,
-    required this.child,
-    this.fallback,
-  });
+  const InfluencerOnly({super.key, required this.child, this.fallback});
 
   @override
   Widget build(BuildContext context) {
@@ -205,18 +181,11 @@ class InfluencerOnly extends StatelessWidget {
 class HideFromBuyers extends StatelessWidget {
   final Widget child;
 
-  const HideFromBuyers({
-    super.key,
-    required this.child,
-  });
+  const HideFromBuyers({super.key, required this.child});
 
   @override
   Widget build(BuildContext context) {
-    return RoleGuard(
-      allowedRoles: ['buyer'],
-      child: child,
-      invert: true,
-    );
+    return RoleGuard(allowedRoles: ['buyer'], child: child, invert: true);
   }
 }
 
@@ -224,18 +193,11 @@ class HideFromBuyers extends StatelessWidget {
 class HideFromSellers extends StatelessWidget {
   final Widget child;
 
-  const HideFromSellers({
-    super.key,
-    required this.child,
-  });
+  const HideFromSellers({super.key, required this.child});
 
   @override
   Widget build(BuildContext context) {
-    return RoleGuard(
-      allowedRoles: ['seller'],
-      child: child,
-      invert: true,
-    );
+    return RoleGuard(allowedRoles: ['seller'], child: child, invert: true);
   }
 }
 
@@ -270,11 +232,7 @@ class CanPostProperty extends StatelessWidget {
   final Widget child;
   final Widget? fallback;
 
-  const CanPostProperty({
-    super.key,
-    required this.child,
-    this.fallback,
-  });
+  const CanPostProperty({super.key, required this.child, this.fallback});
 
   @override
   Widget build(BuildContext context) {
@@ -291,11 +249,7 @@ class CanManageAgency extends StatelessWidget {
   final Widget child;
   final Widget? fallback;
 
-  const CanManageAgency({
-    super.key,
-    required this.child,
-    this.fallback,
-  });
+  const CanManageAgency({super.key, required this.child, this.fallback});
 
   @override
   Widget build(BuildContext context) {

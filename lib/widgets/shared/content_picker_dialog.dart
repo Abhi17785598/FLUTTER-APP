@@ -106,10 +106,12 @@ class _ContentPickerSheetState extends State<_ContentPickerSheet> {
     if (_query.isEmpty) return widget.items;
     final q = _query.toLowerCase();
     return widget.items
-        .where((i) =>
-            i.title.toLowerCase().contains(q) ||
-            (i.subtitle ?? '').toLowerCase().contains(q) ||
-            (i.typeLabel ?? '').toLowerCase().contains(q))
+        .where(
+          (i) =>
+              i.title.toLowerCase().contains(q) ||
+              (i.subtitle ?? '').toLowerCase().contains(q) ||
+              (i.typeLabel ?? '').toLowerCase().contains(q),
+        )
         .toList();
   }
 
@@ -141,8 +143,9 @@ class _ContentPickerSheetState extends State<_ContentPickerSheet> {
                   height: 4,
                   decoration: BoxDecoration(
                     color: AppColors.hairline,
-                    borderRadius:
-                        BorderRadius.circular(AppConstants.pillRadius),
+                    borderRadius: BorderRadius.circular(
+                      AppConstants.pillRadius,
+                    ),
                   ),
                 ),
               ),
@@ -266,8 +269,7 @@ class _PickerRow extends StatelessWidget {
                           item.subtitle!,
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
-                          style:
-                              AppTextStyles.caption.copyWith(fontSize: 11.5),
+                          style: AppTextStyles.caption.copyWith(fontSize: 11.5),
                         ),
                       ],
                     ],
@@ -299,8 +301,7 @@ class _Thumb extends StatelessWidget {
     );
 
     return ClipRRect(
-      borderRadius:
-          BorderRadius.circular(AppConstants.imageThumbnailRadius),
+      borderRadius: BorderRadius.circular(AppConstants.imageThumbnailRadius),
       child: SizedBox(
         width: 48,
         height: 48,

@@ -8,55 +8,53 @@ class AppTextStyles {
   static const String fontFamily = 'Poppins';
 
   static TextStyle get heading1 => GoogleFonts.poppins(
-        fontSize: 24,
-        fontWeight: FontWeight.w700,
-        color: AppColors.textPrimary,
-      );
+    fontSize: 24,
+    fontWeight: FontWeight.w700,
+    color: AppColors.textPrimary,
+  );
 
   static TextStyle get heading2 => GoogleFonts.poppins(
-        fontSize: 18,
-        fontWeight: FontWeight.w600,
-        color: AppColors.textPrimary,
-      );
+    fontSize: 18,
+    fontWeight: FontWeight.w600,
+    color: AppColors.textPrimary,
+  );
 
   static TextStyle get heading3 => GoogleFonts.poppins(
-        fontSize: 16,
-        fontWeight: FontWeight.w600,
-        color: AppColors.textPrimary,
-      );
+    fontSize: 16,
+    fontWeight: FontWeight.w600,
+    color: AppColors.textPrimary,
+  );
 
   static TextStyle get body => GoogleFonts.poppins(
-        fontSize: 14,
-        fontWeight: FontWeight.w400,
-        color: AppColors.textPrimary,
-      );
+    fontSize: 14,
+    fontWeight: FontWeight.w400,
+    color: AppColors.textPrimary,
+  );
 
   static TextStyle get caption => GoogleFonts.poppins(
-        fontSize: 12,
-        fontWeight: FontWeight.w400,
-        color: AppColors.textSecondary,
-      );
+    fontSize: 12,
+    fontWeight: FontWeight.w400,
+    color: AppColors.textSecondary,
+  );
 
   static TextStyle get price => GoogleFonts.poppins(
-        fontSize: 22,
-        fontWeight: FontWeight.w700,
-        color: AppColors.priceColor,
-      );
+    fontSize: 22,
+    fontWeight: FontWeight.w700,
+    color: AppColors.priceColor,
+  );
 
   static TextStyle get subPrice => GoogleFonts.poppins(
-        fontSize: 12,
-        fontWeight: FontWeight.w400,
-        color: AppColors.textSecondary,
-      );
+    fontSize: 12,
+    fontWeight: FontWeight.w400,
+    color: AppColors.textSecondary,
+  );
 
   static TextStyle get button => GoogleFonts.poppins(
-        fontSize: 14,
-        fontWeight: FontWeight.w600,
-        color: Colors.white,
-      );
+    fontSize: 14,
+    fontWeight: FontWeight.w600,
+    color: Colors.white,
+  );
 
-  static TextStyle get chip => GoogleFonts.poppins(
-        fontSize: 12,
-        fontWeight: FontWeight.w500,
-      );
+  static TextStyle get chip =>
+      GoogleFonts.poppins(fontSize: 12, fontWeight: FontWeight.w500);
 }

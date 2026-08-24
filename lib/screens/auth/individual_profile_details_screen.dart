@@ -88,8 +88,9 @@ class _IndividualProfileDetailsScreenState
     final rawPhone = authUser?.phone;
     if (rawPhone != null && rawPhone.isNotEmpty) {
       final digits = rawPhone.replaceAll(RegExp(r'\D'), '');
-      phonePrefill =
-          digits.length > 10 ? digits.substring(digits.length - 10) : digits;
+      phonePrefill = digits.length > 10
+          ? digits.substring(digits.length - 10)
+          : digits;
     } else {
       final rawEmail = authUser?.email;
       if (rawEmail != null) {
@@ -179,7 +180,10 @@ class _IndividualProfileDetailsScreenState
               const SizedBox(height: 8),
               IconButton(
                 onPressed: () => Navigator.of(context).pop(),
-                icon: const Icon(Icons.arrow_back, color: AppColors.textPrimary),
+                icon: const Icon(
+                  Icons.arrow_back,
+                  color: AppColors.textPrimary,
+                ),
               ),
               const SizedBox(height: 16),
               const Text(
@@ -209,7 +213,9 @@ class _IndividualProfileDetailsScreenState
                 decoration: InputDecoration(
                   hintText: 'Your full name',
                   errorText: _nameError,
-                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
                 ),
               ),
               const SizedBox(height: 20),
@@ -229,7 +235,9 @@ class _IndividualProfileDetailsScreenState
                   counterText: '',
                   hintText: '10-digit mobile number',
                   errorText: _phoneError,
-                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
                   filled: _phoneIsLocked,
                   fillColor: Colors.grey.shade100,
                 ),
@@ -253,7 +261,9 @@ class _IndividualProfileDetailsScreenState
                 decoration: InputDecoration(
                   hintText: 'Enter your city',
                   errorText: _cityError,
-                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
                 ),
               ),
               const SizedBox(height: 28),
@@ -276,7 +286,9 @@ class _IndividualProfileDetailsScreenState
         CircleAvatar(
           radius: 40,
           backgroundColor: AppColors.primaryLight,
-          backgroundImage: _avatarUrl != null ? NetworkImage(_avatarUrl!) : null,
+          backgroundImage: _avatarUrl != null
+              ? NetworkImage(_avatarUrl!)
+              : null,
           child: _uploadingAvatar
               ? const SizedBox(
                   width: 20,
@@ -284,8 +296,8 @@ class _IndividualProfileDetailsScreenState
                   child: CircularProgressIndicator(strokeWidth: 2),
                 )
               : (_avatarUrl == null
-                  ? Icon(Icons.person, size: 40, color: AppColors.primary)
-                  : null),
+                    ? Icon(Icons.person, size: 40, color: AppColors.primary)
+                    : null),
         ),
         const SizedBox(height: 10),
         OutlinedButton.icon(

@@ -23,8 +23,9 @@ class UnifiedLeadsService {
     BrokerLeadService? leadService,
     PropertyVisitBookingService? visitService,
     SupabaseClient? client,
-  })  : _leadService = leadService ?? BrokerLeadService(client: client),
-        _visitService = visitService ?? PropertyVisitBookingService(client: client);
+  }) : _leadService = leadService ?? BrokerLeadService(client: client),
+       _visitService =
+           visitService ?? PropertyVisitBookingService(client: client);
 
   final BrokerLeadService _leadService;
   final PropertyVisitBookingService _visitService;
@@ -64,11 +65,15 @@ class UnifiedLeadsService {
 
     final total = leads.length;
     final newLeads = leads.where((l) => l.status == 'new').length;
-    final active = leads.where((l) => kActiveBrokerLeadStatuses.contains(l.status)).length;
+    final active = leads
+        .where((l) => kActiveBrokerLeadStatuses.contains(l.status))
+        .length;
     final closed = leads.where((l) => l.status == 'closed').length;
 
     final closedInquiryPropertyIds = leads
-        .where((l) => l.source == UnifiedLeadSource.inquiry && l.status == 'closed')
+        .where(
+          (l) => l.source == UnifiedLeadSource.inquiry && l.status == 'closed',
+        )
         .map((l) => l.propertyId)
         .toSet()
         .toList();

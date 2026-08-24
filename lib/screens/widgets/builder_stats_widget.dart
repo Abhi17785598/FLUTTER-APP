@@ -11,10 +11,7 @@ import '../../widgets/shared/stat_kpi_card.dart';
 class BuilderStatsWidget extends StatelessWidget {
   final BuilderDashboardModel stats;
 
-  const BuilderStatsWidget({
-    super.key,
-    required this.stats,
-  });
+  const BuilderStatsWidget({super.key, required this.stats});
 
   @override
   Widget build(BuildContext context) {

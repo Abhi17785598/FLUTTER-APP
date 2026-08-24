@@ -12,10 +12,7 @@ import '../../widgets/shared/stat_kpi_card.dart';
 class BrokerStatsWidget extends StatelessWidget {
   final BrokerDashboardModel stats;
 
-  const BrokerStatsWidget({
-    super.key,
-    required this.stats,
-  });
+  const BrokerStatsWidget({super.key, required this.stats});
 
   @override
   Widget build(BuildContext context) {

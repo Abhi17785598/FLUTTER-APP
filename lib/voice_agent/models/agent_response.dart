@@ -24,7 +24,8 @@ class AgentResponse {
       parameters: (json['parameters'] as Map<String, dynamic>?) ?? {},
       response: json['response'] as String? ?? '',
       needsConfirmation: json['needs_confirmation'] as bool? ?? false,
-      missingFields: (json['missing_fields'] as List<dynamic>?)
+      missingFields:
+          (json['missing_fields'] as List<dynamic>?)
               ?.map((e) => e.toString())
               .toList() ??
           [],

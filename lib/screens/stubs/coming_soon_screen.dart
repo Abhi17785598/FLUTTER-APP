@@ -19,11 +19,7 @@ class ComingSoonScreen extends StatelessWidget {
   /// Optional one-line explanation shown beneath the heading.
   final String? message;
 
-  const ComingSoonScreen({
-    super.key,
-    required this.title,
-    this.message,
-  });
+  const ComingSoonScreen({super.key, required this.title, this.message});
 
   @override
   Widget build(BuildContext context) {
@@ -44,7 +40,8 @@ class ComingSoonScreen extends StatelessWidget {
         child: EmptyStateView(
           icon: Icons.grid_view_rounded,
           title: '$title is coming soon',
-          message: message ??
+          message:
+              message ??
               "This section isn't available in the app yet. "
                   "We'll let you know as soon as it is.",
         ),

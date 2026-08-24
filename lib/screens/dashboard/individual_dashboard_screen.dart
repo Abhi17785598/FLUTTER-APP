@@ -360,10 +360,8 @@ class _IndividualDashboardViewState extends State<_IndividualDashboardView> {
     final refreshNeeded = await Navigator.push<bool>(
       context,
       MaterialPageRoute(
-        builder: (_) => PostPropertyScreen(
-          editPropertyId: id,
-          editBundle: bundle,
-        ),
+        builder: (_) =>
+            PostPropertyScreen(editPropertyId: id, editBundle: bundle),
       ),
     );
 
@@ -401,9 +399,9 @@ class _IndividualDashboardViewState extends State<_IndividualDashboardView> {
     try {
       await provider.deleteProperty(property.id);
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Property deleted.')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('Property deleted.')));
       }
     } catch (e) {
       if (mounted) {
@@ -424,7 +422,7 @@ class _IndividualDashboardViewState extends State<_IndividualDashboardView> {
 
 /// Re-skinned in Phase 3 to render the shared [MetricCard] so this dashboard
 /// matches the other three roles (blueprint §16.5). Values, labels, icons,
-/// accent colours and ordering are unchanged; the previous local 
+/// accent colours and ordering are unchanged; the previous local
 /// (and its entrance animation) is superseded by the shared card.
 class _StatsGrid extends StatelessWidget {
   final int listings;
@@ -548,34 +546,40 @@ class _PropertyCard extends StatelessWidget {
   final VoidCallback? onEdit;
   final VoidCallback? onDelete;
 
-  const _PropertyCard({
-    required this.property,
-    this.onEdit,
-    this.onDelete,
-  });
+  const _PropertyCard({required this.property, this.onEdit, this.onDelete});
 
   static String _formatDate(DateTime? dt) {
     if (dt == null) return '';
     const months = [
-      'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
-      'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
+      'Jan',
+      'Feb',
+      'Mar',
+      'Apr',
+      'May',
+      'Jun',
+      'Jul',
+      'Aug',
+      'Sep',
+      'Oct',
+      'Nov',
+      'Dec',
     ];
     return '${months[dt.month - 1]} ${dt.day}, ${dt.year}';
   }
 
   Color _statusColor(String? status) => switch (status) {
-        'active' => Colors.green,
-        'sold' => Colors.blue,
-        'inactive' => Colors.grey,
-        _ => Colors.amber,
-      };
+    'active' => Colors.green,
+    'sold' => Colors.blue,
+    'inactive' => Colors.grey,
+    _ => Colors.amber,
+  };
 
   String _statusLabel(String? status) => switch (status) {
-        'active' => 'Active',
-        'sold' => 'Sold',
-        'inactive' => 'Inactive',
-        _ => 'Pending',
-      };
+    'active' => 'Active',
+    'sold' => 'Sold',
+    'inactive' => 'Inactive',
+    _ => 'Pending',
+  };
 
   @override
   Widget build(BuildContext context) {
@@ -610,8 +614,7 @@ class _PropertyCard extends StatelessWidget {
         children: [
           // ── Cover image ──────────────────────────────────────────────────
           ClipRRect(
-            borderRadius:
-                const BorderRadius.vertical(top: Radius.circular(20)),
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
             child: AspectRatio(
               aspectRatio: 16 / 9,
               child: coverUrl != null
@@ -634,7 +637,9 @@ class _PropertyCard extends StatelessWidget {
                   children: [
                     Container(
                       padding: const EdgeInsets.symmetric(
-                          horizontal: 8, vertical: 3),
+                        horizontal: 8,
+                        vertical: 3,
+                      ),
                       decoration: BoxDecoration(
                         color: _BrandGradient.c2.withOpacity(0.1),
                         borderRadius: BorderRadius.circular(6),
@@ -650,7 +655,9 @@ class _PropertyCard extends StatelessWidget {
                     const SizedBox(width: 8),
                     Container(
                       padding: const EdgeInsets.symmetric(
-                          horizontal: 8, vertical: 3),
+                        horizontal: 8,
+                        vertical: 3,
+                      ),
                       decoration: BoxDecoration(
                         color: statusColor.withOpacity(0.12),
                         borderRadius: BorderRadius.circular(6),
@@ -693,9 +700,11 @@ class _PropertyCard extends StatelessWidget {
                 if (property.location.isNotEmpty)
                   Row(
                     children: [
-                      Icon(Icons.location_on_outlined,
-                          size: 14,
-                          color: scheme.onSurface.withOpacity(0.5)),
+                      Icon(
+                        Icons.location_on_outlined,
+                        size: 14,
+                        color: scheme.onSurface.withOpacity(0.5),
+                      ),
                       const SizedBox(width: 4),
                       Expanded(
                         child: Text(
@@ -715,9 +724,11 @@ class _PropertyCard extends StatelessWidget {
                   const SizedBox(height: 4),
                   Row(
                     children: [
-                      Icon(Icons.calendar_today_outlined,
-                          size: 12,
-                          color: scheme.onSurface.withOpacity(0.4)),
+                      Icon(
+                        Icons.calendar_today_outlined,
+                        size: 12,
+                        color: scheme.onSurface.withOpacity(0.4),
+                      ),
                       const SizedBox(width: 4),
                       Text(
                         _formatDate(property.createdAt),
@@ -769,8 +780,11 @@ class _PropertyCard extends StatelessWidget {
     return Container(
       color: const Color(0xFFEEECF8),
       child: const Center(
-        child: Icon(Icons.home_work_outlined,
-            size: 48, color: Color(0xFFBBB6E0)),
+        child: Icon(
+          Icons.home_work_outlined,
+          size: 48,
+          color: Color(0xFFBBB6E0),
+        ),
       ),
     );
   }

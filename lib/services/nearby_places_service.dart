@@ -148,11 +148,8 @@ class NearbyPlacesService {
 
     final List<List<_RankedPlace>> perCategoryResults = await Future.wait(
       _categories.map(
-        (category) => _searchCategory(
-          category: category,
-          latitude: lat,
-          longitude: lng,
-        ),
+        (category) =>
+            _searchCategory(category: category, latitude: lat, longitude: lng),
       ),
     );
 
@@ -246,8 +243,8 @@ class NearbyPlacesService {
             raw['displayName'] as Map<String, dynamic>?;
         final String name =
             (displayName?['text'] as String?)?.trim().isNotEmpty == true
-                ? (displayName!['text'] as String)
-                : 'Unnamed place';
+            ? (displayName!['text'] as String)
+            : 'Unnamed place';
 
         final double distanceKm = _haversineKm(
           latitude,
@@ -282,16 +279,12 @@ class NearbyPlacesService {
   }
 
   /// Straight-line (great-circle) distance between two lat/lng points, in km.
-  double _haversineKm(
-    double lat1,
-    double lon1,
-    double lat2,
-    double lon2,
-  ) {
+  double _haversineKm(double lat1, double lon1, double lat2, double lon2) {
     const double earthRadiusKm = 6371.0;
     final double dLat = _degToRad(lat2 - lat1);
     final double dLon = _degToRad(lon2 - lon1);
-    final double a = math.sin(dLat / 2) * math.sin(dLat / 2) +
+    final double a =
+        math.sin(dLat / 2) * math.sin(dLat / 2) +
         math.cos(_degToRad(lat1)) *
             math.cos(_degToRad(lat2)) *
             math.sin(dLon / 2) *

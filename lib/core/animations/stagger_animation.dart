@@ -16,7 +16,7 @@ class StaggerItem extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final delay = index * AppConstants.staggerListItemDelayMs;
-    
+
     return AnimatedBuilder(
       animation: controller,
       builder: (context, child) {
@@ -28,7 +28,7 @@ class StaggerItem extends StatelessWidget {
             curve: Curves.easeOut,
           ),
         );
-        
+
         return FadeTransition(
           opacity: animation,
           child: SlideTransition(

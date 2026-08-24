@@ -156,7 +156,10 @@ class _VisitingCardSheetState extends State<_VisitingCardSheet> {
       await Future.wait(
         urls.map(
           (url) => precacheImage(CachedNetworkImageProvider(url), context)
-              .catchError((Object e) => debugPrint('Visiting card: image preload failed: $e')),
+              .catchError(
+                (Object e) =>
+                    debugPrint('Visiting card: image preload failed: $e'),
+              ),
         ),
       ).timeout(const Duration(seconds: 8));
     } catch (e) {
@@ -169,13 +172,13 @@ class _VisitingCardSheetState extends State<_VisitingCardSheet> {
   }
 
   String get _shareMessage => profileShareMessage(
-        name: widget.displayName,
-        userType: widget.userType,
-        shareUrl: widget.shareUrl,
-        city: widget.city,
-        rating: widget.rating,
-        reviewsCount: widget.reviewsCount,
-      );
+    name: widget.displayName,
+    userType: widget.userType,
+    shareUrl: widget.shareUrl,
+    city: widget.city,
+    rating: widget.rating,
+    reviewsCount: widget.reviewsCount,
+  );
 
   String get _fileStem {
     final cleaned = widget.displayName
@@ -190,7 +193,9 @@ class _VisitingCardSheetState extends State<_VisitingCardSheet> {
       final boundary =
           _cardKey.currentContext?.findRenderObject() as RenderRepaintBoundary?;
       if (boundary == null) return null;
-      final pixelRatio = MediaQuery.of(context).devicePixelRatio.clamp(2.0, 3.0);
+      final pixelRatio = MediaQuery.of(
+        context,
+      ).devicePixelRatio.clamp(2.0, 3.0);
       final image = await boundary.toImage(pixelRatio: pixelRatio);
       final byteData = await image.toByteData(format: ui.ImageByteFormat.png);
       return byteData?.buffer.asUint8List();
@@ -247,7 +252,9 @@ class _VisitingCardSheetState extends State<_VisitingCardSheet> {
             ..hideCurrentSnackBar()
             ..showSnackBar(
               const SnackBar(
-                content: Text('Sharing failed, copied link to clipboard instead.'),
+                content: Text(
+                  'Sharing failed, copied link to clipboard instead.',
+                ),
               ),
             );
         }
@@ -277,7 +284,9 @@ class _VisitingCardSheetState extends State<_VisitingCardSheet> {
           );
       }
     } on GalException catch (e) {
-      debugPrint('Visiting card: save failed: ${e.type} ${e.platformException}');
+      debugPrint(
+        'Visiting card: save failed: ${e.type} ${e.platformException}',
+      );
       if (mounted) {
         ScaffoldMessenger.of(context)
           ..hideCurrentSnackBar()
@@ -289,7 +298,9 @@ class _VisitingCardSheetState extends State<_VisitingCardSheet> {
         ScaffoldMessenger.of(context)
           ..hideCurrentSnackBar()
           ..showSnackBar(
-            const SnackBar(content: Text("Couldn't save the card. Please try again.")),
+            const SnackBar(
+              content: Text("Couldn't save the card. Please try again."),
+            ),
           );
       }
     } finally {
@@ -356,7 +367,11 @@ class _VisitingCardSheetState extends State<_VisitingCardSheet> {
                       onTap: () => Navigator.of(context).pop(),
                       child: const Padding(
                         padding: EdgeInsets.all(4),
-                        child: Icon(Icons.close_rounded, size: 22, color: _CardPalette.textFaint),
+                        child: Icon(
+                          Icons.close_rounded,
+                          size: 22,
+                          color: _CardPalette.textFaint,
+                        ),
                       ),
                     ),
                   ),
@@ -384,7 +399,9 @@ class _VisitingCardSheetState extends State<_VisitingCardSheet> {
                 width: double.infinity,
                 height: 50,
                 child: ElevatedButton(
-                  onPressed: (_isSharing || !_imagesReady) ? null : _handleShare,
+                  onPressed: (_isSharing || !_imagesReady)
+                      ? null
+                      : _handleShare,
                   style: ElevatedButton.styleFrom(
                     backgroundColor: _CardPalette.red,
                     disabledBackgroundColor: _CardPalette.red.withOpacity(0.6),
@@ -413,7 +430,10 @@ class _VisitingCardSheetState extends State<_VisitingCardSheet> {
                                 'Share Visiting Card + Link',
                                 maxLines: 1,
                                 overflow: TextOverflow.ellipsis,
-                                style: TextStyle(fontSize: 15, fontWeight: FontWeight.w800),
+                                style: TextStyle(
+                                  fontSize: 15,
+                                  fontWeight: FontWeight.w800,
+                                ),
                               ),
                             ),
                           ],
@@ -476,7 +496,9 @@ class _OutlinedCardAction extends StatelessWidget {
         style: OutlinedButton.styleFrom(
           side: const BorderSide(color: _CardPalette.border),
           foregroundColor: _CardPalette.textBody,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(14),
+          ),
         ),
         child: isBusy
             ? const SizedBox(
@@ -494,7 +516,10 @@ class _OutlinedCardAction extends StatelessWidget {
                       label,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(fontSize: 13.5, fontWeight: FontWeight.w700),
+                      style: const TextStyle(
+                        fontSize: 13.5,
+                        fontWeight: FontWeight.w700,
+                      ),
                     ),
                   ),
                 ],
@@ -539,7 +564,11 @@ class _VisitingCardFace extends StatelessWidget {
   });
 
   String get _initials {
-    final words = name.trim().split(RegExp(r'\s+')).where((w) => w.isNotEmpty).toList();
+    final words = name
+        .trim()
+        .split(RegExp(r'\s+'))
+        .where((w) => w.isNotEmpty)
+        .toList();
     if (words.isEmpty) return 'U';
     return words.take(2).map((w) => w[0].toUpperCase()).join();
   }
@@ -608,15 +637,24 @@ class _VisitingCardFace extends StatelessWidget {
                     ),
                     if (_hasRera)
                       Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 9,
+                          vertical: 5,
+                        ),
                         decoration: BoxDecoration(
                           color: _CardPalette.emeraldSoftBg,
                           borderRadius: BorderRadius.circular(999),
-                          border: Border.all(color: _CardPalette.emeraldSoftBorder),
+                          border: Border.all(
+                            color: _CardPalette.emeraldSoftBorder,
+                          ),
                         ),
                         child: const Row(
                           children: [
-                            Icon(Icons.verified_rounded, size: 13, color: _CardPalette.emerald),
+                            Icon(
+                              Icons.verified_rounded,
+                              size: 13,
+                              color: _CardPalette.emerald,
+                            ),
                             SizedBox(width: 4),
                             Text(
                               'RERA VERIFIED',
@@ -680,7 +718,11 @@ class _VisitingCardFace extends StatelessWidget {
                         child: Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            const Icon(Icons.phone_rounded, size: 13, color: _CardPalette.red),
+                            const Icon(
+                              Icons.phone_rounded,
+                              size: 13,
+                              color: _CardPalette.red,
+                            ),
                             const SizedBox(width: 4),
                             Flexible(
                               child: Text(
@@ -788,24 +830,35 @@ class _IdentityBlock extends StatelessWidget {
                     (i) => Icon(
                       i < filledStars ? Icons.star_rounded : Icons.star_rounded,
                       size: 14,
-                      color: i < filledStars ? _CardPalette.star : _CardPalette.starEmpty,
+                      color: i < filledStars
+                          ? _CardPalette.star
+                          : _CardPalette.starEmpty,
                     ),
                   ),
                   const SizedBox(width: 4),
                   Text(
                     '(${reviewsCount ?? 0})',
-                    style: const TextStyle(fontSize: 10, color: _CardPalette.textFaint),
+                    style: const TextStyle(
+                      fontSize: 10,
+                      color: _CardPalette.textFaint,
+                    ),
                   ),
                 ],
               ),
               const SizedBox(height: 6),
               Row(
                 children: [
-                  const Icon(Icons.location_on_rounded, size: 13, color: _CardPalette.textFaint),
+                  const Icon(
+                    Icons.location_on_rounded,
+                    size: 13,
+                    color: _CardPalette.textFaint,
+                  ),
                   const SizedBox(width: 4),
                   Flexible(
                     child: Text(
-                      (city != null && city!.trim().isNotEmpty) ? city!.trim() : 'Delhi NCR',
+                      (city != null && city!.trim().isNotEmpty)
+                          ? city!.trim()
+                          : 'Delhi NCR',
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: const TextStyle(
@@ -821,7 +874,11 @@ class _IdentityBlock extends StatelessWidget {
                 const SizedBox(height: 4),
                 Row(
                   children: [
-                    const Icon(Icons.work_outline_rounded, size: 13, color: _CardPalette.textFaint),
+                    const Icon(
+                      Icons.work_outline_rounded,
+                      size: 13,
+                      color: _CardPalette.textFaint,
+                    ),
                     const SizedBox(width: 4),
                     Text(
                       '$experience+ Years Exp.',
@@ -860,7 +917,11 @@ class _Avatar extends StatelessWidget {
         borderRadius: BorderRadius.circular(10),
         border: Border.all(color: Colors.white, width: 3),
         boxShadow: [
-          BoxShadow(color: Colors.black.withOpacity(0.12), blurRadius: 6, offset: const Offset(0, 2)),
+          BoxShadow(
+            color: Colors.black.withOpacity(0.12),
+            blurRadius: 6,
+            offset: const Offset(0, 2),
+          ),
         ],
       ),
       clipBehavior: Clip.antiAlias,
@@ -911,7 +972,11 @@ class _QrBlock extends StatelessWidget {
         borderRadius: BorderRadius.circular(12),
         border: Border.all(color: _CardPalette.border),
         boxShadow: [
-          BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 8, offset: const Offset(0, 2)),
+          BoxShadow(
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
         ],
       ),
       child: Column(

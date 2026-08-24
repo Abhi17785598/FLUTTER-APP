@@ -168,7 +168,9 @@ class BuilderOverviewBody extends StatelessWidget {
             children: [
               Row(
                 children: [
-                  const Expanded(child: DashboardCardTitle('Inventory Overview')),
+                  const Expanded(
+                    child: DashboardCardTitle('Inventory Overview'),
+                  ),
                   // The portal's card is static; on mobile it doubles as the way
                   // into the Inventory tab, which saves a trip back to the pill.
                   if (_totalUnits > 0)
@@ -221,7 +223,8 @@ class BuilderOverviewBody extends StatelessWidget {
                 value: stats.totalProjects == 0
                     ? 0
                     : stats.activeProjects / stats.totalProjects,
-                caption: '${stats.activeProjects} of ${stats.totalProjects} '
+                caption:
+                    '${stats.activeProjects} of ${stats.totalProjects} '
                     'projects active',
               ),
               DashboardProgressRow(
@@ -282,8 +285,11 @@ class BuilderOverviewBody extends StatelessWidget {
         DashboardCard(
           child: Row(
             children: [
-              const Icon(Icons.groups_outlined,
-                  size: 20, color: AppColors.primary),
+              const Icon(
+                Icons.groups_outlined,
+                size: 20,
+                color: AppColors.primary,
+              ),
               const SizedBox(width: 10),
               Expanded(
                 child: Column(
@@ -306,7 +312,6 @@ class BuilderOverviewBody extends StatelessWidget {
       ],
     );
   }
-
 }
 
 /// Wraps the app's existing line chart with a loading state.
@@ -387,24 +392,37 @@ class _TopProjectRow extends StatelessWidget {
                   const SizedBox(height: 3),
                   Row(
                     children: [
-                      const Icon(Icons.visibility_outlined,
-                          size: 12, color: AppColors.textHint),
+                      const Icon(
+                        Icons.visibility_outlined,
+                        size: 12,
+                        color: AppColors.textHint,
+                      ),
                       const SizedBox(width: 3),
-                      Text('${item.views}',
-                          style: AppTextStyles.caption.copyWith(fontSize: 11)),
+                      Text(
+                        '${item.views}',
+                        style: AppTextStyles.caption.copyWith(fontSize: 11),
+                      ),
                       const SizedBox(width: 10),
-                      const Icon(Icons.favorite_outline_rounded,
-                          size: 12, color: AppColors.textHint),
+                      const Icon(
+                        Icons.favorite_outline_rounded,
+                        size: 12,
+                        color: AppColors.textHint,
+                      ),
                       const SizedBox(width: 3),
-                      Text('${item.likes}',
-                          style: AppTextStyles.caption.copyWith(fontSize: 11)),
+                      Text(
+                        '${item.likes}',
+                        style: AppTextStyles.caption.copyWith(fontSize: 11),
+                      ),
                     ],
                   ),
                 ],
               ),
             ),
-            const Icon(Icons.chevron_right_rounded,
-                size: 18, color: AppColors.textHint),
+            const Icon(
+              Icons.chevron_right_rounded,
+              size: 18,
+              color: AppColors.textHint,
+            ),
           ],
         ),
       ),

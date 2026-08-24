@@ -85,11 +85,11 @@ class SubKpiCard extends StatelessWidget {
 
   static const SliverGridDelegateWithFixedCrossAxisCount delegate =
       SliverGridDelegateWithFixedCrossAxisCount(
-    crossAxisCount: 2,
-    mainAxisSpacing: 10,
-    crossAxisSpacing: 10,
-    mainAxisExtent: cardHeight,
-  );
+        crossAxisCount: 2,
+        mainAxisSpacing: 10,
+        crossAxisSpacing: 10,
+        mainAxisExtent: cardHeight,
+      );
 
   @override
   Widget build(BuildContext context) {

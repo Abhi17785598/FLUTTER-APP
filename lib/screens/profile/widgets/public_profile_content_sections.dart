@@ -84,9 +84,12 @@ class ProfileListingsSection extends StatelessWidget {
         SectionHeader(
           title: title,
           actionLabel:
-              !isLoading && !hasFailed && _count > kInlineListingLimit && onViewAll != null
-                  ? 'View all'
-                  : null,
+              !isLoading &&
+                  !hasFailed &&
+                  _count > kInlineListingLimit &&
+                  onViewAll != null
+              ? 'View all'
+              : null,
           onActionTap: onViewAll,
         ),
         Padding(
@@ -116,9 +119,7 @@ class ProfileListingsSection extends StatelessWidget {
 
     if (_count == 0) {
       return EmptyStateView(
-        icon: _showsProjects
-            ? Icons.domain_rounded
-            : Icons.apartment_rounded,
+        icon: _showsProjects ? Icons.domain_rounded : Icons.apartment_rounded,
         title: _showsProjects ? 'No projects yet' : 'No listings yet',
         message: _showsProjects
             ? "$displayName hasn't published any projects."
@@ -254,8 +255,9 @@ class _ProjectRow extends StatelessWidget {
                               project.location,
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
-                              style: AppTextStyles.caption
-                                  .copyWith(fontSize: 12),
+                              style: AppTextStyles.caption.copyWith(
+                                fontSize: 12,
+                              ),
                             ),
                           ),
                         ],
@@ -351,7 +353,8 @@ class ProfileReviewsSection extends StatelessWidget {
         // As above: the header pads itself; the body is padded below.
         SectionHeader(
           title: 'Reviews',
-          actionLabel: !isLoading &&
+          actionLabel:
+              !isLoading &&
                   !hasFailed &&
                   ratings.reviews.length > kInlineReviewLimit &&
                   onViewAll != null
@@ -452,7 +455,8 @@ class RatingSummaryCard extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Semantics(
-                      label: '${summary.average.toStringAsFixed(1)} out of 5, '
+                      label:
+                          '${summary.average.toStringAsFixed(1)} out of 5, '
                           '${summary.count} reviews',
                       child: ExcludeSemantics(
                         // FittedBox(scaleDown), following the same precedent
@@ -484,8 +488,9 @@ class RatingSummaryCard extends StatelessWidget {
                                 child: Text(
                                   '/5',
                                   maxLines: 1,
-                                  style: AppTextStyles.caption
-                                      .copyWith(fontSize: 12),
+                                  style: AppTextStyles.caption.copyWith(
+                                    fontSize: 12,
+                                  ),
                                 ),
                               ),
                             ],
@@ -514,8 +519,8 @@ class RatingSummaryCard extends StatelessWidget {
                         count: ratings.distribution[star] ?? 0,
                         peak: ratings.distributionPeak,
                         // 60 ms per row, top bar first.
-                        delayMs: (5 - star) *
-                            AppConstants.staggerListItemDelayMs,
+                        delayMs:
+                            (5 - star) * AppConstants.staggerListItemDelayMs,
                       ),
                     ],
                   ],
@@ -580,7 +585,8 @@ class RatingDistributionBar extends StatelessWidget {
     final reduceMotion = MediaQuery.disableAnimationsOf(context);
 
     return Semantics(
-      label: '$star ${star == 1 ? 'star' : 'stars'}, $count '
+      label:
+          '$star ${star == 1 ? 'star' : 'stars'}, $count '
           '${count == 1 ? 'review' : 'reviews'}',
       child: ExcludeSemantics(
         child: Row(
@@ -593,11 +599,7 @@ class RatingDistributionBar extends StatelessWidget {
               ),
             ),
             const SizedBox(width: 3),
-            const Icon(
-              Icons.star_rounded,
-              size: 10,
-              color: AppColors.warning,
-            ),
+            const Icon(Icons.star_rounded, size: 10, color: AppColors.warning),
             const SizedBox(width: 6),
             Expanded(
               child: ClipRRect(
@@ -620,8 +622,7 @@ class RatingDistributionBar extends StatelessWidget {
                           tween: Tween(begin: 0, end: fraction),
                           duration: Duration(milliseconds: 600 + delayMs),
                           curve: Curves.easeOutCubic,
-                          builder: (context, value, _) =>
-                              FractionallySizedBox(
+                          builder: (context, value, _) => FractionallySizedBox(
                             alignment: Alignment.centerLeft,
                             widthFactor: value,
                             child: const ColoredBox(color: AppColors.primary),

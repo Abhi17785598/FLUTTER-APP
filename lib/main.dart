@@ -12,6 +12,7 @@ import 'providers/notification_provider.dart';
 import 'providers/property_provider.dart';
 import 'providers/filter_provider.dart';
 import 'providers/shortlist_provider.dart';
+import 'providers/compare_provider.dart';
 import 'providers/auth_provider.dart';
 import 'providers/reels_provider.dart';
 import 'providers/projects_provider.dart';
@@ -24,7 +25,6 @@ import 'voice_agent/tools/property_tools.dart';
 import 'voice_agent/tools/profile_tools.dart';
 import 'voice_agent/tools/favorites_tool.dart';
 import 'voice_agent/tools/utility_tools.dart';
-
 
 void _registerVoiceAgentTools() {
   registerNavigationTool();
@@ -61,6 +61,7 @@ Future<void> main() async {
         ChangeNotifierProvider(create: (_) => PropertyProvider()),
         ChangeNotifierProvider(create: (_) => FilterProvider()),
         ChangeNotifierProvider(create: (_) => ShortlistProvider()),
+        ChangeNotifierProvider(create: (_) => CompareProvider()),
         ChangeNotifierProvider(create: (_) => ReelsProvider()),
         ChangeNotifierProvider(create: (_) => ProjectsProvider()),
         ChangeNotifierProvider(create: (_) => AvailableLocationsProvider()),
@@ -85,8 +86,8 @@ Future<void> main() async {
         // id, so the repeated `update` calls a rebuild causes are no-ops.
         ChangeNotifierProxyProvider<AuthProvider, NotificationProvider>(
           create: (_) => NotificationProvider(),
-          update: (ctx, auth, prev) => (prev ?? NotificationProvider())
-            ..load(auth.userId),
+          update: (ctx, auth, prev) =>
+              (prev ?? NotificationProvider())..load(auth.userId),
         ),
       ],
       child: const PropertyApp(),

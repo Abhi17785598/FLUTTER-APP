@@ -31,7 +31,10 @@ const List<ProjectOption> kProjectTypes = [
   ProjectOption('plotted_development', 'Plotted Development'),
   ProjectOption('group_housing', 'Group Housing'),
   ProjectOption('integrated_township', 'Integrated Township'),
-  ProjectOption('gated_community_plots_villas', 'Gated Community with Plots/Villas'),
+  ProjectOption(
+    'gated_community_plots_villas',
+    'Gated Community with Plots/Villas',
+  ),
   ProjectOption('farm_houses', 'Farm Houses'),
   ProjectOption('service_apartment', 'Service Apartments'),
   ProjectOption('commercial_spaces', 'Commercial Spaces'),
@@ -112,36 +115,44 @@ bool isValidProjectStatus(String? value) =>
 // is a free `VARCHAR(100)`, so unlike [kProjectTypes] nothing here is validated
 // against the database.
 List<String> unitTypeOptionsFor(String projectType) => switch (projectType) {
-      'group_housing' ||
-      'service_apartment' =>
-        const ['Studio', '1 BHK', '2 BHK', '3 BHK', '4 BHK', '5 BHK', 'Duplex', 'Penthouse'],
-      'plotted_development' ||
-      'gated_community_plots_villas' =>
-        const ['Residential Plot', 'Villa Plot', 'Corner Plot', 'Park Facing Plot'],
-      'farm_houses' => const ['Farm House', 'Farm Land', 'Agricultural Plot'],
-      'commercial_spaces' ||
-      'office_spaces' =>
-        const [
-          'Office Space',
-          'Shop',
-          'Showroom',
-          'Warehouse',
-          'Co-working Space',
-          'Food Court',
-          'Retail Space',
-        ],
-      'integrated_township' => const [
-          'Studio',
-          '1 BHK',
-          '2 BHK',
-          '3 BHK',
-          '4 BHK',
-          'Villa',
-          'Plot',
-          'Commercial Space',
-        ],
-      _ => const ['Unit'],
-    };
+  'group_housing' || 'service_apartment' => const [
+    'Studio',
+    '1 BHK',
+    '2 BHK',
+    '3 BHK',
+    '4 BHK',
+    '5 BHK',
+    'Duplex',
+    'Penthouse',
+  ],
+  'plotted_development' || 'gated_community_plots_villas' => const [
+    'Residential Plot',
+    'Villa Plot',
+    'Corner Plot',
+    'Park Facing Plot',
+  ],
+  'farm_houses' => const ['Farm House', 'Farm Land', 'Agricultural Plot'],
+  'commercial_spaces' || 'office_spaces' => const [
+    'Office Space',
+    'Shop',
+    'Showroom',
+    'Warehouse',
+    'Co-working Space',
+    'Food Court',
+    'Retail Space',
+  ],
+  'integrated_township' => const [
+    'Studio',
+    '1 BHK',
+    '2 BHK',
+    '3 BHK',
+    '4 BHK',
+    'Villa',
+    'Plot',
+    'Commercial Space',
+  ],
+  _ => const ['Unit'],
+};
 
 /// `InventoryTableEditor.tsx:72-74`'s `plotTypes`/`isPlotType` — a plot has no
 /// floor, so [ManageUnitsScreen] hides that field for these unit types rather

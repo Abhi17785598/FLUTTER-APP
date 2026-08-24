@@ -82,8 +82,9 @@ class _IndividualUsernamePasswordScreenState
   // BuilderRegistration.tsx:493-528) verbatim, so "unique username" means the
   // same thing for every account type. ───────────────────────────────────
   void _onUsernameChanged(String value) {
-    final cleaned =
-        value.replaceAll(RegExp(r'[^a-zA-Z0-9_]'), '').toLowerCase();
+    final cleaned = value
+        .replaceAll(RegExp(r'[^a-zA-Z0-9_]'), '')
+        .toLowerCase();
     if (cleaned != value) {
       _usernameCtrl.value = TextEditingValue(
         text: cleaned,
@@ -100,8 +101,10 @@ class _IndividualUsernamePasswordScreenState
       });
       return;
     }
-    _usernameDebounce =
-        Timer(const Duration(milliseconds: 500), () => _checkUsername(cleaned));
+    _usernameDebounce = Timer(
+      const Duration(milliseconds: 500),
+      () => _checkUsername(cleaned),
+    );
     setState(() {});
   }
 
@@ -146,7 +149,9 @@ class _IndividualUsernamePasswordScreenState
           ? 'Please confirm your password.'
           : (password != confirm ? 'Passwords do not match.' : null);
     });
-    if (_usernameError != null || _passwordError != null || _confirmError != null) {
+    if (_usernameError != null ||
+        _passwordError != null ||
+        _confirmError != null) {
       return;
     }
 
@@ -156,15 +161,18 @@ class _IndividualUsernamePasswordScreenState
         UserAttributes(password: password),
       );
 
-      await Supabase.instance.client.from('profiles').update({
-        'display_name': widget.name,
-        'user_type': 'individual',
-        'profile_complete': true,
-        'phone': '+91${widget.phoneDigits}',
-        'city': widget.city,
-        'username': username,
-        if (widget.avatarUrl != null) 'avatar_url': widget.avatarUrl,
-      }).eq('user_id', widget.userId);
+      await Supabase.instance.client
+          .from('profiles')
+          .update({
+            'display_name': widget.name,
+            'user_type': 'individual',
+            'profile_complete': true,
+            'phone': '+91${widget.phoneDigits}',
+            'city': widget.city,
+            'username': username,
+            if (widget.avatarUrl != null) 'avatar_url': widget.avatarUrl,
+          })
+          .eq('user_id', widget.userId);
 
       final prefs = await SharedPreferences.getInstance();
       await prefs.remove('pending_user_type');
@@ -207,8 +215,7 @@ class _IndividualUsernamePasswordScreenState
                   onPressed: () async {
                     await context.read<AuthProvider>().logout();
                     if (!context.mounted) return;
-                    Navigator.of(context)
-                        .popUntil((route) => route.isFirst);
+                    Navigator.of(context).popUntil((route) => route.isFirst);
                   },
                   icon: const Icon(Icons.logout, size: 16),
                   label: const Text('Logout'),
@@ -253,7 +260,10 @@ class _IndividualUsernamePasswordScreenState
                     Row(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        const Icon(Icons.lock_outline, color: AppColors.primary),
+                        const Icon(
+                          Icons.lock_outline,
+                          color: AppColors.primary,
+                        ),
                         const SizedBox(width: 8),
                         const Text(
                           'Set Username & Password',
@@ -276,7 +286,10 @@ class _IndividualUsernamePasswordScreenState
                       alignment: Alignment.centerLeft,
                       child: Text(
                         'Choose Unique Username *',
-                        style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
+                        style: TextStyle(
+                          fontWeight: FontWeight.w600,
+                          fontSize: 13,
+                        ),
                       ),
                     ),
                     const SizedBox(height: 8),
@@ -294,10 +307,13 @@ class _IndividualUsernamePasswordScreenState
                         ),
                         suffixIcon: _usernameCtrl.text.trim().length >= 3
                             ? (_usernameTaken
-                                ? const Icon(Icons.close, color: Colors.red)
-                                : (_usernameAvailable == true
-                                    ? const Icon(Icons.check, color: Colors.green)
-                                    : null))
+                                  ? const Icon(Icons.close, color: Colors.red)
+                                  : (_usernameAvailable == true
+                                        ? const Icon(
+                                            Icons.check,
+                                            color: Colors.green,
+                                          )
+                                        : null))
                             : null,
                       ),
                     ),
@@ -314,7 +330,10 @@ class _IndividualUsernamePasswordScreenState
                       alignment: Alignment.centerLeft,
                       child: Text(
                         'Set Password *',
-                        style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
+                        style: TextStyle(
+                          fontWeight: FontWeight.w600,
+                          fontSize: 13,
+                        ),
                       ),
                     ),
                     const SizedBox(height: 8),
@@ -337,8 +356,9 @@ class _IndividualUsernamePasswordScreenState
                                 : Icons.visibility,
                             size: 20,
                           ),
-                          onPressed: () =>
-                              setState(() => _passwordsVisible = !_passwordsVisible),
+                          onPressed: () => setState(
+                            () => _passwordsVisible = !_passwordsVisible,
+                          ),
                         ),
                       ),
                     ),
@@ -347,7 +367,10 @@ class _IndividualUsernamePasswordScreenState
                       alignment: Alignment.centerLeft,
                       child: Text(
                         'Confirm Password *',
-                        style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
+                        style: TextStyle(
+                          fontWeight: FontWeight.w600,
+                          fontSize: 13,
+                        ),
                       ),
                     ),
                     const SizedBox(height: 8),
@@ -370,8 +393,9 @@ class _IndividualUsernamePasswordScreenState
                                 : Icons.visibility,
                             size: 20,
                           ),
-                          onPressed: () =>
-                              setState(() => _passwordsVisible = !_passwordsVisible),
+                          onPressed: () => setState(
+                            () => _passwordsVisible = !_passwordsVisible,
+                          ),
                         ),
                       ),
                     ),
@@ -379,10 +403,13 @@ class _IndividualUsernamePasswordScreenState
                     // Shows/hides both password fields at once — a single
                     // combined toggle alongside the per-field eye icons.
                     OutlinedButton.icon(
-                      onPressed: () =>
-                          setState(() => _passwordsVisible = !_passwordsVisible),
+                      onPressed: () => setState(
+                        () => _passwordsVisible = !_passwordsVisible,
+                      ),
                       icon: Icon(
-                        _passwordsVisible ? Icons.visibility_off : Icons.visibility,
+                        _passwordsVisible
+                            ? Icons.visibility_off
+                            : Icons.visibility,
                         size: 18,
                       ),
                       label: Text(_passwordsVisible ? 'Hide' : 'Preview'),
@@ -422,9 +449,10 @@ class _IndividualUsernamePasswordScreenState
                                       height: 20,
                                       child: CircularProgressIndicator(
                                         strokeWidth: 2,
-                                        valueColor: AlwaysStoppedAnimation<Color>(
-                                          Colors.white,
-                                        ),
+                                        valueColor:
+                                            AlwaysStoppedAnimation<Color>(
+                                              Colors.white,
+                                            ),
                                       ),
                                     )
                                   : const Text(
@@ -442,7 +470,9 @@ class _IndividualUsernamePasswordScreenState
                     ),
                     const SizedBox(height: 12),
                     TextButton.icon(
-                      onPressed: _isSaving ? null : () => Navigator.of(context).pop(),
+                      onPressed: _isSaving
+                          ? null
+                          : () => Navigator.of(context).pop(),
                       icon: const Icon(Icons.arrow_back, size: 16),
                       label: const Text('Back'),
                     ),

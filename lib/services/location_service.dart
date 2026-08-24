@@ -19,10 +19,10 @@ class LocationResult {
   final LocationFailureReason? failureReason;
 
   const LocationResult.success(this.latitude, this.longitude)
-      : failureReason = null;
+    : failureReason = null;
   const LocationResult.failure(this.failureReason)
-      : latitude = null,
-        longitude = null;
+    : latitude = null,
+      longitude = null;
 
   bool get isSuccess => failureReason == null;
 }
@@ -32,7 +32,8 @@ class LocationService {
     final bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
     if (!serviceEnabled) {
       return const LocationResult.failure(
-          LocationFailureReason.servicesDisabled);
+        LocationFailureReason.servicesDisabled,
+      );
     }
 
     LocationPermission permission = await Geolocator.checkPermission();
@@ -42,11 +43,13 @@ class LocationService {
 
     if (permission == LocationPermission.denied) {
       return const LocationResult.failure(
-          LocationFailureReason.permissionDenied);
+        LocationFailureReason.permissionDenied,
+      );
     }
     if (permission == LocationPermission.deniedForever) {
       return const LocationResult.failure(
-          LocationFailureReason.permissionDeniedForever);
+        LocationFailureReason.permissionDeniedForever,
+      );
     }
 
     try {

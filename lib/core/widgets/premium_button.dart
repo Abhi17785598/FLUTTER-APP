@@ -50,10 +50,7 @@ class PremiumButton extends StatelessWidget {
                       Icon(icon, size: 18, color: Colors.white),
                       const SizedBox(width: 8),
                     ],
-                    Text(
-                      label,
-                      style: AppTextStyles.button,
-                    ),
+                    Text(label, style: AppTextStyles.button),
                   ],
                 ),
         ),

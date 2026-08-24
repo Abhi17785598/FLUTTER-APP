@@ -47,7 +47,7 @@ import '../models/user_profile.dart';
 
 class PeopleSearchService {
   PeopleSearchService({SupabaseClient? client})
-      : _supabase = client ?? Supabase.instance.client;
+    : _supabase = client ?? Supabase.instance.client;
 
   final SupabaseClient _supabase;
 

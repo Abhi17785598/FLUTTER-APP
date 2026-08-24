@@ -412,7 +412,9 @@ Personalisation rules:
 // ─── AUTONOMOUS MODE ──────────────────────────────────────────────────────────
 
 String _buildAutonomousSection() {
-  final confirmList = AiConfig.alwaysConfirmIntents.map((i) => i.name).join(', ');
+  final confirmList = AiConfig.alwaysConfirmIntents
+      .map((i) => i.name)
+      .join(', ');
   final confirmClause = confirmList.isNotEmpty
       ? 'The ONLY exceptions are these irreversible intents, which MUST set "needs_confirmation": true and speak a short yes/no question: $confirmList.'
       : 'There are NO exceptions — every action, including destructive ones, executes immediately.';

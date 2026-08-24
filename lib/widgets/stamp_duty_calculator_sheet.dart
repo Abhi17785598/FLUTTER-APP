@@ -80,8 +80,9 @@ class _StampDutySheet extends StatefulWidget {
 
 class _StampDutySheetState extends State<_StampDutySheet> {
   // Same seed as the portal (StampDutyCalculator.tsx:34-36).
-  final TextEditingController _valueController =
-      TextEditingController(text: '5000000');
+  final TextEditingController _valueController = TextEditingController(
+    text: '5000000',
+  );
   String _state = 'maharashtra';
   String _gender = 'male';
 
@@ -158,25 +159,24 @@ class _StampDutySheetState extends State<_StampDutySheet> {
                     fontWeight: FontWeight.w600,
                   ),
                   onChanged: (_) => setState(() {}),
-                  decoration: sheetFieldDecoration(
-                    hint: 'Enter property value',
-                  ).copyWith(
-                    prefixIcon: const Padding(
-                      padding: EdgeInsets.only(left: 14, right: 8),
-                      child: Text(
-                        '₹',
-                        style: TextStyle(
-                          fontSize: 15,
-                          fontWeight: FontWeight.w700,
-                          color: AppColors.textSecondary,
+                  decoration: sheetFieldDecoration(hint: 'Enter property value')
+                      .copyWith(
+                        prefixIcon: const Padding(
+                          padding: EdgeInsets.only(left: 14, right: 8),
+                          child: Text(
+                            '₹',
+                            style: TextStyle(
+                              fontSize: 15,
+                              fontWeight: FontWeight.w700,
+                              color: AppColors.textSecondary,
+                            ),
+                          ),
+                        ),
+                        prefixIconConstraints: const BoxConstraints(
+                          minWidth: 0,
+                          minHeight: 0,
                         ),
                       ),
-                    ),
-                    prefixIconConstraints: const BoxConstraints(
-                      minWidth: 0,
-                      minHeight: 0,
-                    ),
-                  ),
                 ),
                 const SizedBox(height: AppConstants.spacingL),
 
@@ -233,13 +233,13 @@ class _StampDutySheetState extends State<_StampDutySheet> {
   }
 
   Widget _label(String text) => Text(
-        text,
-        style: AppTextStyles.body.copyWith(
-          fontSize: 13,
-          fontWeight: FontWeight.w700,
-          color: AppColors.textSecondary,
-        ),
-      );
+    text,
+    style: AppTextStyles.body.copyWith(
+      fontSize: 13,
+      fontWeight: FontWeight.w700,
+      color: AppColors.textSecondary,
+    ),
+  );
 
   /// Several states charge women a lower rate, so this changes the number — it is
   /// a rate input, not a demographic question, and the sub-card label spells out

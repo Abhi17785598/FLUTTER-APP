@@ -51,9 +51,9 @@ class ArticleService {
           .order('created_at', ascending: false)
           .limit(10);
 
-      return List<Map<String, dynamic>>.from(rows as List)
-          .map(ArticleSummary.fromSupabase)
-          .toList();
+      return List<Map<String, dynamic>>.from(
+        rows as List,
+      ).map(ArticleSummary.fromSupabase).toList();
     } catch (e) {
       debugPrint('ArticleService.listOwn failed: $e');
       rethrow;
@@ -190,13 +190,14 @@ class ArticleService {
         userType: userType,
       );
 
-      payload.addAll(_statusFields(
-        isAdmin: isAdmin,
-        submitForReview: submitForReview,
-      ));
+      payload.addAll(
+        _statusFields(isAdmin: isAdmin, submitForReview: submitForReview),
+      );
 
-      final rows =
-          await _supabase.from('cms_posts').insert(payload).select('id');
+      final rows = await _supabase
+          .from('cms_posts')
+          .insert(payload)
+          .select('id');
 
       final inserted = List<Map<String, dynamic>>.from(rows as List);
       if (inserted.isEmpty) {
@@ -257,10 +258,7 @@ class ArticleService {
       );
 
       if (submitForReview) {
-        payload.addAll(_statusFields(
-          isAdmin: isAdmin,
-          submitForReview: true,
-        ));
+        payload.addAll(_statusFields(isAdmin: isAdmin, submitForReview: true));
       }
 
       await _supabase.from('cms_posts').update(payload).eq('id', id);
@@ -283,8 +281,7 @@ class ArticleService {
     return {
       'approval_status': isAdmin ? 'approved' : 'pending',
       'status': isAdmin ? 'published' : 'draft',
-      'published_at':
-          isAdmin ? DateTime.now().toUtc().toIso8601String() : null,
+      'published_at': isAdmin ? DateTime.now().toUtc().toIso8601String() : null,
       'is_featured': false,
     };
   }

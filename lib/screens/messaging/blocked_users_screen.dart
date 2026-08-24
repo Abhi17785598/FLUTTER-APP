@@ -124,7 +124,10 @@ class _BlockedUsersScreenState extends State<BlockedUsersScreen> {
           ),
           title: Text(
             person.displayName,
-            style: AppTextStyles.body.copyWith(fontSize: 14, fontWeight: FontWeight.w600),
+            style: AppTextStyles.body.copyWith(
+              fontSize: 14,
+              fontWeight: FontWeight.w600,
+            ),
           ),
           trailing: OutlinedButton(
             onPressed: busy ? null : () => _unblock(person),

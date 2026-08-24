@@ -48,7 +48,14 @@ class _BrandGradient {
 ///
 /// Its own enum, like the builder's and the broker's, so the shared
 /// `DashboardTabSelector` keeps serving Individual unchanged.
-enum InfluencerSection { analytics, content, leads, visits, audience, collaboration }
+enum InfluencerSection {
+  analytics,
+  content,
+  leads,
+  visits,
+  audience,
+  collaboration,
+}
 
 /// Six labels over the app's existing segmented pill.
 class InfluencerSectionSelector extends StatelessWidget {
@@ -107,7 +114,8 @@ class _InfluencerDashboardView extends StatefulWidget {
   const _InfluencerDashboardView();
 
   @override
-  State<_InfluencerDashboardView> createState() => _InfluencerDashboardViewState();
+  State<_InfluencerDashboardView> createState() =>
+      _InfluencerDashboardViewState();
 }
 
 class _InfluencerDashboardViewState extends State<_InfluencerDashboardView> {
@@ -379,9 +387,9 @@ class _InfluencerDashboardViewState extends State<_InfluencerDashboardView> {
           const SizedBox(height: 16),
           Text(
             "Loading your dashboard...",
-            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                  color: Colors.grey.shade600,
-                ),
+            style: Theme.of(
+              context,
+            ).textTheme.bodyMedium?.copyWith(color: Colors.grey.shade600),
           ),
         ],
       ),
@@ -448,12 +456,18 @@ class _InfluencerDashboardViewState extends State<_InfluencerDashboardView> {
                 style: FilledButton.styleFrom(
                   backgroundColor: Colors.transparent,
                   shadowColor: Colors.transparent,
-                  padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 14),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 22,
+                    vertical: 14,
+                  ),
                 ),
                 icon: const Icon(Icons.refresh_rounded, color: Colors.white),
                 label: const Text(
                   "Retry",
-                  style: TextStyle(color: Colors.white, fontWeight: FontWeight.w700),
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.w700,
+                  ),
                 ),
               ),
             ),

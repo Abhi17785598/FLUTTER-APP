@@ -83,16 +83,12 @@ class ArticleEditorProvider extends ChangeNotifier {
 
   /// Admins publish immediately; everyone else submits for review. The backend
   /// has no user-facing publish path, so the label must not promise one.
-  String get primaryActionLabel =>
-      isAdmin ? 'Publish' : 'Submit for Review';
+  String get primaryActionLabel => isAdmin ? 'Publish' : 'Submit for Review';
 
   int get readTime => estimateReadTime(body);
 
-  List<String> get parsedTags => tags
-      .split(',')
-      .map((t) => t.trim())
-      .where((t) => t.isNotEmpty)
-      .toList();
+  List<String> get parsedTags =>
+      tags.split(',').map((t) => t.trim()).where((t) => t.isNotEmpty).toList();
 
   /// Mirrors the web form's submit guard: title, brief, content and category
   /// are all required.

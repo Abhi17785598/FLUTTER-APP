@@ -47,9 +47,14 @@ String buildLeadsCsv(
   String escape(String v) => '"${v.replaceAll('"', '""')}"';
 
   final rows = <String>[
-    ['Name', 'Email', 'Phone', 'Campaign', 'Status', 'Received']
-        .map(escape)
-        .join(','),
+    [
+      'Name',
+      'Email',
+      'Phone',
+      'Campaign',
+      'Status',
+      'Received',
+    ].map(escape).join(','),
     for (final l in leads)
       [
         l.fullName ?? '',
@@ -133,14 +138,16 @@ class _LeadsViewState extends State<_LeadsView>
 
   void _showError(Object error) {
     if (!mounted) return;
-    ScaffoldMessenger.of(context)
-        .showSnackBar(SnackBar(content: Text('$error')));
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text('$error')));
   }
 
   void _showSuccess(String message) {
     if (!mounted) return;
-    ScaffoldMessenger.of(context)
-        .showSnackBar(SnackBar(content: Text(message)));
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text(message)));
   }
 
   /// "Refresh" — pulls new submissions from Meta via `meta-leads-sync`, then
@@ -189,10 +196,9 @@ class _LeadsViewState extends State<_LeadsView>
       final file = File('${dir.path}/propcid-leads-$stamp.csv');
       await file.writeAsString(csv, flush: true);
       if (!mounted) return;
-      await Share.shareXFiles(
-        [XFile(file.path, mimeType: 'text/csv')],
-        subject: 'PropCid Leads',
-      );
+      await Share.shareXFiles([
+        XFile(file.path, mimeType: 'text/csv'),
+      ], subject: 'PropCid Leads');
     } catch (e) {
       _showError('Could not export leads.');
     }
@@ -264,9 +270,11 @@ class _SocialLeadsBodyState extends State<SocialLeadsBody> {
     // Client-side, over the already-loaded list — no extra query, and it
     // matches how the design describes the field.
     final visible = widget.leads
-        .where((lead) =>
-            (_statusFilter == 'all' || lead.status == _statusFilter) &&
-            lead.matches(_query))
+        .where(
+          (lead) =>
+              (_statusFilter == 'all' || lead.status == _statusFilter) &&
+              lead.matches(_query),
+        )
         .toList();
 
     return SocialScreenShell(
@@ -308,12 +316,18 @@ class _SocialLeadsBodyState extends State<SocialLeadsBody> {
                 padding: const EdgeInsets.symmetric(horizontal: 14),
                 decoration: BoxDecoration(
                   color: AppColors.cardBackground,
-                  borderRadius: BorderRadius.circular(AppConstants.buttonRadius),
+                  borderRadius: BorderRadius.circular(
+                    AppConstants.buttonRadius,
+                  ),
                   border: Border.all(color: AppColors.hairline),
                 ),
                 child: Row(
                   children: [
-                    const Icon(Icons.search, size: 18, color: AppColors.textPrimary),
+                    const Icon(
+                      Icons.search,
+                      size: 18,
+                      color: AppColors.textPrimary,
+                    ),
                     const SizedBox(width: 10),
                     Expanded(
                       child: TextField(
@@ -328,8 +342,9 @@ class _SocialLeadsBodyState extends State<SocialLeadsBody> {
                           enabledBorder: InputBorder.none,
                           focusedBorder: InputBorder.none,
                           filled: false,
-                          contentPadding:
-                              const EdgeInsets.symmetric(vertical: 10),
+                          contentPadding: const EdgeInsets.symmetric(
+                            vertical: 10,
+                          ),
                           hintText: 'Search name, email or phone...',
                           hintStyle: AppTextStyles.body.copyWith(
                             fontSize: 13,
@@ -367,8 +382,7 @@ class _SocialLeadsBodyState extends State<SocialLeadsBody> {
                     for (final s in kLeadStatuses)
                       DropdownMenuItem(value: s, child: Text(_statusLabel(s))),
                   ],
-                  onChanged: (v) =>
-                      setState(() => _statusFilter = v ?? 'all'),
+                  onChanged: (v) => setState(() => _statusFilter = v ?? 'all'),
                 ),
               ),
             ),
@@ -401,7 +415,8 @@ class _SocialLeadsBodyState extends State<SocialLeadsBody> {
           DashboardCard(
             child: EmptyStateView(
               icon: Icons.people_outline,
-              message: 'No leads yet. Run a Leads campaign and submissions '
+              message:
+                  'No leads yet. Run a Leads campaign and submissions '
                   'will appear here automatically.',
               iconCircleSize: 56,
               padding: const EdgeInsets.symmetric(vertical: 8),
@@ -437,11 +452,7 @@ class _LeadCard extends StatelessWidget {
   final bool busy;
   final ValueChanged<String>? onStatusChange;
 
-  const _LeadCard({
-    required this.lead,
-    this.busy = false,
-    this.onStatusChange,
-  });
+  const _LeadCard({required this.lead, this.busy = false, this.onStatusChange});
 
   @override
   Widget build(BuildContext context) {
@@ -468,9 +479,10 @@ class _LeadCard extends StatelessWidget {
                 if (lead.email != null || lead.phone != null) ...[
                   const SizedBox(height: 2),
                   Text(
-                    [lead.email, lead.phone]
-                        .where((v) => v != null && v.isNotEmpty)
-                        .join(' • '),
+                    [
+                      lead.email,
+                      lead.phone,
+                    ].where((v) => v != null && v.isNotEmpty).join(' • '),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: AppTextStyles.caption.copyWith(fontSize: 11.5),
@@ -506,10 +518,7 @@ class _LeadCard extends StatelessWidget {
                         },
                   items: [
                     for (final s in kLeadStatuses)
-                      DropdownMenuItem(
-                        value: s,
-                        child: Text(_statusLabel(s)),
-                      ),
+                      DropdownMenuItem(value: s, child: Text(_statusLabel(s))),
                     // A status the app doesn't otherwise offer (e.g. a value
                     // written some other way) still renders instead of
                     // crashing the dropdown.

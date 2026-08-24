@@ -75,13 +75,13 @@ class ListingFormData {
 
   /// React's `propertyType` values, not Flutter's enum names.
   String get propertyType => switch (p.category) {
-        PropertyCategory.land => 'land',
-        PropertyCategory.residential => 'residential',
-        PropertyCategory.commercial => 'commercial',
-        PropertyCategory.pg => 'pg/Co-living',
-        PropertyCategory.other => 'others',
-        null => '',
-      };
+    PropertyCategory.land => 'land',
+    PropertyCategory.residential => 'residential',
+    PropertyCategory.commercial => 'commercial',
+    PropertyCategory.pg => 'pg/Co-living',
+    PropertyCategory.other => 'others',
+    null => '',
+  };
 
   String get listingType => p.listingIntent?.name ?? '';
 
@@ -166,14 +166,17 @@ bool _isRentOrLease(ListingFormData d) =>
 bool _isSell(ListingFormData d) => d.listingType == 'sell';
 
 /// Reads a key out of the nested commercial `buildingInventory` object.
-RuleReader _fromBuilding(String key) => (d) => d.p.buildingInventoryValue(key);
+RuleReader _fromBuilding(String key) =>
+    (d) => d.p.buildingInventoryValue(key);
 
 /* ── Step rule sets ────────────────────────────────────────────────────── */
 
 const List<ListingRule> _categoryRules = [
   ListingRule(field: 'propertyType', label: 'Property category'),
   ListingRule(
-      field: 'listingType', label: 'Listing type (Rent / Sell / Lease)'),
+    field: 'listingType',
+    label: 'Listing type (Rent / Sell / Lease)',
+  ),
 ];
 
 final List<ListingRule> _basicInfoRules = [
@@ -184,21 +187,36 @@ final List<ListingRule> _basicInfoRules = [
   ListingRule(field: 'landSubtype', label: 'Land subtype', applies: _isLand),
   ListingRule(field: 'landType', label: 'Land use type', applies: _isLand),
   ListingRule(
-      field: 'residentialSubType',
-      label: 'Residential subtype',
-      applies: _isResidential),
+    field: 'residentialSubType',
+    label: 'Residential subtype',
+    applies: _isResidential,
+  ),
   ListingRule(
-      field: 'commercialSubType',
-      label: 'Commercial subtype',
-      applies: _isCommercial),
+    field: 'commercialSubType',
+    label: 'Commercial subtype',
+    applies: _isCommercial,
+  ),
   ListingRule(
-      field: 'furnishedType', label: 'Furnishing type', applies: _isCommercial),
+    field: 'furnishedType',
+    label: 'Furnishing type',
+    applies: _isCommercial,
+  ),
   ListingRule(
-      field: 'pgPropertyType', label: 'PG property type', applies: _isPg),
+    field: 'pgPropertyType',
+    label: 'PG property type',
+    applies: _isPg,
+  ),
   ListingRule(field: 'buildingType', label: 'Building type', applies: _isPg),
   ListingRule(
-      field: 'pgPropertyName', label: 'PG / property name', applies: _isPg),
-  ListingRule(field: 'propertyStatus', label: 'Property status', applies: _isPg),
+    field: 'pgPropertyName',
+    label: 'PG / property name',
+    applies: _isPg,
+  ),
+  ListingRule(
+    field: 'propertyStatus',
+    label: 'Property status',
+    applies: _isPg,
+  ),
 
   // Location block — every listing needs a resolvable address.
   ListingRule(
@@ -232,17 +250,19 @@ final List<ListingRule> _dimensionRules = [
   // mirrors the latter into `area`, so demanding `area` here would be an error
   // with no field to fix it.
   ListingRule(
-      field: 'area',
-      label: 'Total area',
-      applies: (d) => !_isCommercial(d),
-      validate: positiveNumber('Total area')),
+    field: 'area',
+    label: 'Total area',
+    applies: (d) => !_isCommercial(d),
+    validate: positiveNumber('Total area'),
+  ),
   const ListingRule(field: 'areaUnit', label: 'Area unit'),
 
   // LAND
   ListingRule(
-      field: 'landUseMasterPlan',
-      label: 'Land use / master plan',
-      applies: (d) => _isLand(d) && d.listingType == 'rent'),
+    field: 'landUseMasterPlan',
+    label: 'Land use / master plan',
+    applies: (d) => _isLand(d) && d.listingType == 'rent',
+  ),
   ListingRule(field: 'front', label: 'Front dimension', applies: _isLand),
   ListingRule(field: 'back', label: 'Back dimension', applies: _isLand),
   ListingRule(field: 'right', label: 'Right dimension', applies: _isLand),
@@ -257,87 +277,102 @@ final List<ListingRule> _dimensionRules = [
 
   // RESIDENTIAL — shared between the apartment and house layouts.
   ListingRule(
-      field: 'carpetArea',
-      label: 'Carpet area',
-      applies: (d) => _isResidential(d) || _isPg(d) || _isOthers(d),
-      validate: positiveNumber('Carpet area')),
+    field: 'carpetArea',
+    label: 'Carpet area',
+    applies: (d) => _isResidential(d) || _isPg(d) || _isOthers(d),
+    validate: positiveNumber('Carpet area'),
+  ),
   ListingRule(
-      field: 'builtUpArea',
-      label: 'Built-up area',
-      applies: _isHouse,
-      validate: positiveNumber('Built-up area')),
+    field: 'builtUpArea',
+    label: 'Built-up area',
+    applies: _isHouse,
+    validate: positiveNumber('Built-up area'),
+  ),
   ListingRule(field: 'bhkType', label: 'BHK type', applies: _isResidential),
   ListingRule(
-      field: 'bedrooms',
-      label: 'Bedrooms',
-      applies: _isResidential,
-      validate: nonNegativeNumber('Bedrooms')),
+    field: 'bedrooms',
+    label: 'Bedrooms',
+    applies: _isResidential,
+    validate: nonNegativeNumber('Bedrooms'),
+  ),
   ListingRule(
-      field: 'bathrooms',
-      label: 'Bathrooms',
-      applies: _isResidential,
-      validate: nonNegativeNumber('Bathrooms')),
+    field: 'bathrooms',
+    label: 'Bathrooms',
+    applies: _isResidential,
+    validate: nonNegativeNumber('Bathrooms'),
+  ),
   ListingRule(
-      field: 'balconies',
-      label: 'Balconies',
-      applies: _isResidential,
-      validate: nonNegativeNumber('Balconies')),
+    field: 'balconies',
+    label: 'Balconies',
+    applies: _isResidential,
+    validate: nonNegativeNumber('Balconies'),
+  ),
   ListingRule(
-      field: 'floorNo',
-      label: 'Floor number',
-      applies: _isApartment,
-      validate: nonNegativeNumber('Floor number')),
+    field: 'floorNo',
+    label: 'Floor number',
+    applies: _isApartment,
+    validate: nonNegativeNumber('Floor number'),
+  ),
   ListingRule(
-      field: 'totalFloors',
-      label: 'Total floors',
-      applies: (d) => _isResidential(d) || _isPg(d),
-      validate: nonNegativeNumber('Total floors')),
+    field: 'totalFloors',
+    label: 'Total floors',
+    applies: (d) => _isResidential(d) || _isPg(d),
+    validate: nonNegativeNumber('Total floors'),
+  ),
   ListingRule(
-      field: 'propertyCondition',
-      label: 'Property condition',
-      applies: _isResidential),
+    field: 'propertyCondition',
+    label: 'Property condition',
+    applies: _isResidential,
+  ),
 
   // COMMERCIAL — building-level block.
   ListingRule(
-      field: 'buildingName',
-      label: 'Building name',
-      applies: _isCommercial,
-      get: _fromBuilding('buildingName')),
+    field: 'buildingName',
+    label: 'Building name',
+    applies: _isCommercial,
+    get: _fromBuilding('buildingName'),
+  ),
   ListingRule(
-      field: 'buildingCode',
-      label: 'Building number',
-      applies: _isCommercial,
-      get: _fromBuilding('buildingCode')),
+    field: 'buildingCode',
+    label: 'Building number',
+    applies: _isCommercial,
+    get: _fromBuilding('buildingCode'),
+  ),
   ListingRule(
-      field: 'buildingType',
-      label: 'Building type',
-      applies: _isCommercial,
-      get: _fromBuilding('buildingType')),
+    field: 'buildingType',
+    label: 'Building type',
+    applies: _isCommercial,
+    get: _fromBuilding('buildingType'),
+  ),
   ListingRule(
-      field: 'totalFloorsBuilding',
-      label: 'Total floors in building',
-      applies: _isCommercial,
-      get: _fromBuilding('totalFloorsBuilding'),
-      validate: positiveNumber('Total floors in building')),
+    field: 'totalFloorsBuilding',
+    label: 'Total floors in building',
+    applies: _isCommercial,
+    get: _fromBuilding('totalFloorsBuilding'),
+    validate: positiveNumber('Total floors in building'),
+  ),
   ListingRule(
-      field: 'plotArea',
-      label: 'Plot area',
-      applies: _isCommercial,
-      validate: positiveNumber('Plot area')),
+    field: 'plotArea',
+    label: 'Plot area',
+    applies: _isCommercial,
+    validate: positiveNumber('Plot area'),
+  ),
   ListingRule(
-      field: 'superBuiltUpArea',
-      label: 'Super built-up area',
-      applies: _isCommercial,
-      validate: positiveNumber('Super built-up area')),
+    field: 'superBuiltUpArea',
+    label: 'Super built-up area',
+    applies: _isCommercial,
+    validate: positiveNumber('Super built-up area'),
+  ),
 
   // PG
   ListingRule(field: 'facing', label: 'Facing', applies: _isPg),
 
   // Available-from lives on this step for land / residential flows.
   ListingRule(
-      field: 'availableFrom',
-      label: 'Available from',
-      applies: (d) => _isLand(d) || _isResidential(d)),
+    field: 'availableFrom',
+    label: 'Available from',
+    applies: (d) => _isLand(d) || _isResidential(d),
+  ),
 ];
 
 final List<ListingRule> _conditionRules = [
@@ -346,197 +381,236 @@ final List<ListingRule> _conditionRules = [
 
   // Building condition block — commercial only.
   ListingRule(
-      field: 'buildingAge',
-      label: 'Building age',
-      applies: _isCommercial,
-      get: _fromBuilding('buildingAge')),
+    field: 'buildingAge',
+    label: 'Building age',
+    applies: _isCommercial,
+    get: _fromBuilding('buildingAge'),
+  ),
   ListingRule(
-      field: 'ownershipTypeBuilding',
-      label: 'Building ownership type',
-      applies: _isCommercial,
-      get: _fromBuilding('ownershipTypeBuilding')),
+    field: 'ownershipTypeBuilding',
+    label: 'Building ownership type',
+    applies: _isCommercial,
+    get: _fromBuilding('ownershipTypeBuilding'),
+  ),
 
   // PG food & housekeeping.
   ListingRule(
-      field: 'linenChangeFrequency',
-      label: 'Linen change frequency',
-      applies: _isPg),
+    field: 'linenChangeFrequency',
+    label: 'Linen change frequency',
+    applies: _isPg,
+  ),
   ListingRule(
-      field: 'roomCleaningFrequency',
-      label: 'Room cleaning frequency',
-      applies: _isPg),
+    field: 'roomCleaningFrequency',
+    label: 'Room cleaning frequency',
+    applies: _isPg,
+  ),
 ];
 
 final List<ListingRule> _amenityRules = [
   ListingRule(
-      field: 'amenities',
-      label: 'At least one amenity',
-      applies: (d) => _isResidential(d) || _isOthers(d)),
+    field: 'amenities',
+    label: 'At least one amenity',
+    applies: (d) => _isResidential(d) || _isOthers(d),
+  ),
   ListingRule(
-      field: 'pgAmenities', label: 'At least one PG amenity', applies: _isPg),
+    field: 'pgAmenities',
+    label: 'At least one PG amenity',
+    applies: _isPg,
+  ),
 
   // Commercial building facilities that are free-text / selects.
   ListingRule(
-      field: 'businessType',
-      label: 'Business type',
-      applies: (d) {
-        final Object? running = d.read('currentBusinessRunning');
-        final bool isRunning = running is bool ? running : running != null &&
-            running.toString().isNotEmpty &&
-            running.toString() != 'false';
-        return _isCommercial(d) && isRunning;
-      }),
+    field: 'businessType',
+    label: 'Business type',
+    applies: (d) {
+      final Object? running = d.read('currentBusinessRunning');
+      final bool isRunning = running is bool
+          ? running
+          : running != null &&
+                running.toString().isNotEmpty &&
+                running.toString() != 'false';
+      return _isCommercial(d) && isRunning;
+    },
+  ),
   ListingRule(
-      field: 'workingDays',
-      label: 'Working days',
-      applies: _isCommercial,
-      get: _fromBuilding('workingDays')),
+    field: 'workingDays',
+    label: 'Working days',
+    applies: _isCommercial,
+    get: _fromBuilding('workingDays'),
+  ),
   ListingRule(
-      field: 'buildingWorkingHours',
-      label: 'Building working hours',
-      applies: _isCommercial,
-      get: _fromBuilding('buildingWorkingHours')),
+    field: 'buildingWorkingHours',
+    label: 'Building working hours',
+    applies: _isCommercial,
+    get: _fromBuilding('buildingWorkingHours'),
+  ),
   ListingRule(
-      field: 'liftCount',
-      label: 'Lift count',
-      applies: _isCommercial,
-      get: _fromBuilding('liftCount'),
-      validate: nonNegativeNumber('Lift count')),
+    field: 'liftCount',
+    label: 'Lift count',
+    applies: _isCommercial,
+    get: _fromBuilding('liftCount'),
+    validate: nonNegativeNumber('Lift count'),
+  ),
   ListingRule(
-      field: 'securityGuards',
-      label: 'Security guards',
-      applies: _isCommercial,
-      get: _fromBuilding('securityGuards'),
-      validate: nonNegativeNumber('Security guards')),
+    field: 'securityGuards',
+    label: 'Security guards',
+    applies: _isCommercial,
+    get: _fromBuilding('securityGuards'),
+    validate: nonNegativeNumber('Security guards'),
+  ),
   ListingRule(
-      field: 'maintenanceCharges',
-      label: 'Building maintenance charges',
-      applies: _isCommercial,
-      get: _fromBuilding('maintenanceCharges'),
-      validate: nonNegativeNumber('Building maintenance charges')),
+    field: 'maintenanceCharges',
+    label: 'Building maintenance charges',
+    applies: _isCommercial,
+    get: _fromBuilding('maintenanceCharges'),
+    validate: nonNegativeNumber('Building maintenance charges'),
+  ),
   ListingRule(
-      field: 'totalCarParking',
-      label: 'Total car parking',
-      applies: _isCommercial,
-      get: _fromBuilding('totalCarParking'),
-      validate: nonNegativeNumber('Total car parking')),
+    field: 'totalCarParking',
+    label: 'Total car parking',
+    applies: _isCommercial,
+    get: _fromBuilding('totalCarParking'),
+    validate: nonNegativeNumber('Total car parking'),
+  ),
   ListingRule(
-      field: 'totalBikeParking',
-      label: 'Total bike parking',
-      applies: _isCommercial,
-      get: _fromBuilding('totalBikeParking'),
-      validate: nonNegativeNumber('Total bike parking')),
+    field: 'totalBikeParking',
+    label: 'Total bike parking',
+    applies: _isCommercial,
+    get: _fromBuilding('totalBikeParking'),
+    validate: nonNegativeNumber('Total bike parking'),
+  ),
 ];
 
 final List<ListingRule> _legalRules = [
-  ListingRule(field: 'ownershipType', label: 'Ownership type', applies: _isLand),
+  ListingRule(
+    field: 'ownershipType',
+    label: 'Ownership type',
+    applies: _isLand,
+  ),
   ListingRule(field: 'ownerName', label: 'Owner name', applies: _isLand),
   ListingRule(
-      field: 'quietHours',
-      label: 'Quiet hours / gate closing time',
-      applies: _isPg),
+    field: 'quietHours',
+    label: 'Quiet hours / gate closing time',
+    applies: _isPg,
+  ),
 ];
 
 final List<ListingRule> _pricingRules = [
   // PG rent uses per-bed / per-room amounts instead of the single price box.
   ListingRule(
-      field: 'price',
-      label: 'Price / rent amount',
-      applies: (d) => !(_isPg(d) && d.listingType != 'lease'),
-      validate: positiveNumber('Price / rent amount')),
+    field: 'price',
+    label: 'Price / rent amount',
+    applies: (d) => !(_isPg(d) && d.listingType != 'lease'),
+    validate: positiveNumber('Price / rent amount'),
+  ),
   ListingRule(
-      field: 'monthlyRentPerBed',
-      label: 'Rent per bed or per room',
-      applies: (d) => _isPg(d) && d.listingType == 'rent',
-      get: (d) {
-        final Object? bed = d.read('monthlyRentPerBed');
-        if (bed != null && bed.toString().trim().isNotEmpty) return bed;
-        return d.read('monthlyRentPerRoom');
-      }),
+    field: 'monthlyRentPerBed',
+    label: 'Rent per bed or per room',
+    applies: (d) => _isPg(d) && d.listingType == 'rent',
+    get: (d) {
+      final Object? bed = d.read('monthlyRentPerBed');
+      if (bed != null && bed.toString().trim().isNotEmpty) return bed;
+      return d.read('monthlyRentPerRoom');
+    },
+  ),
   ListingRule(
-      field: 'totalSalePrice',
-      label: 'Total sale price',
-      applies: (d) => _isPg(d) && _isSell(d),
-      validate: positiveNumber('Total sale price')),
+    field: 'totalSalePrice',
+    label: 'Total sale price',
+    applies: (d) => _isPg(d) && _isSell(d),
+    validate: positiveNumber('Total sale price'),
+  ),
   ListingRule(
-      field: 'occupancyRate',
-      label: 'Current occupancy rate',
-      applies: (d) => _isPg(d) && _isSell(d)),
+    field: 'occupancyRate',
+    label: 'Current occupancy rate',
+    applies: (d) => _isPg(d) && _isSell(d),
+  ),
 
   // Deposits / tokens are rendered for every category.
   ListingRule(
-      field: 'securityDeposit',
-      label: 'Security deposit',
-      applies: _isRentOrLease),
+    field: 'securityDeposit',
+    label: 'Security deposit',
+    applies: _isRentOrLease,
+  ),
   const ListingRule(field: 'tokenAmount', label: 'Token amount'),
   ListingRule(
-      field: 'lockInPeriod',
-      label: 'Minimum rent / lease period',
-      applies: (d) => _isRentOrLease(d) && !(_isPg(d) && _isSell(d))),
+    field: 'lockInPeriod',
+    label: 'Minimum rent / lease period',
+    applies: (d) => _isRentOrLease(d) && !(_isPg(d) && _isSell(d)),
+  ),
   // PG / co-living sale has no rate-per-area input.
   ListingRule(
-      field: 'ratePerArea',
-      label: 'Rate per area',
-      applies: (d) => _isSell(d) && !_isPg(d),
-      validate: positiveNumber('Rate per area')),
+    field: 'ratePerArea',
+    label: 'Rate per area',
+    applies: (d) => _isSell(d) && !_isPg(d),
+    validate: positiveNumber('Rate per area'),
+  ),
 
   // Maintenance: apartments show "Society charges", everything else
   // "Maintenance".
   ListingRule(
-      field: 'societyCharges',
-      label: 'Society charges',
-      applies: (d) => _isApartment(d) && _isRentOrLease(d)),
+    field: 'societyCharges',
+    label: 'Society charges',
+    applies: (d) => _isApartment(d) && _isRentOrLease(d),
+  ),
   ListingRule(
-      field: 'maintenanceCharges',
-      label: 'Maintenance charges',
-      applies: (d) =>
-          !_isApartment(d) && !_isLand(d) && _isRentOrLease(d)),
+    field: 'maintenanceCharges',
+    label: 'Maintenance charges',
+    applies: (d) => !_isApartment(d) && !_isLand(d) && _isRentOrLease(d),
+  ),
 
   // Commercial lease terms / investment details.
   ListingRule(
-      field: 'leaseDuration',
-      label: 'Lease duration',
-      applies: (d) => _isCommercial(d) && _isRentOrLease(d),
-      get: (d) {
-        final Object? v = d.read('leaseDuration');
-        if (v != null && v.toString().trim().isNotEmpty) return v;
-        return d.read('minRentalDuration');
-      }),
+    field: 'leaseDuration',
+    label: 'Lease duration',
+    applies: (d) => _isCommercial(d) && _isRentOrLease(d),
+    get: (d) {
+      final Object? v = d.read('leaseDuration');
+      if (v != null && v.toString().trim().isNotEmpty) return v;
+      return d.read('minRentalDuration');
+    },
+  ),
   ListingRule(
-      field: 'leaseEscalationPercent',
-      label: 'Rent escalation %',
-      applies: (d) => _isCommercial(d) && _isRentOrLease(d),
-      get: (d) {
-        final Object? v = d.read('leaseEscalationPercent');
-        if (v != null && v.toString().trim().isNotEmpty) return v;
-        return d.read('rentEscalation');
-      }),
+    field: 'leaseEscalationPercent',
+    label: 'Rent escalation %',
+    applies: (d) => _isCommercial(d) && _isRentOrLease(d),
+    get: (d) {
+      final Object? v = d.read('leaseEscalationPercent');
+      if (v != null && v.toString().trim().isNotEmpty) return v;
+      return d.read('rentEscalation');
+    },
+  ),
   ListingRule(
-      field: 'camCharges',
-      label: 'CAM charges',
-      applies: (d) => _isCommercial(d) && _isRentOrLease(d)),
+    field: 'camCharges',
+    label: 'CAM charges',
+    applies: (d) => _isCommercial(d) && _isRentOrLease(d),
+  ),
   ListingRule(
-      field: 'fitOutPeriod',
-      label: 'Fit-out period',
-      applies: (d) => _isCommercial(d) && _isRentOrLease(d)),
+    field: 'fitOutPeriod',
+    label: 'Fit-out period',
+    applies: (d) => _isCommercial(d) && _isRentOrLease(d),
+  ),
   ListingRule(
-      field: 'roiEstimate',
-      label: 'ROI estimate',
-      applies: (d) => _isCommercial(d) && _isSell(d)),
+    field: 'roiEstimate',
+    label: 'ROI estimate',
+    applies: (d) => _isCommercial(d) && _isSell(d),
+  ),
   ListingRule(
-      field: 'currentRentalIncome',
-      label: 'Current rental income',
-      applies: (d) => _isCommercial(d) && _isSell(d)),
+    field: 'currentRentalIncome',
+    label: 'Current rental income',
+    applies: (d) => _isCommercial(d) && _isSell(d),
+  ),
 
   // PG charges.
   ListingRule(
-      field: 'foodCharges',
-      label: 'Food charges',
-      applies: (d) => _isPg(d) && d.listingType == 'rent'),
+    field: 'foodCharges',
+    label: 'Food charges',
+    applies: (d) => _isPg(d) && d.listingType == 'rent',
+  ),
   ListingRule(
-      field: 'laundryCharges',
-      label: 'Laundry charges',
-      applies: (d) => _isPg(d) && d.listingType == 'rent'),
+    field: 'laundryCharges',
+    label: 'Laundry charges',
+    applies: (d) => _isPg(d) && d.listingType == 'rent',
+  ),
 
   const ListingRule(field: 'brokerage', label: 'Brokerage'),
 ];
@@ -548,24 +622,35 @@ final List<ListingRule> _mediaRules = [
     get: (d) => [...d.p.mediaItems, ...d.p.existingMediaUrls],
   ),
   ListingRule(
-      field: 'ownerManagerName',
-      label: 'PG owner / manager name',
-      applies: _isPg),
+    field: 'ownerManagerName',
+    label: 'PG owner / manager name',
+    applies: _isPg,
+  ),
   // The portal's own rule for this field is permanently disabled
   // (`applies: () => false` in propertyListingRules.ts, no validator) — it's
   // collected (media_contact_step.dart) but the website never requires or
   // format-checks it, for PG or any other category.
   ListingRule(
-      field: 'alternateNumber',
-      label: 'Alternate contact number',
-      applies: (d) => false),
+    field: 'alternateNumber',
+    label: 'Alternate contact number',
+    applies: (d) => false,
+  ),
   const ListingRule(field: 'contactName', label: 'Contact name'),
   ListingRule(
-      field: 'contactPhone', label: 'Phone number', validate: validPhone),
+    field: 'contactPhone',
+    label: 'Phone number',
+    validate: validPhone,
+  ),
   ListingRule(
-      field: 'contactEmail', label: 'Email address', validate: validEmail),
+    field: 'contactEmail',
+    label: 'Email address',
+    validate: validEmail,
+  ),
   ListingRule(
-      field: 'whatsappNumber', label: 'WhatsApp number', validate: validPhone),
+    field: 'whatsappNumber',
+    label: 'WhatsApp number',
+    validate: validPhone,
+  ),
   const ListingRule(field: 'bestTimeToCall', label: 'Best time to call'),
   const ListingRule(field: 'hashtags', label: 'Hashtags'),
 ];
@@ -602,16 +687,16 @@ enum WizardStep {
 /// React's rule-set key for [step]; null for Review, which validates nothing of
 /// its own (it summarises the steps before it).
 String? ruleKeyForStep(WizardStep step) => switch (step) {
-      WizardStep.category => 'Category',
-      WizardStep.basicInfo => 'Basic Info',
-      WizardStep.dimensions => 'Dimensions',
-      WizardStep.condition => 'Condition',
-      WizardStep.amenities => 'Amenities',
-      WizardStep.legal => 'Legal',
-      WizardStep.pricing => 'Pricing',
-      WizardStep.media => 'Media',
-      WizardStep.review => null,
-    };
+  WizardStep.category => 'Category',
+  WizardStep.basicInfo => 'Basic Info',
+  WizardStep.dimensions => 'Dimensions',
+  WizardStep.condition => 'Condition',
+  WizardStep.amenities => 'Amenities',
+  WizardStep.legal => 'Legal',
+  WizardStep.pricing => 'Pricing',
+  WizardStep.media => 'Media',
+  WizardStep.review => null,
+};
 
 /// The steps actually shown for [category] — a verbatim port of
 /// `PropertyWizard.tsx:1350`:
@@ -742,8 +827,9 @@ List<ListingIssue> collectIssues(
     }
     if (rule.applies != null && !rule.applies!(data)) continue;
 
-    final Object? value =
-        rule.get != null ? rule.get!(data) : data.read(rule.field);
+    final Object? value = rule.get != null
+        ? rule.get!(data)
+        : data.read(rule.field);
 
     if (isBlank(value)) {
       // Grandfathering suppresses the *required* check only, and only while
@@ -751,8 +837,9 @@ List<ListingIssue> collectIssues(
       // value you never had", not a permanent opt-out of validation: as soon
       // as the user types something, the format check below applies normally.
       if (grandfathered.contains(rule.field)) continue;
-      issues.add(ListingIssue(
-          rule.field, rule.label, '${rule.label} is required.'));
+      issues.add(
+        ListingIssue(rule.field, rule.label, '${rule.label} is required.'),
+      );
       continue;
     }
 
@@ -771,10 +858,9 @@ List<ListingIssue> validatePropertyStep(
   ListingFormData data, {
   bool onlyCollectable = true,
   Set<String> grandfathered = const <String>{},
-}) =>
-    collectIssues(
-      data,
-      kPropertyStepRules[stepTitle] ?? const <ListingRule>[],
-      onlyCollectable: onlyCollectable,
-      grandfathered: grandfathered,
-    );
+}) => collectIssues(
+  data,
+  kPropertyStepRules[stepTitle] ?? const <ListingRule>[],
+  onlyCollectable: onlyCollectable,
+  grandfathered: grandfathered,
+);

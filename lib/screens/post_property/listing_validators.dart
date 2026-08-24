@@ -77,19 +77,20 @@ String? Function(Object?) nonNegativeNumber(String label) {
 
 /// NOTE: React does NOT trim before testing email, but DOES for pincode/phone.
 /// Preserved exactly, so a trailing space fails email here as it does on web.
-String? validEmail(Object? value) => ListingPattern.email.hasMatch(value.toString())
+String? validEmail(Object? value) =>
+    ListingPattern.email.hasMatch(value.toString())
     ? null
     : 'Enter a valid email address.';
 
 String? validPincode(Object? value) =>
     ListingPattern.pincode.hasMatch(value.toString().trim())
-        ? null
-        : 'Pincode must be 6 digits.';
+    ? null
+    : 'Pincode must be 6 digits.';
 
 String? validPhone(Object? value) =>
     ListingPattern.phone.hasMatch(value.toString().trim())
-        ? null
-        : 'Enter a valid contact number.';
+    ? null
+    : 'Enter a valid contact number.';
 
 String? Function(Object?) minLength(int n, String label) {
   return (Object? value) => value.toString().trim().length < n

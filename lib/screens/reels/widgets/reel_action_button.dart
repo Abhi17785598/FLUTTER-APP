@@ -77,9 +77,10 @@ class _ReelActionButtonState extends State<ReelActionButton>
       vsync: this,
       duration: const Duration(milliseconds: 260),
     );
-    _scale = Tween<double>(begin: 1.0, end: 1.35).animate(
-      CurvedAnimation(parent: _controller, curve: Curves.elasticOut),
-    );
+    _scale = Tween<double>(
+      begin: 1.0,
+      end: 1.35,
+    ).animate(CurvedAnimation(parent: _controller, curve: Curves.elasticOut));
   }
 
   @override
@@ -98,8 +99,9 @@ class _ReelActionButtonState extends State<ReelActionButton>
     final Color activeColor = widget.activeColor ?? Colors.white;
     final Color base = widget.baseColor ?? Colors.white;
     final Color labelColor = widget.labelColor ?? base;
-    final IconData icon =
-        widget.isActive ? (widget.activeIcon ?? widget.icon) : widget.icon;
+    final IconData icon = widget.isActive
+        ? (widget.activeIcon ?? widget.icon)
+        : widget.icon;
 
     final iconWidget = ScaleTransition(
       scale: _scale,
@@ -147,11 +149,7 @@ class _ReelActionButtonState extends State<ReelActionButton>
             )
           : Row(
               mainAxisSize: MainAxisSize.min,
-              children: [
-                iconWidget,
-                const SizedBox(width: 8),
-                labelWidget,
-              ],
+              children: [iconWidget, const SizedBox(width: 8), labelWidget],
             ),
     );
   }

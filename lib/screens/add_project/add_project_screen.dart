@@ -320,7 +320,8 @@ class _NavigationBar extends StatelessWidget {
       // The reference's toast: "N fields still needed" + a summary (`:471-475`).
       _showIssues(
         context,
-        title: '${issues.length} field${issues.length > 1 ? 's' : ''} '
+        title:
+            '${issues.length} field${issues.length > 1 ? 's' : ''} '
             'still needed',
         issues: issues,
       );

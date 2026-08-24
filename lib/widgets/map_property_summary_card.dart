@@ -67,16 +67,20 @@ class MapPropertySummaryCard extends StatelessWidget {
                     children: [
                       Text(
                         property.title,
-                        style: AppTextStyles.body
-                            .copyWith(fontWeight: FontWeight.w600),
+                        style: AppTextStyles.body.copyWith(
+                          fontWeight: FontWeight.w600,
+                        ),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                       ),
                       const SizedBox(height: 4),
                       Row(
                         children: [
-                          const Icon(Icons.location_on,
-                              size: 12, color: AppColors.textSecondary),
+                          const Icon(
+                            Icons.location_on,
+                            size: 12,
+                            color: AppColors.textSecondary,
+                          ),
                           const SizedBox(width: 4),
                           Expanded(
                             child: Text(

@@ -41,8 +41,9 @@ class ProjectReviewStep extends StatelessWidget {
 
         if (provider.stepIssues.isNotEmpty) ...[
           PortalValidationSummary(
-            messages:
-                provider.stepIssues.map((issue) => issue.message).toList(),
+            messages: provider.stepIssues
+                .map((issue) => issue.message)
+                .toList(),
           ),
           const SizedBox(height: 16),
         ],
@@ -74,7 +75,10 @@ class ProjectReviewStep extends StatelessWidget {
                     ? ''
                     : '${d.availableUnits ?? 0} of ${d.totalUnits} available',
               ),
-              _Row(label: 'Price', value: _range(d.priceRangeMin, d.priceRangeMax, money: true)),
+              _Row(
+                label: 'Price',
+                value: _range(d.priceRangeMin, d.priceRangeMax, money: true),
+              ),
               _Row(
                 label: 'Size',
                 value: _range(d.areaSqftMin, d.areaSqftMax, suffix: ' sq ft'),
@@ -91,7 +95,10 @@ class ProjectReviewStep extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const PortalSectionDivider(icon: 'image', title: 'Contact & Media'),
+              const PortalSectionDivider(
+                icon: 'image',
+                title: 'Contact & Media',
+              ),
               const SizedBox(height: 12),
               _Row(label: 'Website', value: d.websiteUrl),
               _Row(label: 'Contact', value: d.contactNumber),
@@ -105,16 +112,10 @@ class ProjectReviewStep extends StatelessWidget {
                 value: d.mapImages.isEmpty
                     ? ''
                     : '${d.mapImages.length} layout'
-                        '${d.mapImages.length == 1 ? '' : 's'}',
+                          '${d.mapImages.length == 1 ? '' : 's'}',
               ),
-              _Row(
-                label: 'Images',
-                value: '${d.otherImages.length}',
-              ),
-              _Row(
-                label: 'Videos',
-                value: '${d.videosUrls.length}',
-              ),
+              _Row(label: 'Images', value: '${d.otherImages.length}'),
+              _Row(label: 'Videos', value: '${d.videosUrls.length}'),
               if (d.mapImages.isNotEmpty || d.otherImages.isNotEmpty) ...[
                 const SizedBox(height: 10),
                 _DerivedNote(
@@ -122,7 +123,7 @@ class ProjectReviewStep extends StatelessWidget {
                   '${d.otherImages.length + d.mapImages.length} image'
                   '${d.otherImages.length + d.mapImages.length == 1 ? '' : 's'}'
                   '${d.mapImages.isEmpty ? '' : ', and the first layout becomes '
-                      'the master plan'}.',
+                            'the master plan'}.',
                 ),
               ],
             ],
@@ -134,10 +135,7 @@ class ProjectReviewStep extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const PortalSectionDivider(
-                icon: 'sparkles',
-                title: 'Amenities',
-              ),
+              const PortalSectionDivider(icon: 'sparkles', title: 'Amenities'),
               const SizedBox(height: 12),
               if (d.amenities.isEmpty)
                 const PortalReadOnlyBox('None selected')
@@ -235,7 +233,11 @@ class ProjectReviewStep extends StatelessWidget {
 }
 
 class _Row extends StatelessWidget {
-  const _Row({required this.label, required this.value, this.multiline = false});
+  const _Row({
+    required this.label,
+    required this.value,
+    this.multiline = false,
+  });
 
   final String label;
   final String value;

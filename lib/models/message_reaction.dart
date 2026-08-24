@@ -20,9 +20,7 @@ class MessageReaction {
 
   /// Groups raw `message_reactions` rows (each `{emoji, user_id}`) into one
   /// [MessageReaction] per distinct emoji.
-  static List<MessageReaction> groupByEmoji(
-    List<Map<String, dynamic>> rows,
-  ) {
+  static List<MessageReaction> groupByEmoji(List<Map<String, dynamic>> rows) {
     final byEmoji = <String, List<String>>{};
     for (final row in rows) {
       final emoji = row['emoji'] as String?;

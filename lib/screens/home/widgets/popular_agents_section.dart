@@ -109,7 +109,9 @@ class _PopularAgentsRailState extends State<_PopularAgentsRail> {
                   ),
                   itemCount: agents.length,
                   itemBuilder: (context, i) => Padding(
-                    padding: const EdgeInsets.only(right: AppConstants.spacingM),
+                    padding: const EdgeInsets.only(
+                      right: AppConstants.spacingM,
+                    ),
                     child: ScaleTap(
                       onTap: () => Navigator.pushNamed(
                         context,
@@ -206,16 +208,16 @@ class AgentCard extends StatelessWidget {
   }
 
   Widget _avatarFallback(UserProfile agent) => Container(
-        width: 64,
-        height: 64,
-        color: AppColors.primaryLight,
-        alignment: Alignment.center,
-        child: Text(
-          agent.initials,
-          style: AppTextStyles.heading3.copyWith(
-            color: AppColors.primary,
-            fontSize: 18,
-          ),
-        ),
-      );
+    width: 64,
+    height: 64,
+    color: AppColors.primaryLight,
+    alignment: Alignment.center,
+    child: Text(
+      agent.initials,
+      style: AppTextStyles.heading3.copyWith(
+        color: AppColors.primary,
+        fontSize: 18,
+      ),
+    ),
+  );
 }

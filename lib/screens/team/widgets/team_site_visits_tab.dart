@@ -81,8 +81,9 @@ class _TeamSiteVisitsTabState extends State<TeamSiteVisitsTab> {
           ? all
           : all.where((p) => allowed.contains(p.id)).toList();
 
-      final bookings =
-          await _visits.listForProjects(visible.map((p) => p.id).toList());
+      final bookings = await _visits.listForProjects(
+        visible.map((p) => p.id).toList(),
+      );
 
       if (!mounted) return;
       setState(() {
@@ -148,13 +149,15 @@ class _TeamSiteVisitsTabState extends State<TeamSiteVisitsTab> {
       if (!mounted) return;
       setState(() {
         _bookings = _bookings
-            .map((b) => b.id == booking.id
-                ? b.copyWith(
-                    preferredDate: result.date,
-                    preferredTime: result.time,
-                    status: result.status,
-                  )
-                : b)
+            .map(
+              (b) => b.id == booking.id
+                  ? b.copyWith(
+                      preferredDate: result.date,
+                      preferredTime: result.time,
+                      status: result.status,
+                    )
+                  : b,
+            )
             .toList();
       });
       _toast(
@@ -193,7 +196,9 @@ class _TeamSiteVisitsTabState extends State<TeamSiteVisitsTab> {
         children: [
           Text(
             '${filtered.length} booking${filtered.length != 1 ? 's' : ''}',
-            style: AppTextStyles.caption.copyWith(color: AppColors.textSecondary),
+            style: AppTextStyles.caption.copyWith(
+              color: AppColors.textSecondary,
+            ),
           ),
           const SizedBox(height: AppConstants.spacingM),
           _ProjectFilterRow(
@@ -330,13 +335,13 @@ class _BookingCard extends StatelessWidget {
   final VoidCallback onEdit;
 
   static Color _tint(String status) => switch (status) {
-        'pending' => AppColors.warning,
-        'confirmed' => AppColors.success,
-        'completed' => AppColors.primary,
-        'cancelled' => AppColors.error,
-        'rescheduled' => AppColors.statusNewLaunch,
-        _ => AppColors.textHint,
-      };
+    'pending' => AppColors.warning,
+    'confirmed' => AppColors.success,
+    'completed' => AppColors.primary,
+    'cancelled' => AppColors.error,
+    'rescheduled' => AppColors.statusNewLaunch,
+    _ => AppColors.textHint,
+  };
 
   @override
   Widget build(BuildContext context) {
@@ -378,8 +383,10 @@ class _BookingCard extends StatelessWidget {
               ),
               const SizedBox(width: 8),
               Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 4,
+                ),
                 decoration: BoxDecoration(
                   color: _tint(booking.status).withValues(alpha: 0.12),
                   borderRadius: BorderRadius.circular(999),
@@ -413,16 +420,19 @@ class _BookingCard extends StatelessWidget {
                 ),
               if (booking.isPast && booking.status == 'pending')
                 Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 8,
+                    vertical: 3,
+                  ),
                   decoration: BoxDecoration(
                     color: AppColors.error.withValues(alpha: 0.1),
                     borderRadius: BorderRadius.circular(6),
                   ),
                   child: Text(
                     'Date passed',
-                    style:
-                        AppTextStyles.caption.copyWith(color: AppColors.error),
+                    style: AppTextStyles.caption.copyWith(
+                      color: AppColors.error,
+                    ),
                   ),
                 ),
             ],
@@ -481,8 +491,18 @@ class _BookingCard extends StatelessWidget {
 
   static String _formatDate(DateTime dt) {
     const months = [
-      'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
-      'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
+      'Jan',
+      'Feb',
+      'Mar',
+      'Apr',
+      'May',
+      'Jun',
+      'Jul',
+      'Aug',
+      'Sep',
+      'Oct',
+      'Nov',
+      'Dec',
     ];
     return '${months[dt.month - 1]} ${dt.day}, ${dt.year}';
   }
@@ -509,7 +529,11 @@ class _Meta extends StatelessWidget {
 
 /// What the edit sheet hands back.
 class _VisitEdit {
-  const _VisitEdit({required this.date, required this.time, required this.status});
+  const _VisitEdit({
+    required this.date,
+    required this.time,
+    required this.status,
+  });
 
   final DateTime date;
   final String? time;
@@ -530,8 +554,9 @@ class _EditVisitSheet extends StatefulWidget {
 
 class _EditVisitSheetState extends State<_EditVisitSheet> {
   late DateTime _date = widget.booking.preferredDate;
-  late final TextEditingController _time =
-      TextEditingController(text: widget.booking.preferredTime ?? '');
+  late final TextEditingController _time = TextEditingController(
+    text: widget.booking.preferredTime ?? '',
+  );
   late String _status = widget.booking.status;
 
   @override
@@ -608,16 +633,21 @@ class _EditVisitSheetState extends State<_EditVisitSheet> {
               onTap: _pickDate,
               borderRadius: BorderRadius.circular(10),
               child: Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 12,
+                ),
                 decoration: BoxDecoration(
                   borderRadius: BorderRadius.circular(10),
                   border: Border.all(color: AppColors.hairline),
                 ),
                 child: Row(
                   children: [
-                    const Icon(Icons.event_outlined,
-                        size: 16, color: AppColors.textSecondary),
+                    const Icon(
+                      Icons.event_outlined,
+                      size: 16,
+                      color: AppColors.textSecondary,
+                    ),
                     const SizedBox(width: 8),
                     Text(
                       '${_date.year}-${_date.month.toString().padLeft(2, '0')}'
@@ -639,8 +669,10 @@ class _EditVisitSheetState extends State<_EditVisitSheet> {
               decoration: InputDecoration(
                 hintText: 'e.g. 11:00 AM — optional',
                 isDense: true,
-                contentPadding:
-                    const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                contentPadding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 12,
+                ),
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(10),
                   borderSide: const BorderSide(color: AppColors.hairline),

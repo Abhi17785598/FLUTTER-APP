@@ -6,10 +6,7 @@ import '../../services/builder_project_service.dart';
 class BuilderRecentProjectsWidget extends StatelessWidget {
   final String builderId;
 
-  const BuilderRecentProjectsWidget({
-    super.key,
-    required this.builderId,
-  });
+  const BuilderRecentProjectsWidget({super.key, required this.builderId});
 
   Widget _shimmerLoading(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
@@ -53,7 +50,9 @@ class BuilderRecentProjectsWidget extends StatelessWidget {
             children: [
               Text(
                 "My Projects",
-                style: textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w700),
+                style: textTheme.titleLarge?.copyWith(
+                  fontWeight: FontWeight.w700,
+                ),
               ),
               const SizedBox(height: 15),
               _shimmerLoading(context),
@@ -93,7 +92,11 @@ class BuilderRecentProjectsWidget extends StatelessWidget {
             ),
             child: Column(
               children: [
-                Icon(Icons.apartment_rounded, size: 40, color: scheme.onSurface.withOpacity(0.3)),
+                Icon(
+                  Icons.apartment_rounded,
+                  size: 40,
+                  color: scheme.onSurface.withOpacity(0.3),
+                ),
                 const SizedBox(height: 12),
                 Text(
                   "No projects found",
@@ -126,7 +129,10 @@ class BuilderRecentProjectsWidget extends StatelessWidget {
                 tween: Tween(begin: 0.0, end: 1.0),
                 builder: (context, t, child) => Opacity(
                   opacity: t,
-                  child: Transform.translate(offset: Offset(0, (1 - t) * 10), child: child),
+                  child: Transform.translate(
+                    offset: Offset(0, (1 - t) * 10),
+                    child: child,
+                  ),
                 ),
                 child: Container(
                   margin: const EdgeInsets.only(bottom: 16),
@@ -157,9 +163,12 @@ class BuilderRecentProjectsWidget extends StatelessWidget {
                                 if (progress == null) return child;
                                 return Container(
                                   height: 180,
-                                  color: scheme.surfaceContainerHighest.withOpacity(0.4),
+                                  color: scheme.surfaceContainerHighest
+                                      .withOpacity(0.4),
                                   child: const Center(
-                                    child: CircularProgressIndicator(strokeWidth: 2),
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 2,
+                                    ),
                                   ),
                                 );
                               },
@@ -182,7 +191,10 @@ class BuilderRecentProjectsWidget extends StatelessWidget {
                               top: 12,
                               right: 12,
                               child: Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 12,
+                                  vertical: 6,
+                                ),
                                 decoration: BoxDecoration(
                                   color: statusColor,
                                   borderRadius: BorderRadius.circular(20),
@@ -239,13 +251,27 @@ class BuilderRecentProjectsWidget extends StatelessWidget {
                             const SizedBox(height: 14),
                             Row(
                               children: [
-                                Icon(Icons.visibility_rounded, size: 18, color: scheme.onSurface.withOpacity(0.45)),
+                                Icon(
+                                  Icons.visibility_rounded,
+                                  size: 18,
+                                  color: scheme.onSurface.withOpacity(0.45),
+                                ),
                                 const SizedBox(width: 5),
-                                Text(project.views.toString(), style: textTheme.bodySmall),
+                                Text(
+                                  project.views.toString(),
+                                  style: textTheme.bodySmall,
+                                ),
                                 const SizedBox(width: 18),
-                                const Icon(Icons.favorite_rounded, size: 18, color: Colors.redAccent),
+                                const Icon(
+                                  Icons.favorite_rounded,
+                                  size: 18,
+                                  color: Colors.redAccent,
+                                ),
                                 const SizedBox(width: 5),
-                                Text(project.likes.toString(), style: textTheme.bodySmall),
+                                Text(
+                                  project.likes.toString(),
+                                  style: textTheme.bodySmall,
+                                ),
                               ],
                             ),
                             const SizedBox(height: 14),

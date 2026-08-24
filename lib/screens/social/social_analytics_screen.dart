@@ -224,8 +224,9 @@ class _PlatformRow extends StatelessWidget {
               value: fraction,
               minHeight: 6,
               backgroundColor: AppColors.hairlineStrong,
-              valueColor:
-                  const AlwaysStoppedAnimation<Color>(AppColors.primary),
+              valueColor: const AlwaysStoppedAnimation<Color>(
+                AppColors.primary,
+              ),
             ),
           ),
         ),

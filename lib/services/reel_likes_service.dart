@@ -28,11 +28,13 @@ class ReelLikesService {
 
   Future<void> like(String userId, String reelId) async {
     try {
-      await _supabase.from('user_likes').upsert(
-        {'user_id': userId, 'reel_id': reelId},
-        onConflict: 'user_id,reel_id',
-        ignoreDuplicates: true,
-      );
+      await _supabase
+          .from('user_likes')
+          .upsert(
+            {'user_id': userId, 'reel_id': reelId},
+            onConflict: 'user_id,reel_id',
+            ignoreDuplicates: true,
+          );
     } catch (e) {
       debugPrint('ReelLikesService.like failed: $e');
       rethrow;

@@ -118,13 +118,10 @@ class RecentSearchesService {
   /// because an UPDATE only touches the columns present in it.
   Future<void> saveRemote(String userId, List<RecentSearch> items) async {
     try {
-      await _supabase.from(_table).upsert(
-        {
-          'user_id': userId,
-          _column: items.map((e) => e.toJson()).toList(),
-        },
-        onConflict: 'user_id',
-      );
+      await _supabase.from(_table).upsert({
+        'user_id': userId,
+        _column: items.map((e) => e.toJson()).toList(),
+      }, onConflict: 'user_id');
     } catch (e) {
       // Swallowed on purpose. RLS rejects the write outright for an expired or
       // mid-refresh session, and that must not break the search the user just

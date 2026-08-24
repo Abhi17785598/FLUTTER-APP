@@ -44,11 +44,7 @@ class PostPropertyScreen extends StatelessWidget {
   final String? editPropertyId;
   final PropertyEditBundle? editBundle;
 
-  const PostPropertyScreen({
-    super.key,
-    this.editPropertyId,
-    this.editBundle,
-  });
+  const PostPropertyScreen({super.key, this.editPropertyId, this.editBundle});
 
   /// Short label per step, shown in the progress indicator. Keyed by identity
   /// because which steps appear — and therefore their positions — depends on
@@ -68,39 +64,39 @@ class PostPropertyScreen extends StatelessWidget {
   static const Map<WizardStep, (String, String)> stepHeadings = {
     WizardStep.category: (
       'What are you listing?',
-      'Choose a category and how you want to list it'
+      'Choose a category and how you want to list it',
     ),
     WizardStep.basicInfo: (
       'Tell us the basics',
-      'Add the core details buyers will see first'
+      'Add the core details buyers will see first',
     ),
     WizardStep.dimensions: (
       'Dimensions & Layout',
-      'Specify the physical size and layout of the property'
+      'Specify the physical size and layout of the property',
     ),
     WizardStep.condition: (
       'Condition & Furnishing',
-      "Tell us about the property's age, availability and furnishings"
+      "Tell us about the property's age, availability and furnishings",
     ),
     WizardStep.amenities: (
       'Amenities & Facilities',
-      'What facilities are available at this property?'
+      'What facilities are available at this property?',
     ),
     WizardStep.legal: (
       'Legal & Approvals',
-      'Provide legal and documentation status for transparency'
+      'Provide legal and documentation status for transparency',
     ),
     WizardStep.pricing: (
       'Pricing & Terms',
-      'Provide pricing details, terms and conditions'
+      'Provide pricing details, terms and conditions',
     ),
     WizardStep.media: (
       'Media & Contact',
-      'Add photos and how buyers can reach you'
+      'Add photos and how buyers can reach you',
     ),
     WizardStep.review: (
       'Review Your Listing',
-      'Check everything before you finish'
+      'Check everything before you finish',
     ),
   };
 
@@ -199,8 +195,7 @@ class _PostPropertyWizardState extends State<PostPropertyWizardView> {
             steps: provider.visibleSteps,
             currentIndex: provider.currentStep,
             compact: !isWide,
-            onStepTap: (i) =>
-                context.read<PostPropertyProvider>().goToStep(i),
+            onStepTap: (i) => context.read<PostPropertyProvider>().goToStep(i),
           );
 
           final form = _StepBody(
@@ -248,7 +243,11 @@ class _PostPropertyWizardState extends State<PostPropertyWizardView> {
               children: [
                 Padding(
                   padding: EdgeInsets.fromLTRB(
-                      horizontalPadding, 12, horizontalPadding, 12),
+                    horizontalPadding,
+                    12,
+                    horizontalPadding,
+                    12,
+                  ),
                   child: progressCard,
                 ),
                 Expanded(child: form),
@@ -319,7 +318,11 @@ class _StepBody extends StatelessWidget {
             child: SingleChildScrollView(
               key: ValueKey(provider.currentStep),
               padding: EdgeInsets.fromLTRB(
-                  horizontalPadding, 0, horizontalPadding, 24),
+                horizontalPadding,
+                0,
+                horizontalPadding,
+                24,
+              ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -327,8 +330,9 @@ class _StepBody extends StatelessWidget {
                   // as each React step component does. The app's own step
                   // header stays for steps not yet converted, so they are not
                   // left untitled mid-migration.
-                  if (!kPortalConvertedSteps
-                      .contains(provider.currentWizardStep)) ...[
+                  if (!kPortalConvertedSteps.contains(
+                    provider.currentWizardStep,
+                  )) ...[
                     _StepHeader(
                       stepNumber: provider.currentStep + 1,
                       totalSteps: provider.totalSteps,

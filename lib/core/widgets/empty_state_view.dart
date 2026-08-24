@@ -137,7 +137,9 @@ class _EmptyStateAction extends StatelessWidget {
         onTap: onTap,
         child: Container(
           height: AppConstants.emptyStateActionHeight,
-          padding: const EdgeInsets.symmetric(horizontal: AppConstants.spacingXL),
+          padding: const EdgeInsets.symmetric(
+            horizontal: AppConstants.spacingXL,
+          ),
           decoration: BoxDecoration(
             color: AppColors.primary,
             borderRadius: BorderRadius.circular(AppConstants.buttonRadius),

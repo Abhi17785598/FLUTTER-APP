@@ -2,7 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../../../core/constants/app_constants.dart';
+import '../../../core/utils/compare_toggle_handler.dart';
 import '../../../models/property_model.dart';
+import '../../../providers/compare_provider.dart';
 import '../../../providers/property_provider.dart';
 import '../../../widgets/property_card_vertical.dart';
 import '../../../widgets/section_header.dart';
@@ -43,6 +45,7 @@ class PropertyRailSection extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final compareProvider = context.watch<CompareProvider>();
     return Consumer<PropertyProvider>(
       builder: (context, propertyProvider, child) {
         final items = selector(propertyProvider.properties);
@@ -69,28 +72,31 @@ class PropertyRailSection extends StatelessWidget {
                 message: emptyMessage ?? 'No listings here yet',
               )
             else
-            SizedBox(
-              height: rowHeight,
-              child: ListView.builder(
-                scrollDirection: Axis.horizontal,
-                padding: const EdgeInsets.symmetric(horizontal: 16),
-                itemCount: items.length,
-                itemBuilder: (context, index) {
-                  return PropertyCardVertical(
-                    property: items[index],
-                    width: cardWidth,
-                    imageHeight: cardImageHeight,
-                    onTap: () => Navigator.pushNamed(
-                      context,
-                      AppConstants.propertyDetailScreen,
-                      arguments: {'propertyId': items[index].id},
-                    ),
-                    onFavoriteToggle: () =>
-                        propertyProvider.toggleShortlist(items[index].id),
-                  );
-                },
+              SizedBox(
+                height: rowHeight,
+                child: ListView.builder(
+                  scrollDirection: Axis.horizontal,
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  itemCount: items.length,
+                  itemBuilder: (context, index) {
+                    return PropertyCardVertical(
+                      property: items[index],
+                      width: cardWidth,
+                      imageHeight: cardImageHeight,
+                      onTap: () => Navigator.pushNamed(
+                        context,
+                        AppConstants.propertyDetailScreen,
+                        arguments: {'propertyId': items[index].id},
+                      ),
+                      onFavoriteToggle: () =>
+                          propertyProvider.toggleShortlist(items[index].id),
+                      isInCompare: compareProvider.isSelected(items[index].id),
+                      onCompareToggle: () =>
+                          handleCompareToggle(context, items[index]),
+                    );
+                  },
+                ),
               ),
-            ),
           ],
         );
       },

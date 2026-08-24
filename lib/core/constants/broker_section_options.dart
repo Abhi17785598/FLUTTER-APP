@@ -145,26 +145,26 @@ const Set<String> kActiveBrokerLeadStatuses = {
 /// to `new`, matching `visitStatusMap[...] || 'new'` (`IncomingLeadsManager
 /// .tsx:130`).
 String visitLeadStatusFromDb(String? dbValue) => switch (dbValue) {
-      'pending' => 'new',
-      'confirmed' => 'viewing_scheduled',
-      'rescheduled' => 'viewing_scheduled',
-      'completed' => 'negotiation',
-      'cancelled' => 'lost',
-      _ => 'new',
-    };
+  'pending' => 'new',
+  'confirmed' => 'viewing_scheduled',
+  'rescheduled' => 'viewing_scheduled',
+  'completed' => 'negotiation',
+  'cancelled' => 'lost',
+  _ => 'new',
+};
 
 /// The booking status to write for an app status picked from
 /// [kBrokerLeadStatuses] — always one of pending/confirmed/completed, since
 /// the picker never offers 'lost' and this app's Leads tab never reschedules
 /// a slot (that stays the Visits tab's job).
 String visitLeadStatusToDb(String value) => switch (value) {
-      'new' => 'pending',
-      'contacted' => 'pending',
-      'viewing_scheduled' => 'confirmed',
-      'negotiation' => 'completed',
-      'closed' => 'completed',
-      _ => 'pending',
-    };
+  'new' => 'pending',
+  'contacted' => 'pending',
+  'viewing_scheduled' => 'confirmed',
+  'negotiation' => 'completed',
+  'closed' => 'completed',
+  _ => 'pending',
+};
 
 // ── Broker profile ──────────────────────────────────────────────────────────
 //
@@ -176,10 +176,10 @@ String visitLeadStatusToDb(String value) => switch (value) {
 
 /// Label for a stored `approval_status`.
 String brokerProfileApprovalLabel(String? status) => switch (status) {
-      'approved' => 'Approved',
-      'rejected' => 'Rejected',
-      _ => 'Pending Review',
-    };
+  'approved' => 'Approved',
+  'rejected' => 'Rejected',
+  _ => 'Pending Review',
+};
 
 // `property_types` and `operating_cities` have deliberately **no** option list
 // here. `BrokerProfileManager.tsx:461-490` renders both as read-only badges — it

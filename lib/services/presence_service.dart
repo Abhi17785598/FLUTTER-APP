@@ -19,7 +19,8 @@ class PresenceService with WidgetsBindingObserver {
   PresenceService._(this._service);
   static PresenceService? _instance;
 
-  factory PresenceService() => _instance ??= PresenceService._(MessagingService());
+  factory PresenceService() =>
+      _instance ??= PresenceService._(MessagingService());
 
   final MessagingService _service;
   Timer? _heartbeat;
@@ -30,7 +31,10 @@ class PresenceService with WidgetsBindingObserver {
     if (_refCount > 1) return;
     WidgetsBinding.instance.addObserver(this);
     _goOnline();
-    _heartbeat = Timer.periodic(const Duration(seconds: 30), (_) => _goOnline());
+    _heartbeat = Timer.periodic(
+      const Duration(seconds: 30),
+      (_) => _goOnline(),
+    );
   }
 
   void detach() {

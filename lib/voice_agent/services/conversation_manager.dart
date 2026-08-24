@@ -61,8 +61,7 @@ class ConversationManager {
   void _persist() async {
     try {
       final prefs = await SharedPreferences.getInstance();
-      final encoded =
-          jsonEncode(_turns.map((t) => t.toMap()).toList());
+      final encoded = jsonEncode(_turns.map((t) => t.toMap()).toList());
       await prefs.setString(_prefsKey, encoded);
     } catch (_) {
       // Persistence is best-effort; never throw.

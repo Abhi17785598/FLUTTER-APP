@@ -65,7 +65,10 @@ class MetaOAuthService {
 
   String _generateState() {
     final rand = Random.secure();
-    return List.generate(16, (_) => rand.nextInt(256).toRadixString(16).padLeft(2, '0')).join();
+    return List.generate(
+      16,
+      (_) => rand.nextInt(256).toRadixString(16).padLeft(2, '0'),
+    ).join();
   }
 
   String _buildOAuthUrl(String state) {
@@ -77,7 +80,10 @@ class MetaOAuthService {
       'state': state,
     };
     final query = params.entries
-        .map((e) => '${Uri.encodeComponent(e.key)}=${Uri.encodeComponent(e.value)}')
+        .map(
+          (e) =>
+              '${Uri.encodeComponent(e.key)}=${Uri.encodeComponent(e.value)}',
+        )
         .join('&');
     return 'https://www.facebook.com/v21.0/dialog/oauth?$query';
   }
@@ -97,8 +103,7 @@ class MetaOAuthService {
       return (data as Map<String, dynamic>?) ?? const <String, dynamic>{};
     } on FunctionException catch (e) {
       final message = e.details is Map ? e.details['error'] : null;
-      throw message?.toString() ??
-          'Could not reach Meta. Please try again.';
+      throw message?.toString() ?? 'Could not reach Meta. Please try again.';
     } catch (e) {
       if (e is String) rethrow;
       throw 'A network error occurred. Please try again.';
@@ -125,7 +130,9 @@ class MetaOAuthService {
     final completer = Completer<Uri>();
     late final StreamSubscription<Uri> sub;
     sub = appLinks.uriLinkStream.listen((uri) {
-      if (uri.scheme == 'propcid' && uri.host == 'meta-callback' && !completer.isCompleted) {
+      if (uri.scheme == 'propcid' &&
+          uri.host == 'meta-callback' &&
+          !completer.isCompleted) {
         completer.complete(uri);
       }
     }, onError: (_) {});
@@ -158,10 +165,10 @@ class MetaOAuthService {
         throw 'Facebook did not return a login code.';
       }
 
-      final result = await _invoke('meta-oauth-exchange', body: {
-        'code': code,
-        'redirect_uri': redirectUri,
-      });
+      final result = await _invoke(
+        'meta-oauth-exchange',
+        body: {'code': code, 'redirect_uri': redirectUri},
+      );
 
       final pages = (result['pages'] as List? ?? const [])
           .whereType<Map>()

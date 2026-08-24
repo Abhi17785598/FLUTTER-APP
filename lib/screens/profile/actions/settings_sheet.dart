@@ -49,8 +49,9 @@ void showSettingsSheet(BuildContext context) {
               children: [
                 Text(
                   'Settings',
-                  style:
-                      AppTextStyles.heading3.copyWith(fontWeight: FontWeight.bold),
+                  style: AppTextStyles.heading3.copyWith(
+                    fontWeight: FontWeight.bold,
+                  ),
                 ),
                 IconButton(
                   icon: const Icon(Icons.close),
@@ -117,16 +118,23 @@ void showSettingsSheet(BuildContext context) {
                         color: Colors.red.withOpacity(0.2),
                         borderRadius: BorderRadius.circular(10),
                       ),
-                      child: const Icon(Icons.logout,
-                          color: Colors.red, size: 20),
+                      child: const Icon(
+                        Icons.logout,
+                        color: Colors.red,
+                        size: 20,
+                      ),
                     ),
                     title: const Text(
                       'Logout',
                       style: TextStyle(
-                          color: Colors.red, fontWeight: FontWeight.w600),
+                        color: Colors.red,
+                        fontWeight: FontWeight.w600,
+                      ),
                     ),
-                    trailing:
-                        const Icon(Icons.chevron_right, color: Colors.red),
+                    trailing: const Icon(
+                      Icons.chevron_right,
+                      color: Colors.red,
+                    ),
                     onTap: () {
                       Navigator.pop(context);
                       showLogoutDialog(context);
@@ -177,8 +185,9 @@ Widget _buildSettingItem(
               ),
               Text(
                 subtitle,
-                style: AppTextStyles.caption
-                    .copyWith(color: AppColors.textSecondary),
+                style: AppTextStyles.caption.copyWith(
+                  color: AppColors.textSecondary,
+                ),
               ),
             ],
           ),

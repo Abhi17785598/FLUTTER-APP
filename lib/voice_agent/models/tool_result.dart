@@ -22,10 +22,8 @@ class ToolResult {
   }
 }
 
-typedef ToolExecutor = Future<ToolResult> Function(
-  Map<String, dynamic> params,
-  ToolContext ctx,
-);
+typedef ToolExecutor =
+    Future<ToolResult> Function(Map<String, dynamic> params, ToolContext ctx);
 
 class ToolDefinition {
   final String name;

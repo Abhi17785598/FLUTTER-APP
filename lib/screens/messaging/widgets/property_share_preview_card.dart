@@ -55,7 +55,9 @@ class PropertySharePreviewCard extends StatelessWidget {
         child: Container(
           padding: const EdgeInsets.all(10),
           decoration: BoxDecoration(
-            color: (isMine ? Colors.white : AppColors.textHint).withValues(alpha: 0.12),
+            color: (isMine ? Colors.white : AppColors.textHint).withValues(
+              alpha: 0.12,
+            ),
             borderRadius: BorderRadius.circular(12),
           ),
           child: Row(
@@ -67,7 +69,10 @@ class PropertySharePreviewCard extends StatelessWidget {
                 child: Text(
                   'Property unavailable',
                   overflow: TextOverflow.ellipsis,
-                  style: AppTextStyles.caption.copyWith(fontSize: 11.5, color: subForeground),
+                  style: AppTextStyles.caption.copyWith(
+                    fontSize: 11.5,
+                    color: subForeground,
+                  ),
                 ),
               ),
             ],
@@ -81,83 +86,99 @@ class PropertySharePreviewCard extends StatelessWidget {
       child: ConstrainedBox(
         constraints: const BoxConstraints(maxWidth: 220),
         child: Container(
-        decoration: BoxDecoration(
-          color: (isMine ? Colors.white : AppColors.background).withValues(alpha: 0.14),
-          borderRadius: BorderRadius.circular(12),
-        ),
-        clipBehavior: Clip.antiAlias,
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            if (p.imageUrl != null)
-              CachedNetworkImage(
-                imageUrl: p.imageUrl!,
-                height: 110,
-                width: double.infinity,
-                fit: BoxFit.cover,
-                errorWidget: (_, _, _) => Container(
+          decoration: BoxDecoration(
+            color: (isMine ? Colors.white : AppColors.background).withValues(
+              alpha: 0.14,
+            ),
+            borderRadius: BorderRadius.circular(12),
+          ),
+          clipBehavior: Clip.antiAlias,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              if (p.imageUrl != null)
+                CachedNetworkImage(
+                  imageUrl: p.imageUrl!,
                   height: 110,
-                  color: AppColors.primaryLight,
-                  child: const Icon(Icons.home_work_outlined, color: AppColors.primary),
-                ),
-              )
-            else
-              Container(
-                height: 90,
-                color: AppColors.primaryLight,
-                child: const Center(
-                  child: Icon(Icons.home_work_outlined, color: AppColors.primary, size: 28),
-                ),
-              ),
-            Padding(
-              padding: const EdgeInsets.all(10),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text(
-                    p.title,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: AppTextStyles.body.copyWith(
-                      fontSize: 13,
-                      fontWeight: FontWeight.w600,
-                      color: foreground,
+                  width: double.infinity,
+                  fit: BoxFit.cover,
+                  errorWidget: (_, _, _) => Container(
+                    height: 110,
+                    color: AppColors.primaryLight,
+                    child: const Icon(
+                      Icons.home_work_outlined,
+                      color: AppColors.primary,
                     ),
                   ),
-                  if (p.location != null) ...[
-                    const SizedBox(height: 3),
-                    Row(
-                      children: [
-                        Icon(Icons.location_on, size: 11, color: subForeground),
-                        const SizedBox(width: 3),
-                        Expanded(
-                          child: Text(
-                            p.location!,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: AppTextStyles.caption.copyWith(fontSize: 10.5, color: subForeground),
-                          ),
-                        ),
-                      ],
+                )
+              else
+                Container(
+                  height: 90,
+                  color: AppColors.primaryLight,
+                  child: const Center(
+                    child: Icon(
+                      Icons.home_work_outlined,
+                      color: AppColors.primary,
+                      size: 28,
                     ),
-                  ],
-                  if (p.price != null) ...[
-                    const SizedBox(height: 4),
+                  ),
+                ),
+              Padding(
+                padding: const EdgeInsets.all(10),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
                     Text(
-                      p.price!,
-                      style: AppTextStyles.caption.copyWith(
-                        fontSize: 12.5,
-                        fontWeight: FontWeight.w700,
-                        color: isMine ? Colors.white : AppColors.primary,
+                      p.title,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: AppTextStyles.body.copyWith(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                        color: foreground,
                       ),
                     ),
+                    if (p.location != null) ...[
+                      const SizedBox(height: 3),
+                      Row(
+                        children: [
+                          Icon(
+                            Icons.location_on,
+                            size: 11,
+                            color: subForeground,
+                          ),
+                          const SizedBox(width: 3),
+                          Expanded(
+                            child: Text(
+                              p.location!,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: AppTextStyles.caption.copyWith(
+                                fontSize: 10.5,
+                                color: subForeground,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                    if (p.price != null) ...[
+                      const SizedBox(height: 4),
+                      Text(
+                        p.price!,
+                        style: AppTextStyles.caption.copyWith(
+                          fontSize: 12.5,
+                          fontWeight: FontWeight.w700,
+                          color: isMine ? Colors.white : AppColors.primary,
+                        ),
+                      ),
+                    ],
                   ],
-                ],
+                ),
               ),
-            ),
-          ],
+            ],
           ),
         ),
       ),

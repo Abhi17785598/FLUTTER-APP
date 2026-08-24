@@ -21,9 +21,7 @@ class GradientText extends StatelessWidget {
       },
       child: Text(
         text,
-        style: (style ?? const TextStyle()).copyWith(
-          color: Colors.white,
-        ),
+        style: (style ?? const TextStyle()).copyWith(color: Colors.white),
       ),
     );
   }

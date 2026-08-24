@@ -37,7 +37,7 @@ import '../models/app_notification.dart';
 
 class NotificationService {
   NotificationService({SupabaseClient? client})
-      : _supabase = client ?? Supabase.instance.client;
+    : _supabase = client ?? Supabase.instance.client;
 
   final SupabaseClient _supabase;
 
@@ -62,9 +62,9 @@ class NotificationService {
         .order('created_at', ascending: false)
         .limit(pageSize);
 
-    return List<Map<String, dynamic>>.from(rows)
-        .map(AppNotification.fromSupabase)
-        .toList();
+    return List<Map<String, dynamic>>.from(
+      rows,
+    ).map(AppNotification.fromSupabase).toList();
   }
 
   /// Marks one notification read.

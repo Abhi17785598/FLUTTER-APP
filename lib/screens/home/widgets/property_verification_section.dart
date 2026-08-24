@@ -180,8 +180,9 @@ class _PropertyVerificationSectionState
                   height: 6,
                   decoration: BoxDecoration(
                     color: i == _page ? AppColors.primary : AppColors.hairline,
-                    borderRadius:
-                        BorderRadius.circular(AppConstants.pillRadius),
+                    borderRadius: BorderRadius.circular(
+                      AppConstants.pillRadius,
+                    ),
                   ),
                 ),
             ],

@@ -43,8 +43,9 @@ class _PropertySubmissionConfirmationScreenState
     final userId = context.read<AuthProvider>().userId;
     if (userId == null || !mounted) return;
     try {
-      final detail =
-          await PropertyService().getPropertyDetail(widget.propertyId!);
+      final detail = await PropertyService().getPropertyDetail(
+        widget.propertyId!,
+      );
       if (!mounted) return;
       await showPublishEverywhereDialog(
         context,
@@ -79,13 +80,21 @@ class _PropertySubmissionConfirmationScreenState
                   shape: BoxShape.circle,
                   boxShadow: AppColors.primaryGlow,
                 ),
-                child: const Icon(Icons.check_rounded, color: Colors.white, size: 48),
+                child: const Icon(
+                  Icons.check_rounded,
+                  color: Colors.white,
+                  size: 48,
+                ),
               ).animate().scale(duration: 350.ms, curve: Curves.easeOutBack),
               const SizedBox(height: 28),
               Text(
-                propertyId != null ? 'Your listing is live!' : 'Your listing is ready',
+                propertyId != null
+                    ? 'Your listing is live!'
+                    : 'Your listing is ready',
                 textAlign: TextAlign.center,
-                style: AppTextStyles.heading1.copyWith(fontWeight: FontWeight.w700),
+                style: AppTextStyles.heading1.copyWith(
+                  fontWeight: FontWeight.w700,
+                ),
               ).animate().fadeIn(delay: 150.ms, duration: 300.ms),
               const SizedBox(height: 12),
               Text(
@@ -93,7 +102,9 @@ class _PropertySubmissionConfirmationScreenState
                     ? 'Your property has been submitted and is now visible to buyers.'
                     : "You've completed every step of the property wizard.",
                 textAlign: TextAlign.center,
-                style: AppTextStyles.body.copyWith(color: AppColors.textSecondary),
+                style: AppTextStyles.body.copyWith(
+                  color: AppColors.textSecondary,
+                ),
               ).animate().fadeIn(delay: 250.ms, duration: 300.ms),
               const SizedBox(height: 36),
               SizedBox(

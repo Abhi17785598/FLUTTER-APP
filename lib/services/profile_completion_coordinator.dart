@@ -14,29 +14,22 @@ class ProfileCompletionCoordinator {
 
   /// Check if user needs to complete profile
   /// Returns true if profile is incomplete and user should be redirected
- Future<bool> shouldCompleteProfile(BuildContext context) async {
+  Future<bool> shouldCompleteProfile(BuildContext context) async {
+    debugPrint('ROLE: ${_authProvider.userRole}');
 
-  debugPrint(
-    'ROLE: ${_authProvider.userRole}',
-  );
+    debugPrint('TYPE: ${_authProvider.userType}');
 
-  debugPrint(
-    'TYPE: ${_authProvider.userType}',
-  );
+    final userType = _authProvider.userType;
 
-  final userType = _authProvider.userType;
+    if (userType == null) {
+      return false;
+    }
 
-  if (userType == null) {
-    return false;
-  }
-
-  if (
-      userType != 'builder' &&
-      userType != 'broker' &&
-      userType != 'influencer'
-  ) {
-    return false;
-  }
+    if (userType != 'builder' &&
+        userType != 'broker' &&
+        userType != 'influencer') {
+      return false;
+    }
 
     try {
       final userId = _authService.currentUser?.id;
@@ -45,7 +38,7 @@ class ProfileCompletionCoordinator {
       }
 
       final profileData = await _authService.getUserProfile(userId);
-      
+
       if (profileData == null) {
         // No profile exists - should complete
         return true;
@@ -53,7 +46,7 @@ class ProfileCompletionCoordinator {
 
       // Check if profile is complete
       final isComplete = RBACService.isProfileComplete(profileData);
-      
+
       return !isComplete;
     } catch (e) {
       debugPrint('Error checking profile completeness: $e');
@@ -106,7 +99,7 @@ class ProfileCompletionCoordinator {
       }
 
       final profileData = await _authService.getUserProfile(userId);
-      
+
       if (profileData == null) {
         return 0;
       }
@@ -127,18 +120,18 @@ class ProfileCompletionCoordinator {
       }
 
       final profileData = await _authService.getUserProfile(userId);
-      
+
       if (profileData == null) {
-       return RBACService.getRequiredFields(
-       _authProvider.userRole ?? '',
-       _authProvider.userType ?? '',
-      );
+        return RBACService.getRequiredFields(
+          _authProvider.userRole ?? '',
+          _authProvider.userType ?? '',
+        );
       }
 
-     final requiredFields = RBACService.getRequiredFields(
-    _authProvider.userRole ?? '',
-    _authProvider.userType ?? '',
-    );
+      final requiredFields = RBACService.getRequiredFields(
+        _authProvider.userRole ?? '',
+        _authProvider.userType ?? '',
+      );
 
       final missingFields = <String>[];
 
@@ -166,51 +159,57 @@ class ProfileCompletionCoordinator {
     }
 
     return await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Complete Your Profile'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              'Your profile is ${completeness}% complete',
-              style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+          context: context,
+          builder: (context) => AlertDialog(
+            title: const Text('Complete Your Profile'),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Your profile is ${completeness}% complete',
+                  style: const TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                LinearProgressIndicator(value: completeness / 100),
+                const SizedBox(height: 16),
+                const Text('Missing information:'),
+                const SizedBox(height: 8),
+                ...missingFields.map(
+                  (field) => Padding(
+                    padding: const EdgeInsets.only(left: 8, bottom: 4),
+                    child: Row(
+                      children: [
+                        const Icon(Icons.circle, size: 6),
+                        const SizedBox(width: 8),
+                        Text(_formatFieldName(field)),
+                      ],
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 16),
+                const Text(
+                  'Complete your profile to unlock all features and improve visibility.',
+                  style: TextStyle(fontSize: 12, color: Colors.grey),
+                ),
+              ],
             ),
-            const SizedBox(height: 8),
-            LinearProgressIndicator(value: completeness / 100),
-            const SizedBox(height: 16),
-            const Text('Missing information:'),
-            const SizedBox(height: 8),
-            ...missingFields.map((field) => Padding(
-              padding: const EdgeInsets.only(left: 8, bottom: 4),
-              child: Row(
-                children: [
-                  const Icon(Icons.circle, size: 6),
-                  const SizedBox(width: 8),
-                  Text(_formatFieldName(field)),
-                ],
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(context).pop(false),
+                child: const Text('Later'),
               ),
-            )),
-            const SizedBox(height: 16),
-            const Text(
-              'Complete your profile to unlock all features and improve visibility.',
-              style: TextStyle(fontSize: 12, color: Colors.grey),
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(false),
-            child: const Text('Later'),
+              ElevatedButton(
+                onPressed: () => Navigator.of(context).pop(true),
+                child: const Text('Complete Now'),
+              ),
+            ],
           ),
-          ElevatedButton(
-            onPressed: () => Navigator.of(context).pop(true),
-            child: const Text('Complete Now'),
-          ),
-        ],
-      ),
-    ) ?? false;
+        ) ??
+        false;
   }
 
   String _formatFieldName(String fieldName) {

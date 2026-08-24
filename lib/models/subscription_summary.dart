@@ -188,8 +188,18 @@ class SubscriptionSummary {
     final date = expiresAt;
     if (date == null) return null;
     const months = [
-      'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
-      'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
+      'Jan',
+      'Feb',
+      'Mar',
+      'Apr',
+      'May',
+      'Jun',
+      'Jul',
+      'Aug',
+      'Sep',
+      'Oct',
+      'Nov',
+      'Dec',
     ];
     final day = date.day.toString().padLeft(2, '0');
     return '${months[date.month - 1]} $day, ${date.year}';

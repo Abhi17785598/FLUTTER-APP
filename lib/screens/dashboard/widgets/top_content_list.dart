@@ -106,10 +106,7 @@ class _Stat extends StatelessWidget {
       children: [
         Icon(icon, size: 14, color: AppColors.textSecondary),
         const SizedBox(width: 4),
-        Text(
-          '$value',
-          style: AppTextStyles.caption.copyWith(fontSize: 11.5),
-        ),
+        Text('$value', style: AppTextStyles.caption.copyWith(fontSize: 11.5)),
       ],
     );
   }

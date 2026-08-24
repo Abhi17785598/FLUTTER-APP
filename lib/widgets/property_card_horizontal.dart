@@ -4,6 +4,7 @@ import '../core/constants/app_constants.dart';
 import '../core/theme/app_colors.dart';
 import '../core/theme/app_text_styles.dart';
 import '../models/property_model.dart';
+import 'round_icon_button.dart';
 import 'verified_badge.dart';
 
 class PropertyCardHorizontal extends StatelessWidget {
@@ -11,11 +12,18 @@ class PropertyCardHorizontal extends StatelessWidget {
   final VoidCallback? onTap;
   final VoidCallback? onFavoriteToggle;
 
+  /// Opt-in, same convention as [onFavoriteToggle]: only rendered when a
+  /// caller supplies it.
+  final VoidCallback? onCompareToggle;
+  final bool isInCompare;
+
   const PropertyCardHorizontal({
     super.key,
     required this.property,
     this.onTap,
     this.onFavoriteToggle,
+    this.onCompareToggle,
+    this.isInCompare = false,
   });
 
   @override
@@ -46,9 +54,7 @@ class PropertyCardHorizontal extends StatelessWidget {
                     fit: BoxFit.cover,
                     placeholder: (context, url) => Container(
                       color: AppColors.textHint.withOpacity(0.1),
-                      child: const Center(
-                        child: CircularProgressIndicator(),
-                      ),
+                      child: const Center(child: CircularProgressIndicator()),
                     ),
                     errorWidget: (context, url, error) => Container(
                       color: AppColors.textHint.withOpacity(0.1),
@@ -57,10 +63,25 @@ class PropertyCardHorizontal extends StatelessWidget {
                   ),
                 ),
                 if (property.isVerified)
-                  const Positioned(
+                  const Positioned(top: 8, left: 8, child: VerifiedBadge()),
+                if (onCompareToggle != null)
+                  Positioned(
                     top: 8,
-                    left: 8,
-                    child: VerifiedBadge(),
+                    right: 8,
+                    child: RoundIconButton(
+                      size: 32,
+                      iconSize: 18,
+                      onTap: onCompareToggle,
+                      icon: isInCompare
+                          ? Icons.check_circle
+                          : Icons.compare_arrows_rounded,
+                      color: isInCompare
+                          ? AppColors.primary
+                          : AppColors.textSecondary,
+                      semanticLabel: isInCompare
+                          ? 'Remove from compare'
+                          : 'Add to compare',
+                    ),
                   ),
                 Positioned(
                   bottom: 8,
@@ -115,10 +136,7 @@ class PropertyCardHorizontal extends StatelessWidget {
                     overflow: TextOverflow.ellipsis,
                   ),
                   const SizedBox(height: 4),
-                  Text(
-                    property.builderName,
-                    style: AppTextStyles.caption,
-                  ),
+                  Text(property.builderName, style: AppTextStyles.caption),
                   const SizedBox(height: 8),
                   Row(
                     children: [
@@ -140,12 +158,9 @@ class PropertyCardHorizontal extends StatelessWidget {
                     children: [
                       Text(
                         property.priceDisplay,
-                        style: AppTextStyles.price.copyWith(
-                          fontSize: 18,
-                        ),
+                        style: AppTextStyles.price.copyWith(fontSize: 18),
                       ),
-                      if (property.isVerified)
-                        const VerifiedBadge(),
+                      if (property.isVerified) const VerifiedBadge(),
                     ],
                   ),
                 ],
@@ -160,16 +175,9 @@ class PropertyCardHorizontal extends StatelessWidget {
   Widget _buildSpecIcon(IconData icon, String value) {
     return Row(
       children: [
-        Icon(
-          icon,
-          size: 14,
-          color: AppColors.textSecondary,
-        ),
+        Icon(icon, size: 14, color: AppColors.textSecondary),
         const SizedBox(width: 4),
-        Text(
-          value,
-          style: AppTextStyles.caption,
-        ),
+        Text(value, style: AppTextStyles.caption),
       ],
     );
   }

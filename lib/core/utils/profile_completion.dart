@@ -67,7 +67,8 @@ ProfileCompletion calculateProfileCompletion(Map<String, dynamic>? profile) {
     ProfileCompletionItem(
       label: 'Full name',
       field: 'name',
-      completed: displayName is String &&
+      completed:
+          displayName is String &&
           displayName.isNotEmpty &&
           !displayName.contains('@'),
     ),
@@ -110,7 +111,8 @@ ProfileCompletion calculateProfileCompletion(Map<String, dynamic>? profile) {
         ProfileCompletionItem(
           label: 'Social link',
           field: 'social',
-          completed: hasSocial('instagram') ||
+          completed:
+              hasSocial('instagram') ||
               hasSocial('instagram_username') ||
               hasSocial('facebook') ||
               hasSocial('facebook_page_link') ||
@@ -147,7 +149,8 @@ ProfileCompletion calculateProfileCompletion(Map<String, dynamic>? profile) {
         ProfileCompletionItem(
           label: 'Social link',
           field: 'social',
-          completed: hasSocial('instagram') ||
+          completed:
+              hasSocial('instagram') ||
               hasSocial('facebook_page_link') ||
               hasSocial('youtube_channel_link') ||
               hasSocial('linkedin_profile_url'),
@@ -165,13 +168,15 @@ ProfileCompletion calculateProfileCompletion(Map<String, dynamic>? profile) {
         ProfileCompletionItem(
           label: 'Primary platform',
           field: 'platform',
-          completed: hasSocial('primary_platform') ||
+          completed:
+              hasSocial('primary_platform') ||
               hasSocial('primary_content_platform'),
         ),
         ProfileCompletionItem(
           label: 'Platform link',
           field: 'social',
-          completed: hasSocial('instagram') ||
+          completed:
+              hasSocial('instagram') ||
               hasSocial('instagram_username') ||
               hasSocial('youtube') ||
               hasSocial('youtube_channel_link'),
@@ -179,8 +184,7 @@ ProfileCompletion calculateProfileCompletion(Map<String, dynamic>? profile) {
         ProfileCompletionItem(
           label: 'Verification doc',
           field: 'doc',
-          completed:
-              hasSocial('aadhaar_card_url') || hasSocial('pan_card_url'),
+          completed: hasSocial('aadhaar_card_url') || hasSocial('pan_card_url'),
         ),
       ]);
 

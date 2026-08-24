@@ -9,7 +9,10 @@ import '../models/reel_comment.dart';
 class CommentService {
   final SupabaseClient _supabase = Supabase.instance.client;
 
-  Future<List<ReelComment>> fetchComments(String postId, String postType) async {
+  Future<List<ReelComment>> fetchComments(
+    String postId,
+    String postType,
+  ) async {
     final rows = await _supabase
         .from('post_comments')
         .select('id,user_id,content,created_at')
@@ -38,10 +41,12 @@ class CommentService {
     }
 
     return comments
-        .map((c) => ReelComment.fromSupabase(
-              c,
-              profile: profilesByUserId[c['user_id']],
-            ))
+        .map(
+          (c) => ReelComment.fromSupabase(
+            c,
+            profile: profilesByUserId[c['user_id']],
+          ),
+        )
         .toList();
   }
 

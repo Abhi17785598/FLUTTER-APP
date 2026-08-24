@@ -169,7 +169,8 @@ class PublicProfileCoverHeader extends StatelessWidget {
                   // pinned to the viewport. Without the `- t * range` term the
                   // avatar would hang motionless at 126 dp while the identity
                   // text slid up underneath it.
-                  top: topInset +
+                  top:
+                      topInset +
                       kPublicCoverHeight -
                       (kPublicAvatarSize - kPublicAvatarOverhang) -
                       t * kPublicHeaderCollapseRange,
@@ -307,8 +308,8 @@ class _GradientCover extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => const DecoratedBox(
-        decoration: BoxDecoration(gradient: AppColors.heroGradient),
-      );
+    decoration: BoxDecoration(gradient: AppColors.heroGradient),
+  );
 }
 
 /// Small avatar + name, faded in only once the large avatar has handed off.

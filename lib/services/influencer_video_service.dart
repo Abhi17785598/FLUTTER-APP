@@ -80,19 +80,19 @@ class InfluencerVideoDraft {
   /// absent: the portal's modal never sets it, and writing null would erase a link
   /// some other flow established.
   Map<String, dynamic> toPayload() => <String, dynamic>{
-        'title': title,
-        'description': description,
-        'video_url': videoUrl,
-        'thumbnail_url': thumbnailUrl,
-        'video_type': videoType,
-        'hashtags': hashtags,
-        'approval_status': 'pending',
-      };
+    'title': title,
+    'description': description,
+    'video_url': videoUrl,
+    'thumbnail_url': thumbnailUrl,
+    'video_type': videoType,
+    'hashtags': hashtags,
+    'approval_status': 'pending',
+  };
 }
 
 class InfluencerVideoService {
   InfluencerVideoService({SupabaseClient? client})
-      : _supabase = client ?? Supabase.instance.client;
+    : _supabase = client ?? Supabase.instance.client;
 
   final SupabaseClient _supabase;
 
@@ -115,9 +115,9 @@ class InfluencerVideoService {
         .eq('user_id', userId)
         .order('created_at', ascending: false);
 
-    return List<Map<String, dynamic>>.from(rows)
-        .map(InfluencerVideoModel.fromSupabase)
-        .toList();
+    return List<Map<String, dynamic>>.from(
+      rows,
+    ).map(InfluencerVideoModel.fromSupabase).toList();
   }
 
   /// One video by id, or null when it is not visible to the caller.
@@ -141,10 +141,7 @@ class InfluencerVideoService {
 
     final result = await _supabase
         .from(table)
-        .insert(<String, dynamic>{
-          'user_id': userId,
-          ...draft.toPayload(),
-        })
+        .insert(<String, dynamic>{'user_id': userId, ...draft.toPayload()})
         .select('id')
         .single();
 
@@ -166,10 +163,7 @@ class InfluencerVideoService {
   Future<bool> softDelete(String videoId) async {
     final result = await _supabase.rpc(
       'soft_delete_content',
-      params: <String, dynamic>{
-        'p_table': table,
-        'p_id': videoId,
-      },
+      params: <String, dynamic>{'p_table': table, 'p_id': videoId},
     );
     return result == true;
   }
@@ -181,10 +175,7 @@ class InfluencerVideoService {
   Future<bool> restore(String videoId) async {
     final result = await _supabase.rpc(
       'restore_content',
-      params: <String, dynamic>{
-        'p_table': table,
-        'p_id': videoId,
-      },
+      params: <String, dynamic>{'p_table': table, 'p_id': videoId},
     );
     return result == true;
   }

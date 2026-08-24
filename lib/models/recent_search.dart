@@ -28,9 +28,9 @@ class RecentSearch {
   /// column's contents, and a malformed entry must degrade to a usable value
   /// rather than throw mid-render.
   factory RecentSearch.fromJson(Map<String, dynamic> json) => RecentSearch(
-        q: json['q']?.toString() ?? '',
-        ts: (json['ts'] as num?)?.toInt() ?? 0,
-      );
+    q: json['q']?.toString() ?? '',
+    ts: (json['ts'] as num?)?.toInt() ?? 0,
+  );
 
   Map<String, dynamic> toJson() => {'q': q, 'ts': ts};
 }
