@@ -1,10 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_quill/flutter_quill.dart';
+import 'package:flutter_quill_extensions/flutter_quill_extensions.dart';
 import 'package:provider/provider.dart';
 
 import '../../core/constants/app_constants.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_text_styles.dart';
+import '../../core/utils/article_content_converter.dart';
 import '../../core/widgets/empty_state_view.dart';
 import '../../core/widgets/scale_tap.dart';
 import '../../providers/article_editor_provider.dart';
@@ -16,10 +19,10 @@ import 'widgets/article_form_field.dart';
 
 /// Compose or edit an article (blueprint §16.9).
 ///
-/// The content field is a plain multiline editor by decision — no rich-text
-/// dependency this phase. It still honours the backend's HTML contract: the
-/// text is converted to paragraph markup on save, and articles containing
-/// richer web-authored markup open read-only rather than being flattened.
+/// The content field is a real rich-text editor (flutter_quill), matching
+/// the web's Tiptap editor: headings, bold/italic/underline, lists,
+/// blockquote, alignment, links and images all round-trip through the same
+/// `content`/`content_html` HTML the portal writes.
 class ArticleEditorScreen extends StatelessWidget {
   /// Null to compose a new article.
   final String? articleId;
@@ -61,21 +64,44 @@ class _ArticleEditorView extends StatefulWidget {
 class _ArticleEditorViewState extends State<_ArticleEditorView> {
   final _titleController = TextEditingController();
   final _briefController = TextEditingController();
-  final _bodyController = TextEditingController();
   final _tagsController = TextEditingController();
   final _imageController = TextEditingController();
+  final _readTimeController = TextEditingController();
+  final _quillController = QuillController.basic();
+  final _bodyFocusNode = FocusNode();
+  final _bodyScrollController = ScrollController();
 
   bool _controllersSeeded = false;
   bool _previewing = false;
 
   @override
+  void initState() {
+    super.initState();
+    _quillController.addListener(_onContentChanged);
+  }
+
+  @override
   void dispose() {
     _titleController.dispose();
     _briefController.dispose();
-    _bodyController.dispose();
     _tagsController.dispose();
     _imageController.dispose();
+    _readTimeController.dispose();
+    _quillController.removeListener(_onContentChanged);
+    _quillController.dispose();
+    _bodyFocusNode.dispose();
+    _bodyScrollController.dispose();
     super.dispose();
+  }
+
+  /// Mirrors the web editor's `onUpdate: ({editor}) => onChange(editor.getHTML())`
+  /// — pushes the Quill document's HTML (and a plain-text shadow for the
+  /// emptiness checks) into the provider on every edit.
+  void _onContentChanged() {
+    context.read<ArticleEditorProvider>().setBody(
+          articleDocumentToHtml(_quillController.document),
+          _quillController.document.toPlainText(),
+        );
   }
 
   /// Copies loaded values into the controllers once, after the fetch lands.
@@ -84,9 +110,15 @@ class _ArticleEditorViewState extends State<_ArticleEditorView> {
     _controllersSeeded = true;
     _titleController.text = editor.title;
     _briefController.text = editor.brief;
-    _bodyController.text = editor.body;
     _tagsController.text = editor.tags;
     _imageController.text = editor.imageUrl;
+    _readTimeController.text = editor.readTime.toString();
+
+    // Suppress _onContentChanged while loading the saved document — it must
+    // not immediately re-report itself as an edit to the provider.
+    _quillController.removeListener(_onContentChanged);
+    _quillController.document = articleHtmlToDocument(editor.body);
+    _quillController.addListener(_onContentChanged);
   }
 
   Future<void> _saveDraft(ArticleEditorProvider editor) async {
@@ -175,20 +207,28 @@ class _ArticleEditorViewState extends State<_ArticleEditorView> {
     final editor = context.watch<ArticleEditorProvider>();
     _seedControllers(editor);
 
-    return Scaffold(
-      backgroundColor: AppColors.background,
-      body: SafeArea(
-        bottom: false,
-        child: Column(
-          children: [
-            _buildHeader(editor),
-            Expanded(child: _buildBody(editor)),
-          ],
+    // The Quill toolbar/editor look up FlutterQuillLocalizations, which
+    // isn't among the app's global MaterialApp delegates. Scoping it here
+    // with Localizations.override — rather than registering it app-wide —
+    // keeps the rich-text editor's requirements local to this screen.
+    return Localizations.override(
+      context: context,
+      delegates: const [FlutterQuillLocalizations.delegate],
+      child: Scaffold(
+        backgroundColor: AppColors.background,
+        body: SafeArea(
+          bottom: false,
+          child: Column(
+            children: [
+              _buildHeader(editor),
+              Expanded(child: _buildBody(editor)),
+            ],
+          ),
         ),
+        bottomNavigationBar: editor.loading || editor.loadFailed
+            ? null
+            : _buildActionBar(editor),
       ),
-      bottomNavigationBar: editor.loading || editor.loadFailed
-          ? null
-          : _buildActionBar(editor),
     );
   }
 
@@ -351,47 +391,103 @@ class _ArticleEditorViewState extends State<_ArticleEditorView> {
             color: AppColors.textHint,
           ),
         ),
+        const SizedBox(height: 18),
+        ArticleFormField(
+          label: 'Read Time (minutes)',
+          child: ArticleInputSurface(
+            child: TextField(
+              controller: _readTimeController,
+              enabled: !editor.isLocked,
+              keyboardType: TextInputType.number,
+              inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+              onChanged: (value) =>
+                  editor.setReadTime(int.tryParse(value) ?? 0),
+              style: AppTextStyles.body.copyWith(fontSize: 13.5),
+              decoration: _inputDecoration('5'),
+            ),
+          ),
+        ),
       ],
     );
   }
 
+  /// Mirrors ArticleWriteForm.tsx's TiptapEditor toolbar exactly: headings
+  /// 1-3, bold/italic/underline, bullet/ordered lists, blockquote, left/
+  /// center/right alignment, link, image, and undo/redo — nothing else
+  /// (no strikethrough, code, tables, or color, which that toolbar doesn't
+  /// surface either).
+  QuillSimpleToolbarConfig get _toolbarConfig => QuillSimpleToolbarConfig(
+        showDividers: false,
+        showFontFamily: false,
+        showFontSize: false,
+        showSmallButton: false,
+        showStrikeThrough: false,
+        showInlineCode: false,
+        showColorButton: false,
+        showBackgroundColorButton: false,
+        showClearFormat: false,
+        showAlignmentButtons: true,
+        showJustifyAlignment: false,
+        showListCheck: false,
+        showCodeBlock: false,
+        showIndent: false,
+        showSearchButton: false,
+        showSubscript: false,
+        showSuperscript: false,
+        showLineHeightButton: false,
+        headerStyleType: HeaderStyleType.buttons,
+        embedButtons: FlutterQuillEmbeds.toolbarButtons(
+          videoButtonOptions: null,
+          cameraButtonOptions: null,
+        ),
+      );
+
   Widget _buildContentField(ArticleEditorProvider editor) {
+    final bool editable = !editor.isLocked && !_previewing;
+    _quillController.readOnly = !editable;
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         ArticleFormField(
           label: 'Content',
           required: true,
-          counter: '${editor.readTime} min read',
-          child: ArticleInputSurface(
-            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-            child: _previewing
-                ? _ContentPreview(text: editor.body)
-                : TextField(
-                    controller: _bodyController,
-                    enabled: !editor.isLocked,
-                    onChanged: editor.setBody,
-                    minLines: 10,
-                    maxLines: null,
-                    keyboardType: TextInputType.multiline,
-                    textCapitalization: TextCapitalization.sentences,
-                    style: AppTextStyles.body.copyWith(
-                      fontSize: 13,
-                      height: 1.6,
-                    ),
-                    decoration: _inputDecoration(
-                      'Start writing your article...',
-                    ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              if (editable) ...[
+                ArticleInputSurface(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 4,
+                    vertical: 4,
                   ),
-          ),
-        ),
-        const SizedBox(height: 8),
-        Text(
-          'Plain text for now. Leave a blank line between paragraphs — '
-          'formatting tools are coming.',
-          style: AppTextStyles.caption.copyWith(
-            fontSize: 11,
-            color: AppColors.textHint,
+                  child: QuillSimpleToolbar(
+                    controller: _quillController,
+                    config: _toolbarConfig,
+                  ),
+                ),
+                const SizedBox(height: 8),
+              ],
+              ArticleInputSurface(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 14,
+                  vertical: 12,
+                ),
+                child: QuillEditor(
+                  controller: _quillController,
+                  focusNode: _bodyFocusNode,
+                  scrollController: _bodyScrollController,
+                  config: QuillEditorConfig(
+                    placeholder: 'Start writing your article...',
+                    scrollable: false,
+                    expands: false,
+                    minHeight: 220,
+                    padding: EdgeInsets.zero,
+                    embedBuilders: FlutterQuillEmbeds.editorBuilders(),
+                  ),
+                ),
+              ),
+            ],
           ),
         ),
       ],
@@ -467,11 +563,8 @@ class _ArticleEditorViewState extends State<_ArticleEditorView> {
           child: Padding(
             padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
             child: Text(
-              editor.lockReason == ArticleLockReason.richContent
-                  ? 'This article was written on the web. Open it there to '
-                        'edit without losing its formatting.'
-                  : 'This article is already under review and can no longer '
-                        'be edited.',
+              'This article is already under review and can no longer '
+              'be edited.',
               textAlign: TextAlign.center,
               style: AppTextStyles.caption.copyWith(fontSize: 12),
             ),
@@ -595,51 +688,6 @@ class _StatusBanner extends StatelessWidget {
               ],
             ),
           ),
-        ],
-      ),
-    );
-  }
-}
-
-/// Read-only rendering of the composed paragraphs.
-class _ContentPreview extends StatelessWidget {
-  final String text;
-
-  const _ContentPreview({required this.text});
-
-  @override
-  Widget build(BuildContext context) {
-    final paragraphs = text
-        .trim()
-        .split(RegExp(r'\n[ \t]*\n+'))
-        .map((p) => p.trim())
-        .where((p) => p.isNotEmpty)
-        .toList();
-
-    if (paragraphs.isEmpty) {
-      return Padding(
-        padding: const EdgeInsets.symmetric(vertical: 40),
-        child: Center(
-          child: Text(
-            'Nothing to preview yet',
-            style: AppTextStyles.caption.copyWith(fontSize: 12.5),
-          ),
-        ),
-      );
-    }
-
-    return ConstrainedBox(
-      constraints: const BoxConstraints(minHeight: 200),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          for (final paragraph in paragraphs) ...[
-            Text(
-              paragraph,
-              style: AppTextStyles.body.copyWith(fontSize: 13, height: 1.6),
-            ),
-            const SizedBox(height: 12),
-          ],
         ],
       ),
     );

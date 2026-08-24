@@ -2,6 +2,7 @@ import 'dart:math';
 
 import 'package:flutter/foundation.dart';
 
+import '../core/utils/article_content_converter.dart';
 import '../core/utils/article_html.dart';
 import '../models/article_model.dart';
 import '../services/article_service.dart';
@@ -11,10 +12,6 @@ enum ArticleLockReason {
   /// `approval_status` is not `pending`, so the RLS update policy would match
   /// zero rows.
   notPending,
-
-  /// The stored HTML contains formatting the plain-text editor cannot
-  /// represent; editing it here would strip the author's markup.
-  richContent,
 }
 
 /// State for the Article Editor (blueprint §16.9).
@@ -45,12 +42,22 @@ class ArticleEditorProvider extends ChangeNotifier {
   String title = '';
   String brief = '';
 
-  /// Plain text. Converted to HTML on save via [plainTextToHtml].
+  /// HTML produced directly by the Quill rich-text editor — the same shape
+  /// the web's Tiptap editor writes to `content`/`content_html`.
   String body = '';
+
+  /// Plain-text shadow of [body], kept in step by the editor widget so
+  /// emptiness checks below don't need to parse HTML.
+  String bodyPlainText = '';
 
   String? category;
   String tags = '';
   String imageUrl = '';
+
+  /// Manual, author-editable minutes estimate — mirrors the web form's
+  /// `useState(editingArticle?.read_time || 5)` exactly. Not derived from
+  /// [body]; the author sets it directly, same as propcid's number input.
+  int readTime = 5;
 
   // ── Lifecycle state ───────────────────────────────────────────────────────
   bool _loading = false;
@@ -85,8 +92,6 @@ class ArticleEditorProvider extends ChangeNotifier {
   /// has no user-facing publish path, so the label must not promise one.
   String get primaryActionLabel => isAdmin ? 'Publish' : 'Submit for Review';
 
-  int get readTime => estimateReadTime(body);
-
   List<String> get parsedTags =>
       tags.split(',').map((t) => t.trim()).where((t) => t.isNotEmpty).toList();
 
@@ -95,7 +100,7 @@ class ArticleEditorProvider extends ChangeNotifier {
   String? get validationError {
     if (title.trim().isEmpty) return 'Add a title.';
     if (brief.trim().isEmpty) return 'Add a brief.';
-    if (body.trim().isEmpty) return 'Add some content.';
+    if (bodyPlainText.trim().isEmpty) return 'Add some content.';
     if (category == null || category!.isEmpty) return 'Choose a category.';
     return null;
   }
@@ -103,7 +108,7 @@ class ArticleEditorProvider extends ChangeNotifier {
   /// A draft needs far less — React autosaves as soon as a title and body
   /// exist.
   bool get canSaveDraft =>
-      title.trim().isNotEmpty && body.trim().isNotEmpty && !_saving;
+      title.trim().isNotEmpty && bodyPlainText.trim().isNotEmpty && !_saving;
 
   bool get canSubmit => validationError == null && !_saving;
 
@@ -127,15 +132,15 @@ class ArticleEditorProvider extends ChangeNotifier {
       category = article.category;
       tags = article.tags.join(', ');
       imageUrl = article.imageUrl ?? '';
+      readTime = article.readTime;
 
       if (!article.isEditable) {
         _lockReason = ArticleLockReason.notPending;
-      } else if (isRichHtml(article.contentHtml)) {
-        _lockReason = ArticleLockReason.richContent;
       }
 
       // Even when locked, the body is populated so the article can be read.
-      body = htmlToPlainText(article.contentHtml);
+      body = article.contentHtml;
+      bodyPlainText = articleHtmlToDocument(article.contentHtml).toPlainText();
     } catch (e) {
       debugPrint('ArticleEditorProvider.load failed: $e');
       _loadFailed = true;
@@ -157,8 +162,11 @@ class ArticleEditorProvider extends ChangeNotifier {
     notifyListeners();
   }
 
-  void setBody(String value) {
-    body = value;
+  /// [html] is the editor's current content; [plainText] its stripped-down
+  /// text form, kept alongside for the emptiness checks above.
+  void setBody(String html, String plainText) {
+    body = html;
+    bodyPlainText = plainText;
     notifyListeners();
   }
 
@@ -174,6 +182,13 @@ class ArticleEditorProvider extends ChangeNotifier {
 
   void setImageUrl(String value) {
     imageUrl = value;
+    notifyListeners();
+  }
+
+  /// Mirrors the web form's `setReadTime(parseInt(e.target.value) || 5)` —
+  /// an unparsable or zero value falls back to 5 rather than being rejected.
+  void setReadTime(int value) {
+    readTime = value == 0 ? 5 : value;
     notifyListeners();
   }
 
@@ -198,7 +213,7 @@ class ArticleEditorProvider extends ChangeNotifier {
     notifyListeners();
 
     try {
-      final contentHtml = plainTextToHtml(body);
+      final contentHtml = body;
       final existingId = _persistedId;
 
       // Slug is generated once and preserved across edits, matching the web

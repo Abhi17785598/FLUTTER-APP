@@ -102,6 +102,10 @@ dependencies:
   # Explicit dependency for chat-media upload paths (${authUid}/${uuid}.ext) —
   # was only reachable transitively via supabase_flutter before.
   uuid: ^4.5.3
+  flutter_quill: ^11.5.1
+  flutter_quill_extensions: ^11.0.0
+  vsc_quill_delta_to_html: ^1.0.5
+  flutter_quill_delta_from_html: ^1.5.3
 
 dev_dependencies:
   flutter_test:
