@@ -131,6 +131,20 @@ class _PricingStepState extends State<PricingStep> {
     super.dispose();
   }
 
+  /// Mirrors `<AmountInWords value={...}/>`, rendered under every rupee
+  /// input in the portal's PricingStep — not just the headline price.
+  Widget _amountWords(String value) {
+    final words = amountToWordsIndian(value);
+    if (words.isEmpty) return const SizedBox.shrink();
+    return Padding(
+      padding: const EdgeInsets.only(top: 4),
+      child: Text(
+        '₹${groupIndianDigits(value)} · $words Rupees',
+        style: AppTextStyles.caption,
+      ),
+    );
+  }
+
   String _priceLabel(ListingIntent? intent) {
     switch (intent) {
       case ListingIntent.rent:
@@ -279,6 +293,7 @@ class _PricingStepState extends State<PricingStep> {
                     ],
                   ),
                 ),
+                _amountWords(provider.ratePerArea),
                 const WizardDivider(),
               ],
               if (isRentOrLease) ...[
@@ -293,6 +308,7 @@ class _PricingStepState extends State<PricingStep> {
                         .setSecurityDeposit(v),
                   ),
                 ),
+                _amountWords(provider.securityDeposit),
                 const WizardDivider(),
               ],
               // React shows "Society charges" for apartments and
@@ -301,7 +317,7 @@ class _PricingStepState extends State<PricingStep> {
               // applies isApartment && rent/lease; maintenanceCharges
               // applies !isApartment && !isLand && rent/lease) — neither
               // field exists on Land or on a sell listing at all.
-              if (_isApartmentRental(provider))
+              if (_isApartmentRental(provider)) ...[
                 WizardField(
                   label: 'Society Charges (Monthly) *',
                   child: WizardTextField(
@@ -312,9 +328,10 @@ class _PricingStepState extends State<PricingStep> {
                         .read<PostPropertyProvider>()
                         .setText('societyCharges', v),
                   ),
-                )
-              else if (isRentOrLease &&
-                  provider.category != PropertyCategory.land)
+                ),
+                _amountWords(provider.text('societyCharges')),
+              ] else if (isRentOrLease &&
+                  provider.category != PropertyCategory.land) ...[
                 WizardField(
                   label: 'Maintenance Charges (Monthly)',
                   child: WizardTextField(
@@ -326,6 +343,8 @@ class _PricingStepState extends State<PricingStep> {
                         .setMaintenanceCharges(v),
                   ),
                 ),
+                _amountWords(provider.maintenanceCharges),
+              ],
               // React renders <TokenAmount> in every one of its 15 branches.
               ...[
                 const WizardDivider(),
@@ -340,6 +359,7 @@ class _PricingStepState extends State<PricingStep> {
                         .setBookingAmount(v),
                   ),
                 ),
+                _amountWords(provider.bookingAmount),
               ],
               if (isRentOrLease) ...[
                 const WizardDivider(),
@@ -501,64 +521,90 @@ class _PricingStepState extends State<PricingStep> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Expanded(
-                      child: WizardField(
-                        label: 'Monthly Rent Per Bed',
-                        child: WizardTextField(
-                          controller: _monthlyRentPerBedController,
-                          hint: '₹0',
-                          keyboardType: TextInputType.number,
-                          onChanged: (v) => context
-                              .read<PostPropertyProvider>()
-                              .setText('monthlyRentPerBed', v),
-                        ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          WizardField(
+                            label: 'Monthly Rent Per Bed',
+                            child: WizardTextField(
+                              controller: _monthlyRentPerBedController,
+                              hint: '₹0',
+                              keyboardType: TextInputType.number,
+                              onChanged: (v) => context
+                                  .read<PostPropertyProvider>()
+                                  .setText('monthlyRentPerBed', v),
+                            ),
+                          ),
+                          _amountWords(provider.text('monthlyRentPerBed')),
+                        ],
                       ),
                     ),
                     const SizedBox(width: 12),
                     Expanded(
-                      child: WizardField(
-                        label: 'Monthly Rent Per Room',
-                        child: WizardTextField(
-                          controller: _monthlyRentPerRoomController,
-                          hint: '₹0',
-                          keyboardType: TextInputType.number,
-                          onChanged: (v) => context
-                              .read<PostPropertyProvider>()
-                              .setText('monthlyRentPerRoom', v),
-                        ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          WizardField(
+                            label: 'Monthly Rent Per Room',
+                            child: WizardTextField(
+                              controller: _monthlyRentPerRoomController,
+                              hint: '₹0',
+                              keyboardType: TextInputType.number,
+                              onChanged: (v) => context
+                                  .read<PostPropertyProvider>()
+                                  .setText('monthlyRentPerRoom', v),
+                            ),
+                          ),
+                          _amountWords(provider.text('monthlyRentPerRoom')),
+                        ],
                       ),
                     ),
                   ],
                 ),
                 const WizardDivider(),
                 Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Expanded(
-                      child: WizardField(
-                        label: 'Food Charges (if separate)',
-                        child: WizardTextField(
-                          controller: _foodChargesController,
-                          hint: '₹0',
-                          keyboardType: TextInputType.number,
-                          onChanged: (v) => context
-                              .read<PostPropertyProvider>()
-                              .setText('foodCharges', v),
-                        ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          WizardField(
+                            label: 'Food Charges (if separate)',
+                            child: WizardTextField(
+                              controller: _foodChargesController,
+                              hint: '₹0',
+                              keyboardType: TextInputType.number,
+                              onChanged: (v) => context
+                                  .read<PostPropertyProvider>()
+                                  .setText('foodCharges', v),
+                            ),
+                          ),
+                          _amountWords(provider.text('foodCharges')),
+                        ],
                       ),
                     ),
                     const SizedBox(width: 12),
                     Expanded(
-                      child: WizardField(
-                        label: 'Laundry Charges (if separate)',
-                        child: WizardTextField(
-                          controller: _laundryChargesController,
-                          hint: '₹0',
-                          keyboardType: TextInputType.number,
-                          onChanged: (v) => context
-                              .read<PostPropertyProvider>()
-                              .setText('laundryCharges', v),
-                        ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          WizardField(
+                            label: 'Laundry Charges (if separate)',
+                            child: WizardTextField(
+                              controller: _laundryChargesController,
+                              hint: '₹0',
+                              keyboardType: TextInputType.number,
+                              onChanged: (v) => context
+                                  .read<PostPropertyProvider>()
+                                  .setText('laundryCharges', v),
+                            ),
+                          ),
+                          _amountWords(provider.text('laundryCharges')),
+                        ],
                       ),
                     ),
                   ],
@@ -597,18 +643,25 @@ class _PricingStepState extends State<PricingStep> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Expanded(
-                      child: WizardField(
-                        label: 'Total Sale Price',
-                        child: WizardTextField(
-                          controller: _totalSalePriceController,
-                          hint: '₹0',
-                          keyboardType: TextInputType.number,
-                          onChanged: (v) => context
-                              .read<PostPropertyProvider>()
-                              .setText('totalSalePrice', v),
-                        ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          WizardField(
+                            label: 'Total Sale Price',
+                            child: WizardTextField(
+                              controller: _totalSalePriceController,
+                              hint: '₹0',
+                              keyboardType: TextInputType.number,
+                              onChanged: (v) => context
+                                  .read<PostPropertyProvider>()
+                                  .setText('totalSalePrice', v),
+                            ),
+                          ),
+                          _amountWords(provider.text('totalSalePrice')),
+                        ],
                       ),
                     ),
                     const SizedBox(width: 12),

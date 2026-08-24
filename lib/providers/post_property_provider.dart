@@ -459,7 +459,7 @@ class PostPropertyProvider extends ChangeNotifier {
           ?.whereType<Map>()
           .map((f) => Map<String, dynamic>.from(f))
           .toList() ??
-      const [];
+      <Map<String, dynamic>>[];
 
   Map<String, dynamic>? buildingFloorEntry(int floorNumber) {
     for (final f in buildingFloors) {

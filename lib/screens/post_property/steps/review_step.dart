@@ -4,6 +4,7 @@ import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_text_styles.dart';
 import '../../../core/widgets/wizard_kit.dart';
 import '../../../providers/post_property_provider.dart';
+import '../listing_constants.dart';
 import '../listing_validation_rules.dart';
 
 /// Step 9: read-only review of everything entered across the wizard, with
@@ -70,6 +71,15 @@ class ReviewStep extends StatelessWidget {
         .toList();
 
     final visibleSteps = provider.visibleSteps;
+    final isRentOrLease =
+        provider.listingIntent == ListingIntent.rent ||
+        provider.listingIntent == ListingIntent.lease;
+    // Mirrors PricingStep._isApartmentRental — the combination React shows
+    // "Society charges" for instead of "Maintenance charges".
+    final isApartmentRental =
+        category == PropertyCategory.residential &&
+        kApartmentSubtypes.contains(provider.residentialSubType ?? '') &&
+        isRentOrLease;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -117,6 +127,11 @@ class ReviewStep extends StatelessWidget {
               ('Bedrooms', _dash(provider.bedrooms)),
               ('Bathrooms', _dash(provider.bathrooms)),
             ],
+            // Facing is only collected here, on Dimensions, and only for PG
+            // (property_dimensions_step.dart) — it has no counterpart on
+            // Legal for any category and no counterpart at all for Land.
+            if (category == PropertyCategory.pg)
+              ('Facing', _dash(provider.facing ?? '')),
           ],
         ),
         // Only summarise steps the wizard actually showed: React hides
@@ -164,7 +179,6 @@ class ReviewStep extends StatelessWidget {
             ('RERA Registered', provider.reraRegistered ? 'Yes' : 'No'),
             if (provider.reraRegistered)
               ('RERA Number', _dash(provider.reraNumber)),
-            ('Facing', _dash(provider.facing ?? '')),
           ],
         ),
         const SizedBox(height: 16),
@@ -174,7 +188,16 @@ class ReviewStep extends StatelessWidget {
             WizardStep.pricing,
           ),
           rows: [
-            ('Maintenance Charges', _dash(provider.maintenanceCharges)),
+            // Same visibility rule as PricingStep: apartments on rent/lease
+            // get "Society Charges", other rent/lease listings except Land
+            // get "Maintenance Charges", and Land/sell listings get neither
+            // (propertyListingRules.ts: societyCharges applies isApartment
+            // && rent/lease; maintenanceCharges applies !isApartment &&
+            // !isLand && rent/lease).
+            if (isApartmentRental)
+              ('Society Charges', _dash(provider.text('societyCharges')))
+            else if (isRentOrLease && category != PropertyCategory.land)
+              ('Maintenance Charges', _dash(provider.maintenanceCharges)),
             ('Brokerage', _dash(provider.brokerage)),
             ('Negotiable', provider.priceNegotiable ? 'Yes' : 'No'),
           ],
