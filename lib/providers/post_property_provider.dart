@@ -1373,7 +1373,15 @@ class PostPropertyProvider extends ChangeNotifier {
     // (Raw/Semi-Furnished/Fully-Furnished) — read it back before the
     // subtable-boolean fallback below runs, so an edit doesn't discard the
     // real stored value in favour of a derived guess.
-    _furnishingType = meta['furnishingType']?.toString();
+    //
+    // Portal's real key is `furnishedType` (PropertyWizard.tsx:884) — this
+    // used to read the mismatched `furnishingType` key, which the portal
+    // never writes, so every listing opened for edit in the app showed the
+    // dropdown blank and 'Semi-Furnished' got silently collapsed by the
+    // subtable-boolean fallback below. `furnishingType` is kept only as a
+    // fallback for any row an already-broken app build saved under it.
+    _furnishingType = (meta['furnishedType'] ?? meta['furnishingType'])
+        ?.toString();
     _constructionAge = meta['constructionAge']?.toString();
     _availabilityStatus = meta['availabilityStatus']?.toString();
     final availItems = meta['availableItems'];
@@ -1408,7 +1416,14 @@ class PostPropertyProvider extends ChangeNotifier {
         '';
     _bookingAmount = meta['tokenAmount']?.toString() ?? '';
     _lockInPeriod = meta['lockInPeriod']?.toString();
-    _priceNegotiable = meta['priceNegotiable'] as bool? ?? false;
+    // `properties.is_negotiable` is the authoritative column (portal reads
+    // `editingProperty.is_negotiable ?? metadata.priceNegotiable ?? false`,
+    // PropertyWizard.tsx:949) — column first, metadata only as a fallback for
+    // rows saved before the app wrote the column.
+    _priceNegotiable =
+        propertyRow['is_negotiable'] as bool? ??
+        meta['priceNegotiable'] as bool? ??
+        false;
     _allInclusivePriceToggle =
         (meta['allInclusivePriceToggle'] ?? meta['allInclusivePrice'])
             as bool? ??
@@ -1482,10 +1497,18 @@ class PostPropertyProvider extends ChangeNotifier {
           _furnishingType = furnished ? 'Fully-Furnished' : 'Raw';
         }
         setText('washrooms', subtableRow['washrooms']?.toString() ?? '');
-        setText(
-          'totalParking',
-          subtableRow['parking_spaces']?.toString() ?? '',
-        );
+        // Fallback only — React's commercial "Total Parking" input has no
+        // live binding to `properties_commercial.parking_spaces` on either
+        // platform (it only ever populates `metadata.totalParking`), so that
+        // column is almost always null. Overwriting the bag value
+        // unconditionally here blanked a real, already-correct
+        // `metadata.totalParking` on every edit and re-saved it as empty.
+        if (_text['totalParking'] == null || _text['totalParking']!.isEmpty) {
+          setText(
+            'totalParking',
+            subtableRow['parking_spaces']?.toString() ?? '',
+          );
+        }
         setText('floorNumber', subtableRow['floor_number']?.toString() ?? '');
         setText(
           'totalFloorsCommercial',
@@ -1494,7 +1517,21 @@ class PostPropertyProvider extends ChangeNotifier {
         final bool cafeteria = subtableRow['cafeteria'] as bool? ?? false;
         _guardRoom = cafeteria;
       } else if (cat == 'land') {
-        setText('soilType', subtableRow['soil_type']?.toString() ?? '');
+        // Fallback only — same guard as `totalParking` above, so a real
+        // `metadata.soilType` value already loaded by the bag hydration
+        // isn't blanked by an empty/stale subtable column.
+        if (_text['soilType'] == null || _text['soilType']!.isEmpty) {
+          setText('soilType', subtableRow['soil_type']?.toString() ?? '');
+        }
+        // `boundary` has no input in either wizard and is never written to
+        // metadata by either platform, yet `_landRow` always sends
+        // `boundary_wall: provider.boolVal('boundary')` on every save. Without
+        // reading the real column back here, `boolVal` always fell back to
+        // `false`, silently zeroing the column on every land create/update —
+        // same class of bug as React's matching `boundary` fix.
+        if (!_bool.containsKey('boundary')) {
+          _bool['boundary'] = subtableRow['boundary_wall'] as bool? ?? false;
+        }
       }
     }
 
@@ -1562,6 +1599,7 @@ class PostPropertyProvider extends ChangeNotifier {
     'taxGovtChargesIncluded', 'loanAvailability', 'brokerage',
     'contactName', 'whatsappNumber', 'bestTimeToCall',
     'bhkType',
+    'furnishedType', 'furnishingType', // canonical + legacy
     // Written by _buildMetadata from typed state, never user-edited via the bag.
     'isPg', 'mediaCategories',
   };

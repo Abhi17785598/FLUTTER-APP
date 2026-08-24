@@ -87,11 +87,14 @@ class NetworkHubProvider extends ChangeNotifier {
       final relationships = results[1] as List<NetworkRelationship>;
       final referralsMade = results[2] as int;
 
-      final wantedKind = isBuilder
-          ? NetworkRelationshipKind.ownedNetworkMember
-          : NetworkRelationshipKind.joinedBuilderNetwork;
+      // "My Networks" (my_networks_screen.dart) renders all three active-
+      // membership kinds as separate sections — Current Network Members
+      // (ownedNetworkMember), Networks Joined (joinedBuilderNetwork) and
+      // Peer Connections (peerConnection) — regardless of the viewer's
+      // role. Counting only one kind here under-reported the hub tile
+      // against what that screen actually shows once opened.
       final networksCount = relationships
-          .where((r) => r.kind == wantedKind)
+          .where((r) => isActiveMembershipKind(r.kind))
           .length;
 
       final performance = await _loadPerformanceSummary(

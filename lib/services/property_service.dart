@@ -605,6 +605,9 @@ class PropertyService {
           // null, never '' — the column is a uuid FK to builder_projects, so a
           // placeholder would fail the constraint (React uses dbUuid for this).
           'project_id': provider.projectId.isEmpty ? null : provider.projectId,
+          // See the matching comment in _insertProperty — real column, not
+          // just `metadata.priceNegotiable`.
+          'is_negotiable': provider.priceNegotiable,
           'metadata': metadata,
         })
         .eq('id', propertyId);
@@ -854,6 +857,12 @@ class PropertyService {
           ? canonicalResidentialSubtype(provider.residentialSubType ?? '')
           : '',
       'project_id': provider.projectId.isEmpty ? null : provider.projectId,
+      // Real column, not just `metadata.priceNegotiable` — React writes it
+      // unconditionally (PropertyWizard.tsx:1898) because every consumer that
+      // filters/displays "negotiable" reads this column, not the metadata
+      // copy. Omitting it left every app-created listing at the column's
+      // schema default (`true`) regardless of what the user picked.
+      'is_negotiable': provider.priceNegotiable,
       'metadata': metadata,
       'status': 'active',
     };
@@ -1094,6 +1103,17 @@ class PropertyService {
     // them would give app-created rows a key web-created rows never carry.
     for (final key in _kUiOnlyFields) {
       meta.remove(key);
+    }
+
+    // ── Step 1: Basic Info overflow ─────────────────────────────────────────
+    // React's canonical key is 'furnishedType' (BasicInfoStep's Furnishing
+    // Type select, PropertyWizard.tsx:884) — this was previously never
+    // written at all, so `_fillTypedEmpties` forced it to '' on every save
+    // and the web edit form showed the Furnishing Type dropdown blank for
+    // every Flutter-created/edited listing.
+    if (provider.furnishingType != null &&
+        provider.furnishingType!.isNotEmpty) {
+      meta['furnishedType'] = provider.furnishingType;
     }
 
     // ── Others ────────────────────────────────────────────────────────────
@@ -1426,6 +1446,12 @@ class PropertyService {
           provider.furnishingType == 'Semi-Furnished' ||
           provider.furnishingType == 'Fully-Furnished',
       'cafeteria': provider.guardRoom,
+      // Present in _insertCommercial but missing here — every commercial
+      // edit silently left these two columns frozen at their create-time
+      // value (the .update() map simply never mentioned them) instead of
+      // saving whatever the user has now.
+      'power_load_kw': double.tryParse(provider.text('powerLoad')) ?? 0,
+      'conference_rooms': int.tryParse(provider.text('numberOfCabins')) ?? 0,
     };
     if (await _rowExists('properties_commercial', propertyId)) {
       await _supabase
