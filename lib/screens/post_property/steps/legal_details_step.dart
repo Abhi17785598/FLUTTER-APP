@@ -63,12 +63,25 @@ class _LegalDetailsStepState extends State<LegalDetailsStep> {
   @override
   void initState() {
     super.initState();
+    final providerAtInit = context.read<PostPropertyProvider>();
     _ownerNameController = TextEditingController(
-      text: context.read<PostPropertyProvider>().text('ownerName'),
+      text: providerAtInit.text('ownerName'),
     );
     final provider = context.read<PostPropertyProvider>();
     _quietHoursController = TextEditingController(
       text: provider.text('quietHours'),
+    );
+    // TEMPORARY — P0 real-device edit-hydration trace.
+    debugPrint(
+      '[EDIT_TRACE][LEGAL] provider.ownerName="${providerAtInit.text('ownerName')}" '
+      'controller.ownerName="${_ownerNameController.text}"',
+    );
+    debugPrint(
+      '[EDIT_TRACE][LEGAL] provider.ownershipType="${providerAtInit.text('ownershipType')}"',
+    );
+    debugPrint(
+      '[EDIT_TRACE][LEGAL] provider.registeredAgreement=${providerAtInit.boolVal('registeredAgreement')} '
+      'mutationAvailable=${providerAtInit.boolVal('mutationAvailable')}',
     );
   }
 

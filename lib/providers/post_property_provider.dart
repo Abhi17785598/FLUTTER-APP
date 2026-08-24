@@ -7,6 +7,44 @@ import '../screens/post_property/listing_validators.dart';
 import '../screens/post_property/listing_value_aliases.dart';
 import '../services/property_service.dart';
 
+/// Coerces a value read out of Supabase JSON (metadata, or a subtable/
+/// properties row) into a bool without ever throwing.
+///
+/// Root cause of the P0 real-device report: `initFromRawData` used to hard-
+/// cast these with `as bool?`. Historical rows — and other write paths that
+/// don't share this app's `dbBool`-style coercion — have stored this class
+/// of flag as a real JSON boolean, a numeric 0/1, or a string like
+/// "true"/"false"/"yes"/"no". The moment ANY one of them arrived as a
+/// string, the cast threw and aborted the rest of hydration, silently
+/// blanking every field assigned after it — not just the one field that was
+/// actually malformed. Returns null (not false) when missing/blank/
+/// unparseable, so callers keep their own `?? false` default.
+bool? _safeBool(dynamic value) {
+  if (value == null) return null;
+  if (value is bool) return value;
+  if (value is num) return value != 0;
+  if (value is String) {
+    final s = value.trim().toLowerCase();
+    if (s.isEmpty) return null;
+    if (s == 'true' || s == '1' || s == 'yes') return true;
+    if (s == 'false' || s == '0' || s == 'no') return false;
+  }
+  return null;
+}
+
+/// Same guarantee as [_safeBool], for numeric values that may arrive as a
+/// real number, a numeric string, or blank — never throws.
+double? _safeDouble(dynamic value) {
+  if (value == null) return null;
+  if (value is num) return value.toDouble();
+  if (value is String) {
+    final s = value.trim();
+    if (s.isEmpty) return null;
+    return double.tryParse(s);
+  }
+  return null;
+}
+
 /// `metadata.pgHouseRules` sub-key -> the provider flag it hydrates into.
 /// Mirrors PropertyService's write-side map; the names differ on each side of
 /// the colon, so neither direction is derivable from the other.
@@ -1269,8 +1307,8 @@ class PostPropertyProvider extends ChangeNotifier {
     _title = propertyRow['title']?.toString() ?? '';
     _description = propertyRow['description']?.toString() ?? '';
     _location = propertyRow['location']?.toString() ?? '';
-    _latitude = (propertyRow['latitude'] as num?)?.toDouble();
-    _longitude = (propertyRow['longitude'] as num?)?.toDouble();
+    _latitude = _safeDouble(propertyRow['latitude']);
+    _longitude = _safeDouble(propertyRow['longitude']);
     _price = propertyRow['price']?.toString() ?? '';
     // properties.rate_per_area is a real column, not metadata — same class of
     // bug as amenities below: the metadata bag flush never sees it, so
@@ -1300,8 +1338,12 @@ class PostPropertyProvider extends ChangeNotifier {
       _availableFrom = DateTime.tryParse(availableFrom);
     }
 
-    final Map<String, dynamic> meta =
-        (propertyRow['metadata'] as Map<String, dynamic>?) ?? {};
+    // Type-checked, not a hard cast — see [_safeBool]'s doc for why a cast
+    // here is exactly the class of bug this fix removes.
+    final dynamic rawMeta = propertyRow['metadata'];
+    final Map<String, dynamic> meta = rawMeta is Map
+        ? Map<String, dynamic>.from(rawMeta)
+        : <String, dynamic>{};
 
     // Rebuild existing photos by zipping media_urls against
     // metadata.mediaCategories BY INDEX, defaulting to 'other' — a verbatim
@@ -1390,21 +1432,21 @@ class PostPropertyProvider extends ChangeNotifier {
     _waterAvailability = meta['waterAvailability']?.toString();
     _numberOfLifts = meta['numberOfLifts']?.toString() ?? '';
     _openParking = meta['openParking']?.toString() ?? '';
-    _gasPipeline = meta['gasPipeline'] as bool? ?? false;
-    _internetAvailability = meta['internetAvailability'] as bool? ?? false;
+    _gasPipeline = _safeBool(meta['gasPipeline']) ?? false;
+    _internetAvailability = _safeBool(meta['internetAvailability']) ?? false;
     // Portal's real key is `solarBackup` (PropertyWizard.tsx) — `solarPower`
     // was a mismatched key Flutter used to read/write instead, kept here only
     // as a fallback for rows an older app build already saved under it.
-    _solarPower = (meta['solarBackup'] ?? meta['solarPower']) as bool? ?? false;
-    _guardRoom = meta['guardRoom'] as bool? ?? false;
-    _reraRegistered = meta['reraRegistered'] as bool? ?? false;
+    _solarPower = _safeBool(meta['solarBackup'] ?? meta['solarPower']) ?? false;
+    _guardRoom = _safeBool(meta['guardRoom']) ?? false;
+    _reraRegistered = _safeBool(meta['reraRegistered']) ?? false;
     _reraNumber = meta['reraNumber']?.toString() ?? '';
-    _saleDeed = meta['saleDeed'] as bool? ?? false;
-    _registryCopy = meta['registryCopy'] as bool? ?? false;
-    _nocAvailable = meta['nocAvailable'] as bool? ?? false;
-    _encumbranceFree = meta['encumbranceFree'] as bool? ?? false;
-    _loanApproved = meta['loanApproved'] as bool? ?? false;
-    _propertyApproved = meta['propertyApproved'] as bool? ?? false;
+    _saleDeed = _safeBool(meta['saleDeed']) ?? false;
+    _registryCopy = _safeBool(meta['registryCopy']) ?? false;
+    _nocAvailable = _safeBool(meta['nocAvailable']) ?? false;
+    _encumbranceFree = _safeBool(meta['encumbranceFree']) ?? false;
+    _loanApproved = _safeBool(meta['loanApproved']) ?? false;
+    _propertyApproved = _safeBool(meta['propertyApproved']) ?? false;
     _facing = meta['facing']?.toString();
     final banks = meta['approvedByBanks'];
     if (banks is List) _approvedByBanks = List<String>.from(banks);
@@ -1421,15 +1463,17 @@ class PostPropertyProvider extends ChangeNotifier {
     // PropertyWizard.tsx:949) — column first, metadata only as a fallback for
     // rows saved before the app wrote the column.
     _priceNegotiable =
-        propertyRow['is_negotiable'] as bool? ??
-        meta['priceNegotiable'] as bool? ??
+        _safeBool(propertyRow['is_negotiable']) ??
+        _safeBool(meta['priceNegotiable']) ??
         false;
     _allInclusivePriceToggle =
-        (meta['allInclusivePriceToggle'] ?? meta['allInclusivePrice'])
-            as bool? ??
+        _safeBool(
+          meta['allInclusivePriceToggle'] ?? meta['allInclusivePrice'],
+        ) ??
         false;
-    _taxGovtChargesIncluded = meta['taxGovtChargesIncluded'] as bool? ?? false;
-    _loanAvailability = meta['loanAvailability'] as bool? ?? false;
+    _taxGovtChargesIncluded =
+        _safeBool(meta['taxGovtChargesIncluded']) ?? false;
+    _loanAvailability = _safeBool(meta['loanAvailability']) ?? false;
     _brokerage = meta['brokerage']?.toString() ?? '';
     _contactName = meta['contactName']?.toString() ?? '';
     _whatsappNumber = meta['whatsappNumber']?.toString() ?? '';
@@ -1481,7 +1525,7 @@ class PostPropertyProvider extends ChangeNotifier {
         // from before the key existed, using the real dropdown vocabulary
         // rather than a Furnished/Unfurnished pair the UI doesn't offer.
         if (_furnishingType == null || _furnishingType!.isEmpty) {
-          final bool furnished = subtableRow['furnished'] as bool? ?? false;
+          final bool furnished = _safeBool(subtableRow['furnished']) ?? false;
           _furnishingType = furnished ? 'Fully-Furnished' : 'Raw';
         }
         _coveredParking = subtableRow['parking_spaces']?.toString() ?? '';
@@ -1493,7 +1537,7 @@ class PostPropertyProvider extends ChangeNotifier {
         _carpetArea = subtableRow['carpet_area_sqft']?.toString() ?? '';
         // Fallback only — see the residential branch above.
         if (_furnishingType == null || _furnishingType!.isEmpty) {
-          final bool furnished = subtableRow['furnished'] as bool? ?? false;
+          final bool furnished = _safeBool(subtableRow['furnished']) ?? false;
           _furnishingType = furnished ? 'Fully-Furnished' : 'Raw';
         }
         setText('washrooms', subtableRow['washrooms']?.toString() ?? '');
@@ -1514,7 +1558,7 @@ class PostPropertyProvider extends ChangeNotifier {
           'totalFloorsCommercial',
           subtableRow['total_floors']?.toString() ?? '',
         );
-        final bool cafeteria = subtableRow['cafeteria'] as bool? ?? false;
+        final bool cafeteria = _safeBool(subtableRow['cafeteria']) ?? false;
         _guardRoom = cafeteria;
       } else if (cat == 'land') {
         // Fallback only — same guard as `totalParking` above, so a real
@@ -1530,7 +1574,7 @@ class PostPropertyProvider extends ChangeNotifier {
         // `false`, silently zeroing the column on every land create/update —
         // same class of bug as React's matching `boundary` fix.
         if (!_bool.containsKey('boundary')) {
-          _bool['boundary'] = subtableRow['boundary_wall'] as bool? ?? false;
+          _bool['boundary'] = _safeBool(subtableRow['boundary_wall']) ?? false;
         }
       }
     }
@@ -1539,6 +1583,34 @@ class PostPropertyProvider extends ChangeNotifier {
       _contactPhone = contactRow['contact_phone']?.toString() ?? '';
       _contactEmail = contactRow['contact_email']?.toString() ?? '';
     }
+
+    // TEMPORARY — P0 real-device edit-hydration trace. Prints the provider's
+    // state right after hydration finishes, before any step widget reads it.
+    // Compared against [EDIT_TRACE] fetchForEdit (PROVIDER vs FETCH) and
+    // against each step's own initState trace (UI vs PROVIDER).
+    debugPrint(
+      '[EDIT_TRACE][HYDRATED] category=$_category listingIntent=$_listingIntent',
+    );
+    debugPrint(
+      '[EDIT_TRACE][HYDRATED] landSubtype=${text('landSubtype')} landType=${text('landType')}',
+    );
+    debugPrint(
+      '[EDIT_TRACE][HYDRATED] surveyNumber=${text('surveyNumber')} soilType=${text('soilType')}',
+    );
+    debugPrint(
+      '[EDIT_TRACE][HYDRATED] ownerName=${text('ownerName')} ownershipType=${text('ownershipType')}',
+    );
+    debugPrint(
+      '[EDIT_TRACE][HYDRATED] bookingAmount=$_bookingAmount priceNegotiable=$_priceNegotiable',
+    );
+    debugPrint(
+      '[EDIT_TRACE][HYDRATED] allInclusivePriceToggle=$_allInclusivePriceToggle brokerage=$_brokerage',
+    );
+    debugPrint('[EDIT_TRACE][HYDRATED] furnishingType=$_furnishingType');
+    debugPrint(
+      '[EDIT_TRACE][HYDRATED] contactPhonePresent=${_contactPhone.isNotEmpty} contactEmailPresent=${_contactEmail.isNotEmpty}',
+    );
+    debugPrint('[EDIT_TRACE][HYDRATED] hashtags="$_hashtags"');
 
     _snapshotGrandfatheredFields();
 

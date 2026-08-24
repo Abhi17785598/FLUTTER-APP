@@ -157,6 +157,21 @@ class _PropertyDimensionsStepState extends State<PropertyDimensionsStep> {
     );
     _plotArea = TextEditingController(text: p.text('plotArea'));
     _superBuiltUpArea = TextEditingController(text: p.text('superBuiltUpArea'));
+    // TEMPORARY — P0 real-device edit-hydration trace.
+    debugPrint(
+      '[EDIT_TRACE][DIMENSIONS] provider.landSubtype="${p.text('landSubtype')}" '
+      'landType="${p.text('landType')}"',
+    );
+    debugPrint(
+      '[EDIT_TRACE][DIMENSIONS] provider.soilType="${p.text('soilType')}"',
+    );
+    debugPrint(
+      '[EDIT_TRACE][DIMENSIONS] provider.surveyNumber="${p.text('surveyNumber')}" '
+      'controller.surveyNumber="${_surveyNumber.text}"',
+    );
+    debugPrint(
+      '[EDIT_TRACE][DIMENSIONS] provider sides=${{for (final s in _kLandSides) s: p.text(s)}} controller sides=${{for (final e in _sides.entries) e.key: e.value.text}}',
+    );
   }
 
   @override

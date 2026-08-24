@@ -65,6 +65,19 @@ class _MediaContactStepState extends State<MediaContactStep> {
     _alternateNumberController = TextEditingController(
       text: p.text('alternateNumber'),
     );
+    // TEMPORARY — P0 real-device edit-hydration trace.
+    debugPrint(
+      '[EDIT_TRACE][MEDIA] provider.contactPhone="${p.contactPhone}" '
+      'controller.contactPhone="${_contactPhoneController.text}"',
+    );
+    debugPrint(
+      '[EDIT_TRACE][MEDIA] provider.contactEmail="${p.contactEmail}" '
+      'controller.contactEmail="${_contactEmailController.text}"',
+    );
+    debugPrint(
+      '[EDIT_TRACE][MEDIA] provider.hashtags="${p.hashtags}" '
+      'controller.hashtags="${_hashtagsController.text}"',
+    );
   }
 
   @override

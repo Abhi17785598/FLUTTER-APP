@@ -73,6 +73,19 @@ class _PricingStepState extends State<PricingStep> {
     );
     _bookingAmountController = TextEditingController(text: p.bookingAmount);
     _brokerageController = TextEditingController(text: p.brokerage);
+    // TEMPORARY — P0 real-device edit-hydration trace.
+    debugPrint(
+      '[EDIT_TRACE][PRICING] provider.bookingAmount="${p.bookingAmount}" '
+      'controller.bookingAmount="${_bookingAmountController.text}"',
+    );
+    debugPrint(
+      '[EDIT_TRACE][PRICING] provider.brokerage="${p.brokerage}" '
+      'controller.brokerage="${_brokerageController.text}"',
+    );
+    debugPrint(
+      '[EDIT_TRACE][PRICING] provider.priceNegotiable=${p.priceNegotiable} '
+      'provider.allInclusivePriceToggle=${p.allInclusivePriceToggle}',
+    );
 
     _roiEstimateController = TextEditingController(text: p.text('roiEstimate'));
     _currentRentalIncomeController = TextEditingController(

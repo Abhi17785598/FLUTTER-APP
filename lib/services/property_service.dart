@@ -1,3 +1,5 @@
+import 'package:flutter/foundation.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../models/available_location.dart';
 import '../models/global_search_suggestion.dart';
@@ -491,6 +493,65 @@ class PropertyService {
         .select('*')
         .eq('property_id', propertyId)
         .maybeSingle();
+
+    // TEMPORARY — P0 real-device edit-hydration trace. Remove once the
+    // reported bug (Portal-created listings edit blank in the app) is
+    // confirmed fixed on-device. Answers: is the raw data even present in
+    // what the phone fetches, before any provider/UI code touches it.
+    final dynamic rawMeta = propertyRow['metadata'];
+    final Map<String, dynamic> meta = rawMeta is Map
+        ? Map<String, dynamic>.from(rawMeta)
+        : <String, dynamic>{};
+    String mask(String? s) {
+      if (s == null || s.isEmpty) return '<empty>';
+      if (s.length <= 4) return '***';
+      return '${s.substring(0, 2)}***${s.substring(s.length - 2)}';
+    }
+
+    debugPrint('[EDIT_TRACE] ===== fetchForEdit =====');
+    debugPrint('[EDIT_TRACE] supabaseUrl=${dotenv.env['SUPABASE_URL']}');
+    debugPrint('[EDIT_TRACE] propertyId=$propertyId');
+    debugPrint('[EDIT_TRACE] category=$category');
+    debugPrint('[EDIT_TRACE] property_type=${propertyRow['property_type']}');
+    debugPrint('[EDIT_TRACE] hashtags=${propertyRow['hashtags']}');
+    debugPrint('[EDIT_TRACE] is_negotiable=${propertyRow['is_negotiable']}');
+    debugPrint(
+      '[EDIT_TRACE] metadata keys (${meta.length})=${meta.keys.toList()}',
+    );
+    debugPrint('[EDIT_TRACE] metadata.landSubtype=${meta['landSubtype']}');
+    debugPrint('[EDIT_TRACE] metadata.landType=${meta['landType']}');
+    debugPrint(
+      '[EDIT_TRACE] metadata.front/back/left/right='
+      '${meta['front']}/${meta['back']}/${meta['left']}/${meta['right']}',
+    );
+    debugPrint('[EDIT_TRACE] metadata.surveyNumber=${meta['surveyNumber']}');
+    debugPrint('[EDIT_TRACE] metadata.soilType=${meta['soilType']}');
+    debugPrint('[EDIT_TRACE] metadata.ownershipType=${meta['ownershipType']}');
+    debugPrint('[EDIT_TRACE] metadata.ownerName=${meta['ownerName']}');
+    debugPrint('[EDIT_TRACE] metadata.tokenAmount=${meta['tokenAmount']}');
+    debugPrint(
+      '[EDIT_TRACE] metadata.priceNegotiable=${meta['priceNegotiable']}',
+    );
+    debugPrint(
+      '[EDIT_TRACE] metadata.allInclusivePriceToggle='
+      '${meta['allInclusivePriceToggle']}, allInclusivePrice='
+      '${meta['allInclusivePrice']}',
+    );
+    debugPrint('[EDIT_TRACE] metadata.brokerage=${meta['brokerage']}');
+    debugPrint(
+      '[EDIT_TRACE] metadata.furnishedType=${meta['furnishedType']}, '
+      'furnishingType=${meta['furnishingType']}',
+    );
+    debugPrint(
+      '[EDIT_TRACE] subtableTable=$subtableTable, '
+      'subtableRow=${subtableRow ?? '<null — no row found>'}',
+    );
+    debugPrint(
+      '[EDIT_TRACE] contactRow present=${contactRow != null}, '
+      'phone=${mask(contactRow?['contact_phone']?.toString())}, '
+      'email=${mask(contactRow?['contact_email']?.toString())}',
+    );
+    debugPrint('[EDIT_TRACE] ===== end fetchForEdit =====');
 
     return PropertyEditBundle(
       propertyRow: Map<String, dynamic>.from(propertyRow),
