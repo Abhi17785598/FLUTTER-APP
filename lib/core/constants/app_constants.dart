@@ -217,4 +217,16 @@ class AppConstants {
   // shot); see the plan's "Deliberate deviations" section.
   static const int searchPageSize = 20;
   static const int mapResultsSafetyCap = 300;
+
+  // Budget filtering and price sorting both need the COMPLETE DB-level
+  // matching set (a single capped batch can silently drop real matches that
+  // sort/land past its cap) — see PropertyProvider._fetchCompleteMatchingRows.
+  // This is the page size used for each read-only `.range()` call while
+  // walking that full set, not a cap on the total: the loop continues across
+  // as many such pages as the exact result count requires.
+  static const int priceAwareFetchBatchSize = 200;
+  // Defensive circuit breaker only — not an intended limit. Any realistic
+  // property catalogue is far below this; it exists purely so a backend that
+  // never reports a shrinking/empty page can't spin the fetch loop forever.
+  static const int priceAwareFetchSafetyCeiling = 6000;
 }

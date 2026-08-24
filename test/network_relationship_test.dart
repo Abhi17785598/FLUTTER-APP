@@ -300,13 +300,17 @@ void main() {
     tearDown(() => provider.dispose());
 
     test(
-      'a builder\'s "networks" count uses only ownedNetworkMember rows, not the raw table count',
+      'the "networks" count includes every active-membership kind, not just '
+      'one — My Networks renders owned/joined/peer as three equally-real '
+      'sections, so the hub tile must total all three or it under-reports '
+      'against what that screen actually shows',
       () async {
         relationshipService.nextRelationships = [
           _fakeRelationship(kind: NetworkRelationshipKind.ownedNetworkMember),
           _fakeRelationship(kind: NetworkRelationshipKind.ownedNetworkMember),
-          // A peer connection landed in this builder's builder_id column too —
-          // must not inflate the count.
+          // A peer connection is still a real, accepted relationship — My
+          // Networks shows it under its own "Peer Connections" section, so
+          // it must count here too, not be excluded.
           _fakeRelationship(kind: NetworkRelationshipKind.peerConnection),
           _fakeRelationship(kind: NetworkRelationshipKind.joinedBuilderNetwork),
         ];
@@ -314,7 +318,7 @@ void main() {
 
         await provider.load('builder-1', isBuilder: true);
 
-        expect(provider.stats.totalNetworks, 2);
+        expect(provider.stats.totalNetworks, 4);
         expect(provider.stats.totalReferrals, 7);
         expect(provider.isBuilder, isTrue);
         // Leads/commissions still come straight from NetworkService, unchanged.
@@ -323,7 +327,7 @@ void main() {
     );
 
     test(
-      'a member\'s "networks" count uses only joinedBuilderNetwork rows',
+      'a member\'s "networks" count includes joined AND peer rows alike',
       () async {
         relationshipService.nextRelationships = [
           _fakeRelationship(kind: NetworkRelationshipKind.joinedBuilderNetwork),
@@ -333,7 +337,7 @@ void main() {
 
         await provider.load('member-1', isBuilder: false);
 
-        expect(provider.stats.totalNetworks, 1);
+        expect(provider.stats.totalNetworks, 2);
       },
     );
 

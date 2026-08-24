@@ -349,11 +349,13 @@ class _FiltersScreenState extends State<FiltersScreen> {
                     .round(),
             activeColor: AppColors.primary,
             inactiveColor: AppColors.textHint.withOpacity(0.3),
+            // Draft-only, like every other control on this screen's Apply
+            // button now expects — committing to FilterProvider on
+            // `onChangeEnd` (release) rather than on Apply meant dragging
+            // the slider and then backing out of this screen without
+            // tapping Apply still silently changed the applied budget.
             onChanged: (values) {
               setState(() => _draftBudgetRange = values);
-            },
-            onChangeEnd: (values) {
-              filterProvider.setBudgetRange(values);
             },
           ),
           const SizedBox(height: 8),
@@ -505,6 +507,12 @@ class _FiltersScreenState extends State<FiltersScreen> {
               context,
               listen: false,
             );
+            // The one commit point for the budget draft — every other
+            // control on this screen already writes straight through to
+            // FilterProvider, but the slider is held in local `_draftBudgetRange`
+            // (see _buildPriceRangeSection) until Apply, exactly like the
+            // bottom-sheet filter flow's Apply button.
+            filterProvider.setBudgetRange(_draftBudgetRange);
             Provider.of<PropertyProvider>(
               context,
               listen: false,

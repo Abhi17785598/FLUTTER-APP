@@ -1,4 +1,5 @@
 // models/property_model.dart
+import '../core/utils/listing_price_parser.dart';
 import 'amenity_model.dart';
 
 class PropertyModel {
@@ -325,13 +326,30 @@ class PropertyModel {
     final isFeatured = (json['views'] as int? ?? 0) >= 1;
     final isTrending = (json['views'] as int? ?? 0) >= 20;
 
+    // `resolveEffectivePrice` is the single canonical parser for every
+    // price-interpreting call site (this field, budget filtering, price
+    // sorting) — see listing_price_parser.dart. It safely handles Indian
+    // comma grouping, a ₹ prefix, and L/Lakh/Cr suffixes, none of which a
+    // bare `double.tryParse` on the raw text understands, and it falls back
+    // to `price_min` only when `price` itself is unparseable.
+    final effectivePrice = resolveEffectivePrice(json);
+
     return PropertyModel(
       id: json['id']?.toString() ?? '',
       title: json['title'] ?? '',
       locality: json['location'] ?? '',
       city: metadata['city']?.toString() ?? json['city']?.toString() ?? '',
-      price: double.tryParse(json['price']?.toString() ?? '0') ?? 0,
-      priceDisplay: formatIndianPrice(json['price']),
+      // Stays a non-nullable double (0 = unknown) rather than widening this
+      // field's type, since a genuine parse never yields a non-positive
+      // result — `price <= 0` unambiguously means "unknown" everywhere
+      // downstream (budget filtering, price sorting).
+      price: effectivePrice ?? 0,
+      // Unchanged fallback for the unparseable case — only the successfully
+      // resolved path is new here, so display for already-working plain
+      // numeric prices is untouched.
+      priceDisplay: effectivePrice != null
+          ? formatIndianPrice(effectivePrice)
+          : formatIndianPrice(json['price']),
       pricePerSqft: metadata['pricePerSqFt']?.toString() ?? '',
       beds: beds,
       baths: baths,

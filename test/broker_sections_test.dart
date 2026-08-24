@@ -380,11 +380,24 @@ void main() {
       expect(BrokerLeadService.parsePortalPrice('1.2 Cr'), 1.2);
     });
 
-    test('PropertyModel could not have been used for this', () {
-      // The reason the service reads the raw column. `double.tryParse` chokes on
-      // the comma and the model reports 0.
-      expect(_property(price: '95,00,000').price, 0);
+    test('PropertyModel now folds commas correctly too — Cr/Lakh is the '
+        'remaining reason the service reads the raw column', () {
+      // Comma grouping is no longer a reason to bypass PropertyModel: it
+      // now resolves this the same way, via the shared canonical parser
+      // (see listing_price_parser.dart) — both platforms' `price` field
+      // agree.
+      expect(_property(price: '95,00,000').price, 9500000);
       expect(BrokerLeadService.parsePortalPrice('95,00,000'), 9500000);
+
+      // What still makes `BrokerLeadService` read the raw column instead
+      // of `PropertyModel.price`: PropertyModel resolves a Cr/Lakh suffix
+      // to the REAL amount (1.2 Cr -> 12000000), while this service
+      // deliberately keeps the portal's fold-to-1.2 bug (see the test
+      // above) so both platforms report the same figure. Delegating to
+      // PropertyModel here would silently fix that divergence and make
+      // the two disagree.
+      expect(_property(price: '1.2 Cr').price, 12000000);
+      expect(BrokerLeadService.parsePortalPrice('1.2 Cr'), 1.2);
     });
   });
 
