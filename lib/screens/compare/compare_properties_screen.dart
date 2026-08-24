@@ -40,11 +40,17 @@ class _ComparePropertiesScreenState extends State<ComparePropertiesScreen>
   bool _showDiffsOnly = false;
   List<PropertyModel> _properties = [];
 
-  /// Drives the comparison table's horizontal scroll — given to a
-  /// `Scrollbar` so the "there's more to the right" affordance is an
-  /// explicit, visible thumb rather than relying on the user noticing a
-  /// bare `SingleChildScrollView` is swipeable.
-  final ScrollController _tableScrollController = ScrollController();
+  /// Two separate scrollables — the property header strip has no reserved
+  /// left column (so Property A starts at normal screen padding), while the
+  /// comparison matrix below it keeps a fixed attribute-label column to its
+  /// left. Because their viewports start at different x-offsets they can't
+  /// share one `ScrollController` (Flutter only allows a controller to
+  /// attach to one active `Scrollable`), so they're linked manually: each
+  /// mirrors its raw scroll offset onto the other, guarded by
+  /// [_isSyncingScroll] to avoid a feedback loop.
+  final ScrollController _headerScrollController = ScrollController();
+  final ScrollController _matrixScrollController = ScrollController();
+  bool _isSyncingScroll = false;
 
   /// How many persisted/requested ids silently failed to resolve (deleted,
   /// deactivated or unapproved since they were added) — surfaced once as an
@@ -61,14 +67,44 @@ class _ComparePropertiesScreenState extends State<ComparePropertiesScreen>
     _fadeIn = CurvedAnimation(parent: _animController, curve: Curves.easeOut);
     _animController.forward();
 
+    _headerScrollController.addListener(
+      () => _mirrorScroll(
+        from: _headerScrollController,
+        to: _matrixScrollController,
+      ),
+    );
+    _matrixScrollController.addListener(
+      () => _mirrorScroll(
+        from: _matrixScrollController,
+        to: _headerScrollController,
+      ),
+    );
+
     WidgetsBinding.instance.addPostFrameCallback((_) => _loadProperties());
   }
 
   @override
   void dispose() {
     _animController.dispose();
-    _tableScrollController.dispose();
+    _headerScrollController.dispose();
+    _matrixScrollController.dispose();
     super.dispose();
+  }
+
+  /// Mirrors [from]'s raw pixel offset onto [to], clamped to [to]'s own
+  /// scroll range (the two regions can have slightly different content
+  /// widths — the header strip includes the "Add" tile, the matrix
+  /// doesn't — so their max extents aren't always identical).
+  void _mirrorScroll({
+    required ScrollController from,
+    required ScrollController to,
+  }) {
+    if (_isSyncingScroll || !to.hasClients || !from.hasClients) return;
+    final clamped = from.offset.clamp(0.0, to.position.maxScrollExtent);
+    if (clamped == to.offset) return;
+    _isSyncingScroll = true;
+    to.jumpTo(clamped);
+    _isSyncingScroll = false;
   }
 
   // ─── Data loading / resolution ──────────────────────────────
@@ -266,8 +302,10 @@ class _ComparePropertiesScreenState extends State<ComparePropertiesScreen>
           const SizedBox(height: 12),
           _buildToggleRow(),
           _buildScrollHint(canAddMore: canAddMore),
-          const SizedBox(height: 8),
-          _buildCompareTable(),
+          const SizedBox(height: 10),
+          _buildHeaderStrip(canAddMore: canAddMore),
+          const SizedBox(height: 16),
+          _buildComparisonMatrix(),
           // Clears the app's persistent floating assistant orb, which can
           // rest anywhere near the bottom of the screen — the last row must
           // never end up hidden underneath it.
@@ -575,93 +613,145 @@ class _ComparePropertiesScreenState extends State<ComparePropertiesScreen>
     );
   }
 
-  // ─── The comparison table itself ────────────────────────────
+  // ─── Property header strip ──────────────────────────────────
+  //
+  // Deliberately its OWN horizontally-scrolling row, with nothing to its
+  // left but the screen's normal padding — earlier real-device testing
+  // showed property cards rendered as the first "row" inside the matrix's
+  // label-column layout inherited that column's width as dead space before
+  // Property A. Kept in sync with the matrix below via [_mirrorScroll]
+  // rather than a shared `ScrollController` (see the field docs).
 
-  Widget _buildCompareTable() {
-    final canAddMore = _properties.length < CompareProvider.maxCompare;
-    final sections = _buildSections(_properties);
+  Widget _buildHeaderStrip({required bool canAddMore}) {
     final bestValueIndex = _bestValueIndex(_properties);
-
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16),
-      child: Scrollbar(
-        controller: _tableScrollController,
-        thumbVisibility: true,
-        trackVisibility: true,
-        child: SingleChildScrollView(
-          controller: _tableScrollController,
-          scrollDirection: Axis.horizontal,
-          physics: const BouncingScrollPhysics(),
-          padding: const EdgeInsets.only(bottom: 14),
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              _buildLabelColumn(sections),
-              for (var i = 0; i < _properties.length; i++)
-                _buildValueColumn(
-                  _properties[i],
-                  i,
-                  sections,
-                  isBestValue: bestValueIndex == i,
-                  allProperties: _properties,
+      child: SingleChildScrollView(
+        controller: _headerScrollController,
+        scrollDirection: Axis.horizontal,
+        physics: const BouncingScrollPhysics(),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            for (var i = 0; i < _properties.length; i++)
+              Padding(
+                padding: const EdgeInsets.only(right: 8),
+                child: SizedBox(
+                  width: _kColumnWidth,
+                  child: _buildHeaderCard(
+                    _properties[i],
+                    isBestValue: bestValueIndex == i,
+                  ),
                 ),
-              if (canAddMore) _buildAddColumn(),
-            ],
-          ),
+              ),
+            if (canAddMore) _buildAddColumn(),
+          ],
         ),
       ),
     );
   }
 
-  Widget _buildLabelColumn(List<_CompareSection> sections) {
-    return Container(
-      width: _kLabelColumnWidth,
-      margin: const EdgeInsets.only(right: 8),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+  // ─── Comparison matrix ───────────────────────────────────────
+  //
+  // A fixed attribute-label column (never scrolls) beside a horizontally
+  // scrollable row of per-property value columns. Section titles ("Property
+  // Details", "Trust & Verification", ...) are NOT rendered inside the
+  // narrow label column — that's what made them wrap onto 2-3 lines on a
+  // real device. Instead every row/section is first flattened into
+  // `_MatrixSlot`s so the label column and every value column can reserve
+  // an identical blank slot for a section title, and the actual title text
+  // is drawn once, full-width, in a `Positioned` overlay above both — never
+  // constrained to the label column's width.
+
+  Widget _buildComparisonMatrix() {
+    final sections = _buildSections(_properties);
+    final slots = _buildSlots(sections);
+
+    double y = 0;
+    final banners = <_SectionBanner>[];
+    for (final slot in slots) {
+      if (slot.sectionTitle != null) {
+        banners.add(_SectionBanner(slot.sectionTitle!, y));
+      }
+      y += slot.height;
+    }
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16),
+      child: Stack(
         children: [
-          const SizedBox(height: _kHeaderCellHeight),
-          for (final section in sections) ...[
-            if (_sectionHasVisibleRows(section))
-              Container(
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              _buildLabelColumn(slots),
+              Expanded(
+                child: Scrollbar(
+                  controller: _matrixScrollController,
+                  thumbVisibility: true,
+                  trackVisibility: true,
+                  child: SingleChildScrollView(
+                    controller: _matrixScrollController,
+                    scrollDirection: Axis.horizontal,
+                    physics: const BouncingScrollPhysics(),
+                    padding: const EdgeInsets.only(bottom: 14),
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        for (var i = 0; i < _properties.length; i++)
+                          _buildValueColumn(
+                            _properties[i],
+                            i,
+                            slots,
+                            allProperties: _properties,
+                          ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+          for (final banner in banners)
+            Positioned(
+              top: banner.top,
+              left: 0,
+              right: 0,
+              child: Container(
                 height: _kSectionCellHeight,
+                color: AppColors.background,
                 alignment: Alignment.centerLeft,
                 child: Text(
-                  section.title,
+                  banner.title,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                   style: AppTextStyles.caption.copyWith(
                     fontWeight: FontWeight.w700,
                     color: AppColors.primary,
                   ),
                 ),
               ),
-            for (final row in section.rows)
-              if (!_showDiffsOnly || row.valuesDiffer(_properties))
-                Container(
-                  height: row.height ?? _kDataCellHeight,
-                  alignment: Alignment.centerLeft,
-                  child: Row(
-                    children: [
-                      Icon(row.icon, size: 13, color: AppColors.primary),
-                      const SizedBox(width: 5),
-                      Expanded(
-                        child: Text(
-                          row.label,
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(
-                            fontSize: 10.5,
-                            fontWeight: FontWeight.w600,
-                            color: AppColors.textSecondary,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-          ],
+            ),
         ],
       ),
     );
+  }
+
+  /// Flattens visible sections/rows into a single ordered slot list — the
+  /// label column, every value column, and the banner-offset computation
+  /// above all walk this SAME list, so a section or row that's hidden by
+  /// "Differences only" disappears from all three consistently.
+  List<_MatrixSlot> _buildSlots(List<_CompareSection> sections) {
+    final slots = <_MatrixSlot>[];
+    for (final section in sections) {
+      if (!_sectionHasVisibleRows(section)) continue;
+      slots.add(_MatrixSlot.section(section.title));
+      for (final row in section.rows) {
+        if (!_showDiffsOnly || row.valuesDiffer(_properties)) {
+          slots.add(_MatrixSlot.row(row));
+        }
+      }
+    }
+    return slots;
   }
 
   bool _sectionHasVisibleRows(_CompareSection section) {
@@ -669,11 +759,50 @@ class _ComparePropertiesScreenState extends State<ComparePropertiesScreen>
     return section.rows.any((row) => row.valuesDiffer(_properties));
   }
 
+  Widget _buildLabelColumn(List<_MatrixSlot> slots) {
+    return Container(
+      width: _kLabelColumnWidth,
+      margin: const EdgeInsets.only(right: 8),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          for (final slot in slots)
+            if (slot.sectionTitle != null)
+              // Blank — the real title is drawn once, full-width, by the
+              // `Positioned` banner in `_buildComparisonMatrix`.
+              SizedBox(height: slot.height)
+            else
+              Container(
+                height: slot.height,
+                alignment: Alignment.centerLeft,
+                child: Row(
+                  children: [
+                    Icon(slot.row!.icon, size: 13, color: AppColors.primary),
+                    const SizedBox(width: 5),
+                    Expanded(
+                      child: Text(
+                        slot.row!.label,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          fontSize: 10.5,
+                          fontWeight: FontWeight.w600,
+                          color: AppColors.textSecondary,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildValueColumn(
     PropertyModel property,
     int index,
-    List<_CompareSection> sections, {
-    required bool isBestValue,
+    List<_MatrixSlot> slots, {
     required List<PropertyModel> allProperties,
   }) {
     return Container(
@@ -681,14 +810,11 @@ class _ComparePropertiesScreenState extends State<ComparePropertiesScreen>
       margin: const EdgeInsets.only(right: 8),
       child: Column(
         children: [
-          _buildHeaderCard(property, isBestValue: isBestValue),
-          for (final section in sections) ...[
-            if (_sectionHasVisibleRows(section))
-              const SizedBox(height: _kSectionCellHeight),
-            for (final row in section.rows)
-              if (!_showDiffsOnly || row.valuesDiffer(allProperties))
-                _buildValueCell(row, property, allProperties, index),
-          ],
+          for (final slot in slots)
+            if (slot.sectionTitle != null)
+              SizedBox(height: slot.height)
+            else
+              _buildValueCell(slot.row!, property, allProperties, index),
         ],
       ),
     );
@@ -1388,6 +1514,31 @@ class _CompareRow {
     final first = getValue(properties.first);
     return properties.any((p) => getValue(p) != first);
   }
+}
+
+/// One vertical slot in the comparison matrix — either a blank spacer where
+/// a full-width section-title banner will be drawn on top, or a data row.
+/// The label column and every value column iterate the same list of these,
+/// so their heights can never drift out of alignment.
+class _MatrixSlot {
+  final String? sectionTitle;
+  final _CompareRow? row;
+
+  const _MatrixSlot.section(this.sectionTitle) : row = null;
+  const _MatrixSlot.row(this.row) : sectionTitle = null;
+
+  double get height => sectionTitle != null
+      ? _kSectionCellHeight
+      : (row!.height ?? _kDataCellHeight);
+}
+
+/// A section title and the vertical offset (within the matrix) its banner
+/// should be drawn at — computed once by walking the same `_MatrixSlot`
+/// list used to lay out the label/value columns.
+class _SectionBanner {
+  final String title;
+  final double top;
+  const _SectionBanner(this.title, this.top);
 }
 
 // ─────────────────────────────────────────────
