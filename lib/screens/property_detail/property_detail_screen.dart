@@ -1186,7 +1186,71 @@ class _PropertyDetailScreenState extends State<PropertyDetailScreen>
       return const [];
     }
 
+    // `metadata.floorWiseRoomDetails` is `{floorNumber, totalRooms, rooms:
+    // [{roomNumber, roomType}]}[]`, written for PG/co-living listings
+    // (post_property_provider.dart's floorWiseRoomDetails). It is a list of
+    // objects, so it doesn't fit the `str`/`isTrue`/`strList` scalar helpers
+    // above — parsed separately here into one row per floor.
+    final List<_DetailRow> roomDetailRows = [];
+    final dynamic floorWiseRoomDetails = meta['floorWiseRoomDetails'];
+    if (floorWiseRoomDetails is List) {
+      for (final floor in floorWiseRoomDetails) {
+        if (floor is! Map) continue;
+        final floorNumber = floor['floorNumber']?.toString();
+        final totalRooms = floor['totalRooms']?.toString();
+        final rooms = floor['rooms'];
+
+        String roomTypeSummary = '';
+        if (rooms is List && rooms.isNotEmpty) {
+          final Map<String, int> typeCounts = {};
+          for (final room in rooms) {
+            final roomType = room is Map ? room['roomType']?.toString() : null;
+            if (roomType == null || roomType.trim().isEmpty) continue;
+            typeCounts[roomType] = (typeCounts[roomType] ?? 0) + 1;
+          }
+          roomTypeSummary = typeCounts.entries
+              .map((e) => '${e.value} ${e.key}')
+              .join(', ');
+        }
+
+        final String value = [
+          if (totalRooms != null && totalRooms.trim().isNotEmpty)
+            '$totalRooms rooms',
+          if (roomTypeSummary.isNotEmpty) roomTypeSummary,
+        ].join(' — ');
+
+        if (value.isNotEmpty) {
+          roomDetailRows.add(
+            _DetailRow(
+              floorNumber != null && floorNumber.trim().isNotEmpty
+                  ? 'Floor $floorNumber'
+                  : 'Floor',
+              value,
+            ),
+          );
+        }
+      }
+    }
+
     final List<_DetailGroup> groups = [
+      _DetailGroup('Room Details', roomDetailRows),
+      _DetailGroup('Additional Features', [
+        if (strList('retailFeatures').isNotEmpty)
+          _DetailRow(
+            'Retail & Warehouse Features',
+            strList('retailFeatures').join(', '),
+          ),
+        if (strList('warehouseFeatures').isNotEmpty)
+          _DetailRow(
+            'Warehouse Features',
+            strList('warehouseFeatures').join(', '),
+          ),
+        if (strList('additionalFeatures').isNotEmpty)
+          _DetailRow(
+            'Additional Features',
+            strList('additionalFeatures').join(', '),
+          ),
+      ]),
       _DetailGroup('Condition & Availability', [
         if (str('propertyCondition') != null)
           _DetailRow('Condition', str('propertyCondition')!),

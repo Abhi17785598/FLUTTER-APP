@@ -278,30 +278,37 @@ class PropertyModel {
     String? soilType;
     double? slopePercentage;
 
+    // `as int?` throws (not null) when Postgres/PostgREST hands back a
+    // numeric/decimal column as a double — e.g. bedrooms stored as
+    // `numeric` rather than `int4`. That throw propagates out of
+    // fromSupabase and aborts the whole property load (caught upstream as
+    // "Property not found"), taking every section — not just this field —
+    // down with it. `(x as num?)?.toInt()` coerces either representation
+    // safely.
     if (residential != null) {
-      beds = residential['bedrooms'] as int? ?? 0;
-      baths = residential['bathrooms'] as int? ?? 0;
-      parking = residential['parking_spaces'] as int? ?? 0;
-      floorNumber = residential['floor_number'] as int?;
-      totalFloors = residential['total_floors'] as int?;
+      beds = (residential['bedrooms'] as num?)?.toInt() ?? 0;
+      baths = (residential['bathrooms'] as num?)?.toInt() ?? 0;
+      parking = (residential['parking_spaces'] as num?)?.toInt() ?? 0;
+      floorNumber = (residential['floor_number'] as num?)?.toInt();
+      totalFloors = (residential['total_floors'] as num?)?.toInt();
       facingDirection = residential['facing_direction']?.toString();
-      ageOfProperty = residential['age_of_property'] as int?;
-      balconies = residential['balconies'] as int?;
+      ageOfProperty = (residential['age_of_property'] as num?)?.toInt();
+      balconies = (residential['balconies'] as num?)?.toInt();
       furnished = residential['furnished'] as bool?;
       builtUpAreaSqft = (residential['built_up_area_sqft'] as num?)?.toDouble();
       carpetAreaSqft = (residential['carpet_area_sqft'] as num?)?.toDouble();
     } else if (commercial != null) {
-      beds = commercial['washrooms'] as int? ?? 0;
-      baths = commercial['washrooms'] as int? ?? 0;
-      parking = commercial['parking_spaces'] as int? ?? 0;
-      floorNumber = commercial['floor_number'] as int?;
-      totalFloors = commercial['total_floors'] as int?;
+      beds = (commercial['washrooms'] as num?)?.toInt() ?? 0;
+      baths = (commercial['washrooms'] as num?)?.toInt() ?? 0;
+      parking = (commercial['parking_spaces'] as num?)?.toInt() ?? 0;
+      floorNumber = (commercial['floor_number'] as num?)?.toInt();
+      totalFloors = (commercial['total_floors'] as num?)?.toInt();
       furnished = commercial['furnished'] as bool?;
       builtUpAreaSqft = (commercial['built_up_area_sqft'] as num?)?.toDouble();
       carpetAreaSqft = (commercial['carpet_area_sqft'] as num?)?.toDouble();
       powerLoadKw = (commercial['power_load_kw'] as num?)?.toDouble();
       hasCafeteria = commercial['cafeteria'] as bool?;
-      conferenceRooms = commercial['conference_rooms'] as int?;
+      conferenceRooms = (commercial['conference_rooms'] as num?)?.toInt();
     } else if (land != null) {
       // Land listings have no bedroom/bathroom/parking concept — the
       // sqft-only fields below come straight off properties_land.
