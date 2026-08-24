@@ -206,29 +206,37 @@ class _ContentFilterPills extends StatelessWidget {
   Widget build(BuildContext context) {
     return Padding(
       padding: const EdgeInsets.fromLTRB(12, 8, 12, 4),
-      child: Row(
-        children: [
-          _FilterChip(
-            label: 'Properties ($propertiesCount)',
-            icon: Icons.home_outlined,
-            selected: current == _ContentFilter.properties,
-            onTap: () => onChanged(_ContentFilter.properties),
-          ),
-          const SizedBox(width: 8),
-          _FilterChip(
-            label: 'Projects ($projectsCount)',
-            icon: Icons.apartment_outlined,
-            selected: current == _ContentFilter.projects,
-            onTap: () => onChanged(_ContentFilter.projects),
-          ),
-          const SizedBox(width: 8),
-          _FilterChip(
-            label: 'Reels ($reelsCount)',
-            icon: Icons.video_collection_outlined,
-            selected: current == _ContentFilter.reels,
-            onTap: () => onChanged(_ContentFilter.reels),
-          ),
-        ],
+      // A plain Row overflows on narrower screens once all three chip labels
+      // are long enough to not fit (e.g. "Properties (0)" + "Projects (0)" +
+      // "Reels (0)"), rendering as Flutter's yellow/black overflow warning.
+      // Scrolling horizontally, rather than shrinking the chips, keeps every
+      // label fully readable.
+      child: SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
+        child: Row(
+          children: [
+            _FilterChip(
+              label: 'Properties ($propertiesCount)',
+              icon: Icons.home_outlined,
+              selected: current == _ContentFilter.properties,
+              onTap: () => onChanged(_ContentFilter.properties),
+            ),
+            const SizedBox(width: 8),
+            _FilterChip(
+              label: 'Projects ($projectsCount)',
+              icon: Icons.apartment_outlined,
+              selected: current == _ContentFilter.projects,
+              onTap: () => onChanged(_ContentFilter.projects),
+            ),
+            const SizedBox(width: 8),
+            _FilterChip(
+              label: 'Reels ($reelsCount)',
+              icon: Icons.video_collection_outlined,
+              selected: current == _ContentFilter.reels,
+              onTap: () => onChanged(_ContentFilter.reels),
+            ),
+          ],
+        ),
       ),
     );
   }
