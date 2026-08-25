@@ -22,6 +22,10 @@ class BottomNavBar extends StatelessWidget {
   // from becoming absurdly wide on tablets and large-screen foldables.
   static const double _kMaxContentWidth = 600.0;
 
+  // Gap between the floating pill and the screen's edges (sides and bottom),
+  // so the bar reads as a rounded island rather than a wall-to-wall bar.
+  static const double _kFloatingMargin = 16.0;
+
   // Index of the Profile destination within this bar. Home 0, Search 1,
   // Reels 2, Profile 3 — the centre "+" occupies an unindexed slot.
   static const int _kProfileIndex = 3;
@@ -130,67 +134,83 @@ class BottomNavBar extends StatelessWidget {
         : mediaQuery.systemGestureInsets.bottom.clamp(0.0, 40.0);
 
     return Container(
-      // Total rendered height = visible content area + gesture-safe padding.
-      // AppConstants.bottomNavHeight is the visual design height only.
-      height: AppConstants.bottomNavHeight + bottomSafePadding,
-      decoration: const BoxDecoration(
-        color: AppColors.surface,
-        border: Border(top: BorderSide(color: AppColors.textHint, width: 0.5)),
-      ),
+      // Total rendered height = visible content area + floating margin below
+      // it + gesture-safe padding. AppConstants.bottomNavHeight is the pill's
+      // own visual height only.
+      height:
+          AppConstants.bottomNavHeight + _kFloatingMargin + bottomSafePadding,
+      color: Colors.transparent,
       // Shift the content upward by the safe padding so the visible nav area
-      // stays at AppConstants.bottomNavHeight and the padding appears below it
-      // as an inert gap between the content and the screen edge.
+      // stays at its design height and the padding appears below it as an
+      // inert gap between the content and the screen edge.
       padding: EdgeInsets.only(bottom: bottomSafePadding),
-      child: Center(
-        child: ConstrainedBox(
-          // On tablets and large-screen devices the Row would otherwise spread
-          // items across the full width. This keeps them in a compact, usable
-          // column centred on the screen — consistent with how Material
-          // NavigationBar handles wide viewports.
-          constraints: const BoxConstraints(maxWidth: _kMaxContentWidth),
-          child: Row(
-            // Expanded children replace spaceAround so each nav item gets
-            // exactly 1/4 of the remaining width after the centre button slot
-            // is allocated — not an estimate based on intrinsic content width.
-            children: [
-              Expanded(
-                child: _buildNavItem(
-                  context: context,
-                  icon: Icons.home_outlined,
-                  activeIcon: Icons.home,
-                  label: 'Home',
-                  index: 0,
-                ),
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(
+          _kFloatingMargin,
+          0,
+          _kFloatingMargin,
+          _kFloatingMargin,
+        ),
+        child: Center(
+          child: ConstrainedBox(
+            // On tablets and large-screen devices the Row would otherwise
+            // spread items across the full width. This keeps them in a
+            // compact, usable column centred on the screen — consistent with
+            // how Material NavigationBar handles wide viewports.
+            constraints: const BoxConstraints(maxWidth: _kMaxContentWidth),
+            child: Container(
+              height: AppConstants.bottomNavHeight,
+              decoration: BoxDecoration(
+                color: AppColors.surface,
+                borderRadius: BorderRadius.circular(AppConstants.pillRadius),
+                boxShadow: AppColors.cardShadow,
               ),
-              Expanded(
-                child: _buildNavItem(
-                  context: context,
-                  icon: Icons.search_outlined,
-                  activeIcon: Icons.search,
-                  label: 'Search',
-                  index: 1,
-                ),
+              child: Row(
+                // Expanded children replace spaceAround so each nav item gets
+                // exactly 1/4 of the remaining width after the centre button
+                // slot is allocated — not an estimate based on intrinsic
+                // content width.
+                children: [
+                  Expanded(
+                    child: _buildNavItem(
+                      context: context,
+                      icon: Icons.home_outlined,
+                      activeIcon: Icons.home,
+                      label: 'Home',
+                      index: 0,
+                    ),
+                  ),
+                  Expanded(
+                    child: _buildNavItem(
+                      context: context,
+                      icon: Icons.search_outlined,
+                      activeIcon: Icons.search,
+                      label: 'Search',
+                      index: 1,
+                    ),
+                  ),
+                  _buildPostPropertyButton(context),
+                  Expanded(
+                    child: _buildNavItem(
+                      context: context,
+                      icon: Icons.movie_outlined,
+                      activeIcon: Icons.movie,
+                      label: 'Reels',
+                      index: 2,
+                    ),
+                  ),
+                  Expanded(
+                    child: _buildNavItem(
+                      context: context,
+                      icon: Icons.person_outline,
+                      activeIcon: Icons.person,
+                      label: 'Profile',
+                      index: 3,
+                    ),
+                  ),
+                ],
               ),
-              _buildPostPropertyButton(context),
-              Expanded(
-                child: _buildNavItem(
-                  context: context,
-                  icon: Icons.movie_outlined,
-                  activeIcon: Icons.movie,
-                  label: 'Reels',
-                  index: 2,
-                ),
-              ),
-              Expanded(
-                child: _buildNavItem(
-                  context: context,
-                  icon: Icons.person_outline,
-                  activeIcon: Icons.person,
-                  label: 'Profile',
-                  index: 3,
-                ),
-              ),
-            ],
+            ),
           ),
         ),
       ),
@@ -224,7 +244,7 @@ class BottomNavBar extends StatelessWidget {
                 width: 56,
                 height: 56,
                 decoration: BoxDecoration(
-                  gradient: AppColors.primaryGradient,
+                  color: AppColors.primary,
                   shape: BoxShape.circle,
                   boxShadow: AppColors.primaryGlow,
                 ),

@@ -54,8 +54,11 @@ class _CompareBar extends StatelessWidget {
       right: 16,
       // Sits clear of the app's bottom nav bar (64 dp) wherever one is
       // present; on a screen without one this just floats a bit higher
-      // above the edge, which reads fine either way.
-      bottom: AppConstants.bottomNavHeight + bottomInset + 12,
+      // above the edge, which reads fine either way. The nav bar is itself
+      // a floating pill with a 16 dp gap below it now (bottom_nav_bar.dart's
+      // `_kFloatingMargin`), so that same 16 dp is added here to keep this
+      // bar clear of its top edge instead of sinking into it.
+      bottom: AppConstants.bottomNavHeight + bottomInset + 12 + 16,
       child: Material(
         color: Colors.transparent,
         child: Container(
