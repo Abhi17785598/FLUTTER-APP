@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../core/constants/app_constants.dart';
 import '../core/navigation/banner_destination_resolver.dart';
@@ -18,10 +19,12 @@ class CategoryItem {
 
   /// Where tapping this shortcut goes. A `collection` is just a pre-applied
   /// set of filter fields, which is exactly what a category shortcut is.
-  final BannerDestination destination;
+  /// Null for the four role/project tiles below, which have no dedicated
+  /// "browse all" screen in this app yet (see [_CategoryIconGridState._open]).
+  final BannerDestination? destination;
 
-  /// Key into [PropertyService.getCategoryCounts]'s result map, for the
-  /// live count badge.
+  /// Key into [_CategoryIconGridState._counts]'s result map, for the live
+  /// count badge.
   final String countKey;
 
   const CategoryItem({
@@ -29,29 +32,20 @@ class CategoryItem {
     required this.icon,
     required this.bgColor,
     required this.iconColor,
-    required this.destination,
     required this.countKey,
+    this.destination,
   });
 }
 
-/// Home's "Popular Categories" — title and tile set mirror the portal's
-/// `PropertyCategories.tsx` exactly for the five property-side categories
-/// (Land, Residential, Commercial, Rent, For Sale): same table filter, same
-/// live counts, same tap behaviour.
-///
-/// The portal's remaining four tiles (Verified Brokers, Builders,
-/// Influencers, Premium Projects) are not reproduced — those navigate to
-/// dedicated "browse all of this role/type" list pages
-/// (`/brokers`, `/builders`, `/influencers`, `/latest-projects`) that this
-/// app has no equivalent screen for. `PeopleSearchScreen` only searches by
-/// typed text and returns nothing for a blank query, so it cannot stand in
-/// for a role-browse tile without landing on an empty "type to search"
-/// prompt — a placeholder navigation this task explicitly rules out.
+/// Home's "Popular Categories" — mirrors the portal's `PropertyCategories.tsx`
+/// in full: all nine tiles (Land, Residential, Commercial, Rent, For Sale,
+/// Verified Brokers, Builders, Influencers, Premium Projects), each with a
+/// live count badge.
 ///
 /// WHAT EACH TILE FILTERS BY
 /// --------------------------
 /// Taken from the portal's own `PropertyCategories.handleCardClick`
-/// (`PropertyCategories.tsx:54-59`): **Rent and For Sale set a listing type,
+/// (`PropertyCategories.tsx:42-66`): **Rent and For Sale set a listing type,
 /// never a category**, while Land / Residential / Commercial set a category
 /// and leave the listing type open.
 ///
@@ -59,6 +53,13 @@ class CategoryItem {
 /// (`validCategories` / `validListingTypes`) — a display label passed to
 /// `setCategory` is silently coerced to null, which would quietly return
 /// unfiltered results.
+///
+/// The remaining four tiles (Verified Brokers, Builders, Influencers,
+/// Premium Projects) navigate to dedicated "browse all of this role/type"
+/// pages on the portal (`/brokers`, `/builders`, `/influencers`,
+/// `/latest-projects`); this app has no equivalent screen for those yet, so
+/// tapping one surfaces a "coming soon" notice instead of either opening
+/// nothing (a silent, unexplained no-op) or a route that doesn't exist.
 class CategoryIconGrid extends StatefulWidget {
   const CategoryIconGrid({super.key, this.service});
 
@@ -106,6 +107,34 @@ class CategoryIconGrid extends StatefulWidget {
       destination: BannerDestination.collection(listingType: 'sell'),
       countKey: 'sell',
     ),
+    CategoryItem(
+      label: 'Verified Brokers',
+      icon: Icons.verified_user_rounded,
+      bgColor: Color(0xFFFCE7F3),
+      iconColor: Color(0xFFE11D48),
+      countKey: 'brokers',
+    ),
+    CategoryItem(
+      label: 'Builders',
+      icon: Icons.foundation_rounded,
+      bgColor: Color(0xFFFFEDD5),
+      iconColor: Color(0xFFD97706),
+      countKey: 'builders',
+    ),
+    CategoryItem(
+      label: 'Influencers',
+      icon: Icons.camera_alt_rounded,
+      bgColor: Color(0xFFF3E8FF),
+      iconColor: Color(0xFF9333EA),
+      countKey: 'influencers',
+    ),
+    CategoryItem(
+      label: 'Premium Projects',
+      icon: Icons.diamond_rounded,
+      bgColor: Color(0xFFCCFBF1),
+      iconColor: Color(0xFF0D9488),
+      countKey: 'projects',
+    ),
   ];
 
   @override
@@ -113,8 +142,66 @@ class CategoryIconGrid extends StatefulWidget {
 }
 
 class _CategoryIconGridState extends State<CategoryIconGrid> {
-  late final Future<Map<String, int>> _counts =
-      (widget.service ?? PropertyService()).getCategoryCounts();
+  late final Future<Map<String, int>> _counts = _loadCounts();
+
+  /// Merges [PropertyService.getCategoryCounts] (land/residential/
+  /// commercial/rent/sell) with counts for the four role/project tiles,
+  /// queried here directly rather than adding to that service — mirrors the
+  /// portal's own `countProfiles`/`countProjects` queries
+  /// (`PropertyCategories.tsx`) against the same `profiles`/
+  /// `builder_projects` tables every other role rail on this app already
+  /// reads (`PeopleSearchService.listPopularAgents`,
+  /// `ProjectService.listLatestActive`).
+  Future<Map<String, int>> _loadCounts() async {
+    final propertyCounts = await (widget.service ?? PropertyService())
+        .getCategoryCounts();
+
+    Future<int> countProfiles(String userType) async {
+      try {
+        final response = await Supabase.instance.client
+            .from('profiles')
+            .select('user_id')
+            .eq('user_type', userType)
+            .eq('approval_status', 'approved')
+            .not('is_blocked', 'is', true)
+            .limit(1)
+            .count(CountOption.exact);
+        return response.count;
+      } catch (_) {
+        return 0;
+      }
+    }
+
+    Future<int> countProjects() async {
+      try {
+        final response = await Supabase.instance.client
+            .from('builder_projects')
+            .select('id')
+            .eq('status', 'active')
+            .eq('approval_status', 'approved')
+            .limit(1)
+            .count(CountOption.exact);
+        return response.count;
+      } catch (_) {
+        return 0;
+      }
+    }
+
+    final extra = await Future.wait([
+      countProfiles('broker'),
+      countProfiles('builder'),
+      countProfiles('influencer'),
+      countProjects(),
+    ]);
+
+    return {
+      ...propertyCounts,
+      'brokers': extra[0],
+      'builders': extra[1],
+      'influencers': extra[2],
+      'projects': extra[3],
+    };
+  }
 
   /// A shortcut is a fresh entry point, so it starts from a clean filter set.
   ///
@@ -124,8 +211,17 @@ class _CategoryIconGridState extends State<CategoryIconGrid> {
   /// free — each shortcut navigates to a fresh `/search?...` URL — so the
   /// reset is what matches its behaviour.
   void _open(BuildContext context, CategoryItem category) {
+    final destination = category.destination;
+    if (destination == null) {
+      ScaffoldMessenger.of(context)
+        ..hideCurrentSnackBar()
+        ..showSnackBar(
+          SnackBar(content: Text('${category.label} — coming soon')),
+        );
+      return;
+    }
     context.read<FilterProvider>().resetFilters();
-    BannerDestinationResolver.navigate(context, category.destination);
+    BannerDestinationResolver.navigate(context, destination);
   }
 
   @override
