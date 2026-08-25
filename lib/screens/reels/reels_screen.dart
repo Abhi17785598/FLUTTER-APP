@@ -235,24 +235,13 @@ class _ReelsScreenState extends State<ReelsScreen> {
           }
 
           _maybeInitFeed(provider.reels);
-          final activeReel = provider.reels[_currentIndex];
 
-          return SafeArea(
-            top: false,
-            bottom: false,
-            child: Column(
-              children: [
-                // The video fills whatever space the card doesn't need —
-                // this lands at ~80% on typical screens (matching the
-                // reference), but crucially it's the video that flexes,
-                // not the card. A hard 80/20 flex split forced the card
-                // into a fixed height that didn't fit its own content on
-                // shorter screens, which is what caused the overflow.
-                Expanded(child: _buildVideoArea(provider)),
-                _buildPropertyCard(activeReel),
-              ],
-            ),
-          );
+          // Full-bleed video with every panel (creator row, title,
+          // description, specs, price/CTA, comment bar, action rail)
+          // floating directly on top of it — matching the reference's
+          // TikTok/Reels-style layout, rather than the video handing off to
+          // a separate solid card underneath.
+          return _buildVideoArea(provider);
         },
       ),
     );
@@ -297,92 +286,146 @@ class _ReelsScreenState extends State<ReelsScreen> {
               );
             },
           ),
+          // Bottom scrim so the creator row / title / description / specs /
+          // price bar / comment bar stay legible over any video frame,
+          // without boxing each one in its own translucent panel.
+          const _BottomScrim(),
           _buildTopBar(),
-          _buildBuilderOverlay(provider),
-          _buildVideoActionRail(provider),
+          _buildBottomContent(provider),
           _buildMuteButton(),
         ],
       ),
     );
   }
 
-  // Vertical like/comment/share/save rail on the video itself — reuses the
-  // same ReelActionButton + ReelsProvider wiring as ReelActionRow on the
-  // card below; only the axis/styling differs (plain white, no backdrop,
-  // stacked vertically) to match the reference image.
+  // Vertical like/comment/share/save/more rail, bottom-aligned alongside the
+  // creator/title/description column inside `_buildBottomContent`'s Row —
+  // reuses the same ReelActionButton + ReelsProvider wiring the rail always
+  // has; only which actions appear changed, to match the reference image
+  // (no view-count eye icon; adds a "more" menu and a decorative sound
+  // disc, matching that layout exactly).
   Widget _buildVideoActionRail(ReelsProvider provider) {
     final reel = provider.reels[_currentIndex];
     final liked = provider.isLiked(reel.id);
     final saved = provider.isSaved(reel.id);
 
-    return Positioned(
-      right: 16,
-      bottom: 16,
-      child: SafeArea(
-        top: false,
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            ReelActionButton(
-              showIconBackground: false,
-              showLabelShadow: true,
-              iconSize: 28,
-              iconBoxSize: 36,
-              icon: Icons.favorite_border_rounded,
-              activeIcon: Icons.favorite_rounded,
-              label: _formatActionCount(provider.likeCount(reel)),
-              isActive: liked,
-              activeColor: AppColors.error,
-              onTap: () => provider.toggleLike(reel.id),
-            ),
-            const SizedBox(height: 18),
-            // Views — reel.views is a real column (influencer_videos.views),
-            // already parsed by ReelModel but never displayed anywhere;
-            // mirrors the website's Eye icon + count in the same rail
-            // position (ReelView.tsx, between Like and Comment).
-            ReelActionButton(
-              showIconBackground: false,
-              showLabelShadow: true,
-              iconSize: 28,
-              iconBoxSize: 36,
-              icon: Icons.visibility_outlined,
-              label: _formatActionCount(reel.views),
-              onTap: () {},
-            ),
-            const SizedBox(height: 18),
-            ReelActionButton(
-              showIconBackground: false,
-              showLabelShadow: true,
-              iconSize: 28,
-              iconBoxSize: 36,
-              icon: Icons.mode_comment_outlined,
-              label: 'Comment',
-              onTap: () => _showComments(reel),
-            ),
-            const SizedBox(height: 18),
-            ReelActionButton(
-              showIconBackground: false,
-              showLabelShadow: true,
-              iconSize: 28,
-              iconBoxSize: 36,
-              icon: Icons.send_outlined,
-              label: 'Share',
-              onTap: () => _shareReel(reel),
-            ),
-            const SizedBox(height: 18),
-            ReelActionButton(
-              showIconBackground: false,
-              showLabelShadow: true,
-              iconSize: 28,
-              iconBoxSize: 36,
-              icon: Icons.bookmark_border_rounded,
-              activeIcon: Icons.bookmark_rounded,
-              label: 'Save',
-              isActive: saved,
-              onTap: () => provider.toggleSave(reel.id),
-            ),
-          ],
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        ReelActionButton(
+          showIconBackground: false,
+          showLabelShadow: true,
+          iconSize: 28,
+          iconBoxSize: 36,
+          icon: Icons.favorite_border_rounded,
+          activeIcon: Icons.favorite_rounded,
+          label: _formatActionCount(provider.likeCount(reel)),
+          isActive: liked,
+          activeColor: AppColors.error,
+          onTap: () => provider.toggleLike(reel.id),
         ),
+        const SizedBox(height: 18),
+        ReelActionButton(
+          showIconBackground: false,
+          showLabelShadow: true,
+          iconSize: 28,
+          iconBoxSize: 36,
+          icon: Icons.mode_comment_outlined,
+          // reel.commentCount is a real ReelModel field (always 0 for now —
+          // there is no denormalized counter column yet; see its doc
+          // comment) rather than the static "Comment" text this used to
+          // show, matching the reference's numeric label.
+          label: _formatActionCount(reel.commentCount),
+          onTap: () => _showComments(reel),
+        ),
+        const SizedBox(height: 18),
+        ReelActionButton(
+          showIconBackground: false,
+          showLabelShadow: true,
+          iconSize: 28,
+          iconBoxSize: 36,
+          icon: Icons.send_outlined,
+          label: 'Share',
+          onTap: () => _shareReel(reel),
+        ),
+        const SizedBox(height: 18),
+        ReelActionButton(
+          showIconBackground: false,
+          showLabelShadow: true,
+          iconSize: 28,
+          iconBoxSize: 36,
+          icon: Icons.bookmark_border_rounded,
+          activeIcon: Icons.bookmark_rounded,
+          label: 'Save',
+          isActive: saved,
+          onTap: () => provider.toggleSave(reel.id),
+        ),
+        const SizedBox(height: 18),
+        _buildMoreButton(reel),
+        const SizedBox(height: 18),
+        _SoundDisc(onTap: _manager.toggleMute),
+      ],
+    );
+  }
+
+  /// "•••" — copy link / report, mirroring what a reel's overflow menu
+  /// commonly offers. Both actions are self-contained UI affordances (the
+  /// clipboard and a snackbar), not new backend behaviour.
+  Widget _buildMoreButton(ReelModel reel) {
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: () => showModalBottomSheet(
+        context: context,
+        backgroundColor: AppColors.textPrimary,
+        shape: const RoundedRectangleBorder(
+          borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+        ),
+        builder: (sheetContext) => SafeArea(
+          top: false,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              ListTile(
+                leading: const Icon(Icons.link_rounded, color: Colors.white),
+                title: const Text(
+                  'Copy link',
+                  style: TextStyle(color: Colors.white),
+                ),
+                onTap: () async {
+                  Navigator.pop(sheetContext);
+                  await Clipboard.setData(ClipboardData(text: reel.shareUrl));
+                  if (mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text('Link copied')),
+                    );
+                  }
+                },
+              ),
+              ListTile(
+                leading: const Icon(
+                  Icons.flag_outlined,
+                  color: Colors.white,
+                ),
+                title: const Text(
+                  'Report',
+                  style: TextStyle(color: Colors.white),
+                ),
+                onTap: () {
+                  Navigator.pop(sheetContext);
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('Thanks — we\'ll take a look')),
+                  );
+                },
+              ),
+            ],
+          ),
+        ),
+      ),
+      child: const Icon(
+        Icons.more_horiz_rounded,
+        color: Colors.white,
+        size: 28,
+        shadows: [Shadow(color: Colors.black54, blurRadius: 4)],
       ),
     );
   }
@@ -477,138 +520,279 @@ class _ReelsScreenState extends State<ReelsScreen> {
     if (mounted) _manager.resumeWindow();
   }
 
-  Widget _buildBuilderOverlay(ReelsProvider provider) {
+  // ── Bottom overlay content ──────────────────────────────────────────────
+  // Everything below the video's midpoint in the reference: creator row +
+  // title + description + specs chips beside the action rail, then the
+  // full-width price/location/View Details bar, then the comment bar.
+  // Sits directly on the video (over `_BottomScrim`), replacing the old
+  // separate white card entirely.
+  Widget _buildBottomContent(ReelsProvider provider) {
     final reel = provider.reels[_currentIndex];
+
     return Positioned(
-      left: 16,
-      right: 72,
-      bottom: 16,
+      left: 0,
+      right: 0,
+      bottom: 0,
       child: SafeArea(
         top: false,
-        child: ReelInfoPanel(
-          reel: reel,
-          isFollowing: provider.isFollowed(reel.id),
-          onFollow: () => provider.toggleFollow(reel.id),
-          onTapProfile: reel.builderUserId == null
-              ? null
-              : () => _openUploaderProfile(reel.builderUserId!),
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(16, 0, 16, 10),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: [
+                  Expanded(
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        ReelInfoPanel(
+                          reel: reel,
+                          isFollowing: provider.isFollowed(reel.id),
+                          onFollow: () => provider.toggleFollow(reel.id),
+                          onTapProfile: reel.builderUserId == null
+                              ? null
+                              : () =>
+                                    _openUploaderProfile(reel.builderUserId!),
+                        ),
+                        const SizedBox(height: 10),
+                        Text(
+                          reel.title.isNotEmpty
+                              ? reel.title
+                              : 'Featured Property',
+                          style: AppTextStyles.heading3.copyWith(
+                            color: Colors.white,
+                            fontWeight: FontWeight.w700,
+                            fontSize: 16,
+                            shadows: const [
+                              Shadow(color: Colors.black54, blurRadius: 6),
+                            ],
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                        if (reel.description.trim().isNotEmpty) ...[
+                          const SizedBox(height: 4),
+                          _ReelDescription(text: reel.description.trim()),
+                        ],
+                        if (reel.hasSpecs) ...[
+                          const SizedBox(height: 10),
+                          _buildFactsChips(reel),
+                        ],
+                      ],
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  _buildVideoActionRail(provider),
+                ],
+              ),
+              if (reel.hasPrice || reel.hasLocation) ...[
+                const SizedBox(height: 14),
+                _buildPriceBar(reel),
+              ],
+              const SizedBox(height: 10),
+              _buildCommentBar(reel),
+            ],
+          ),
         ),
       ),
     );
   }
 
-  // ── Property card ────────────────────────────────────────────────────────
-  Widget _buildPropertyCard(ReelModel reel) {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.fromLTRB(20, 14, 16, 16),
-      decoration: const BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black12,
-            blurRadius: 16,
-            offset: Offset(0, -4),
-          ),
+  /// "4 Beds · 4 Baths · 3200 Sq.Ft · Villa" as dark pill chips — mirrors the
+  /// reference's spec row. Every value comes straight off [ReelModel]'s
+  /// existing fields (nothing new fetched); the fourth chip uses
+  /// [ReelModel.status] (possession status) rather than a property-type
+  /// label, since this model has no such field to read.
+  Widget _buildFactsChips(ReelModel reel) {
+    final chips = <Widget>[
+      if (reel.bedrooms != null)
+        _FactChip(icon: Icons.bed_outlined, label: '${reel.bedrooms} Beds'),
+      if (reel.bathrooms != null)
+        _FactChip(
+          icon: Icons.bathtub_outlined,
+          label: '${reel.bathrooms} Baths',
+        ),
+      if (reel.areaLabel != null)
+        _FactChip(
+          icon: Icons.straighten_rounded,
+          label: '${reel.areaLabel} ${reel.areaUnit}',
+        ),
+      if (reel.hasStatus)
+        _FactChip(icon: Icons.home_work_outlined, label: reel.status!),
+    ];
+
+    return SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
+      child: Row(
+        children: [
+          for (int i = 0; i < chips.length; i++) ...[
+            if (i > 0) const SizedBox(width: 8),
+            chips[i],
+          ],
         ],
       ),
-      child: SafeArea(
-        top: false,
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.center,
-          children: [
-            Expanded(
-              child: Text(
-                reel.title.isNotEmpty ? reel.title : 'Featured Property',
-                style: AppTextStyles.heading2.copyWith(
-                  color: AppColors.textPrimary,
-                  fontWeight: FontWeight.w700,
-                  fontSize: 16,
+    );
+  }
+
+  /// Price + location + "View Details", in a dark rounded bar spanning the
+  /// full width — mirrors the reference's price/CTA band. Built as a `Wrap`
+  /// rather than a `Row`: on any normal phone width all three sit on one
+  /// line exactly like the reference, but a `Wrap` lets the button drop to
+  /// its own second line instead of overflowing on a very narrow device,
+  /// where a `Row` has no such fallback.
+  Widget _buildPriceBar(ReelModel reel) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+      decoration: BoxDecoration(
+        color: Colors.black.withOpacity(0.42),
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: Wrap(
+        alignment: WrapAlignment.spaceBetween,
+        crossAxisAlignment: WrapCrossAlignment.center,
+        spacing: 10,
+        runSpacing: 6,
+        children: [
+          if (reel.hasPrice)
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  reel.price!,
+                  style: AppTextStyles.body.copyWith(
+                    color: Colors.white,
+                    fontWeight: FontWeight.w800,
+                    fontSize: 16,
+                  ),
                 ),
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-              ),
+                Text(
+                  'Price',
+                  style: AppTextStyles.caption.copyWith(
+                    color: Colors.white.withOpacity(0.6),
+                    fontSize: 10,
+                  ),
+                ),
+              ],
             ),
-            const SizedBox(width: 10),
-            _buildViewDetailsButton(reel),
-            const SizedBox(width: 8),
-            _buildContactButton(reel),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildViewDetailsButton(ReelModel reel) {
-    return SizedBox(
-      height: 38,
-      child: OutlinedButton(
-        onPressed: () => _onViewDetails(reel),
-        style: OutlinedButton.styleFrom(
-          backgroundColor: AppColors.primaryLight,
-          side: BorderSide.none,
-          padding: const EdgeInsets.symmetric(horizontal: 10),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(AppConstants.buttonRadius),
-          ),
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(
-              'View Details',
-              style: AppTextStyles.chip.copyWith(
-                color: AppColors.primary,
-                fontWeight: FontWeight.w700,
-                fontSize: 12,
-              ),
-            ),
-            const SizedBox(width: 2),
-            const Icon(
-              Icons.chevron_right_rounded,
-              color: AppColors.primary,
-              size: 16,
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildContactButton(ReelModel reel) {
-    return SizedBox(
-      height: 38,
-      child: DecoratedBox(
-        decoration: BoxDecoration(
-          gradient: AppColors.primaryGradient,
-          borderRadius: BorderRadius.circular(AppConstants.buttonRadius),
-        ),
-        child: Material(
-          color: Colors.transparent,
-          child: InkWell(
-            borderRadius: BorderRadius.circular(AppConstants.buttonRadius),
-            onTap: () => _onContactBuilder(reel),
-            child: const Padding(
-              padding: EdgeInsets.symmetric(horizontal: 12),
-              child: Row(
+          if (reel.hasLocation)
+            ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 170),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Icon(Icons.call_rounded, color: Colors.white, size: 14),
-                  SizedBox(width: 4),
+                  Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(
+                        Icons.location_on_rounded,
+                        color: Colors.white.withOpacity(0.85),
+                        size: 13,
+                      ),
+                      const SizedBox(width: 3),
+                      Flexible(
+                        child: Text(
+                          reel.location!,
+                          style: AppTextStyles.body.copyWith(
+                            color: Colors.white,
+                            fontWeight: FontWeight.w700,
+                            fontSize: 13,
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                    ],
+                  ),
                   Text(
-                    'Contact',
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontWeight: FontWeight.w700,
-                      fontSize: 12,
+                    'Location',
+                    style: AppTextStyles.caption.copyWith(
+                      color: Colors.white.withOpacity(0.6),
+                      fontSize: 10,
                     ),
                   ),
                 ],
               ),
             ),
+          SizedBox(
+            height: 34,
+            child: ElevatedButton(
+              onPressed: () => _onViewDetails(reel),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppColors.primary,
+                foregroundColor: Colors.white,
+                elevation: 0,
+                padding: const EdgeInsets.symmetric(horizontal: 10),
+                minimumSize: Size.zero,
+                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                visualDensity: VisualDensity.compact,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(
+                    AppConstants.buttonRadius,
+                  ),
+                ),
+              ),
+              child: const Text(
+                'View Details',
+                style: TextStyle(fontWeight: FontWeight.w700, fontSize: 11.5),
+              ),
+            ),
           ),
-        ),
+        ],
+      ),
+    );
+  }
+
+  /// Always-visible "Add a comment..." row — mirrors the reference's
+  /// composer bar. Opens the same real comments sheet the rail's comment
+  /// icon already does (same [CommentService]-backed submit flow); this bar
+  /// is a second entry point onto that one existing flow, not a parallel one.
+  Widget _buildCommentBar(ReelModel reel) {
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: () => _showComments(reel),
+      child: Row(
+        children: [
+          const CircleAvatar(
+            radius: 15,
+            backgroundColor: Colors.white24,
+            child: Icon(Icons.person, color: Colors.white, size: 16),
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Container(
+              padding: const EdgeInsets.symmetric(
+                horizontal: 14,
+                vertical: 9,
+              ),
+              decoration: BoxDecoration(
+                color: Colors.black.withOpacity(0.35),
+                borderRadius: BorderRadius.circular(20),
+              ),
+              child: Text(
+                'Add a comment...',
+                style: AppTextStyles.body.copyWith(
+                  color: Colors.white.withOpacity(0.6),
+                  fontSize: 13,
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(width: 8),
+          Text(
+            'Send',
+            style: AppTextStyles.body.copyWith(
+              color: AppColors.primaryLight,
+              fontWeight: FontWeight.w700,
+              fontSize: 13,
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -727,6 +911,180 @@ class _ReelPageSurfaceState extends State<_ReelPageSurface> {
       showLoadingIndicator: widget.isActive,
       isPaused: widget.isPaused,
       onTogglePlayPause: widget.onTogglePlayPause,
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Small overlay pieces used by `_buildBottomContent` above
+// ─────────────────────────────────────────────────────────────────────────────
+
+/// Bottom-anchored gradient so the caption/specs/price/comment overlay
+/// stays legible over any video frame, however light. Purely decorative —
+/// `IgnorePointer` so it never intercepts the play/pause tap-to-toggle.
+class _BottomScrim extends StatelessWidget {
+  const _BottomScrim();
+
+  @override
+  Widget build(BuildContext context) {
+    return const Positioned(
+      left: 0,
+      right: 0,
+      bottom: 0,
+      child: IgnorePointer(
+        child: SizedBox(
+          height: 340,
+          child: DecoratedBox(
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+                colors: [Colors.transparent, Color(0xCC000000)],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Truncated description with a tappable "...more"/"less" toggle — mirrors
+/// the reference's "...more" affordance. Purely local widget state; no data
+/// beyond [ReelModel.description] is involved.
+class _ReelDescription extends StatefulWidget {
+  const _ReelDescription({required this.text});
+
+  final String text;
+
+  @override
+  State<_ReelDescription> createState() => _ReelDescriptionState();
+}
+
+class _ReelDescriptionState extends State<_ReelDescription> {
+  bool _expanded = false;
+
+  static const List<Shadow> _shadow = [
+    Shadow(color: Colors.black54, blurRadius: 6),
+  ];
+
+  @override
+  Widget build(BuildContext context) {
+    final style = AppTextStyles.body.copyWith(
+      color: Colors.white.withOpacity(0.9),
+      fontSize: 13,
+      height: 1.35,
+      shadows: _shadow,
+    );
+
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: () => setState(() => _expanded = !_expanded),
+      child: RichText(
+        maxLines: _expanded ? null : 2,
+        overflow: _expanded ? TextOverflow.visible : TextOverflow.ellipsis,
+        text: TextSpan(
+          style: style,
+          children: [
+            TextSpan(text: widget.text),
+            TextSpan(
+              text: _expanded ? '  less' : '  ...more',
+              style: style.copyWith(
+                color: Colors.white,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// One "4 Beds"-style pill in the specs row.
+class _FactChip extends StatelessWidget {
+  const _FactChip({required this.icon, required this.label});
+
+  final IconData icon;
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      decoration: BoxDecoration(
+        color: Colors.black.withOpacity(0.38),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: Colors.white.withOpacity(0.15)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, color: Colors.white, size: 14),
+          const SizedBox(width: 5),
+          Text(
+            label,
+            style: AppTextStyles.chip.copyWith(
+              color: Colors.white,
+              fontWeight: FontWeight.w600,
+              fontSize: 11.5,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Decorative rotating "sound disc" at the foot of the action rail —
+/// mirrors the reference's spinning-record indicator that this reel has
+/// audio. Tapping it reuses the existing mute toggle rather than doing
+/// nothing.
+class _SoundDisc extends StatefulWidget {
+  const _SoundDisc({required this.onTap});
+
+  final VoidCallback onTap;
+
+  @override
+  State<_SoundDisc> createState() => _SoundDiscState();
+}
+
+class _SoundDiscState extends State<_SoundDisc>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _controller = AnimationController(
+    vsync: this,
+    duration: const Duration(seconds: 6),
+  )..repeat();
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: widget.onTap,
+      behavior: HitTestBehavior.opaque,
+      child: RotationTransition(
+        turns: _controller,
+        child: Container(
+          width: 30,
+          height: 30,
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            color: Colors.black.withOpacity(0.4),
+            border: Border.all(color: Colors.white.withOpacity(0.5), width: 1.5),
+          ),
+          alignment: Alignment.center,
+          child: const Icon(
+            Icons.music_note_rounded,
+            color: Colors.white,
+            size: 15,
+          ),
+        ),
+      ),
     );
   }
 }
