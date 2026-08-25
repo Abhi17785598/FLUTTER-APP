@@ -35,7 +35,10 @@ import '../models/social_models.dart';
 /// will reject the redirect_uri outright; nothing in this file can detect or
 /// route around that ahead of time.
 class MetaOAuthService {
-  static const String redirectUri = 'propcid://meta-callback';
+ static const String oauthRedirectUri =
+    'https://viboxyvkzntuealqcvze.supabase.co/functions/v1/meta-mobile-oauth-callback';
+
+static const String deepLinkRedirectUri = 'propcid://meta-callback';
 
   /// Same scope list as `metaOAuthService.ts`'s `META_SCOPES` — Pages +
   /// Instagram + Ads/Leads. Advanced-access scopes (ads_management,
@@ -74,7 +77,7 @@ class MetaOAuthService {
   String _buildOAuthUrl(String state) {
     final params = {
       'client_id': _appId!,
-      'redirect_uri': redirectUri,
+     'redirect_uri': oauthRedirectUri,
       'response_type': 'code',
       'scope': _scopes.join(','),
       'state': state,
@@ -165,11 +168,13 @@ class MetaOAuthService {
         throw 'Facebook did not return a login code.';
       }
 
-      final result = await _invoke(
-        'meta-oauth-exchange',
-        body: {'code': code, 'redirect_uri': redirectUri},
-      );
-
+    final result = await _invoke(
+  'meta-oauth-exchange',
+  body: {
+    'code': code,
+    'redirect_uri': oauthRedirectUri,
+  },
+);
       final pages = (result['pages'] as List? ?? const [])
           .whereType<Map>()
           .map((p) => AvailablePage.fromJson(Map<String, dynamic>.from(p)))

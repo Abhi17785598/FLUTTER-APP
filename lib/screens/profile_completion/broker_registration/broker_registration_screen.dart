@@ -472,7 +472,11 @@ class _BrokerRegistrationScreenState extends State<BrokerRegistrationScreen> {
     }
     if (_gender == null || _gender!.isEmpty)
       e['gender'] = 'Gender is required.';
-    if (_isBlank(_dobCtrl.text)) e['dob'] = 'Date of birth is required.';
+    if (_isBlank(_dobCtrl.text)) {
+      e['dob'] = 'Date of birth is required.';
+    } else if (!_isAtLeast18(_dobCtrl.text.trim())) {
+      e['dob'] = 'You must be at least 18 years old to register.';
+    }
     return e;
   }
 
@@ -735,13 +739,24 @@ class _BrokerRegistrationScreenState extends State<BrokerRegistrationScreen> {
   }
 
   // ─── Date picker ──────────────────────────────────────────────────────────
+  /// True when [dobText] (`yyyy-MM-dd`) is a valid date at least 18 years
+  /// before today. Invalid/unparseable text fails closed (returns false).
+  bool _isAtLeast18(String dobText) {
+    final dob = DateTime.tryParse(dobText);
+    if (dob == null) return false;
+    final now = DateTime.now();
+    final eighteenthBirthday = DateTime(dob.year + 18, dob.month, dob.day);
+    return !eighteenthBirthday.isAfter(now);
+  }
+
   Future<void> _pickDob() async {
     final now = DateTime.now();
+    final maxDob = DateTime(now.year - 18, now.month, now.day);
     final picked = await showDatePicker(
       context: context,
       initialDate: DateTime(now.year - 30),
       firstDate: DateTime(1950),
-      lastDate: now,
+      lastDate: maxDob,
     );
     if (picked != null) {
       setState(() {

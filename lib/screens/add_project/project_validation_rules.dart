@@ -78,7 +78,7 @@ String projectStepIcon(ProjectStep step) => switch (step) {
 };
 
 /// `basicRules` — projectRules.ts:44-49.
-const List<ProjectRule> _basicRules = [
+final List<ProjectRule> _basicRules = [
   ProjectRule(field: kProjectTitle, label: 'Project title', get: _readTitle),
   ProjectRule(field: kProjectType, label: 'Project type', get: _readType),
   // The reference labels `location` "City", not "Location".
@@ -87,6 +87,9 @@ const List<ProjectRule> _basicRules = [
     field: kProjectDescription,
     label: 'Description',
     get: _readDescription,
+    // Not part of the React port — added on explicit request so a listing
+    // can't ship with a single-word description.
+    validate: minWordCount(20, 'Description'),
   ),
 ];
 
@@ -143,6 +146,7 @@ final List<ProjectRule> _detailRules = [
     field: kProjectReraNumber,
     label: 'RERA number',
     get: _readRera,
+    validate: validRera,
   ),
 ];
 
@@ -209,10 +213,55 @@ Map<ProjectStep, List<ProjectRule>> get projectStepRules => {
   ProjectStep.review: const [],
 };
 
+/// Cross-field checks on the Details step that no single [ProjectRule] can
+/// express, since each needs two fields at once. Both are only evaluated once
+/// their inputs are present — an incomplete pair is already caught by the
+/// per-field required checks above.
+///
+/// - "You cannot have more units available than exist" was previously only
+///   checked in [validateAllProjectSteps], so leaving the Details step with
+///   Available > Total was silently accepted until the final submit. Folding
+///   it into [validateProjectStep] means it now blocks Continue immediately,
+///   same as every other Details field.
+/// - Possession before Completion is a new check, not part of the React
+///   port, added on explicit request.
+List<ListingIssue> _crossFieldDetailIssues(ProjectDraft draft) {
+  final issues = <ListingIssue>[];
+
+  final total = draft.totalUnits;
+  final available = draft.availableUnits;
+  if (total != null && available != null && available > total) {
+    issues.add(
+      const ListingIssue(
+        kProjectAvailableUnits,
+        'Available units',
+        'Available units cannot exceed total units.',
+      ),
+    );
+  }
+
+  final completion = DateTime.tryParse(draft.completionDate);
+  final possession = DateTime.tryParse(draft.possessionDate);
+  if (completion != null &&
+      possession != null &&
+      possession.isBefore(completion)) {
+    issues.add(
+      const ListingIssue(
+        kProjectPossessionDate,
+        'Possession date',
+        'Possession date cannot be earlier than the completion date.',
+      ),
+    );
+  }
+
+  return issues;
+}
+
 /// Unmet requirements for one step. `validateProjectStep` — projectRules.ts:84.
 ///
 /// A rule fires when the value [isBlank]; a present value is then handed to
-/// [ProjectRule.validate] if it has one. Same order as `collectIssues`.
+/// [ProjectRule.validate] if it has one. Same order as `collectIssues`, plus
+/// [_crossFieldDetailIssues] on the Details step.
 List<ListingIssue> validateProjectStep(ProjectStep step, ProjectDraft draft) {
   final issues = <ListingIssue>[];
 
@@ -232,13 +281,18 @@ List<ListingIssue> validateProjectStep(ProjectStep step, ProjectDraft draft) {
     }
   }
 
+  if (step == ProjectStep.details) {
+    issues.addAll(_crossFieldDetailIssues(draft));
+  }
+
   return issues;
 }
 
 /// The first step that fails, or null when the whole form is valid.
 ///
-/// `validateAllProjectSteps` — projectRules.ts:87-107. The cross-field unit check
-/// runs **after** every step passes, and is reported against `details`.
+/// `validateAllProjectSteps` — projectRules.ts:87-107. The cross-field checks
+/// are folded into [validateProjectStep] itself now, so this loop alone is
+/// enough to surface them.
 ProjectValidationFailure? validateAllProjectSteps(ProjectDraft draft) {
   const order = ProjectStep.values;
 
@@ -251,23 +305,6 @@ ProjectValidationFailure? validateAllProjectSteps(ProjectDraft draft) {
         issues: issues,
       );
     }
-  }
-
-  // "You cannot have more units available than exist."
-  final total = draft.totalUnits;
-  final available = draft.availableUnits;
-  if (total != null && available != null && available > total) {
-    return ProjectValidationFailure(
-      step: ProjectStep.details,
-      stepIndex: order.indexOf(ProjectStep.details),
-      issues: const [
-        ListingIssue(
-          kProjectAvailableUnits,
-          'Available units',
-          'Available units cannot exceed total units.',
-        ),
-      ],
-    );
   }
 
   return null;

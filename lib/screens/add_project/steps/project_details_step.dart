@@ -72,16 +72,22 @@ class _ProjectDetailsStepState extends State<ProjectDetailsStep> {
   Future<void> _pickDate({
     required String currentIso,
     required ValueChanged<String> onPicked,
+    // Possession cannot be picked before Completion — passed only for that
+    // field, once a completion date has been set.
+    DateTime? minDate,
   }) async {
     final now = DateTime.now();
-    final initial = DateTime.tryParse(currentIso) ?? now;
+    final earliest = (minDate != null && minDate.isAfter(now))
+        ? minDate
+        : now;
+    final initial = DateTime.tryParse(currentIso) ?? earliest;
 
     final picked = await showDatePicker(
       context: context,
-      initialDate: initial.isBefore(now) ? now : initial,
+      initialDate: initial.isBefore(earliest) ? earliest : initial,
       // A completion or possession date is always in the future for a project
       // being listed, and the column is a plain `date`.
-      firstDate: now,
+      firstDate: earliest,
       lastDate: DateTime(now.year + 25),
     );
     if (picked == null) return;
@@ -237,6 +243,7 @@ class _ProjectDetailsStepState extends State<ProjectDetailsStep> {
                 onTap: () => _pickDate(
                   currentIso: provider.draft.possessionDate,
                   onPicked: provider.setPossessionDate,
+                  minDate: DateTime.tryParse(provider.draft.completionDate),
                 ),
               ),
               const SizedBox(height: 16),

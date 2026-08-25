@@ -14,6 +14,13 @@ class ListingPattern {
   static final RegExp email = RegExp(r'^[^\s@]+@[^\s@]+\.[^\s@]+$');
   static final RegExp pincode = RegExp(r'^\d{6}$');
   static final RegExp phone = RegExp(r'^\+?[\d\s-]{8,15}$');
+
+  /// Letters, digits, `/` and `-` only, 8 to 60 characters — not a React
+  /// port. State RERA formats vary too widely (Maharashtra's `P51800012345`,
+  /// Gujarat's long slash-segmented ids, Haryana's, Karnataka's...) to
+  /// pattern-match beyond character set and length, so no state-specific
+  /// format is enforced on purpose.
+  static final RegExp rera = RegExp(r'^[A-Za-z0-9/-]{8,60}$');
 }
 
 /// Mirrors JavaScript's `Number(String)` coercion, which Dart does NOT share.
@@ -92,10 +99,29 @@ String? validPhone(Object? value) =>
     ? null
     : 'Enter a valid contact number.';
 
+String? validRera(Object? value) =>
+    ListingPattern.rera.hasMatch(value.toString().trim())
+    ? null
+    : 'RERA number must be 8-60 characters, using only letters, numbers, '
+          'slashes and hyphens.';
+
 String? Function(Object?) minLength(int n, String label) {
   return (Object? value) => value.toString().trim().length < n
       ? '$label must be at least $n characters.'
       : null;
+}
+
+/// Enforces a minimum word count on long-form text (project/property
+/// descriptions) — not part of the React port, added on explicit request so a
+/// description can't be a single word.
+String? Function(Object?) minWordCount(int n, String label) {
+  return (Object? value) {
+    final words = value.toString().trim().split(RegExp(r'\s+'));
+    final count = words.where((w) => w.isNotEmpty).length;
+    return count < n
+        ? '$label must be at least $n words (currently $count).'
+        : null;
+  };
 }
 
 /// Compact one-line summary for a toast: "Area, Bedrooms, Bathrooms and 4 more".
