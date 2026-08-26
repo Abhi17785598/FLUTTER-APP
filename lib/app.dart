@@ -19,6 +19,8 @@ import 'screens/search/people_search_screen.dart';
 import 'models/project_model.dart';
 import 'core/navigation/post_property_route_gate.dart';
 import 'screens/project/project_detail_screen.dart';
+import 'screens/project/latest_projects_screen.dart';
+import 'screens/network/role_directory_screen.dart';
 import 'services/property_service.dart' show PropertyEditBundle;
 import 'screens/shortlist/shortlist_screen.dart';
 import 'screens/filters/filters_screen.dart';
@@ -133,6 +135,39 @@ class PropertyApp extends StatelessWidget {
               settings: settings,
               builder: (context) => ProjectDetailScreen(
                 projectId: detailArgs?['projectId'] as String? ?? '',
+              ),
+            );
+          case AppConstants.latestProjectsScreen:
+            // "Browse all" projects — the Home Popular Categories "Premium
+            // Projects" tile's destination. Distinct from
+            // projectDetailScreen (one project) and the Home rail (a
+            // capped preview).
+            return PremiumPageRoute(
+              settings: settings,
+              builder: (context) => const LatestProjectsScreen(),
+            );
+          case AppConstants.brokersDirectoryScreen:
+            return PremiumPageRoute(
+              settings: settings,
+              builder: (context) => const RoleDirectoryScreen(
+                userType: 'broker',
+                title: 'Verified Brokers',
+              ),
+            );
+          case AppConstants.buildersDirectoryScreen:
+            return PremiumPageRoute(
+              settings: settings,
+              builder: (context) => const RoleDirectoryScreen(
+                userType: 'builder',
+                title: 'Builders',
+              ),
+            );
+          case AppConstants.influencersDirectoryScreen:
+            return PremiumPageRoute(
+              settings: settings,
+              builder: (context) => const RoleDirectoryScreen(
+                userType: 'influencer',
+                title: 'Influencers',
               ),
             );
           case AppConstants.feedScreen:

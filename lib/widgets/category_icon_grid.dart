@@ -26,9 +26,17 @@ class CategoryItem {
 
   /// Where tapping this shortcut goes. A `collection` is just a pre-applied
   /// set of filter fields, which is exactly what a category shortcut is.
-  /// Null for the four role/project tiles below, which have no dedicated
-  /// "browse all" screen in this app yet (see [_CategoryIconGridState._open]).
+  /// Null for the four role/project tiles below, which use [routeName]
+  /// instead — a plain named-route push, no filter state involved.
   final BannerDestination? destination;
+
+  /// Named route for the four role/project tiles (Verified Brokers,
+  /// Builders, Influencers, Premium Projects) — their "browse all" screen,
+  /// mirroring the portal's `/brokers` / `/builders` / `/influencers` /
+  /// `/latest-projects` (`PropertyCategories.tsx`'s `handleCardClick`).
+  /// Null for the five property tiles above, which use [destination]
+  /// instead.
+  final String? routeName;
 
   /// Key into [_CategoryIconGridState._counts]'s result map, for the live
   /// count badge.
@@ -40,7 +48,11 @@ class CategoryItem {
     required this.accentColor,
     required this.countKey,
     this.destination,
-  });
+    this.routeName,
+  }) : assert(
+         (destination == null) != (routeName == null),
+         'exactly one of destination/routeName must be set',
+       );
 }
 
 /// Home's "Popular Categories" — mirrors the portal's `PropertyCategories.tsx`
@@ -61,11 +73,10 @@ class CategoryItem {
 /// unfiltered results.
 ///
 /// The remaining four tiles (Verified Brokers, Builders, Influencers,
-/// Premium Projects) navigate to dedicated "browse all of this role/type"
-/// pages on the portal (`/brokers`, `/builders`, `/influencers`,
-/// `/latest-projects`); this app has no equivalent screen for those yet, so
-/// tapping one surfaces a "coming soon" notice instead of either opening
-/// nothing (a silent, unexplained no-op) or a route that doesn't exist.
+/// Premium Projects) navigate to this app's own "browse all of this
+/// role/type" screens (`RoleDirectoryScreen`, `LatestProjectsScreen`),
+/// mirroring the portal's dedicated `/brokers`, `/builders`, `/influencers`,
+/// `/latest-projects` pages.
 class CategoryIconGrid extends StatefulWidget {
   const CategoryIconGrid({super.key, this.service});
 
@@ -114,24 +125,28 @@ class CategoryIconGrid extends StatefulWidget {
       label: 'Verified Brokers',
       imageAsset: '$_assetBase/brokerverified.webp',
       accentColor: Color(0xFF1E3A8A),
+      routeName: AppConstants.brokersDirectoryScreen,
       countKey: 'brokers',
     ),
     CategoryItem(
       label: 'Builders',
       imageAsset: '$_assetBase/builder.webp',
       accentColor: Color(0xFFD97706),
+      routeName: AppConstants.buildersDirectoryScreen,
       countKey: 'builders',
     ),
     CategoryItem(
       label: 'Influencers',
       imageAsset: '$_assetBase/influencer.webp',
       accentColor: Color(0xFFDB2777),
+      routeName: AppConstants.influencersDirectoryScreen,
       countKey: 'influencers',
     ),
     CategoryItem(
       label: 'Premium Projects',
       imageAsset: '$_assetBase/premiumproject.webp',
       accentColor: Color(0xFFB8860B),
+      routeName: AppConstants.latestProjectsScreen,
       countKey: 'projects',
     ),
   ];
@@ -215,17 +230,13 @@ class _CategoryIconGridState extends State<CategoryIconGrid> {
   /// free — each shortcut navigates to a fresh `/search?...` URL — so the
   /// reset is what matches its behaviour.
   void _open(BuildContext context, CategoryItem category) {
-    final destination = category.destination;
-    if (destination == null) {
-      ScaffoldMessenger.of(context)
-        ..hideCurrentSnackBar()
-        ..showSnackBar(
-          SnackBar(content: Text('${category.label} — coming soon')),
-        );
+    final routeName = category.routeName;
+    if (routeName != null) {
+      Navigator.pushNamed(context, routeName);
       return;
     }
     context.read<FilterProvider>().resetFilters();
-    BannerDestinationResolver.navigate(context, destination);
+    BannerDestinationResolver.navigate(context, category.destination!);
   }
 
   @override

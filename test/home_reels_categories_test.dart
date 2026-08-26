@@ -372,5 +372,22 @@ void main() {
       expect(filters.category, isNull);
       expect(filters.subtype, isNull);
     });
+
+    // The four role/project tiles push their own "browse all" screen's
+    // route directly — no filter state involved, and no more "coming soon"
+    // snackbar now that those screens exist.
+    for (final entry in const {
+      'Verified Brokers': AppConstants.brokersDirectoryScreen,
+      'Builders': AppConstants.buildersDirectoryScreen,
+      'Influencers': AppConstants.influencersDirectoryScreen,
+      'Premium Projects': AppConstants.latestProjectsScreen,
+    }.entries) {
+      testWidgets('${entry.key} opens its directory screen, not a snackbar',
+          (tester) async {
+        final (_, pushed) = await tapShortcut(tester, entry.key);
+        expect(pushed, contains(entry.value));
+        expect(find.textContaining('coming soon'), findsNothing);
+      });
+    }
   });
 }

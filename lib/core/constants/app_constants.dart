@@ -93,6 +93,22 @@ class AppConstants {
   /// `builder_projects` row, not a listing.
   static const String projectDetailScreen = '/project-detail';
 
+  /// Public "browse all" directories for one profile role each — the
+  /// destinations for the Home "Popular Categories" tiles of the same name
+  /// (`category_icon_grid.dart`). Route names mirror the portal's own
+  /// `/brokers` / `/builders` / `/influencers` (`PropertyCategories.tsx`'s
+  /// `handleCardClick`).
+  static const String brokersDirectoryScreen = '/brokers';
+  static const String buildersDirectoryScreen = '/builders';
+  static const String influencersDirectoryScreen = '/influencers';
+
+  /// Public "browse all" projects list — the Home "Popular Categories"
+  /// Premium Projects tile's destination, mirroring the portal's
+  /// `/latest-projects` (`PropertyCategories.tsx`'s `handleCardClick`).
+  /// Distinct from [projectDetailScreen] (one project) and the Home rail
+  /// widgets, which only ever show a capped preview.
+  static const String latestProjectsScreen = '/latest-projects';
+
   /// The influencer video form. Distinct from [postPropertyScreen] and
   /// [addProjectScreen]: an influencer publishes videos to `influencer_videos`.
   ///
