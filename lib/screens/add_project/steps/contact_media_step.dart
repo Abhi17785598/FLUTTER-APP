@@ -269,7 +269,7 @@ class _ContactMediaStepState extends State<ContactMediaStep> {
               _AssetList(
                 label: 'Project Videos',
                 icon: 'video',
-                helper: 'Up to 50 MB each.',
+                helper: 'Up to 500 MB each.',
                 urls: draft.videosUrls,
                 hasError: provider.hasIssue(kProjectVideosUrls),
                 busy: provider.isUploading(ProjectUploadSlot.videos),
