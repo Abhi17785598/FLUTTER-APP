@@ -14,7 +14,6 @@ import 'widgets/featured_properties_section.dart';
 import 'widgets/trending_section.dart';
 import 'widgets/budget_section.dart';
 import 'widgets/property_rail_section.dart';
-import 'widgets/premium_banner_section.dart';
 import 'widgets/scroll_reveal.dart';
 import 'widgets/property_verification_section.dart';
 import 'widgets/news_section.dart';
@@ -93,9 +92,6 @@ class _HomeScreenState extends State<HomeScreen> {
       // Latest Articles. Same "renders nothing, owns its own trailing gap"
       // convention as Latest News below — see LatestArticlesSection.
       const LatestArticlesSection(),
-
-      // Premium Banner bleeds on both edges — no extra gap either side.
-      const ScrollReveal(child: PremiumBannerSection()),
 
       const SizedBox(height: 24),
 

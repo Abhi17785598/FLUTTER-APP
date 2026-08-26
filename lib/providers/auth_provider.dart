@@ -9,6 +9,7 @@ import '../screens/home/home_screen.dart';
 import '../services/auth_resolver.dart';
 import '../services/auth_service.dart';
 import '../services/builder_sections_service.dart';
+import '../widgets/premium_launch_bottom_sheet.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
@@ -339,6 +340,10 @@ class AuthProvider extends ChangeNotifier {
       // this is the one case (alongside a new user id below and explicit
       // [logout]) that bumps the generation and resets navigation dedupe.
       _logFlow('event=${state.event.name} session=null -> signedOut');
+      // So the PropCID Pro launch-offer sheet shows again on the user's next
+      // successful login instead of staying suppressed for the rest of this
+      // app run — it must fire on every login, not just once per app launch.
+      LaunchOfferSessionGate.resetForNewLogin();
       _authGeneration++;
       _inFlightUserId = null;
       _rerunRequested = false;

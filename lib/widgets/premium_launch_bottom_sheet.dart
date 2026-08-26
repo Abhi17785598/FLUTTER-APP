@@ -6,9 +6,12 @@ import '../core/theme/app_text_styles.dart';
 import '../core/widgets/premium_button.dart';
 import '../models/launch_offer_content.dart';
 
-/// Controls whether the launch-offer bottom sheet has already been shown in
-/// this app session. Deliberately an in-memory flag (not persisted) — the
-/// requirement is "once per session", not "once ever".
+/// Controls whether the launch-offer bottom sheet has already been shown for
+/// the current login. Deliberately an in-memory flag (not persisted) — the
+/// requirement is "once per login", not "once ever": [AuthProvider] calls
+/// [resetForNewLogin] on every sign-out so the very next successful login
+/// (in the same app run or a new one) shows the sheet again, and "Maybe
+/// Later" only ever suppresses it until that next login.
 class LaunchOfferSessionGate {
   LaunchOfferSessionGate._();
 
@@ -17,6 +20,8 @@ class LaunchOfferSessionGate {
   static bool get canShow => !_shownThisSession;
 
   static void markShown() => _shownThisSession = true;
+
+  static void resetForNewLogin() => _shownThisSession = false;
 }
 
 /// Premium "PropCID Pro" upsell sheet, shown once per session from the home
@@ -73,14 +78,10 @@ class _PremiumLaunchBottomSheetState extends State<PremiumLaunchBottomSheet>
 
   void _upgradeNow() {
     Navigator.pop(context);
-    Navigator.pushNamed(
-      context,
-      AppConstants.paymentMethodScreen,
-      arguments: {
-        'amountLabel': LaunchOfferContent.amountLabel,
-        'title': 'PropCID Pro',
-      },
-    );
+    // Routes to the real Upgrade module (plan ladder + Razorpay checkout),
+    // not the standalone PaymentMethodScreen — that screen is explicitly
+    // UI-only with no gateway wired in (see its own doc comment).
+    Navigator.pushNamed(context, AppConstants.upgradeScreen);
   }
 
   @override

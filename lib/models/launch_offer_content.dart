@@ -10,12 +10,12 @@ class LaunchOfferContent {
 
   static const String badgeLabel = 'Launch Offer';
   static const String title = 'PropCID Pro for Builders & Brokers';
-  static const String priceLabel = '₹299/month';
+  static const String priceLabel = '₹0/month';
 
-  /// Raw amount handed to [PaymentMethodScreen] as `amountLabel`.
-  static const String amountLabel = '₹299';
+  /// Raw amount for the offer — free during early access.
+  static const String amountLabel = '₹0';
 
-  static const String tagline = 'Limited Time Early Access';
+  static const String tagline = 'Free During Early Access';
   static const String valueProposition =
       'Get discovered faster and close more deals with PropCID Pro.';
 

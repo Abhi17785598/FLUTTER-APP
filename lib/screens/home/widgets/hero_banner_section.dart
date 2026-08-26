@@ -1,12 +1,9 @@
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
 
 import '../../../core/navigation/banner_destination_resolver.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../models/banner_destination.dart';
-import '../../../models/property_model.dart';
-import '../../../providers/property_provider.dart';
 
 class _BannerData {
   const _BannerData({
@@ -79,28 +76,21 @@ class _HeroBannerSectionState extends State<HeroBannerSection>
   int _bannerCount = 5;
 
   List<_BannerData> _buildBanners(BuildContext context) {
-    final properties = context.watch<PropertyProvider>().properties;
-    final PropertyModel? featured = properties.isEmpty
-        ? null
-        : properties.firstWhere(
-            (p) => p.isFeatured,
-            orElse: () => properties.first,
-          );
-
     return [
-      _BannerData(
+      // Static promo slide — deliberately not tied to any single listing
+      // (no `PropertyProvider`/`PropertyModel` dependency): a rotating
+      // "featured" property here previously surfaced that listing's own
+      // photo as the banner image, which read as an ad for one specific
+      // property rather than the app itself. Image/subtext/destination are
+      // all fixed, same as the other four slides.
+      const _BannerData(
         imageUrl:
-            featured?.imageUrl ??
-            'https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?w=800&q=80',
+            'https://images.unsplash.com/photo-1568605114967-8130f3a36994?w=800&q=80',
         eyebrow: 'Featured Listing',
         headline: 'Discover Your',
         accentWord: 'Dream Home.',
-        subtext: featured != null
-            ? 'Featured now: ${featured.title} · ${featured.location}'
-            : 'Premium properties, trusted by thousands',
-        destination: featured != null
-            ? BannerDestination.property(featured.id)
-            : const BannerDestination.collection(),
+        subtext: 'Premium properties, trusted by thousands',
+        destination: BannerDestination.collection(),
       ),
       const _BannerData(
         imageUrl:
