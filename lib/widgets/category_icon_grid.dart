@@ -4,7 +4,6 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../core/constants/app_constants.dart';
 import '../core/navigation/banner_destination_resolver.dart';
-import '../core/theme/app_colors.dart';
 import '../core/theme/app_text_styles.dart';
 import '../models/banner_destination.dart';
 import '../providers/filter_provider.dart';
@@ -13,9 +12,17 @@ import 'section_header.dart';
 
 class CategoryItem {
   final String label;
-  final IconData icon;
-  final Color bgColor;
-  final Color iconColor;
+
+  /// Category-specific illustration, copied verbatim from the portal's own
+  /// `src/assets/categoriesicons/*.webp` (`PropertyCategories.tsx`'s
+  /// `categoryIconConfig`) into `assets/categoriesicons/` — same art, same
+  /// files, not a Flutter-only redraw.
+  final String imageAsset;
+
+  /// Accent used for the live-count badge's border/text — sampled to match
+  /// each image's own dominant colour so the badge reads as part of the
+  /// same illustration rather than an unrelated flat tint.
+  final Color accentColor;
 
   /// Where tapping this shortcut goes. A `collection` is just a pre-applied
   /// set of filter fields, which is exactly what a category shortcut is.
@@ -29,9 +36,8 @@ class CategoryItem {
 
   const CategoryItem({
     required this.label,
-    required this.icon,
-    required this.bgColor,
-    required this.iconColor,
+    required this.imageAsset,
+    required this.accentColor,
     required this.countKey,
     this.destination,
   });
@@ -66,73 +72,66 @@ class CategoryIconGrid extends StatefulWidget {
   @visibleForTesting
   final PropertyService? service;
 
+  static const String _assetBase = 'assets/categoriesicons';
+
   static const List<CategoryItem> categories = [
     CategoryItem(
       label: 'Land',
-      icon: Icons.landscape_rounded,
-      bgColor: AppColors.categoryPlotBg,
-      iconColor: Color(0xFF22C55E),
+      imageAsset: '$_assetBase/land.webp',
+      accentColor: Color(0xFF22C55E),
       destination: BannerDestination.collection(category: 'land'),
       countKey: 'land',
     ),
     CategoryItem(
       label: 'Residential',
-      icon: Icons.home_rounded,
-      bgColor: AppColors.categoryBuyBg,
-      iconColor: AppColors.primary,
+      imageAsset: '$_assetBase/residential.webp',
+      accentColor: Color(0xFF2563EB),
       destination: BannerDestination.collection(category: 'residential'),
       countKey: 'residential',
     ),
     CategoryItem(
       label: 'Commercial',
-      icon: Icons.business_rounded,
-      bgColor: AppColors.categoryCommercialBg,
-      iconColor: Color(0xFFF97316),
+      imageAsset: '$_assetBase/commercial.webp',
+      accentColor: Color(0xFF9333EA),
       destination: BannerDestination.collection(category: 'commercial'),
       countKey: 'commercial',
     ),
     CategoryItem(
       label: 'Rent',
-      icon: Icons.apartment_rounded,
-      bgColor: AppColors.categoryRentBg,
-      iconColor: Color(0xFF3B82F6),
+      imageAsset: '$_assetBase/rent.webp',
+      accentColor: Color(0xFF14B8A6),
       destination: BannerDestination.collection(listingType: 'rent'),
       countKey: 'rent',
     ),
     CategoryItem(
       label: 'For Sale',
-      icon: Icons.sell_rounded,
-      bgColor: AppColors.categoryPgBg,
-      iconColor: Color(0xFFEC4899),
+      imageAsset: '$_assetBase/sale.webp',
+      accentColor: Color(0xFF92722A),
       destination: BannerDestination.collection(listingType: 'sell'),
       countKey: 'sell',
     ),
     CategoryItem(
       label: 'Verified Brokers',
-      icon: Icons.verified_user_rounded,
-      bgColor: Color(0xFFFCE7F3),
-      iconColor: Color(0xFFE11D48),
+      imageAsset: '$_assetBase/brokerverified.webp',
+      accentColor: Color(0xFF1E3A8A),
       countKey: 'brokers',
     ),
     CategoryItem(
       label: 'Builders',
-      icon: Icons.foundation_rounded,
-      bgColor: Color(0xFFFFEDD5),
-      iconColor: Color(0xFFD97706),
+      imageAsset: '$_assetBase/builder.webp',
+      accentColor: Color(0xFFD97706),
       countKey: 'builders',
     ),
     CategoryItem(
       label: 'Influencers',
-      icon: Icons.camera_alt_rounded,
-      bgColor: Color(0xFFF3E8FF),
-      iconColor: Color(0xFF9333EA),
+      imageAsset: '$_assetBase/influencer.webp',
+      accentColor: Color(0xFFDB2777),
       countKey: 'influencers',
     ),
     CategoryItem(
       label: 'Premium Projects',
-      icon: Icons.diamond_rounded,
-      bgColor: Color(0xFFCCFBF1),
-      iconColor: Color(0xFF0D9488),
+      imageAsset: '$_assetBase/premiumproject.webp',
+      accentColor: Color(0xFFB8860B),
       countKey: 'projects',
     ),
   ];
@@ -142,6 +141,11 @@ class CategoryIconGrid extends StatefulWidget {
 }
 
 class _CategoryIconGridState extends State<CategoryIconGrid> {
+  /// Side length each category illustration renders at. Bigger than the
+  /// old flat icon's 52 dp — these are detailed illustrations, not simple
+  /// glyphs, and need more room to stay legible.
+  static const double _kTileImageSize = 64.0;
+
   late final Future<Map<String, int>> _counts = _loadCounts();
 
   /// Merges [PropertyService.getCategoryCounts] (land/residential/
@@ -238,8 +242,12 @@ class _CategoryIconGridState extends State<CategoryIconGrid> {
             final counts = snapshot.data ?? const <String, int>{};
 
             return SizedBox(
-              // ✅ FIX: was 90 — increased to 100 to fit icon (52) + gap (8) + 2-line text (~34) = 94 → give 100
-              height: 100,
+              // Was 100 for the old flat icon-in-circle (52 dp). The
+              // portal-sourced illustrations need more room to read clearly
+              // (_kTileImageSize, 64 dp) — 100 → 112 keeps the same
+              // gap(8)/2-line-label allowance as before, just around the
+              // bigger image.
+              height: 112,
               child: ListView.builder(
                 scrollDirection: Axis.horizontal,
                 padding: const EdgeInsets.symmetric(horizontal: 16),
@@ -257,18 +265,17 @@ class _CategoryIconGridState extends State<CategoryIconGrid> {
                           Stack(
                             clipBehavior: Clip.none,
                             children: [
-                              Container(
-                                width: AppConstants.categoryIconSize,
-                                height: AppConstants.categoryIconSize,
-                                decoration: BoxDecoration(
-                                  color: category.bgColor,
-                                  shape: BoxShape.circle,
-                                ),
-                                child: Icon(
-                                  category.icon,
-                                  color: category.iconColor,
-                                  size: AppConstants.categoryIconInnerSize,
-                                ),
+                              // The portal renders these with plain
+                              // `object-contain` — no colour chip behind
+                              // them, since each illustration already
+                              // carries its own backdrop/badge art baked
+                              // in. Matching that here rather than boxing
+                              // it in the old flat circle.
+                              Image.asset(
+                                category.imageAsset,
+                                width: _kTileImageSize,
+                                height: _kTileImageSize,
+                                fit: BoxFit.contain,
                               ),
                               if (count != null && count > 0)
                                 Positioned(
@@ -285,7 +292,7 @@ class _CategoryIconGridState extends State<CategoryIconGrid> {
                                         AppConstants.pillRadius,
                                       ),
                                       border: Border.all(
-                                        color: category.iconColor,
+                                        color: category.accentColor,
                                         width: 1,
                                       ),
                                     ),
@@ -294,7 +301,7 @@ class _CategoryIconGridState extends State<CategoryIconGrid> {
                                       style: AppTextStyles.chip.copyWith(
                                         fontSize: 9.5,
                                         fontWeight: FontWeight.w700,
-                                        color: category.iconColor,
+                                        color: category.accentColor,
                                       ),
                                     ),
                                   ),
@@ -303,7 +310,7 @@ class _CategoryIconGridState extends State<CategoryIconGrid> {
                           ),
                           const SizedBox(height: 8),
                           SizedBox(
-                            width: 64,
+                            width: _kTileImageSize,
                             child: Text(
                               category.label,
                               style: AppTextStyles.caption,
