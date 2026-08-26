@@ -60,79 +60,88 @@ class QuickActionsSection extends StatelessWidget {
     ),
   ];
 
+  static const double _cardSpacing = 12;
+
   @override
   Widget build(BuildContext context) {
-    return SizedBox(
-      height: 108,
-      child: ListView.builder(
-        scrollDirection: Axis.horizontal,
-        padding: const EdgeInsets.symmetric(horizontal: 16),
-        itemCount: _actions.length,
-        itemBuilder: (context, i) {
-          final action = _actions[i];
-          return Padding(
-            padding: const EdgeInsets.only(right: 12),
-            child: ScaleTap(
-              onTap: () => Navigator.pushNamed(
-                context,
-                action.route,
-                arguments: action.args,
-              ),
-              child: Container(
-                width: 152,
-                padding: const EdgeInsets.all(14),
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(18),
-                  boxShadow: AppColors.cardShadow,
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Container(
-                      width: 40,
-                      height: 40,
-                      decoration: BoxDecoration(
-                        gradient: LinearGradient(
-                          colors: action.gradient,
-                          begin: Alignment.topLeft,
-                          end: Alignment.bottomRight,
-                        ),
-                        borderRadius: BorderRadius.circular(12),
-                        boxShadow: [
-                          BoxShadow(
-                            color: action.gradient.first.withOpacity(0.35),
-                            blurRadius: 10,
-                            offset: const Offset(0, 4),
-                          ),
-                        ],
-                      ),
-                      child: Icon(action.icon, color: Colors.white, size: 20),
-                    ),
-                    const Spacer(),
-                    Text(
-                      action.label,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: AppTextStyles.body.copyWith(
-                        fontWeight: FontWeight.w700,
-                        fontSize: 13,
-                      ),
-                    ),
-                    const SizedBox(height: 2),
-                    Text(
-                      action.subtitle,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: AppTextStyles.caption.copyWith(fontSize: 10.5),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          );
-        },
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16),
+      child: Row(
+        children: [
+          for (var i = 0; i < _actions.length; i++) ...[
+            if (i != 0) const SizedBox(width: _cardSpacing),
+            Expanded(child: _QuickActionCard(action: _actions[i])),
+          ],
+        ],
       ),
     ).animate().fadeIn(duration: 400.ms, delay: 80.ms);
+  }
+}
+
+class _QuickActionCard extends StatelessWidget {
+  const _QuickActionCard({required this.action});
+
+  final _QuickAction action;
+
+  @override
+  Widget build(BuildContext context) {
+    return ScaleTap(
+      onTap: () => Navigator.pushNamed(
+        context,
+        action.route,
+        arguments: action.args,
+      ),
+      child: Container(
+        height: 108,
+        padding: const EdgeInsets.all(14),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(18),
+          boxShadow: AppColors.cardShadow,
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Container(
+              width: 40,
+              height: 40,
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  colors: action.gradient,
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                ),
+                borderRadius: BorderRadius.circular(12),
+                boxShadow: [
+                  BoxShadow(
+                    color: action.gradient.first.withOpacity(0.35),
+                    blurRadius: 10,
+                    offset: const Offset(0, 4),
+                  ),
+                ],
+              ),
+              child: Icon(action.icon, color: Colors.white, size: 20),
+            ),
+            const Spacer(),
+            Text(
+              action.label,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: AppTextStyles.body.copyWith(
+                fontWeight: FontWeight.w700,
+                fontSize: 13,
+              ),
+            ),
+            const SizedBox(height: 2),
+            Text(
+              action.subtitle,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: AppTextStyles.caption.copyWith(fontSize: 10.5),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 }

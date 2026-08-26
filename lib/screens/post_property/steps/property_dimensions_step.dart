@@ -1472,6 +1472,9 @@ class _BuildingFloorInventoryState extends State<_BuildingFloorInventory> {
                         '$key:contactPerson',
                         text('contactPerson'),
                       ),
+                      inputFormatters: [
+                        FilteringTextInputFormatter.allow(RegExp(r'[a-zA-Z\s]')),
+                      ],
                       onChanged: (v) => p.setBuildingOfficeField(
                         floorNumber,
                         companyIndex,
@@ -1495,6 +1498,10 @@ class _BuildingFloorInventoryState extends State<_BuildingFloorInventory> {
                         text('phoneNumber'),
                       ),
                       keyboardType: TextInputType.phone,
+                      inputFormatters: [
+                        FilteringTextInputFormatter.digitsOnly,
+                        LengthLimitingTextInputFormatter(10),
+                      ],
                       onChanged: (v) => p.setBuildingOfficeField(
                         floorNumber,
                         companyIndex,

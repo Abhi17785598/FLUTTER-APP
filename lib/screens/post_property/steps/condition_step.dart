@@ -140,10 +140,10 @@ class ConditionStep extends StatelessWidget {
             ],
           ),
         ),
-        // Not shown for PG, per explicit request — furnishedType's own rule
-        // (BasicInfoStep.tsx) only ever applies to Commercial, so PG has no
-        // furnishing concept to summarize here at all.
-        if (!isPg) ...[
+        // Not shown for PG or Other, per explicit request — furnishingType's
+        // own input (BasicInfoStep.tsx) only ever renders for Commercial, so
+        // neither PG nor Other has a furnishing concept to summarize here.
+        if (!isPg && provider.category != PropertyCategory.other) ...[
           const SizedBox(height: 20),
           WizardCard(
             icon: Icons.chair_outlined,
