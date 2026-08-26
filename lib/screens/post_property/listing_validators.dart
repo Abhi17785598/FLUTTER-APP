@@ -71,6 +71,17 @@ String? Function(Object?) positiveNumber(String label) {
   };
 }
 
+/// Same as [positiveNumber] but with a caller-supplied floor instead of a
+/// bare "greater than 0" — not a React port.
+String? Function(Object?) minNumber(num min, String label) {
+  return (Object? value) {
+    final double? n = _jsNumber(_stripToNumeric(value));
+    if (n == null) return '$label must be a number.';
+    if (n < min) return '$label must be at least $min.';
+    return null;
+  };
+}
+
 /// Same as [positiveNumber] but allows 0 (floor numbers, balcony counts...).
 /// Verbatim from `nonNegativeNumber` (requiredFields.ts:116).
 String? Function(Object?) nonNegativeNumber(String label) {

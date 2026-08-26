@@ -124,7 +124,9 @@ final List<ProjectRule> _detailRules = [
     field: kProjectAreaMin,
     label: 'Area (min)',
     get: _readAreaMin,
-    validate: positiveNumber('Area (min)'),
+    // Not part of the React port — added on explicit request so a minimum
+    // area can't be listed at a couple of square feet.
+    validate: minNumber(100, 'Area (min)'),
   ),
   ProjectRule(
     field: kProjectAreaMax,
