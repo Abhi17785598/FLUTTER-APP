@@ -852,15 +852,40 @@ List<ListingIssue> collectIssues(
   return issues;
 }
 
+/// Floor number cannot exceed total floors — not part of the React port,
+/// added on explicit request. Only fires once both are present (each is
+/// already required on its own via [_dimensionRules]), and only for the
+/// apartment subtypes that actually collect Floor No.
+List<ListingIssue> _crossFieldDimensionIssues(ListingFormData data) {
+  final floorNo = int.tryParse(data.p.floorNo);
+  final totalFloors = int.tryParse(data.p.totalFloors);
+  if (floorNo != null && totalFloors != null && floorNo > totalFloors) {
+    return const [
+      ListingIssue(
+        'floorNo',
+        'Floor number',
+        'Floor number cannot be greater than total floors.',
+      ),
+    ];
+  }
+  return const [];
+}
+
 /// Validate one step by React step title. Unknown titles validate clean.
 List<ListingIssue> validatePropertyStep(
   String stepTitle,
   ListingFormData data, {
   bool onlyCollectable = true,
   Set<String> grandfathered = const <String>{},
-}) => collectIssues(
-  data,
-  kPropertyStepRules[stepTitle] ?? const <ListingRule>[],
-  onlyCollectable: onlyCollectable,
-  grandfathered: grandfathered,
-);
+}) {
+  final issues = collectIssues(
+    data,
+    kPropertyStepRules[stepTitle] ?? const <ListingRule>[],
+    onlyCollectable: onlyCollectable,
+    grandfathered: grandfathered,
+  );
+  if (stepTitle == 'Dimensions') {
+    issues.addAll(_crossFieldDimensionIssues(data));
+  }
+  return issues;
+}
