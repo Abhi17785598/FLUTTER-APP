@@ -59,6 +59,10 @@ class ChatMessage {
   /// from their view while everyone else still sees it.
   final List<String> deletedFor;
 
+  /// Set on `sample_onetime`/`deliverable` collaboration messages — the
+  /// `collab_assets` row this bubble renders. Null for every other type.
+  final String? collabAssetId;
+
   const ChatMessage({
     required this.id,
     required this.senderId,
@@ -73,6 +77,7 @@ class ChatMessage {
     this.editedAt,
     this.deletedAt,
     this.deletedFor = const [],
+    this.collabAssetId,
   });
 
   factory ChatMessage.fromSupabase(Map<String, dynamic> json) {
@@ -100,6 +105,7 @@ class ChatMessage {
       deletedFor: deletedForRaw is List
           ? deletedForRaw.map((e) => e.toString()).toList()
           : const <String>[],
+      collabAssetId: json['collab_asset_id']?.toString(),
     );
   }
 
@@ -109,6 +115,32 @@ class ChatMessage {
   bool get isVideo => messageType == 'video';
   bool get isDeleted => deletedAt != null;
   bool get isEdited => editedAt != null;
+
+  // ── Collaboration-marketplace message types ──────────────────────────
+  bool get isCollabSystem => messageType == 'collab_system';
+  bool get isCollabPayment => messageType == 'collab_payment';
+  bool get isCollabAgreement => messageType == 'collab_agreement';
+  bool get isLocation => messageType == 'location';
+  bool get isCollabSample => messageType == 'sample_onetime';
+  bool get isCollabDeliverable => messageType == 'deliverable';
+  bool get isCollabMessage =>
+      isCollabSystem ||
+      isCollabPayment ||
+      isCollabAgreement ||
+      isLocation ||
+      isCollabSample ||
+      isCollabDeliverable;
+
+  /// `content` is stored as `"<label>\n<mapsUrl>"` for a `location` message
+  /// — the URL is always the last line (`CollabMessageBubbles`'s
+  /// `content.split('\n').pop()`, ported literally).
+  String get locationLabel => content
+      .split('\n')
+      .firstWhere((l) => l.isNotEmpty, orElse: () => 'View location');
+  String? get locationMapsUrl {
+    final lines = content.split('\n').where((l) => l.isNotEmpty).toList();
+    return lines.isEmpty ? null : lines.last;
+  }
 
   bool hiddenFor(String userId) => deletedFor.contains(userId);
 
@@ -126,6 +158,10 @@ class ChatMessage {
     if (isImage) return 'Sent an image';
     if (isVideo) return 'Sent a video';
     if (isAudio) return 'Voice message';
+    if (isCollabSample) return 'Sample video (view once)';
+    if (isCollabDeliverable) return 'Final deliverable';
+    if (isCollabAgreement) return 'Collaboration agreement';
+    if (isLocation) return 'Location shared';
     return 'Unsupported message';
   }
 }

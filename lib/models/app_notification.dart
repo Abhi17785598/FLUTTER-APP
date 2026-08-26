@@ -53,6 +53,36 @@ class NotificationTypes {
   static const String socialRetryStarted = 'social_retry_started';
   static const String socialRetrySuccess = 'social_retry_success';
 
+  // ── Collaboration Marketplace — 20270421000000_collab_marketplace_enums.sql
+  // `ALTER TYPE notification_type ADD VALUE`, all applied. Every payload
+  // carries `collaboration_id` (+ `asset_id` for the two asset-related
+  // types) — see `resolveCollabNotificationDestination`, which is async
+  // (it looks the collaboration up) and therefore lives outside
+  // `resolveNotificationDestination`, not as a case in it.
+  static const String collabRequest = 'collab_request';
+  static const String collabAccepted = 'collab_accepted';
+  static const String collabDeclined = 'collab_declined';
+  static const String collabAdvancePaid = 'collab_advance_paid';
+  static const String collabSampleReady = 'collab_sample_ready';
+  static const String collabFinalPaid = 'collab_final_paid';
+  static const String collabDeliverableReady = 'collab_deliverable_ready';
+  static const String collabDeliverableExpiring = 'collab_deliverable_expiring';
+  static const String collabDisputed = 'collab_disputed';
+  static const String collabCompleted = 'collab_completed';
+
+  static const Set<String> collabTypes = {
+    collabRequest,
+    collabAccepted,
+    collabDeclined,
+    collabAdvancePaid,
+    collabSampleReady,
+    collabFinalPaid,
+    collabDeliverableReady,
+    collabDeliverableExpiring,
+    collabDisputed,
+    collabCompleted,
+  };
+
   /// Declared only in `supabase/migration2/`, which `supabase/MIGRATIONS.md`
   /// records as never applied.
   ///
@@ -177,6 +207,76 @@ const Map<String, NotificationStyle> kNotificationStyles = {
     color: Color(0xFFF59E0B),
     background: Color(0xFFFEF3C7),
     filter: 'Matches',
+  ),
+
+  // ── Collaboration Marketplace ────────────────────────────────────────────
+  //
+  // Bucketing rationale (a judgement call — the portal renders no icons per
+  // type here either, and has no client-side routing for any of these at
+  // all): request/accepted/declined are someone trying to reach you, so
+  // Enquiries; the payment/asset/completion milestones are good news about
+  // an active deal, so Matches; a dispute is the one type that needs its own
+  // visual weight, so it gets System's neutral bucket plus an error tint
+  // rather than either of those two.
+  NotificationTypes.collabRequest: NotificationStyle(
+    icon: Icons.handshake_outlined,
+    color: AppColors.statusBooked,
+    background: Color(0xFFFFF7ED),
+    filter: 'Enquiries',
+  ),
+  NotificationTypes.collabAccepted: NotificationStyle(
+    icon: Icons.handshake_outlined,
+    color: AppColors.statusBooked,
+    background: Color(0xFFFFF7ED),
+    filter: 'Enquiries',
+  ),
+  NotificationTypes.collabDeclined: NotificationStyle(
+    icon: Icons.handshake_outlined,
+    color: AppColors.textSecondary,
+    background: AppColors.background,
+    filter: 'Enquiries',
+  ),
+  NotificationTypes.collabAdvancePaid: NotificationStyle(
+    icon: Icons.payments_outlined,
+    color: Color(0xFFF59E0B),
+    background: Color(0xFFFEF3C7),
+    filter: 'Matches',
+  ),
+  NotificationTypes.collabSampleReady: NotificationStyle(
+    icon: Icons.videocam_outlined,
+    color: Color(0xFFF59E0B),
+    background: Color(0xFFFEF3C7),
+    filter: 'Matches',
+  ),
+  NotificationTypes.collabFinalPaid: NotificationStyle(
+    icon: Icons.payments_outlined,
+    color: Color(0xFFF59E0B),
+    background: Color(0xFFFEF3C7),
+    filter: 'Matches',
+  ),
+  NotificationTypes.collabDeliverableReady: NotificationStyle(
+    icon: Icons.movie_creation_outlined,
+    color: Color(0xFFF59E0B),
+    background: Color(0xFFFEF3C7),
+    filter: 'Matches',
+  ),
+  NotificationTypes.collabDeliverableExpiring: NotificationStyle(
+    icon: Icons.timer_outlined,
+    color: AppColors.error,
+    background: Color(0xFFFEE2E2),
+    filter: 'Matches',
+  ),
+  NotificationTypes.collabCompleted: NotificationStyle(
+    icon: Icons.verified_outlined,
+    color: Color(0xFFF59E0B),
+    background: Color(0xFFFEF3C7),
+    filter: 'Matches',
+  ),
+  NotificationTypes.collabDisputed: NotificationStyle(
+    icon: Icons.report_gmailerrorred_outlined,
+    color: AppColors.error,
+    background: Color(0xFFFEE2E2),
+    filter: 'System',
   ),
 
   // ── System: everything structural ───────────────────────────────────────

@@ -188,8 +188,10 @@ void main() {
   // ── 1. The enum coverage ────────────────────────────────────────────────
   group('notification types', () {
     test('every applied enum value has a style', () {
-      // The base six plus twelve ADD VALUE migrations. A value with no style would
-      // silently render as System.
+      // The base six plus twelve ADD VALUE migrations, plus the ten
+      // `collab_*` values added by the Collaboration Marketplace port
+      // (20270421000000_collab_marketplace_enums.sql). A value with no style
+      // would silently render as System.
       const applied = [
         'new_follower',
         'channel_addition',
@@ -209,6 +211,7 @@ void main() {
         'social_publish_failed',
         'social_retry_started',
         'social_retry_success',
+        ...NotificationTypes.collabTypes,
       ];
       for (final type in applied) {
         expect(kNotificationStyles.containsKey(type), isTrue, reason: type);

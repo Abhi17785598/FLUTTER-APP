@@ -50,6 +50,13 @@ class ProfileStickyActionBar extends StatelessWidget {
   /// Null when there is no viewer to message with.
   final VoidCallback? onMessage;
 
+  /// Non-null only when exactly one of {viewer, viewed profile} is an
+  /// influencer and the viewer isn't looking at themselves — the
+  /// Collaboration Marketplace entry point (`UserProfile.tsx`'s
+  /// `canCollaborate`). Null hides the button entirely rather than
+  /// disabling it.
+  final VoidCallback? onCollaborate;
+
   /// Prompts sign-in for an anonymous viewer.
   final VoidCallback? onSignIn;
 
@@ -62,6 +69,7 @@ class ProfileStickyActionBar extends StatelessWidget {
     required this.onShare,
     this.onConnect,
     this.onMessage,
+    this.onCollaborate,
     this.onSignIn,
   });
 
@@ -105,6 +113,7 @@ class ProfileStickyActionBar extends StatelessWidget {
       );
     }
 
+    final collaborate = onCollaborate;
     return Row(
       children: [
         Expanded(
@@ -117,7 +126,7 @@ class ProfileStickyActionBar extends StatelessWidget {
         const SizedBox(width: AppConstants.spacingM),
         Expanded(
           child: AppActionButton(
-            label: 'Message',
+            label: collaborate != null ? 'Chat' : 'Message',
             icon: Icons.chat_bubble_outline_rounded,
             variant: AppActionButtonVariant.solid,
             elevated: true,
@@ -125,6 +134,18 @@ class ProfileStickyActionBar extends StatelessWidget {
             onTap: onMessage,
           ),
         ),
+        if (collaborate != null) ...[
+          const SizedBox(width: AppConstants.spacingM),
+          Expanded(
+            child: AppActionButton(
+              label: 'Collab',
+              icon: Icons.handshake_outlined,
+              variant: AppActionButtonVariant.outline,
+              height: 46,
+              onTap: collaborate,
+            ),
+          ),
+        ],
       ],
     );
   }

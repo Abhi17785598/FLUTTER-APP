@@ -2,9 +2,38 @@ import 'package:flutter/foundation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../models/channel_summary.dart';
+import '../models/collaboration.dart';
 import '../models/conversation_summary.dart';
+import '../services/collaboration_exceptions.dart';
+import '../services/collaboration_service.dart';
 import '../services/messaging_service.dart';
 import '../services/presence_service.dart';
+
+/// One row in the Collabs tab — a bare request (no conversation yet) or an
+/// accepted-or-later collaboration, with its counterparty and any attached
+/// reels resolved. Mirrors `Chat.tsx`'s merged `pendingRequests` +
+/// `conversations.filter(c => c.collaboration_id)` list.
+class CollabInboxEntry {
+  final Collaboration collaboration;
+  final ConversationParticipant? counterparty;
+  final List<CollabReelPreview> attachedReels;
+
+  const CollabInboxEntry({
+    required this.collaboration,
+    this.counterparty,
+    this.attachedReels = const [],
+  });
+
+  /// Only meaningful while [collaboration.isRequested] — who this request is
+  /// waiting on. `Chat.tsx`: `recipient = initiated_by === 'influencer' ?
+  /// client_id : influencer_id`.
+  bool isIncomingFor(String userId) {
+    final recipient = collaboration.initiatedBy == CollabRoles.influencer
+        ? collaboration.clientId
+        : collaboration.influencerId;
+    return recipient == userId;
+  }
+}
 
 /// State for the Messages list — the Chats and Channels tabs.
 ///
@@ -15,10 +44,14 @@ import '../services/presence_service.dart';
 /// `channel_messages` refetches on any change, exactly as
 /// useConversationUnreadCounts.ts and useUnreadMessages.ts do.
 class MessagingProvider extends ChangeNotifier {
-  MessagingProvider({MessagingService? service})
-    : _service = service ?? MessagingService();
+  MessagingProvider({
+    MessagingService? service,
+    CollaborationService? collabService,
+  }) : _service = service ?? MessagingService(),
+       _collabService = collabService ?? CollaborationService();
 
   final MessagingService _service;
+  final CollaborationService _collabService;
   final SupabaseClient _supabase = Supabase.instance.client;
   final PresenceService _presence = PresenceService();
 
@@ -31,6 +64,7 @@ class MessagingProvider extends ChangeNotifier {
   /// more recent result with a stale one.
   int _conversationsRequestId = 0;
   int _channelsRequestId = 0;
+  int _collabsRequestId = 0;
 
   List<ConversationSummary> _conversations = const [];
   bool _conversationsLoading = true;
@@ -39,6 +73,10 @@ class MessagingProvider extends ChangeNotifier {
   List<ChannelSummary> _channels = const [];
   bool _channelsLoading = true;
   bool _channelsFailed = false;
+
+  List<CollabInboxEntry> _collabs = const [];
+  bool _collabsLoading = true;
+  bool _collabsFailed = false;
 
   List<ConversationSummary> get conversations =>
       List.unmodifiable(_conversations);
@@ -49,17 +87,39 @@ class MessagingProvider extends ChangeNotifier {
   bool get channelsLoading => _channelsLoading;
   bool get channelsFailed => _channelsFailed;
 
+  List<CollabInboxEntry> get collabs => List.unmodifiable(_collabs);
+  bool get collabsLoading => _collabsLoading;
+  bool get collabsFailed => _collabsFailed;
+
+  /// Drives the Collabs tab's badge dot — an incoming request the signed-in
+  /// user hasn't acted on yet.
+  bool get hasIncomingCollabRequest {
+    final userId = _userId;
+    if (userId == null) return false;
+    return _collabs.any(
+      (e) => e.collaboration.isRequested && e.isIncomingFor(userId),
+    );
+  }
+
   Future<void> load(String userId) async {
     _userId = userId;
     _presence.attach();
     _subscribe(userId);
-    await Future.wait([_loadConversations(userId), _loadChannels(userId)]);
+    await Future.wait([
+      _loadConversations(userId),
+      _loadChannels(userId),
+      _loadCollabs(userId),
+    ]);
   }
 
   Future<void> refresh() async {
     final userId = _userId;
     if (userId == null) return;
-    await Future.wait([_loadConversations(userId), _loadChannels(userId)]);
+    await Future.wait([
+      _loadConversations(userId),
+      _loadChannels(userId),
+      _loadCollabs(userId),
+    ]);
   }
 
   Future<void> _loadConversations(String userId) async {
@@ -118,6 +178,87 @@ class MessagingProvider extends ChangeNotifier {
         _channelsLoading = false;
         _safeNotify();
       }
+    }
+  }
+
+  Future<void> _loadCollabs(String userId) async {
+    final requestId = ++_collabsRequestId;
+    final hadData = _collabs.isNotEmpty;
+    _collabsLoading = true;
+    if (!hadData) _collabsFailed = false;
+    _safeNotify();
+
+    try {
+      final rows = await _collabService.listMyCollaborations(userId);
+      if (requestId != _collabsRequestId) return;
+
+      final counterpartyIds = rows
+          .map((c) => c.counterpartyIdFor(userId))
+          .whereType<String>()
+          .toSet();
+      final reelIds = rows.expand((c) => c.attachedReelIds).toSet();
+
+      final profiles = await _collabService.resolveProfiles(counterpartyIds);
+      final reels = await _collabService.resolveReels(reelIds);
+      if (requestId != _collabsRequestId) return;
+
+      _collabs = rows
+          .map(
+            (c) => CollabInboxEntry(
+              collaboration: c,
+              counterparty: profiles[c.counterpartyIdFor(userId)],
+              attachedReels: c.attachedReelIds
+                  .map((id) => reels[id])
+                  .whereType<CollabReelPreview>()
+                  .toList(),
+            ),
+          )
+          .toList();
+      _collabsFailed = false;
+    } catch (e) {
+      if (requestId != _collabsRequestId) return;
+      debugPrint('MessagingProvider._loadCollabs failed: $e');
+      if (!hadData) {
+        _collabsFailed = true;
+        _collabs = const [];
+      }
+    } finally {
+      if (requestId == _collabsRequestId) {
+        _collabsLoading = false;
+        _safeNotify();
+      }
+    }
+  }
+
+  /// Recipient-only server-side (`collab_transition`'s `accept` branch).
+  /// Returns the accepted row (now carrying its new `conversation_id`) so the
+  /// caller can open that thread directly, or an error message.
+  Future<(Collaboration?, String?)> acceptCollab(String collaborationId) async {
+    try {
+      final updated = await _collabService.accept(collaborationId);
+      await refresh();
+      return (updated, null);
+    } catch (e) {
+      debugPrint('MessagingProvider.acceptCollab failed: $e');
+      return (
+        null,
+        e is CollaborationException
+            ? e.message
+            : "Couldn't accept the request.",
+      );
+    }
+  }
+
+  Future<String?> declineCollab(String collaborationId) async {
+    try {
+      await _collabService.decline(collaborationId);
+      await refresh();
+      return null;
+    } catch (e) {
+      debugPrint('MessagingProvider.declineCollab failed: $e');
+      return e is CollaborationException
+          ? e.message
+          : "Couldn't decline the request.";
     }
   }
 
@@ -221,6 +362,12 @@ class MessagingProvider extends ChangeNotifier {
         event: PostgresChangeEvent.all,
         schema: 'public',
         table: 'conversation_participants',
+        callback: (_) => refresh(),
+      )
+      ..onPostgresChanges(
+        event: PostgresChangeEvent.all,
+        schema: 'public',
+        table: 'collaborations',
         callback: (_) => refresh(),
       )
       ..subscribe();

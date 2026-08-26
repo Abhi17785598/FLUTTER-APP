@@ -34,14 +34,19 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../../core/animations/page_transitions.dart';
 import '../../core/constants/app_constants.dart';
 import '../../core/navigation/notification_route_resolver.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_text_styles.dart';
 import '../../models/app_notification.dart';
 import '../../providers/auth_provider.dart';
+import '../../providers/chat_thread_provider.dart';
 import '../../providers/notification_provider.dart';
+import '../../services/collaboration_service.dart';
 import '../../widgets/bottom_nav_bar.dart';
+import '../messaging/chat_thread_screen.dart';
+import '../messaging/messages_list_screen.dart';
 
 class NotificationsScreen extends StatefulWidget {
   const NotificationsScreen({super.key});
@@ -83,6 +88,11 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
     await provider.markRead(notification);
     if (!mounted) return;
 
+    if (NotificationTypes.collabTypes.contains(notification.type)) {
+      await _openCollab(notification);
+      return;
+    }
+
     final destination = resolveNotificationDestination(
       type: notification.type,
       data: notification.data,
@@ -93,6 +103,54 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
       context,
       destination.route,
       arguments: destination.arguments,
+    );
+  }
+
+  /// A `collab_*` notification's routing can't be a pure function like
+  /// [resolveNotificationDestination] — it needs to look the collaboration
+  /// up (status, conversation, counterparty) rather than trust anything in
+  /// the payload beyond `collaboration_id`. Never guesses a conversation id:
+  /// `requested`/no-conversation states open the Collabs tab; `accepted` and
+  /// later resolve and open the actual thread.
+  Future<void> _openCollab(AppNotification notification) async {
+    final collaborationId = notification.data['collaboration_id']?.toString();
+    final userId = context.read<AuthProvider>().userId;
+    if (collaborationId == null || collaborationId.isEmpty || userId == null) {
+      return;
+    }
+
+    final destination = await CollaborationService()
+        .resolveNotificationDestination(
+          collaborationId: collaborationId,
+          currentUserId: userId,
+        );
+    if (!mounted) return;
+
+    if (destination.target == CollabNotificationTarget.collabsInbox) {
+      Navigator.of(context).push(
+        PremiumPageRoute(
+          settings: const RouteSettings(name: AppConstants.messagesScreen),
+          builder: (_) => const MessagesListScreen(initialTab: 2),
+        ),
+      );
+      return;
+    }
+
+    Navigator.of(context).push(
+      PremiumPageRoute(
+        settings: const RouteSettings(name: AppConstants.chatThreadScreen),
+        builder: (_) => ChatThreadScreen(
+          kind: ChatThreadKind.conversation,
+          threadId: destination.conversationId!,
+          title: destination.counterpartyName ?? 'Collaboration',
+          avatarUrl: destination.counterpartyAvatarUrl,
+          initials: (destination.counterpartyName?.isNotEmpty ?? false)
+              ? destination.counterpartyName![0].toUpperCase()
+              : '?',
+          participantUserId: destination.counterpartyId,
+          collaborationId: collaborationId,
+        ),
+      ),
     );
   }
 

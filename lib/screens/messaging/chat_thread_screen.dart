@@ -13,13 +13,18 @@ import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_text_styles.dart';
 import '../../core/widgets/empty_state_view.dart';
 import '../../models/chat_message.dart';
+import '../../models/collaboration.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/chat_thread_provider.dart';
+import '../../providers/collaboration_thread_controller.dart';
 import '../../services/chat_media_service.dart';
 import '../../services/messaging_service.dart';
 import 'channel_settings_screen.dart';
 import 'widgets/chat_avatar.dart';
 import 'widgets/chat_bubble.dart';
+import 'widgets/collab_action_panel.dart';
+import 'widgets/collab_message_bubbles.dart';
+import 'widgets/collab_tile.dart' show kCollabAccent;
 import 'widgets/forward_message_sheet.dart';
 import 'widgets/message_composer.dart';
 import 'widgets/relative_time.dart';
@@ -62,6 +67,12 @@ class ChatThreadScreen extends StatelessWidget {
   /// [ChannelSettingsScreen], not visibility of the settings screen itself.
   final bool isChannelAdmin;
 
+  /// Set only when this thread backs a Collaboration Marketplace deal
+  /// (`conversations.collaboration_id`) — mounts [CollaborationThreadController]
+  /// and renders the header marker + [CollabActionPanel]. Null for every
+  /// ordinary DM/channel.
+  final String? collaborationId;
+
   const ChatThreadScreen({
     super.key,
     required this.kind,
@@ -74,6 +85,7 @@ class ChatThreadScreen extends StatelessWidget {
     this.requestStatus = 'accepted',
     this.isMuted = false,
     this.isChannelAdmin = false,
+    this.collaborationId,
   });
 
   @override
@@ -93,24 +105,39 @@ class ChatThreadScreen extends StatelessWidget {
         ? null
         : participantUserId;
 
-    return ChangeNotifierProvider(
-      create: (_) => ChatThreadProvider(
-        kind: kind,
-        threadId: threadId,
-        userId: userId,
-        participantUserId: resolvedParticipantId,
-      )..load(),
-      child: _ChatThreadView(
-        title: title,
-        subtitle: subtitle,
-        avatarUrl: avatarUrl,
-        initials: initials,
-        currentUserId: userId,
-        participantUserId: resolvedParticipantId,
-        initialRequestStatus: requestStatus,
-        initialIsMuted: isMuted,
-        isChannelAdmin: isChannelAdmin,
-      ),
+    final threadView = _ChatThreadView(
+      title: title,
+      subtitle: subtitle,
+      avatarUrl: avatarUrl,
+      initials: initials,
+      currentUserId: userId,
+      participantUserId: resolvedParticipantId,
+      initialRequestStatus: requestStatus,
+      initialIsMuted: isMuted,
+      isChannelAdmin: isChannelAdmin,
+      isCollaboration: collaborationId != null,
+    );
+
+    final collabId = collaborationId;
+    return MultiProvider(
+      providers: [
+        ChangeNotifierProvider(
+          create: (_) => ChatThreadProvider(
+            kind: kind,
+            threadId: threadId,
+            userId: userId,
+            participantUserId: resolvedParticipantId,
+          )..load(),
+        ),
+        if (collabId != null)
+          ChangeNotifierProvider(
+            create: (_) => CollaborationThreadController(
+              collaborationId: collabId,
+              userId: userId,
+            )..load(),
+          ),
+      ],
+      child: threadView,
     );
   }
 }
@@ -125,6 +152,7 @@ class _ChatThreadView extends StatefulWidget {
   final String initialRequestStatus;
   final bool initialIsMuted;
   final bool isChannelAdmin;
+  final bool isCollaboration;
 
   const _ChatThreadView({
     required this.title,
@@ -135,6 +163,7 @@ class _ChatThreadView extends StatefulWidget {
     required this.initialRequestStatus,
     required this.initialIsMuted,
     required this.isChannelAdmin,
+    this.isCollaboration = false,
     this.participantUserId,
   });
 
@@ -725,6 +754,9 @@ class _ChatThreadViewState extends State<_ChatThreadView> {
   @override
   Widget build(BuildContext context) {
     final thread = context.watch<ChatThreadProvider>();
+    final collab = widget.isCollaboration
+        ? context.watch<CollaborationThreadController>()
+        : null;
 
     return Scaffold(
       backgroundColor: AppColors.background,
@@ -740,6 +772,7 @@ class _ChatThreadViewState extends State<_ChatThreadView> {
             isMuted: _isMuted,
             onToggleMute: _toggleMute,
             isBlockedByMe: thread.isBlockedByMe,
+            isCollaboration: widget.isCollaboration,
             onBlock: widget.participantUserId == null
                 ? null
                 : () => _blockParticipant(thread),
@@ -752,6 +785,11 @@ class _ChatThreadViewState extends State<_ChatThreadView> {
             onToggleSearch: () => _toggleSearch(thread),
             searching: _searching,
           ),
+          if (collab != null)
+            CollabActionPanel(
+              controller: collab,
+              onMessagesChanged: thread.refresh,
+            ),
           if (_searching) _buildSearchBar(thread),
           Expanded(
             child: DecoratedBox(
@@ -771,7 +809,7 @@ class _ChatThreadViewState extends State<_ChatThreadView> {
               ),
               child: _searching
                   ? _buildSearchResults()
-                  : _buildBody(context, thread),
+                  : _buildBody(context, thread, collab),
             ),
           ),
           if (_isPendingRequest)
@@ -906,7 +944,22 @@ class _ChatThreadViewState extends State<_ChatThreadView> {
     );
   }
 
-  Widget _buildBody(BuildContext context, ChatThreadProvider thread) {
+  CollabAsset? _assetFor(
+    CollaborationThreadController? collab,
+    String? assetId,
+  ) {
+    if (collab == null || assetId == null) return null;
+    for (final asset in collab.assets) {
+      if (asset.id == assetId) return asset;
+    }
+    return null;
+  }
+
+  Widget _buildBody(
+    BuildContext context,
+    ChatThreadProvider thread,
+    CollaborationThreadController? collab,
+  ) {
     if (thread.loading) {
       return const Center(child: CircularProgressIndicator());
     }
@@ -959,6 +1012,28 @@ class _ChatThreadViewState extends State<_ChatThreadView> {
         }
 
         final message = ordered[index];
+
+        // The six collaboration message types render through their own
+        // dedicated widget — never through `ChatBubble`'s long-press action
+        // sheet, so edit/forward/delete-for-everyone/react can never reach
+        // them (Phase 1 safety rule).
+        if (message.isCollabMessage) {
+          return CollabMessageBubble(
+            message: message,
+            isClient: collab?.isClient ?? false,
+            asset: _assetFor(collab, message.collabAssetId),
+            onViewSample: message.collabAssetId == null
+                ? null
+                : () => collab!.viewSample(message.collabAssetId!),
+            onDownloadDeliverable: message.collabAssetId == null
+                ? null
+                : () => collab!.fetchDeliverableUrl(message.collabAssetId!),
+            onDownloadAgreement: collab == null
+                ? null
+                : () => collab.fetchAgreementUrl(),
+          );
+        }
+
         final isMine = message.senderId == widget.currentUserId;
         final replied = thread.repliedMessage(message.replyToId);
 
@@ -1144,6 +1219,7 @@ class _Header extends StatelessWidget {
   final VoidCallback? onOpenChannelSettings;
   final VoidCallback? onToggleSearch;
   final bool searching;
+  final bool isCollaboration;
 
   const _Header({
     required this.title,
@@ -1154,6 +1230,7 @@ class _Header extends StatelessWidget {
     required this.onToggleMute,
     this.isTyping = false,
     this.isBlockedByMe = false,
+    this.isCollaboration = false,
     this.participantUserId,
     this.onBlock,
     this.onUnblock,
@@ -1230,11 +1307,26 @@ class _Header extends StatelessWidget {
               _maybeTappable(
                 context,
                 semanticLabel: "Open $title's profile",
-                child: ChatAvatar(
-                  avatarUrl: avatarUrl,
-                  initials: initials,
-                  size: 40,
-                ),
+                child: isCollaboration
+                    ? Container(
+                        decoration: const BoxDecoration(
+                          shape: BoxShape.circle,
+                          border: Border.fromBorderSide(
+                            BorderSide(color: kCollabAccent, width: 2),
+                          ),
+                        ),
+                        padding: const EdgeInsets.all(2),
+                        child: ChatAvatar(
+                          avatarUrl: avatarUrl,
+                          initials: initials,
+                          size: 36,
+                        ),
+                      )
+                    : ChatAvatar(
+                        avatarUrl: avatarUrl,
+                        initials: initials,
+                        size: 40,
+                      ),
               ),
               const SizedBox(width: 12),
               Expanded(
@@ -1245,14 +1337,53 @@ class _Header extends StatelessWidget {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      Text(
-                        title,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: AppTextStyles.body.copyWith(
-                          fontSize: 15,
-                          fontWeight: FontWeight.w600,
-                        ),
+                      Row(
+                        children: [
+                          Flexible(
+                            child: Text(
+                              title,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: AppTextStyles.body.copyWith(
+                                fontSize: 15,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ),
+                          if (isCollaboration) ...[
+                            const SizedBox(width: 6),
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 6,
+                                vertical: 1,
+                              ),
+                              decoration: BoxDecoration(
+                                color: kCollabAccent.withValues(alpha: 0.12),
+                                borderRadius: BorderRadius.circular(999),
+                                border: Border.all(color: kCollabAccent),
+                              ),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  const Icon(
+                                    Icons.handshake_outlined,
+                                    size: 10,
+                                    color: kCollabAccent,
+                                  ),
+                                  const SizedBox(width: 3),
+                                  Text(
+                                    'Collaboration',
+                                    style: AppTextStyles.caption.copyWith(
+                                      fontSize: 9.5,
+                                      fontWeight: FontWeight.w700,
+                                      color: kCollabAccent,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ],
                       ),
                       if (subtitle != null && subtitle!.isNotEmpty) ...[
                         const SizedBox(height: 2),

@@ -30,6 +30,7 @@ import '../../core/utils/number_format.dart';
 import '../../core/utils/profile_link.dart';
 import '../../core/widgets/empty_state_view.dart';
 import '../../models/builder_project_model.dart';
+import '../../models/collaboration.dart';
 import '../../models/profile_review.dart';
 import '../../models/property_model.dart';
 import '../../models/user_profile.dart';
@@ -40,6 +41,7 @@ import '../../services/messaging_service.dart';
 // `ProfileConnectionStatus` — the four-state enum the connect control switches on.
 import '../../services/profile_connection_service.dart';
 import '../messaging/chat_thread_screen.dart';
+import '../messaging/collab_request_sheet.dart';
 import 'actions/profile_qr_sheet.dart';
 import 'actions/rating_sheet.dart';
 import 'actions/share_profile_sheet.dart';
@@ -127,6 +129,40 @@ class _PublicProfileViewState extends State<_PublicProfileView> {
 
   bool _messaging = false;
   String? _loadedFor;
+
+  /// `UserProfile.tsx`'s `canCollaborate`: viewer authenticated, not self,
+  /// and exactly one of {viewer, viewed profile} is an influencer. The
+  /// viewer's own `user_type` is already cached on `AuthProvider` — no extra
+  /// query needed the way the portal's separate `viewerUserType` fetch is.
+  bool _canCollaborate(UserProfile profile) {
+    final auth = context.read<AuthProvider>();
+    return isCollabEligible(
+      viewerId: auth.userId,
+      viewedUserId: profile.userId,
+      viewedIsInfluencer: profile.isInfluencer,
+      viewerIsInfluencer: (auth.userType?.toLowerCase()) == 'influencer',
+    );
+  }
+
+  Future<void> _collaborate(UserProfile profile) async {
+    final auth = context.read<AuthProvider>();
+    final viewerIsInfluencer = (auth.userType?.toLowerCase()) == 'influencer';
+    final sent = await showCollabRequestSheet(
+      context,
+      counterpartyId: profile.userId,
+      counterpartyName: profile.displayTitle ?? 'this user',
+      viewerIsInfluencer: viewerIsInfluencer,
+    );
+    if (sent == true && mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            "Collaboration request sent. You'll see it in the Collabs tab in Messages once they respond.",
+          ),
+        ),
+      );
+    }
+  }
 
   @override
   void initState() {
@@ -524,6 +560,9 @@ class _PublicProfileViewState extends State<_PublicProfileView> {
                       ? () => _connect(provider)
                       : null,
                   onMessage: _messaging ? null : () => _message(profile),
+                  onCollaborate: _canCollaborate(profile)
+                      ? () => _collaborate(profile)
+                      : null,
                   onSignIn: () => Navigator.pushNamed(context, '/auth'),
                 )
                 .animate()

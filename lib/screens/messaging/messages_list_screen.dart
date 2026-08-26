@@ -17,33 +17,42 @@ import '../../services/messaging_service.dart';
 import 'blocked_users_screen.dart';
 import 'chat_thread_screen.dart';
 import 'widgets/channel_tile.dart';
+import 'widgets/collab_tile.dart';
 import 'widgets/conversation_tile.dart';
 import 'widgets/create_channel_sheet.dart';
 import 'widgets/new_chat_sheet.dart';
 
-/// Messages — Chats and Channels (blueprint §16.6).
+/// Messages — Chats, Channels and Collabs (blueprint §16.6; Collabs added by
+/// the Collaboration Marketplace port — mirrors `Chat.tsx`'s third tab).
 class MessagesListScreen extends StatelessWidget {
-  const MessagesListScreen({super.key});
+  /// 0 = Chats, 1 = Channels, 2 = Collabs. Set by
+  /// `resolveCollabNotificationDestination` when a `collab_*` notification
+  /// with no conversation yet routes here.
+  final int initialTab;
+
+  const MessagesListScreen({super.key, this.initialTab = 0});
 
   @override
   Widget build(BuildContext context) {
     return ChangeNotifierProvider(
       create: (_) => MessagingProvider(),
-      child: const _MessagesListView(),
+      child: _MessagesListView(initialTab: initialTab),
     );
   }
 }
 
 class _MessagesListView extends StatefulWidget {
-  const _MessagesListView();
+  final int initialTab;
+  const _MessagesListView({this.initialTab = 0});
 
   @override
   State<_MessagesListView> createState() => _MessagesListViewState();
 }
 
 class _MessagesListViewState extends State<_MessagesListView> {
-  int _tab = 0;
+  late int _tab = widget.initialTab.clamp(0, 2);
   String? _loadedUserId;
+  final Set<String> _collabActionBusy = {};
 
   /// Inline filter over the already-loaded lists. Purely client-side — no
   /// extra query, so it works offline and costs nothing.
@@ -265,7 +274,7 @@ class _MessagesListViewState extends State<_MessagesListView> {
               child: Column(
                 children: [
                   _buildHeader(),
-                  if (_searching) ...[
+                  if (_searching && _tab != 2) ...[
                     const SizedBox(height: 14),
                     MessagesSearchField(
                       controller: _searchController,
@@ -279,7 +288,14 @@ class _MessagesListViewState extends State<_MessagesListView> {
                   ],
                   const SizedBox(height: 18),
                   SegmentedTabPill(
-                    labels: const ['Chats', 'Channels'],
+                    labels: [
+                      'Chats',
+                      'Channels',
+                      if (messaging.hasIncomingCollabRequest)
+                        'Collabs •'
+                      else
+                        'Collabs',
+                    ],
                     selectedIndex: _tab,
                     onChanged: (i) => setState(() => _tab = i),
                     labelFontSize: 12.5,
@@ -291,9 +307,11 @@ class _MessagesListViewState extends State<_MessagesListView> {
               child: RefreshIndicator(
                 color: AppColors.primary,
                 onRefresh: messaging.refresh,
-                child: _tab == 0
-                    ? _buildChats(messaging)
-                    : _buildChannels(messaging),
+                child: switch (_tab) {
+                  0 => _buildChats(messaging),
+                  1 => _buildChannels(messaging),
+                  _ => _buildCollabs(messaging),
+                },
               ),
             ),
           ],
@@ -345,19 +363,21 @@ class _MessagesListViewState extends State<_MessagesListView> {
         ),
         // Search filters the loaded lists in place; "+" opens the recipient
         // picker and then the resulting conversation.
-        _HeaderAction(
-          icon: _searching ? Icons.close : Icons.search,
-          semanticLabel: _searching ? 'Close search' : 'Search messages',
-          onTap: _toggleSearch,
-        ),
-        const SizedBox(width: 10),
-        _HeaderAction(
-          icon: Icons.add,
-          semanticLabel: _tab == 0 ? 'New message' : 'Create channel',
-          filled: true,
-          onTap: _tab == 0 ? _startNewChat : _createChannel,
-        ),
-        const SizedBox(width: 6),
+        if (_tab != 2) ...[
+          _HeaderAction(
+            icon: _searching ? Icons.close : Icons.search,
+            semanticLabel: _searching ? 'Close search' : 'Search messages',
+            onTap: _toggleSearch,
+          ),
+          const SizedBox(width: 10),
+          _HeaderAction(
+            icon: Icons.add,
+            semanticLabel: _tab == 0 ? 'New message' : 'Create channel',
+            filled: true,
+            onTap: _tab == 0 ? _startNewChat : _createChannel,
+          ),
+          const SizedBox(width: 6),
+        ],
         _buildOverflowMenu(),
       ],
     );
@@ -514,6 +534,119 @@ class _MessagesListViewState extends State<_MessagesListView> {
         );
       },
     );
+  }
+
+  Widget _buildCollabs(MessagingProvider messaging) {
+    if (messaging.collabsLoading) return const _ListShimmer();
+
+    if (messaging.collabsFailed) {
+      return _scrollable(
+        EmptyStateView(
+          icon: Icons.cloud_off_rounded,
+          title: "Couldn't load collaborations",
+          message: 'Check your connection and try again.',
+          actionLabel: 'Retry',
+          onAction: messaging.refresh,
+        ),
+      );
+    }
+
+    if (messaging.collabs.isEmpty) {
+      return _scrollable(
+        const EmptyStateView(
+          icon: Icons.handshake_outlined,
+          title: 'No collaborations yet',
+          message:
+              'Collaboration requests you send or receive will appear here.',
+        ),
+      );
+    }
+
+    final userId = context.read<AuthProvider>().userId;
+    if (userId == null) return const SizedBox.shrink();
+
+    return ListView.builder(
+      physics: const AlwaysScrollableScrollPhysics(),
+      padding: const EdgeInsets.fromLTRB(20, 8, 20, 24),
+      itemCount: messaging.collabs.length,
+      itemBuilder: (context, index) {
+        final entry = messaging.collabs[index];
+        return CollabTile(
+          entry: entry,
+          currentUserId: userId,
+          busy: _collabActionBusy.contains(entry.collaboration.id),
+          onTap: () => _openCollab(entry),
+          onAccept: () => _acceptCollab(entry),
+          onDecline: () => _declineCollab(entry),
+        );
+      },
+    );
+  }
+
+  Future<void> _openCollab(CollabInboxEntry entry) async {
+    final conversationId = entry.collaboration.conversationId;
+    if (conversationId == null) return;
+    final messaging = context.read<MessagingProvider>();
+    await Navigator.of(context).push(
+      PremiumPageRoute(
+        settings: const RouteSettings(name: AppConstants.chatThreadScreen),
+        builder: (_) => ChatThreadScreen(
+          kind: ChatThreadKind.conversation,
+          threadId: conversationId,
+          title: entry.counterparty?.displayName ?? 'Collaboration',
+          avatarUrl: entry.counterparty?.avatarUrl,
+          initials: entry.counterparty?.initial ?? '?',
+          participantUserId: entry.counterparty?.userId,
+          collaborationId: entry.collaboration.id,
+        ),
+      ),
+    );
+    if (mounted) await messaging.refresh();
+  }
+
+  Future<void> _acceptCollab(CollabInboxEntry entry) async {
+    final id = entry.collaboration.id;
+    setState(() => _collabActionBusy.add(id));
+    final messaging = context.read<MessagingProvider>();
+    final (updated, error) = await messaging.acceptCollab(id);
+    if (!mounted) return;
+    setState(() => _collabActionBusy.remove(id));
+    if (error != null) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(error)));
+      return;
+    }
+    final conversationId = updated?.conversationId;
+    if (conversationId == null) return;
+    await Navigator.of(context).push(
+      PremiumPageRoute(
+        settings: const RouteSettings(name: AppConstants.chatThreadScreen),
+        builder: (_) => ChatThreadScreen(
+          kind: ChatThreadKind.conversation,
+          threadId: conversationId,
+          title: entry.counterparty?.displayName ?? 'Collaboration',
+          avatarUrl: entry.counterparty?.avatarUrl,
+          initials: entry.counterparty?.initial ?? '?',
+          participantUserId: entry.counterparty?.userId,
+          collaborationId: id,
+        ),
+      ),
+    );
+    if (mounted) await messaging.refresh();
+  }
+
+  Future<void> _declineCollab(CollabInboxEntry entry) async {
+    final id = entry.collaboration.id;
+    setState(() => _collabActionBusy.add(id));
+    final error = await context.read<MessagingProvider>().declineCollab(id);
+    if (!mounted) return;
+    setState(() => _collabActionBusy.remove(id));
+    if (error != null) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(error)));
+    }
   }
 
   /// Keeps empty and error states pull-to-refreshable.

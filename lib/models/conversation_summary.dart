@@ -69,6 +69,11 @@ class ConversationSummary {
   /// *this* device's user has muted notifications for the conversation.
   final bool isMuted;
 
+  /// Set only when this thread backs a Collaboration Marketplace deal — see
+  /// `useCollabState.ts`'s `DmConversation.collaboration_id`. Null for every
+  /// ordinary DM.
+  final String? collaborationId;
+
   const ConversationSummary({
     required this.id,
     this.lastMessageAt,
@@ -77,9 +82,11 @@ class ConversationSummary {
     this.unreadCount = 0,
     this.requestStatus = 'accepted',
     this.isMuted = false,
+    this.collaborationId,
   });
 
   bool get isPendingRequest => requestStatus == 'pending';
+  bool get isCollaboration => collaborationId != null;
 
   String get title => otherParticipant?.displayName ?? 'Unknown';
 
@@ -97,6 +104,7 @@ class ConversationSummary {
       unreadCount: unreadCount ?? this.unreadCount,
       requestStatus: requestStatus ?? this.requestStatus,
       isMuted: isMuted ?? this.isMuted,
+      collaborationId: collaborationId,
     );
   }
 }

@@ -39,7 +39,7 @@ class MessagingService {
     try {
       final convRows = await _supabase
           .from('conversations')
-          .select('id, last_message_at')
+          .select('id, last_message_at, collaboration_id')
           .order('last_message_at', ascending: false);
 
       final conversations = List<Map<String, dynamic>>.from(convRows as List);
@@ -144,6 +144,7 @@ class MessagingService {
           unreadCount: unread[id] ?? 0,
           requestStatus: selfStatus?.requestStatus ?? 'accepted',
           isMuted: selfStatus?.isMuted ?? false,
+          collaborationId: conv['collaboration_id']?.toString(),
         );
       }).toList();
     } catch (e) {
@@ -188,6 +189,11 @@ class MessagingService {
       'media_status, created_at, is_read, reply_to_id, edited_at, '
       'deleted_at, deleted_for';
 
+  /// `messages` only — `channel_messages` has no `collab_asset_id` column
+  /// (the collaboration marketplace is 1:1-only), so this must never be used
+  /// for a channel select.
+  static const String _dmMessageColumns = '$_messageColumns, collab_asset_id';
+
   /// Searches an entire thread's history server-side — not just what's
   /// currently paged into memory. Mobile paginates (50/page) while the
   /// portal loads a thread's full history and filters it client-side; a
@@ -208,7 +214,7 @@ class MessagingService {
 
       final rows = await _supabase
           .from(table)
-          .select(_messageColumns)
+          .select(isChannel ? _messageColumns : _dmMessageColumns)
           .eq(column, threadId)
           .ilike('content', '%$query%')
           .isFilter('deleted_at', null)
@@ -242,7 +248,7 @@ class MessagingService {
     try {
       var query = _supabase
           .from('messages')
-          .select(_messageColumns)
+          .select(_dmMessageColumns)
           .eq('conversation_id', conversationId);
 
       if (before != null) {

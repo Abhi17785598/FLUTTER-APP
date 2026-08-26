@@ -1,4 +1,6 @@
 import 'package:flutter/foundation.dart';
+import 'package:http/http.dart' as http;
+import 'package:image/image.dart' as img;
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../models/social_models.dart';
@@ -440,18 +442,28 @@ class SocialService {
           },
           if (scheduledAt != null) 'scheduled_at': scheduledAt,
         },
-      for (final target in instagram)
-        {
-          'platform': 'instagram',
-          'targets': [target],
-          'payload': {
-            'caption': captions['instagram'] ?? '',
-            'media_urls': media,
-            if (cta != null) 'cta': cta,
-          },
-          if (scheduledAt != null) 'scheduled_at': scheduledAt,
-        },
     ];
+
+    // Instagram Feed — unlike Story, and unlike Facebook Feed/Story — rejects
+    // images outside a 4:5-1.91:1 aspect ratio ("The aspect ratio is not
+    // supported"). Only the `feed` target routes media through
+    // `_instagramFeedMediaUrls`; `story` keeps using the same URLs as
+    // Facebook, exactly as before.
+    for (final target in instagram) {
+      final targetMedia = target == 'feed'
+          ? await _instagramFeedMediaUrls(userId, media)
+          : media;
+      jobs.add({
+        'platform': 'instagram',
+        'targets': [target],
+        'payload': {
+          'caption': captions['instagram'] ?? '',
+          'media_urls': targetMedia,
+          if (cta != null) 'cta': cta,
+        },
+        if (scheduledAt != null) 'scheduled_at': scheduledAt,
+      });
+    }
 
     if (jobs.isEmpty) return 0;
 
@@ -483,6 +495,144 @@ class SocialService {
     }
 
     return jobs.length;
+  }
+
+  // ── Instagram Feed aspect-ratio normalisation ───────────────────────────
+
+  /// Instagram Feed's accepted image aspect-ratio range (width/height). Meta
+  /// only enforces this for Feed — Facebook Feed/Story and Instagram Story
+  /// have no such restriction, which is why only the `feed` target above
+  /// calls [_instagramFeedMediaUrls].
+  static const double _kIgFeedMinRatio = 0.8; // 4:5 portrait
+  static const double _kIgFeedMaxRatio = 1.91; // widest landscape Feed allows
+
+  static const Set<String> _imageExtensions = {
+    'jpg',
+    'jpeg',
+    'png',
+    'webp',
+    'gif',
+    'heic',
+    'heif',
+  };
+
+  /// True for a recognised image extension, false for anything else
+  /// (mp4/mov/... or no extension) — videos must never be downloaded/decoded
+  /// as an image.
+  bool _looksLikeImage(String url) {
+    final path = Uri.tryParse(url)?.path ?? url;
+    final dot = path.lastIndexOf('.');
+    if (dot == -1) return false;
+    return _imageExtensions.contains(path.substring(dot + 1).toLowerCase());
+  }
+
+  /// Returns [urls] unchanged for videos and for images already inside
+  /// Instagram Feed's 4:5-1.91:1 range (no re-upload, no extra file). For an
+  /// out-of-range image — e.g. the 864x1920 property photo that fails with
+  /// "The aspect ratio is not supported" — downloads it, center-crops to the
+  /// nearest in-range boundary (4:5 portrait for a too-tall source, which is
+  /// the common case for property photos), re-encodes as JPEG, and uploads
+  /// the derived copy into the same `property-media` bucket the property
+  /// upload flow already writes to (`PropertyService._uploadMedia`) — same
+  /// bucket, same authenticated Storage access, no new policy or Edge
+  /// Function involved. The original property image is never modified or
+  /// overwritten.
+  ///
+  /// Throws (rather than silently falling back to the original URL) if a
+  /// source image can't be downloaded, decoded, or the derived copy can't be
+  /// uploaded — a bad image must surface as a visible publish failure via
+  /// the caller's existing error handling, not queue an Instagram Feed job
+  /// Meta is certain to reject anyway.
+  Future<List<String>> _instagramFeedMediaUrls(
+    String userId,
+    List<String> urls,
+  ) async {
+    final result = <String>[];
+    for (final url in urls) {
+      if (!_looksLikeImage(url)) {
+        result.add(url); // video — left untouched
+        continue;
+      }
+
+      final http.Response res;
+      try {
+        res = await http.get(Uri.parse(url));
+      } catch (e) {
+        throw 'Could not download the image for Instagram Feed: $e';
+      }
+      if (res.statusCode != 200) {
+        throw 'Could not download the image for Instagram Feed '
+            '(HTTP ${res.statusCode}).';
+      }
+
+      final decoded = img.decodeImage(res.bodyBytes);
+      if (decoded == null) {
+        throw 'Could not read the image for Instagram Feed.';
+      }
+
+      final ratio = decoded.width / decoded.height;
+      debugPrint(
+        'SocialService: target=instagram/feed original=${decoded.width}x'
+        '${decoded.height} ratio=${ratio.toStringAsFixed(3)}',
+      );
+
+      if (ratio >= _kIgFeedMinRatio && ratio <= _kIgFeedMaxRatio) {
+        debugPrint(
+          'SocialService: target=instagram/feed normalisation=not-required',
+        );
+        result.add(url);
+        continue;
+      }
+
+      // Center-crop to whichever in-range boundary is closest to the
+      // source, trimming only the excess dimension so as much of the
+      // original frame survives as possible.
+      final img.Image cropped;
+      if (ratio < _kIgFeedMinRatio) {
+        // Too tall (e.g. 864x1920): keep the full width, crop height down to
+        // a 4:5 portrait — trims the top and bottom only.
+        final targetHeight = (decoded.width / _kIgFeedMinRatio).round();
+        final y = ((decoded.height - targetHeight) / 2).round();
+        cropped = img.copyCrop(
+          decoded,
+          x: 0,
+          y: y,
+          width: decoded.width,
+          height: targetHeight,
+        );
+      } else {
+        // Too wide (beyond 1.91:1): keep the full height, crop width down —
+        // trims the left and right only.
+        final targetWidth = (decoded.height * _kIgFeedMaxRatio).round();
+        final x = ((decoded.width - targetWidth) / 2).round();
+        cropped = img.copyCrop(
+          decoded,
+          x: x,
+          y: 0,
+          width: targetWidth,
+          height: decoded.height,
+        );
+      }
+      debugPrint(
+        'SocialService: target=instagram/feed normalisation=required '
+        'derived=${cropped.width}x${cropped.height}',
+      );
+
+      final jpg = Uint8List.fromList(img.encodeJpg(cropped, quality: 90));
+      final path =
+          '$userId/ig-feed-${DateTime.now().millisecondsSinceEpoch}.jpg';
+      try {
+        await _supabase.storage.from('property-media').uploadBinary(
+              path,
+              jpg,
+              fileOptions: const FileOptions(contentType: 'image/jpeg'),
+            );
+      } catch (e) {
+        throw 'Could not upload the Instagram Feed image: $e';
+      }
+      result.add(_supabase.storage.from('property-media').getPublicUrl(path));
+    }
+    return result;
   }
 
   /// AI-generated caption/hashtags/CTA for one piece of content —
