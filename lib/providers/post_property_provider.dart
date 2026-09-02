@@ -1386,12 +1386,34 @@ class PostPropertyProvider extends ChangeNotifier {
     // (PropertyService._parseHashtags strips the '#' before writing); the
     // field editor expects the '#'-prefixed, space-joined form, mirroring
     // PropertyWizard.tsx:1272's `hashtags.map(h => '#'+h).join(' ')`.
+    //
+    // Normally PostgREST hands a `text[]` column back as a JSON array, which
+    // the `is List` branch below handles — but a portal-created listing's
+    // `hashtags` was showing up blank on edit, and the only other shape
+    // PostgREST is known to return for an array column is its Postgres
+    // literal form, `{tag1,tag2}`, as a plain string. Handling that shape
+    // too, rather than assuming `is List` is the only possibility, fixes it
+    // without touching the already-correct List path.
     final hashtagsCol = propertyRow['hashtags'];
-    if (hashtagsCol is List && hashtagsCol.isNotEmpty) {
-      _hashtags = hashtagsCol
-          .where((e) => e != null && e.toString().isNotEmpty)
+    List<String>? hashtagWords;
+    if (hashtagsCol is List) {
+      hashtagWords = hashtagsCol.map((e) => e?.toString() ?? '').toList();
+    } else if (hashtagsCol is String && hashtagsCol.isNotEmpty) {
+      final trimmed = hashtagsCol.trim();
+      final inner = trimmed.startsWith('{') && trimmed.endsWith('}')
+          ? trimmed.substring(1, trimmed.length - 1)
+          : trimmed;
+      hashtagWords = inner
+          .split(',')
+          .map((s) => s.trim().replaceAll('"', ''))
+          .toList();
+    }
+    if (hashtagWords != null) {
+      final joined = hashtagWords
+          .where((e) => e.isNotEmpty)
           .map((e) => '#$e')
           .join(' ');
+      if (joined.isNotEmpty) _hashtags = joined;
     }
 
     // Builder project tag. React reads the column first and falls back to the
@@ -1519,6 +1541,14 @@ class PostPropertyProvider extends ChangeNotifier {
         _bedrooms = subtableRow['bedrooms']?.toString() ?? '';
         _bathrooms = subtableRow['bathrooms']?.toString() ?? '';
         _carpetArea = subtableRow['carpet_area_sqft']?.toString() ?? '';
+        // React's own edit hydration reads this straight from the column,
+        // never from metadata (PropertyWizard.tsx:889) — Flutter never read
+        // it at all, so a house-subtype listing created on the portal always
+        // showed Build Up Area as blank when opened for edit in the app.
+        setText(
+          'builtUpArea',
+          subtableRow['built_up_area_sqft']?.toString() ?? '',
+        );
         _balconies = subtableRow['balconies']?.toString() ?? '';
         // Fallback only — a row with metadata.furnishingType already set
         // (the normal case) keeps that value; this just covers legacy rows

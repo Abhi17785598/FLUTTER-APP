@@ -972,7 +972,17 @@ class PropertyService {
       'property_id': propertyId,
       'bedrooms': int.tryParse(provider.bedrooms),
       'bathrooms': int.tryParse(provider.bathrooms),
-      'built_up_area_sqft': double.tryParse(provider.area),
+      // React's own write is `formData.builtUpArea || formData.area`
+      // (PropertyWizard.tsx:1952) — the dedicated Build Up Area field
+      // (house-subtype only) wins when present, falling back to Total Area
+      // for apartment subtype, which never renders a separate field for it.
+      // This previously always sent `provider.area`, so a house-subtype
+      // listing's Build Up Area was silently swapped for its Plot Area.
+      'built_up_area_sqft': double.tryParse(
+        provider.text('builtUpArea').isNotEmpty
+            ? provider.text('builtUpArea')
+            : provider.area,
+      ),
       'carpet_area_sqft': double.tryParse(provider.carpetArea),
       'balconies': int.tryParse(provider.balconies),
       // Portal rule (BasicInfoStep.tsx): furnished = value !== 'Raw', i.e.
@@ -1198,6 +1208,25 @@ class PropertyService {
     if (provider.state.isNotEmpty) meta['state'] = provider.state;
     if (provider.pincode.isNotEmpty) meta['pincode'] = provider.pincode;
     if (provider.landmark.isNotEmpty) meta['landmark'] = provider.landmark;
+
+    // ── Carpet area / total floors — also mirrored into metadata ───────────
+    // Both already have a typed column (`carpet_area_sqft`/`total_floors` on
+    // `properties_residential`/`_commercial`), written in
+    // `_insertResidential`/`_insertCommercial`/`_insertLand`. React writes
+    // them into metadata too, on every save regardless of category
+    // (PropertyWizard.tsx's "Common extra fields" `carpetArea` and the
+    // catch-all `totalFloors`) — and its own edit-wizard hydration falls
+    // back to `metadata.carpetArea`/`metadata.totalFloors` when the typed
+    // column comes back empty. Flutter never wrote either key, so a
+    // PG/Co-living listing created here — whose typed-column read path the
+    // web apparently doesn't hit reliably — showed both fields as unfilled
+    // on the website even though the value was saved correctly in the
+    // typed column.
+    if (provider.carpetArea.isNotEmpty)
+      meta['carpetArea'] = provider.carpetArea;
+    if (provider.totalFloors.isNotEmpty) {
+      meta['totalFloors'] = provider.totalFloors;
+    }
 
     // ── Step 4: Condition ─────────────────────────────────────────────────
     if (provider.propertyCondition != null) {
@@ -1467,7 +1496,14 @@ class PropertyService {
       'property_id': propertyId,
       'bedrooms': int.tryParse(provider.bedrooms),
       'bathrooms': int.tryParse(provider.bathrooms),
-      'built_up_area_sqft': double.tryParse(provider.area),
+      // See the matching comment in `_insertResidential` — React's own write
+      // prioritises the dedicated Build Up Area field (house-subtype only)
+      // over Total Area.
+      'built_up_area_sqft': double.tryParse(
+        provider.text('builtUpArea').isNotEmpty
+            ? provider.text('builtUpArea')
+            : provider.area,
+      ),
       'carpet_area_sqft': double.tryParse(provider.carpetArea),
       'balconies': int.tryParse(provider.balconies),
       // Portal rule (BasicInfoStep.tsx): furnished = value !== 'Raw', i.e.

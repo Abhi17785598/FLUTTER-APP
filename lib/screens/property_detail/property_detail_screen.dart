@@ -34,6 +34,8 @@ import 'booking_enquiry_validation.dart';
 import '../../models/nearby_place.dart';
 import '../../models/property_model.dart';
 import '../../models/property_detail_bundle.dart';
+import '../post_property/listing_constants.dart'
+    show ListingOption, kPgRoomAmenities, kPgSafetyAndSecurity, kPgTenantRules;
 
 // =============================================================================
 // PropertyDetailScreen
@@ -952,10 +954,14 @@ class _PropertyDetailScreenState extends State<PropertyDetailScreen>
 
     // Mirrors the portal's overviewItems builder (PropertyDetails.tsx),
     // which only ever pushes Bed/Bath items inside the
-    // `property.category === "residential"` branch — land, commercial and
-    // PG/co-living (category `pg_coliving`) never get them there.
-    final bool hidesBedsBaths =
-        property.category == 'land' || property.category == 'pg_coliving';
+    // `property.category === "residential"` branch — land, commercial,
+    // PG/co-living (category `pg_coliving`) and Other never get them there.
+    // This used to check only `land`/`pg_coliving`, leaving commercial
+    // shown — and for commercial, PropertyModel.beds/baths are repurposed to
+    // carry the washrooms count (see property_model.dart's `fromSupabase`
+    // commercial branch), so an Office listing with 2 washrooms and no
+    // Bedrooms field anywhere in its wizard rendered "2 Bedrooms" here.
+    final bool hidesBedsBaths = property.category != 'residential';
 
     final List<_InfoItem> items = [
       if (!hidesBedsBaths) ...[
@@ -1187,6 +1193,14 @@ class _PropertyDetailScreenState extends State<PropertyDetailScreen>
       return const [];
     }
 
+    // The labels of every option in [options] whose own boolean metadata key
+    // (`option.id`) is true — for the PG amenity/safety/rule checkbox groups,
+    // which each write one bool per option rather than a single list.
+    List<String> selectedLabels(List<ListingOption> options) => [
+      for (final o in options)
+        if (isTrue(o.id)) o.label,
+    ];
+
     // `metadata.floorWiseRoomDetails` is `{floorNumber, totalRooms, rooms:
     // [{roomNumber, roomType}]}[]`, written for PG/co-living listings
     // (post_property_provider.dart's floorWiseRoomDetails). It is a list of
@@ -1411,10 +1425,67 @@ class _PropertyDetailScreenState extends State<PropertyDetailScreen>
         if (str('landType') != null) _DetailRow('Land Type', str('landType')!),
         if (str('boundary') != null) _DetailRow('Boundary', str('boundary')!),
       ]),
+      // The app's own PG wizard (amenities_step.dart's PG & Co-Living
+      // Amenities card) writes each room amenity / safety-and-security flag
+      // as its own boolean metadata key, common-area amenities as the
+      // `pgAmenities` list, and tenant rules as their own booleans — none of
+      // which overlap with the portal-mirrored `pgFoodAvailable`-style keys
+      // in "PG Specific Details" below, so a PG listing's actual selections
+      // never showed up anywhere on this screen.
+      _DetailGroup('PG Amenities', [
+        if (selectedLabels(kPgRoomAmenities).isNotEmpty)
+          _DetailRow(
+            'Room Amenities',
+            selectedLabels(kPgRoomAmenities).join(', '),
+          ),
+        if (strList('pgAmenities').isNotEmpty)
+          _DetailRow(
+            'Common Area Amenities',
+            strList('pgAmenities').join(', '),
+          ),
+        if (selectedLabels(kPgSafetyAndSecurity).isNotEmpty)
+          _DetailRow(
+            'Safety & Security',
+            selectedLabels(kPgSafetyAndSecurity).join(', '),
+          ),
+        if (selectedLabels(kPgTenantRules).isNotEmpty)
+          _DetailRow('Tenant Rules', selectedLabels(kPgTenantRules).join(', ')),
+      ]),
+      // Same gap as "PG Amenities" above — the app's own PG wizard
+      // (condition_step.dart's Food & Services / Housekeeping cards) writes
+      // these keys, none of which the portal-mirrored group below reads.
+      _DetailGroup('Food & Services', [
+        if (isTrue('vegFoodPg')) _DetailRow('Veg Food Available', 'Yes'),
+        if (isTrue('nonVegFoodPg')) _DetailRow('Non-Veg Food Available', 'Yes'),
+        if (isTrue('selfCookingAllowed'))
+          _DetailRow('Self-Cooking Allowed', 'Yes'),
+        if (isTrue('sharedKitchen')) _DetailRow('Shared Kitchen', 'Yes'),
+        if (strList('mealsIncluded').isNotEmpty)
+          _DetailRow('Meals Included', strList('mealsIncluded').join(', ')),
+        if (strList('breakfastItems').isNotEmpty)
+          _DetailRow('Breakfast Items', strList('breakfastItems').join(', ')),
+        if (strList('lunchItems').isNotEmpty)
+          _DetailRow('Lunch Items', strList('lunchItems').join(', ')),
+        if (strList('dinnerItems').isNotEmpty)
+          _DetailRow('Dinner Items', strList('dinnerItems').join(', ')),
+        if (strList('teaSnacksItems').isNotEmpty)
+          _DetailRow(
+            'Tea / Snacks Items',
+            strList('teaSnacksItems').join(', '),
+          ),
+        if (isTrue('laundryService')) _DetailRow('Laundry Service', 'Yes'),
+        if (isTrue('cleaningService')) _DetailRow('Cleaning Service', 'Yes'),
+        if (isTrue('dailyCleaning')) _DetailRow('Daily Cleaning', 'Yes'),
+        if (str('roomCleaningFrequency') != null)
+          _DetailRow('Room Cleaning Frequency', str('roomCleaningFrequency')!),
+        if (str('linenChangeFrequency') != null)
+          _DetailRow('Linen Change Frequency', str('linenChangeFrequency')!),
+      ]),
       // Mirrors the portal's "PG Specific Details" group in
-      // PropertyDetails.tsx exactly — same metadata keys, same labels — so a
-      // PG listing shows the same amenities/food & services fields here that
-      // the website shows for it, instead of a different set.
+      // PropertyDetails.tsx exactly — same metadata keys, same labels. These
+      // keys have no input anywhere in the app's own PG wizard, so this group
+      // only ever populates for web-created PG listings; it's kept as-is
+      // (rather than removed) so those still display correctly.
       _DetailGroup('PG Specific Details', [
         if (str('pgSharingType') != null)
           _DetailRow('Sharing Type', str('pgSharingType')!),

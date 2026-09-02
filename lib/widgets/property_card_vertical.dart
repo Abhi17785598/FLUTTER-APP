@@ -221,10 +221,15 @@ class PropertyCardVertical extends StatelessWidget {
                   const SizedBox(height: 8),
                   Row(
                     children: [
-                      // Land/Plot has no bedroom/bathroom concept (mirrors the
-                      // portal's `property.category === 'land'` branch in
-                      // PropertyCard.tsx) — show area alone for that category.
-                      if (property.category != 'land') ...[
+                      // The portal only ever renders a bed/bath badge inside
+                      // its `category === 'residential'` branch
+                      // (PropertyCard.tsx) — every other category falls
+                      // through with no badge. For commercial specifically,
+                      // PropertyModel.beds/baths are repurposed to carry the
+                      // washrooms count (see property_model.dart's
+                      // `fromSupabase`), so showing them here is always
+                      // wrong, not just for Land.
+                      if (property.category == 'residential') ...[
                         _buildSpecIcon(Icons.bed, '${property.beds}'),
                         const SizedBox(width: 12),
                         _buildSpecIcon(Icons.bathtub, '${property.baths}'),

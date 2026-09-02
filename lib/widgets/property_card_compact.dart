@@ -168,12 +168,16 @@ class PropertyCardCompact extends StatelessWidget {
                   ),
                   const SizedBox(height: 6),
                   Text(
-                    // Land/Plot has no bedroom/bathroom concept (mirrors the
-                    // portal's `property.category === 'land'` branch in
-                    // PropertyCard.tsx) — show area alone for that category.
-                    property.category == 'land'
-                        ? '${property.sqft} Sq.ft'
-                        : '${property.sqft} Sq.ft • ${property.beds} Beds • ${property.baths} Baths',
+                    // The portal only ever shows Bed/Bath for
+                    // `property.category === 'residential'` (PropertyCard.tsx)
+                    // — every other category shows area alone. For commercial
+                    // specifically, PropertyModel.beds/baths are repurposed to
+                    // carry the washrooms count (see property_model.dart's
+                    // `fromSupabase`), so showing them here as "Beds"/"Baths"
+                    // is always wrong, not just for Land.
+                    property.category == 'residential'
+                        ? '${property.sqft} Sq.ft • ${property.beds} Beds • ${property.baths} Baths'
+                        : '${property.sqft} Sq.ft',
                     style: AppTextStyles.caption,
                   ),
                 ],
