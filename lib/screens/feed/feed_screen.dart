@@ -584,7 +584,7 @@ class _PropertyFeedActions extends StatelessWidget {
           icon: Icons.mode_comment_outlined,
           iconSize: 16,
           iconBoxSize: 16,
-          label: 'Comment',
+          label: _count(item.comments),
           onTap: () => _openComments(context),
         ),
         const SizedBox(width: AppConstants.spacingM),

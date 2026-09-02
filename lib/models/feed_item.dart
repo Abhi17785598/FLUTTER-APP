@@ -46,6 +46,11 @@ class FeedItem {
   final int views;
   final int likes;
 
+  /// `properties.comments` — only populated for property items (the Feed
+  /// screen's property card is the only one with a Comment count; project
+  /// and video cards render a plain likes+views row and never read this).
+  final int comments;
+
   final String? posterUserId;
   final String posterName;
   final String? posterAvatarUrl;
@@ -63,6 +68,7 @@ class FeedItem {
     this.location = '',
     required this.views,
     required this.likes,
+    this.comments = 0,
     required this.posterName,
     this.imageUrl,
     this.videoUrl,
@@ -107,6 +113,7 @@ class FeedItem {
       imageUrl: images.isNotEmpty ? images.first : null,
       views: _int(json['views']),
       likes: _int(json['likes']),
+      comments: _int(json['comments']),
       posterUserId: json['user_id']?.toString(),
       posterName: profile?['display_name']?.toString() ?? 'User',
       posterAvatarUrl: profile?['avatar_url']?.toString(),
