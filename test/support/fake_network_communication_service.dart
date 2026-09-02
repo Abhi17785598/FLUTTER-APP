@@ -58,6 +58,7 @@ class FakeNetworkCommunicationService extends NetworkCommunicationService {
     required bool isAutoJoin,
     required List<String> memberTypes,
     required List<NetworkMember> acceptedMembers,
+    List<String> manualMemberIds = const [],
   }) async {
     createCallCount++;
     lastCreateArgs = {
@@ -68,6 +69,7 @@ class FakeNetworkCommunicationService extends NetworkCommunicationService {
       'isAutoJoin': isAutoJoin,
       'memberTypes': memberTypes,
       'acceptedMembers': acceptedMembers,
+      'manualMemberIds': manualMemberIds,
     };
     final pause = pauseNextCreate;
     if (pause != null) {

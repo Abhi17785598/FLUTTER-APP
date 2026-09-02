@@ -160,108 +160,120 @@ class _PostPropertyWizardState extends State<PostPropertyWizardView> {
   Widget build(BuildContext context) {
     final provider = context.watch<PostPropertyProvider>();
 
-    return Scaffold(
-      backgroundColor: AppColors.background,
-      appBar: AppBar(
+    return PopScope(
+      // The device's system back button used to always close this screen
+      // outright — dropping the whole in-progress listing — unlike the
+      // in-app back arrow below, which only steps back one wizard step.
+      // Mirror that same "step back, don't leave" logic here.
+      canPop: provider.currentStep == 0,
+      onPopInvokedWithResult: (didPop, result) {
+        if (didPop) return;
+        provider.previousStep();
+      },
+      child: Scaffold(
         backgroundColor: AppColors.background,
-        elevation: 0,
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: AppColors.textPrimary),
-          onPressed: () {
-            if (provider.currentStep > 0) {
-              provider.previousStep();
-            } else {
-              Navigator.pop(context);
-            }
-          },
-        ),
-        title: Text(
-          provider.isEditMode ? 'Edit Property' : 'Post Property',
-          style: AppTextStyles.heading2.copyWith(
-            color: AppColors.textPrimary,
-            fontWeight: FontWeight.bold,
+        appBar: AppBar(
+          backgroundColor: AppColors.background,
+          elevation: 0,
+          leading: IconButton(
+            icon: const Icon(Icons.arrow_back, color: AppColors.textPrimary),
+            onPressed: () {
+              if (provider.currentStep > 0) {
+                provider.previousStep();
+              } else {
+                Navigator.pop(context);
+              }
+            },
+          ),
+          title: Text(
+            provider.isEditMode ? 'Edit Property' : 'Post Property',
+            style: AppTextStyles.heading2.copyWith(
+              color: AppColors.textPrimary,
+              fontWeight: FontWeight.bold,
+            ),
           ),
         ),
-      ),
-      body: LayoutBuilder(
-        builder: (context, constraints) {
-          // The portal's own split: `grid-cols-1 lg:grid-cols-12` with the
-          // Progress panel at `lg:col-span-3` and the form at `lg:col-span-9`.
-          final isWide = constraints.maxWidth >= kWideBreakpoint;
-          final horizontalPadding = isWide ? 24.0 : 20.0;
-          final maxContentWidth = isWide ? 720.0 : double.infinity;
+        body: LayoutBuilder(
+          builder: (context, constraints) {
+            // The portal's own split: `grid-cols-1 lg:grid-cols-12` with the
+            // Progress panel at `lg:col-span-3` and the form at `lg:col-span-9`.
+            final isWide = constraints.maxWidth >= kWideBreakpoint;
+            final horizontalPadding = isWide ? 24.0 : 20.0;
+            final maxContentWidth = isWide ? 720.0 : double.infinity;
 
-          final progressCard = PortalProgressCard(
-            steps: provider.visibleSteps,
-            currentIndex: provider.currentStep,
-            compact: !isWide,
-            onStepTap: (i) => context.read<PostPropertyProvider>().goToStep(i),
-          );
+            final progressCard = PortalProgressCard(
+              steps: provider.visibleSteps,
+              currentIndex: provider.currentStep,
+              compact: !isWide,
+              onStepTap: (i) =>
+                  context.read<PostPropertyProvider>().goToStep(i),
+            );
 
-          final form = _StepBody(
-            provider: provider,
-            stepHeadings: widget.stepHeadings,
-            horizontalPadding: horizontalPadding,
-            maxContentWidth: maxContentWidth,
-            buildStepContent: _buildStepContent,
-          );
+            final form = _StepBody(
+              provider: provider,
+              stepHeadings: widget.stepHeadings,
+              horizontalPadding: horizontalPadding,
+              maxContentWidth: maxContentWidth,
+              buildStepContent: _buildStepContent,
+            );
 
-          if (isWide) {
-            // Two columns. Each side owns its own scrollable, so a tall
-            // stepper never pushes the form off screen and vice versa.
+            if (isWide) {
+              // Two columns. Each side owns its own scrollable, so a tall
+              // stepper never pushes the form off screen and vice versa.
+              return SafeArea(
+                child: Column(
+                  children: [
+                    Expanded(
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          SizedBox(
+                            width: 300, // ~3/12 of the portal's max-w-7xl
+                            child: SingleChildScrollView(
+                              padding: const EdgeInsets.fromLTRB(20, 12, 8, 12),
+                              child: progressCard,
+                            ),
+                          ),
+                          Expanded(child: form),
+                        ],
+                      ),
+                    ),
+                    _NavigationBar(
+                      provider: provider,
+                      maxContentWidth: double.infinity,
+                      horizontalPadding: horizontalPadding,
+                    ),
+                  ],
+                ),
+              );
+            }
+
+            // Single column, as the portal's `grid-cols-1` does at mobile width.
             return SafeArea(
               child: Column(
                 children: [
-                  Expanded(
-                    child: Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        SizedBox(
-                          width: 300, // ~3/12 of the portal's max-w-7xl
-                          child: SingleChildScrollView(
-                            padding: const EdgeInsets.fromLTRB(20, 12, 8, 12),
-                            child: progressCard,
-                          ),
-                        ),
-                        Expanded(child: form),
-                      ],
+                  Padding(
+                    padding: EdgeInsets.fromLTRB(
+                      horizontalPadding,
+                      12,
+                      horizontalPadding,
+                      12,
                     ),
+                    child: progressCard,
                   ),
+                  Expanded(child: form),
                   _NavigationBar(
                     provider: provider,
-                    maxContentWidth: double.infinity,
+                    maxContentWidth: maxContentWidth,
                     horizontalPadding: horizontalPadding,
                   ),
                 ],
               ),
             );
-          }
-
-          // Single column, as the portal's `grid-cols-1` does at mobile width.
-          return SafeArea(
-            child: Column(
-              children: [
-                Padding(
-                  padding: EdgeInsets.fromLTRB(
-                    horizontalPadding,
-                    12,
-                    horizontalPadding,
-                    12,
-                  ),
-                  child: progressCard,
-                ),
-                Expanded(child: form),
-                _NavigationBar(
-                  provider: provider,
-                  maxContentWidth: maxContentWidth,
-                  horizontalPadding: horizontalPadding,
-                ),
-              ],
-            ),
-          );
-        },
-      ),
-    ).animate().fadeIn(duration: 300.ms);
+          },
+        ),
+      ).animate().fadeIn(duration: 300.ms),
+    );
   }
 
   Widget _buildStepContent(WizardStep step) {

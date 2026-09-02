@@ -118,6 +118,7 @@ class NetworkCommunicationProvider extends ChangeNotifier {
     required String channelPurpose,
     required bool isAutoJoin,
     required List<String> memberTypes,
+    List<String> manualMemberIds = const [],
   }) async {
     final userId = _userId;
     if (userId == null || _creatingChannel) return false;
@@ -135,6 +136,7 @@ class NetworkCommunicationProvider extends ChangeNotifier {
         isAutoJoin: isAutoJoin,
         memberTypes: memberTypes,
         acceptedMembers: _acceptedMembers,
+        manualMemberIds: manualMemberIds,
       );
       await refresh();
       return true;

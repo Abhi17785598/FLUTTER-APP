@@ -438,7 +438,7 @@ class PostPropertyProvider extends ChangeNotifier {
       final roomNumber = i + 1;
       final existing = existingRooms.firstWhere(
         (r) => r is Map && r['roomNumber'] == roomNumber,
-        orElse: () => null,
+        orElse: () => const <String, dynamic>{},
       );
       return {
         'roomNumber': roomNumber,

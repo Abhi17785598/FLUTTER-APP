@@ -282,12 +282,14 @@ class NetworkCommunicationService {
 
   // ── Writes ─────────────────────────────────────────────────────────────
 
-  /// Mirrors `NetworkCommunicationHub.tsx`'s `handleCreateChannel` exactly:
-  /// insert `channels`, then `network_channels`, then the creator as `admin`,
-  /// then — only if [isAutoJoin] — every accepted member whose `member_type`
-  /// is in [memberTypes], excluding the builder and de-duplicated by user id
-  /// so the batch can never violate `channel_participants`'
-  /// `UNIQUE(channel_id, user_id)`.
+  /// Mirrors `NetworkCommunicationHub.tsx`'s `handleCreateChannel`: insert
+  /// `channels`, then `network_channels`, then the creator as `admin`, then
+  /// one deduplicated batch covering both [manualMemberIds] — specific people
+  /// hand-picked in the sheet's member search, added regardless of
+  /// [isAutoJoin] — and, only if [isAutoJoin], every accepted member whose
+  /// `member_type` is in [memberTypes]. Both sources are excluded against the
+  /// builder and each other so the batch can never violate
+  /// `channel_participants`'s `UNIQUE(channel_id, user_id)`.
   ///
   /// No backend RPC exists to make this one atomic transaction (out of scope
   /// — this task may not add one), so once the `channels` row exists, every
@@ -302,6 +304,7 @@ class NetworkCommunicationService {
     required bool isAutoJoin,
     required List<String> memberTypes,
     required List<NetworkMember> acceptedMembers,
+    List<String> manualMemberIds = const [],
   }) async {
     final trimmedName = name.trim();
     if (trimmedName.isEmpty) {
@@ -364,33 +367,41 @@ class NetworkCommunicationService {
       );
     }
 
+    final seen = <String>{builderId};
+    final inserts = <Map<String, dynamic>>[];
+    void addParticipant(String userId) {
+      if (userId.isEmpty) return;
+      if (!seen.add(userId)) return;
+      inserts.add({
+        'channel_id': channelId,
+        'user_id': userId,
+        'role': 'member',
+      });
+    }
+
+    for (final memberId in manualMemberIds) {
+      addParticipant(memberId);
+    }
+
     if (isAutoJoin) {
-      final seen = <String>{builderId};
-      final inserts = <Map<String, dynamic>>[];
       for (final member in acceptedMembers) {
         if (!memberTypes.contains(member.memberType)) continue;
-        if (member.memberId.isEmpty) continue;
-        if (!seen.add(member.memberId)) continue;
-        inserts.add({
-          'channel_id': channelId,
-          'user_id': member.memberId,
-          'role': 'member',
-        });
+        addParticipant(member.memberId);
       }
+    }
 
-      if (inserts.isNotEmpty) {
-        try {
-          await _supabase.from('channel_participants').insert(inserts);
-        } catch (e) {
-          debugPrint(
-            'NetworkCommunicationService.createChannel: auto-join batch failed: $e',
-          );
-          throw NetworkChannelPartialFailure(
-            'The channel was created, but some members could not be '
-            'auto-added. Pull to refresh to see who made it in.',
-            channelId: channelId,
-          );
-        }
+    if (inserts.isNotEmpty) {
+      try {
+        await _supabase.from('channel_participants').insert(inserts);
+      } catch (e) {
+        debugPrint(
+          'NetworkCommunicationService.createChannel: member batch failed: $e',
+        );
+        throw NetworkChannelPartialFailure(
+          'The channel was created, but some members could not be '
+          'added. Pull to refresh to see who made it in.',
+          channelId: channelId,
+        );
       }
     }
 

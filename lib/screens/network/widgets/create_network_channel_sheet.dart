@@ -7,6 +7,7 @@ import '../../../core/theme/app_text_styles.dart';
 import '../../../models/network_models.dart';
 import '../../../providers/network_communication_provider.dart';
 import '../../../widgets/shared/toggle_row.dart';
+import '../../messaging/widgets/chat_avatar.dart';
 
 /// Network ▸ Communication's Create Channel sheet.
 ///
@@ -45,17 +46,38 @@ class _CreateNetworkChannelSheetState
     extends State<_CreateNetworkChannelSheet> {
   final _nameController = TextEditingController();
   final _descriptionController = TextEditingController();
+  final _memberSearchController = TextEditingController();
 
   String? _purpose;
   Set<String> _memberTypes = {'broker', 'influencer'};
   bool _autoJoin = false;
   String? _validationError;
 
+  // Specific people hand-picked from the network, independent of the
+  // type-filtered auto-join above — mirrors the generic Messages "Create
+  // Channel" sheet's member picker, but searches [acceptedMembers] (already
+  // loaded for this screen) client-side rather than hitting the backend.
+  final Map<String, NetworkMember> _selectedMembers = {};
+  String _memberSearchQuery = '';
+
   @override
   void dispose() {
     _nameController.dispose();
     _descriptionController.dispose();
+    _memberSearchController.dispose();
     super.dispose();
+  }
+
+  void _addMember(NetworkMember member) {
+    setState(() {
+      _selectedMembers[member.memberId] = member;
+      _memberSearchController.clear();
+      _memberSearchQuery = '';
+    });
+  }
+
+  void _removeMember(String memberId) {
+    setState(() => _selectedMembers.remove(memberId));
   }
 
   void _toggleMemberType(String value, bool selected) {
@@ -97,6 +119,7 @@ class _CreateNetworkChannelSheetState
       channelPurpose: _purpose!,
       isAutoJoin: _autoJoin,
       memberTypes: _memberTypes.toList(),
+      manualMemberIds: _selectedMembers.keys.toList(),
     );
 
     if (!mounted) return;
@@ -219,6 +242,33 @@ class _CreateNetworkChannelSheetState
                       ? null
                       : (v) => setState(() => _autoJoin = v),
                 ),
+                const SizedBox(height: 14),
+                _label('Add Specific Members (optional)'),
+                const SizedBox(height: 6),
+                _field(
+                  _memberSearchController,
+                  'Search your network by name...',
+                  enabled: !creating,
+                  onChanged: (v) =>
+                      setState(() => _memberSearchQuery = v.trim()),
+                ),
+                if (_selectedMembers.isNotEmpty) ...[
+                  const SizedBox(height: 10),
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: _selectedMembers.values
+                        .map((m) => _selectedMemberChip(m, enabled: !creating))
+                        .toList(),
+                  ),
+                ],
+                if (_memberSearchQuery.isNotEmpty) ...[
+                  const SizedBox(height: 8),
+                  ConstrainedBox(
+                    constraints: const BoxConstraints(maxHeight: 180),
+                    child: _memberSearchResults(provider, enabled: !creating),
+                  ),
+                ],
                 if (_validationError != null) ...[
                   const SizedBox(height: 12),
                   Text(
@@ -309,6 +359,7 @@ class _CreateNetworkChannelSheetState
     String hint, {
     int maxLines = 1,
     bool enabled = true,
+    ValueChanged<String>? onChanged,
   }) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 14),
@@ -320,6 +371,7 @@ class _CreateNetworkChannelSheetState
         controller: controller,
         maxLines: maxLines,
         enabled: enabled,
+        onChanged: onChanged,
         style: AppTextStyles.body.copyWith(fontSize: 13.5),
         decoration: InputDecoration(
           isDense: true,
@@ -334,6 +386,117 @@ class _CreateNetworkChannelSheetState
           ),
         ),
       ),
+    );
+  }
+
+  Widget _selectedMemberChip(NetworkMember member, {required bool enabled}) {
+    final name = member.displayName?.isNotEmpty == true
+        ? member.displayName!
+        : 'Unknown';
+    return Container(
+      padding: const EdgeInsets.only(left: 4, right: 8, top: 4, bottom: 4),
+      decoration: BoxDecoration(
+        color: AppColors.background,
+        borderRadius: BorderRadius.circular(AppConstants.pillRadius),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          ChatAvatar(
+            avatarUrl: member.avatarUrl,
+            initials: name[0].toUpperCase(),
+            size: 22,
+          ),
+          const SizedBox(width: 6),
+          ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 100),
+            child: Text(
+              name,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: AppTextStyles.caption.copyWith(
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+          const SizedBox(width: 4),
+          GestureDetector(
+            behavior: HitTestBehavior.opaque,
+            onTap: enabled ? () => _removeMember(member.memberId) : null,
+            child: const Icon(Icons.close, size: 14, color: AppColors.textHint),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _memberSearchResults(
+    NetworkCommunicationProvider provider, {
+    required bool enabled,
+  }) {
+    final query = _memberSearchQuery.toLowerCase();
+    final results = provider.acceptedMembers
+        .where((m) => !_selectedMembers.containsKey(m.memberId))
+        .where((m) => (m.displayName ?? '').toLowerCase().contains(query))
+        .toList();
+
+    if (results.isEmpty) {
+      return Padding(
+        padding: const EdgeInsets.symmetric(vertical: 16),
+        child: Center(
+          child: Text(
+            'No matching network members',
+            style: AppTextStyles.caption.copyWith(fontSize: 12.5),
+          ),
+        ),
+      );
+    }
+
+    return ListView.builder(
+      shrinkWrap: true,
+      padding: EdgeInsets.zero,
+      itemCount: results.length,
+      itemBuilder: (context, index) {
+        final member = results[index];
+        final name = member.displayName?.isNotEmpty == true
+            ? member.displayName!
+            : 'Unknown';
+        return InkWell(
+          onTap: enabled ? () => _addMember(member) : null,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(vertical: 8),
+            child: Row(
+              children: [
+                ChatAvatar(
+                  avatarUrl: member.avatarUrl,
+                  initials: name[0].toUpperCase(),
+                  size: 32,
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Text(
+                    name,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: AppTextStyles.body.copyWith(fontSize: 13.5),
+                  ),
+                ),
+                Text(
+                  networkMemberTypeLabel(member.memberType),
+                  style: AppTextStyles.caption.copyWith(fontSize: 11.5),
+                ),
+                const SizedBox(width: 8),
+                const Icon(
+                  Icons.add_circle_outline,
+                  size: 18,
+                  color: AppColors.primary,
+                ),
+              ],
+            ),
+          ),
+        );
+      },
     );
   }
 }

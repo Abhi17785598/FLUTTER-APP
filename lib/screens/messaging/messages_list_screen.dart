@@ -167,7 +167,10 @@ class _MessagesListViewState extends State<_MessagesListView> {
   }
 
   Future<void> _createChannel() async {
-    final channelId = await showCreateChannelSheet(context);
+    final userId = context.read<AuthProvider>().userId;
+    if (userId == null) return;
+
+    final channelId = await showCreateChannelSheet(context, userId);
     if (channelId == null || !mounted) return;
     await context.read<MessagingProvider>().refresh();
   }

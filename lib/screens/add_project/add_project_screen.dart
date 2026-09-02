@@ -123,106 +123,117 @@ class _AddProjectWizardViewState extends State<AddProjectWizardView> {
       return _ResumeDraftPrompt(provider: provider);
     }
 
-    return Scaffold(
-      backgroundColor: AppColors.background,
-      appBar: AppBar(
+    return PopScope(
+      // The device's system back button used to always close this screen
+      // outright — dropping the whole in-progress project draft — unlike
+      // the in-app back arrow below, which only steps back one wizard step.
+      // Mirror that same "step back, don't leave" logic here.
+      canPop: provider.currentStep == 0,
+      onPopInvokedWithResult: (didPop, result) {
+        if (didPop) return;
+        provider.previousStep();
+      },
+      child: Scaffold(
         backgroundColor: AppColors.background,
-        elevation: 0,
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: AppColors.textPrimary),
-          onPressed: () {
-            if (provider.currentStep > 0) {
-              provider.previousStep();
-            } else {
-              Navigator.pop(context);
-            }
-          },
-        ),
-        title: Text(
-          provider.isEditMode ? 'Edit Project' : 'Add Project',
-          style: AppTextStyles.heading2.copyWith(
-            color: AppColors.textPrimary,
-            fontWeight: FontWeight.bold,
+        appBar: AppBar(
+          backgroundColor: AppColors.background,
+          elevation: 0,
+          leading: IconButton(
+            icon: const Icon(Icons.arrow_back, color: AppColors.textPrimary),
+            onPressed: () {
+              if (provider.currentStep > 0) {
+                provider.previousStep();
+              } else {
+                Navigator.pop(context);
+              }
+            },
+          ),
+          title: Text(
+            provider.isEditMode ? 'Edit Project' : 'Add Project',
+            style: AppTextStyles.heading2.copyWith(
+              color: AppColors.textPrimary,
+              fontWeight: FontWeight.bold,
+            ),
           ),
         ),
-      ),
-      body: LayoutBuilder(
-        builder: (context, constraints) {
-          final isWide = constraints.maxWidth >= kWideBreakpoint;
-          final horizontalPadding = isWide ? 24.0 : 20.0;
-          final maxContentWidth = isWide ? 720.0 : double.infinity;
+        body: LayoutBuilder(
+          builder: (context, constraints) {
+            final isWide = constraints.maxWidth >= kWideBreakpoint;
+            final horizontalPadding = isWide ? 24.0 : 20.0;
+            final maxContentWidth = isWide ? 720.0 : double.infinity;
 
-          final progressCard = PortalProgressCard.custom(
-            steps: [
-              for (final step in provider.steps)
-                PortalStepInfo(
-                  title: projectStepTitle(step),
-                  icon: projectStepIcon(step),
+            final progressCard = PortalProgressCard.custom(
+              steps: [
+                for (final step in provider.steps)
+                  PortalStepInfo(
+                    title: projectStepTitle(step),
+                    icon: projectStepIcon(step),
+                  ),
+              ],
+              currentIndex: provider.currentStep,
+              compact: !isWide,
+              onStepTap: (i) => context.read<AddProjectProvider>().goToStep(i),
+            );
+
+            final form = _StepBody(
+              provider: provider,
+              horizontalPadding: horizontalPadding,
+              maxContentWidth: maxContentWidth,
+            );
+
+            if (isWide) {
+              return SafeArea(
+                child: Column(
+                  children: [
+                    Expanded(
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          SizedBox(
+                            width: 300,
+                            child: SingleChildScrollView(
+                              padding: const EdgeInsets.fromLTRB(20, 12, 8, 12),
+                              child: progressCard,
+                            ),
+                          ),
+                          Expanded(child: form),
+                        ],
+                      ),
+                    ),
+                    _NavigationBar(
+                      provider: provider,
+                      horizontalPadding: horizontalPadding,
+                      builderIdOverride: widget.builderIdOverride,
+                    ),
+                  ],
                 ),
-            ],
-            currentIndex: provider.currentStep,
-            compact: !isWide,
-            onStepTap: (i) => context.read<AddProjectProvider>().goToStep(i),
-          );
+              );
+            }
 
-          final form = _StepBody(
-            provider: provider,
-            horizontalPadding: horizontalPadding,
-            maxContentWidth: maxContentWidth,
-          );
-
-          if (isWide) {
             return SafeArea(
               child: Column(
                 children: [
-                  Expanded(
-                    child: Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        SizedBox(
-                          width: 300,
-                          child: SingleChildScrollView(
-                            padding: const EdgeInsets.fromLTRB(20, 12, 8, 12),
-                            child: progressCard,
-                          ),
-                        ),
-                        Expanded(child: form),
-                      ],
+                  Padding(
+                    padding: EdgeInsets.fromLTRB(
+                      horizontalPadding,
+                      12,
+                      horizontalPadding,
+                      12,
                     ),
+                    child: progressCard,
                   ),
+                  Expanded(child: form),
                   _NavigationBar(
                     provider: provider,
                     horizontalPadding: horizontalPadding,
-                    builderIdOverride: widget.builderIdOverride,
                   ),
                 ],
               ),
             );
-          }
-
-          return SafeArea(
-            child: Column(
-              children: [
-                Padding(
-                  padding: EdgeInsets.fromLTRB(
-                    horizontalPadding,
-                    12,
-                    horizontalPadding,
-                    12,
-                  ),
-                  child: progressCard,
-                ),
-                Expanded(child: form),
-                _NavigationBar(
-                  provider: provider,
-                  horizontalPadding: horizontalPadding,
-                ),
-              ],
-            ),
-          );
-        },
-      ),
-    ).animate().fadeIn(duration: 300.ms);
+          },
+        ),
+      ).animate().fadeIn(duration: 300.ms),
+    );
   }
 }
 

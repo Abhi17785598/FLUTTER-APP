@@ -427,6 +427,15 @@ void main() {
       WidgetTester tester,
       FakeNetworkCommunicationService service,
     ) async {
+      // The sheet grew a member-search section below the auto-join toggle,
+      // so the default 800x600 test viewport is no longer tall enough for
+      // `ensureVisible` to bring the submit button on screen — same fix as
+      // `_useSmallScreen`, just sized the other way.
+      tester.view.physicalSize = const Size(800, 1000);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+
       final provider = NetworkCommunicationProvider(service: service);
       await provider.load('builder-1', isBuilder: true);
 
