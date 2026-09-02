@@ -950,14 +950,15 @@ class _PropertyDetailScreenState extends State<PropertyDetailScreen>
         ? 3
         : 2;
 
-    // Land/Plot has no bedroom/bathroom concept (mirrors the portal's
-    // `property.category === 'land'` branch in PropertyDetails.tsx, which
-    // never pushes Bed/Bath overview items for that category) — same gate
-    // already applied to the outer listing card.
-    final bool isLand = property.category == 'land';
+    // Mirrors the portal's overviewItems builder (PropertyDetails.tsx),
+    // which only ever pushes Bed/Bath items inside the
+    // `property.category === "residential"` branch — land, commercial and
+    // PG/co-living (category `pg_coliving`) never get them there.
+    final bool hidesBedsBaths =
+        property.category == 'land' || property.category == 'pg_coliving';
 
     final List<_InfoItem> items = [
-      if (!isLand) ...[
+      if (!hidesBedsBaths) ...[
         _InfoItem(Icons.bed, 'Bedrooms', '${property.beds}'),
         _InfoItem(Icons.bathtub, 'Bathrooms', '${property.baths}'),
       ],
@@ -1409,6 +1410,40 @@ class _PropertyDetailScreenState extends State<PropertyDetailScreen>
           ),
         if (str('landType') != null) _DetailRow('Land Type', str('landType')!),
         if (str('boundary') != null) _DetailRow('Boundary', str('boundary')!),
+      ]),
+      // Mirrors the portal's "PG Specific Details" group in
+      // PropertyDetails.tsx exactly — same metadata keys, same labels — so a
+      // PG listing shows the same amenities/food & services fields here that
+      // the website shows for it, instead of a different set.
+      _DetailGroup('PG Specific Details', [
+        if (str('pgSharingType') != null)
+          _DetailRow('Sharing Type', str('pgSharingType')!),
+        if (str('pgTenantType') != null)
+          _DetailRow('Tenant Type', str('pgTenantType')!),
+        if (str('pgPropertyType') != null)
+          _DetailRow('PG Property Type', str('pgPropertyType')!),
+        if (isTrue('pgFoodAvailable')) _DetailRow('Food Available', 'Yes'),
+        if (isTrue('pgWifiAvailable')) _DetailRow('WiFi Available', 'Yes'),
+        if (isTrue('pgLaundryAvailable'))
+          _DetailRow('Laundry Available', 'Yes'),
+        if (isTrue('pgAcAvailable')) _DetailRow('AC Available', 'Yes'),
+        if (isTrue('pgCleaningAvailable'))
+          _DetailRow('Cleaning Available', 'Yes'),
+        if (isTrue('pgSecurityAvailable'))
+          _DetailRow('Security Available', 'Yes'),
+        if (isTrue('pgPowerBackupAvailable'))
+          _DetailRow('Power Backup Available', 'Yes'),
+        if (isTrue('pgLiftAvailable')) _DetailRow('Lift Available', 'Yes'),
+        if (isTrue('pgParkingAvailable'))
+          _DetailRow('Parking Available', 'Yes'),
+        if (strList('pgMealTypes').isNotEmpty)
+          _DetailRow('Meal Types', strList('pgMealTypes').join(', ')),
+        if (str('pgNoticePeriod') != null)
+          _DetailRow('Notice Period', str('pgNoticePeriod')!),
+        if (str('pgLockInPeriod') != null)
+          _DetailRow('Lock-in Period', str('pgLockInPeriod')!),
+        if (str('pgVisitorPolicy') != null)
+          _DetailRow('Visitor Policy', str('pgVisitorPolicy')!),
       ]),
       _DetailGroup('Contact Preferences', [
         if (str('contactName') != null)

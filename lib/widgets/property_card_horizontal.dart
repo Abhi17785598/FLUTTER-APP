@@ -140,10 +140,14 @@ class PropertyCardHorizontal extends StatelessWidget {
                   const SizedBox(height: 8),
                   Row(
                     children: [
-                      // Land/Plot has no bedroom/bathroom concept (mirrors the
-                      // portal's `property.category === 'land'` branch in
-                      // PropertyCard.tsx) — show area alone for that category.
-                      if (property.category != 'land') ...[
+                      // Land/Plot and PG/co-living have no bedroom/bathroom
+                      // concept (mirrors the portal's PropertyCard.tsx, which
+                      // only ever renders a bed/bath badge inside its
+                      // `category === 'residential'` branch — 'land' and
+                      // 'pg_coliving' both fall through with no badge at
+                      // all) — show area alone for those categories.
+                      if (property.category != 'land' &&
+                          property.category != 'pg_coliving') ...[
                         _buildSpecIcon(Icons.bed, '${property.beds}'),
                         const SizedBox(width: 12),
                         _buildSpecIcon(Icons.bathtub, '${property.baths}'),

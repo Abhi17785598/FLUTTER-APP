@@ -268,6 +268,19 @@ class ArticleService {
     }
   }
 
+  /// Retires an article via `soft_delete_content`, mirroring
+  /// `InfluencerVideoService.softDelete`. Returns true when a row was
+  /// retired, false when it was already soft-deleted or RLS matched nothing
+  /// (e.g. the article is no longer `pending`) — the same contract as the
+  /// portal's `softDeleteContent`, so an RLS denial cannot read as success.
+  Future<bool> softDelete(String id) async {
+    final result = await _supabase.rpc(
+      'soft_delete_content',
+      params: <String, dynamic>{'p_table': 'cms_posts', 'p_id': id},
+    );
+    return result == true;
+  }
+
   /// The status columns, mirroring the web form's submit branch.
   Map<String, dynamic> _statusFields({
     required bool isAdmin,

@@ -345,6 +345,11 @@ class _RelationshipRow extends StatelessWidget {
           ),
           const SizedBox(height: 8),
           NetworkDetailRow(label: 'Role', value: relationship.roleLabel),
+          if (relationship.createdAt != null)
+            NetworkDetailRow(
+              label: 'Connected',
+              value: _formatConnectedDate(relationship.createdAt!),
+            ),
           if (_showsCommissionDetails) ...[
             if (rate != null)
               NetworkDetailRow(label: 'Commission rate', value: rate),
@@ -376,5 +381,25 @@ class _RelationshipRow extends StatelessWidget {
         ],
       ),
     );
+  }
+
+  /// Mirrors `NetworkInvitationsSection._formatDate` — no `intl` dependency,
+  /// same "Jan 5, 2026" shape the portal's `toLocaleDateString()` produces.
+  static String _formatConnectedDate(DateTime dt) {
+    const months = [
+      'Jan',
+      'Feb',
+      'Mar',
+      'Apr',
+      'May',
+      'Jun',
+      'Jul',
+      'Aug',
+      'Sep',
+      'Oct',
+      'Nov',
+      'Dec',
+    ];
+    return '${months[dt.month - 1]} ${dt.day}, ${dt.year}';
   }
 }

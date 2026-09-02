@@ -6,16 +6,21 @@ import '../../core/constants/app_constants.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_text_styles.dart';
 import '../../core/utils/profile_completion.dart';
+import '../../models/article_summary.dart';
+import '../../models/influencer_video_model.dart';
 import '../../models/property_model.dart';
 import '../../models/user_profile.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/navigation_provider.dart';
 import '../../providers/profile_provider.dart';
+import '../../services/article_service.dart';
+import '../../services/influencer_video_service.dart';
 import '../../services/property_service.dart';
 import '../../widgets/bottom_nav_bar.dart';
 import '../../widgets/more_bottom_sheet.dart';
 import '../../widgets/workspace_drawer.dart';
 import '../dashboard/builder_dashboard_screen.dart';
+import '../influencer/influencer_video_form_screen.dart';
 import '../post_property/post_property_screen.dart';
 import 'actions/visiting_card_sheet.dart';
 import 'widgets/create_content_grid.dart';
@@ -235,6 +240,136 @@ class _ProfileViewState extends State<_ProfileView> {
     }
   }
 
+  /// Opens the video edit form — same push-and-refresh flow as the Manage
+  /// Dashboard's `MyVideosSection._edit`.
+  Future<void> _editVideo(InfluencerVideoModel video) async {
+    final result = await Navigator.push<InfluencerVideoFormResult>(
+      context,
+      MaterialPageRoute(
+        builder: (_) => InfluencerVideoFormScreen(editing: video),
+      ),
+    );
+
+    if (result != null && mounted) {
+      await context.read<ProfileProvider>().refresh();
+    }
+  }
+
+  /// Deletes a video from "My Content" — same confirmation dialog and
+  /// `InfluencerVideoService.softDelete` call as
+  /// `MyVideosSection._delete`, refreshing via the provider instead of
+  /// pruning a local list.
+  Future<void> _deleteVideo(InfluencerVideoModel video) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Delete Video'),
+        content: Text(
+          'Remove "${video.title}"?\n\n'
+          'It will disappear from your profile and from Reels straight away. '
+          'Its views and likes are kept until it is purged.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(false),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(true),
+            style: TextButton.styleFrom(foregroundColor: Colors.red),
+            child: const Text('Delete'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed != true || !mounted) return;
+
+    try {
+      final removed = await InfluencerVideoService().softDelete(video.id);
+      if (!mounted) return;
+      if (!removed) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text("That video couldn't be removed."),
+            backgroundColor: Colors.red,
+          ),
+        );
+        return;
+      }
+      await context.read<ProfileProvider>().refresh();
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Video deleted.')));
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Delete failed: $e'),
+            backgroundColor: Colors.red.shade700,
+          ),
+        );
+      }
+    }
+  }
+
+  /// Deletes an article from "My Content" via `ArticleService.softDelete`,
+  /// mirroring [_deleteProperty]'s confirmation-dialog pattern.
+  Future<void> _deleteArticle(ArticleSummary article) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Delete Article'),
+        content: const Text(
+          'Are you sure you want to delete this article? '
+          'This action cannot be undone.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(false),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(true),
+            style: TextButton.styleFrom(foregroundColor: Colors.red),
+            child: const Text('Delete'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed != true || !mounted) return;
+
+    try {
+      final removed = await ArticleService().softDelete(article.id);
+      if (!mounted) return;
+      if (!removed) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text("That article couldn't be removed."),
+            backgroundColor: Colors.red,
+          ),
+        );
+        return;
+      }
+      await context.read<ProfileProvider>().refresh();
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Article deleted.')));
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Delete failed: $e'),
+            backgroundColor: Colors.red.shade700,
+          ),
+        );
+      }
+    }
+  }
+
   // ── Build ─────────────────────────────────────────────────────────────────
 
   @override
@@ -393,6 +528,11 @@ class _ProfileViewState extends State<_ProfileView> {
                         ),
                         onEditProperty: _openEditProperty,
                         onDeleteProperty: _deleteProperty,
+                        onEditVideo: _editVideo,
+                        onDeleteVideo: _deleteVideo,
+                        onEditArticle: (article) =>
+                            _openArticleEditor(article.id),
+                        onDeleteArticle: _deleteArticle,
                       ),
                     const SizedBox(height: 26),
 

@@ -43,6 +43,10 @@ class MyContentSection extends StatefulWidget {
   final VoidCallback onAddProperty;
   final void Function(PropertyModel property) onEditProperty;
   final void Function(PropertyModel property) onDeleteProperty;
+  final void Function(InfluencerVideoModel video) onEditVideo;
+  final void Function(InfluencerVideoModel video) onDeleteVideo;
+  final void Function(ArticleSummary article) onEditArticle;
+  final void Function(ArticleSummary article) onDeleteArticle;
 
   const MyContentSection({
     super.key,
@@ -59,6 +63,10 @@ class MyContentSection extends StatefulWidget {
     required this.onAddProperty,
     required this.onEditProperty,
     required this.onDeleteProperty,
+    required this.onEditVideo,
+    required this.onDeleteVideo,
+    required this.onEditArticle,
+    required this.onDeleteArticle,
   });
 
   @override
@@ -129,13 +137,20 @@ class _MyContentSectionState extends State<MyContentSection> {
           const SizedBox(height: AppConstants.spacingM),
         ],
         for (final video in videos) ...[
-          _VideoRow(video: video, onTap: () => widget.onVideoTap(video)),
+          _VideoRow(
+            video: video,
+            onTap: () => widget.onVideoTap(video),
+            onEdit: () => widget.onEditVideo(video),
+            onDelete: () => widget.onDeleteVideo(video),
+          ),
           const SizedBox(height: AppConstants.spacingM),
         ],
         for (final article in articles) ...[
           _ArticleRow(
             article: article,
             onTap: () => widget.onArticleTap(article),
+            onEdit: () => widget.onEditArticle(article),
+            onDelete: () => widget.onDeleteArticle(article),
           ),
           const SizedBox(height: AppConstants.spacingM),
         ],
@@ -217,8 +232,15 @@ class _ContentShimmer extends StatelessWidget {
 class _ArticleRow extends StatelessWidget {
   final ArticleSummary article;
   final VoidCallback onTap;
+  final VoidCallback onEdit;
+  final VoidCallback onDelete;
 
-  const _ArticleRow({required this.article, required this.onTap});
+  const _ArticleRow({
+    required this.article,
+    required this.onTap,
+    required this.onEdit,
+    required this.onDelete,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -288,6 +310,29 @@ class _ArticleRow extends StatelessWidget {
                     ],
                   ),
                 ),
+                const SizedBox(width: 8),
+                GestureDetector(
+                  onTap: onEdit,
+                  child: const Padding(
+                    padding: EdgeInsets.all(4),
+                    child: Icon(
+                      Icons.edit_outlined,
+                      color: AppColors.textSecondary,
+                      size: 20,
+                    ),
+                  ),
+                ),
+                GestureDetector(
+                  onTap: onDelete,
+                  child: const Padding(
+                    padding: EdgeInsets.all(4),
+                    child: Icon(
+                      Icons.delete_outline,
+                      color: AppColors.textSecondary,
+                      size: 20,
+                    ),
+                  ),
+                ),
               ],
             ),
           ),
@@ -303,8 +348,15 @@ class _ArticleRow extends StatelessWidget {
 class _VideoRow extends StatelessWidget {
   final InfluencerVideoModel video;
   final VoidCallback onTap;
+  final VoidCallback onEdit;
+  final VoidCallback onDelete;
 
-  const _VideoRow({required this.video, required this.onTap});
+  const _VideoRow({
+    required this.video,
+    required this.onTap,
+    required this.onEdit,
+    required this.onDelete,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -374,6 +426,29 @@ class _VideoRow extends StatelessWidget {
                         approvalStatus: video.approvalStatus,
                       ),
                     ],
+                  ),
+                ),
+                const SizedBox(width: 8),
+                GestureDetector(
+                  onTap: onEdit,
+                  child: const Padding(
+                    padding: EdgeInsets.all(4),
+                    child: Icon(
+                      Icons.edit_outlined,
+                      color: AppColors.textSecondary,
+                      size: 20,
+                    ),
+                  ),
+                ),
+                GestureDetector(
+                  onTap: onDelete,
+                  child: const Padding(
+                    padding: EdgeInsets.all(4),
+                    child: Icon(
+                      Icons.delete_outline,
+                      color: AppColors.textSecondary,
+                      size: 20,
+                    ),
                   ),
                 ),
               ],

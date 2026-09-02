@@ -323,8 +323,14 @@ class PropertyService {
     required String category,
     required String location,
   }) async {
+    // Joins the sub-tables (same as `getPropertiesByUser`) — without them
+    // `PropertyModel.fromSupabase` has no `properties_residential`/
+    // `properties_commercial` row to read bedrooms/bathrooms off, so every
+    // related card silently showed 0 beds/0 baths even for properties that
+    // have real values.
     const columns =
-        'id, title, location, price, media_urls, category, property_type, area, area_unit, status, metadata';
+        'id, title, location, price, media_urls, category, property_type, area, area_unit, status, metadata, '
+        'properties_residential(bedrooms,bathrooms), properties_commercial(washrooms)';
     final cityToken = location.split(',').first.trim().toLowerCase();
 
     final primaryRows = List<Map<String, dynamic>>.from(
