@@ -46,6 +46,11 @@ class ProfileService {
       throw Exception('No authenticated user found. Please log in again.');
     }
 
+    // A JWT cached from before an admin deleted this account can still look
+    // valid locally — the upsert below would otherwise proceed and hit
+    // profiles_user_id_fkey. Confirmed live before this identity-owned write.
+    await _authService.requireLiveUser(user.id);
+
     String? str(String key) => data[key] as String?;
     List<String>? list(String key) => data[key] as List<String>?;
 
@@ -154,6 +159,11 @@ class ProfileService {
     if (user == null) {
       throw Exception('No authenticated user found. Please log in again.');
     }
+
+    // A JWT cached from before an admin deleted this account can still look
+    // valid locally — the upsert below would otherwise proceed and hit
+    // profiles_user_id_fkey. Confirmed live before this identity-owned write.
+    await _authService.requireLiveUser(user.id);
 
     String? str(String key) => data[key] as String?;
     List<String>? list(String key) => data[key] as List<String>?;
@@ -287,6 +297,11 @@ class ProfileService {
     if (user == null) {
       throw Exception('No authenticated user found. Please log in again.');
     }
+
+    // A JWT cached from before an admin deleted this account can still look
+    // valid locally — the upsert below would otherwise proceed and hit
+    // profiles_user_id_fkey. Confirmed live before this identity-owned write.
+    await _authService.requireLiveUser(user.id);
 
     String? str(String key) => data[key] as String?;
     List<String>? list(String key) => data[key] as List<String>?;

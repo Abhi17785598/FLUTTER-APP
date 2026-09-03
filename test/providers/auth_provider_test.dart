@@ -267,6 +267,46 @@ void main() {
     },
   );
 
+  group('deleted-user liveness check (current_auth_user_is_live)', () {
+    test('cached session for a since-deleted user: liveness=false signs out '
+        'via logout() and never looks up the profile', () async {
+      final user = fakeUser('user-a');
+      authService.profilesByUserId['user-a'] = {
+        'user_type': 'individual',
+        'profile_complete': true,
+      };
+      authService.currentUserOverride = user;
+      authService.isLiveOverride = false;
+
+      authService.emit(AuthState(AuthChangeEvent.signedIn, fakeSession(user)));
+      await Future.delayed(Duration.zero);
+      await Future.delayed(Duration.zero);
+
+      expect(authService.isCurrentUserLiveCalls, ['user-a']);
+      expect(authService.profileFetchCalls, isEmpty);
+      expect(authService.logoutCallCount, 1);
+      expect(provider.isLoggedIn, isFalse);
+      expect(provider.userId, isNull);
+      expect(provider.destination, AuthDestination.signedOut);
+    });
+
+    test('a connectivity failure verifying liveness retains identity and '
+        'falls back to the retryable profileFetchFailed state', () async {
+      final user = fakeUser('user-a');
+      authService.currentUserOverride = user;
+      authService.nextIsCurrentUserLiveError = Exception('socket closed');
+
+      authService.emit(AuthState(AuthChangeEvent.signedIn, fakeSession(user)));
+      await Future.delayed(Duration.zero);
+
+      expect(authService.profileFetchCalls, isEmpty);
+      expect(authService.logoutCallCount, 0);
+      expect(provider.isLoggedIn, isTrue);
+      expect(provider.userId, 'user-a');
+      expect(provider.destination, AuthDestination.profileFetchFailed);
+    });
+  });
+
   group('resolver destinations reflected end-to-end through AuthProvider', () {
     final cases = {
       'builder': AuthDestination.needsBuilderRegistration,

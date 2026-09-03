@@ -23,6 +23,12 @@ class FakeAuthService implements AuthServiceBase {
   final List<String> signUpWithEmailCalls = [];
   Object? nextSignUpError;
 
+  // Defaults to true so existing tests that never touch liveness keep
+  // working unchanged.
+  bool isLiveOverride = true;
+  Object? nextIsCurrentUserLiveError;
+  final List<String> isCurrentUserLiveCalls = [];
+
   void emit(AuthState state) => _controller.add(state);
   void emitError(Object error) => _controller.addError(error);
   Future<void> dispose() => _controller.close();
@@ -79,6 +85,25 @@ class FakeAuthService implements AuthServiceBase {
     logoutCallCount++;
     currentUserOverride = null;
     emit(AuthState(AuthChangeEvent.signedOut, null));
+  }
+
+  @override
+  Future<bool> isCurrentUserLive(String expectedUserId) async {
+    isCurrentUserLiveCalls.add(expectedUserId);
+    final error = nextIsCurrentUserLiveError;
+    if (error != null) {
+      nextIsCurrentUserLiveError = null;
+      throw error;
+    }
+    return isLiveOverride;
+  }
+
+  @override
+  Future<void> requireLiveUser(String expectedUserId) async {
+    final isLive = await isCurrentUserLive(expectedUserId);
+    if (isLive) return;
+    await logout();
+    throw 'This account is no longer available. Please sign in again.';
   }
 
   @override

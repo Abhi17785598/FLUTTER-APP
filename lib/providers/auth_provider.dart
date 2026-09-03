@@ -487,6 +487,57 @@ class AuthProvider extends ChangeNotifier {
   }) async {
     _logFlow('resolve-start user=${_shortId(expectedUserId)} gen=$generation');
 
+    // A JWT cached from before an admin deleted this account can still look
+    // valid locally. Without this check, fetchProfile below would simply
+    // find no row and get misclassified as AuthDestination.profileMissing —
+    // routing a dead account into the registration flow instead of signing
+    // it out. Checked first, before the profile fetch, so that
+    // misclassification can never happen.
+    bool isLive;
+    try {
+      isLive = await _authService.isCurrentUserLive(expectedUserId);
+    } catch (e) {
+      // Verification itself failed to complete (network/RPC error) — this is
+      // NOT evidence the account is dead. Retain the current identity and
+      // fall back to the same retryable profileFetchFailed state a failed
+      // profile fetch already produces below, rather than signing out.
+      if (generation != _authGeneration || _expectedUserId != expectedUserId) {
+        _logFlow(
+          'resolve-end user=${_shortId(expectedUserId)} gen=$generation -> STALE '
+          '(liveness check), discarded',
+        );
+        return;
+      }
+      debugPrint('Error verifying live auth user: $e');
+      _logFlow(
+        'resolve-end user=${_shortId(expectedUserId)} -> liveness check failed '
+        '(connectivity), destination=profileFetchFailed',
+      );
+      _isResolving = false;
+      _destination = AuthDestination.profileFetchFailed;
+      notifyListeners();
+      _maybeNavigate(AuthDestination.profileFetchFailed, expectedUserId);
+      return;
+    }
+
+    if (!isLive) {
+      // Same staleness re-check as every other async gap in this method: a
+      // newer auth event may have already superseded this resolution while
+      // the liveness RPC was in flight.
+      if (generation != _authGeneration || _expectedUserId != expectedUserId) {
+        _logFlow(
+          'resolve-end user=${_shortId(expectedUserId)} gen=$generation -> STALE '
+          '(liveness check), discarded',
+        );
+        return;
+      }
+      _logFlow(
+        'resolve-end user=${_shortId(expectedUserId)} -> not live, signing out',
+      );
+      await logout();
+      return;
+    }
+
     Map<String, dynamic>? profile;
     Object? fetchError;
     try {

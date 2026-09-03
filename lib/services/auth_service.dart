@@ -47,6 +47,28 @@ abstract class AuthServiceBase {
     required String displayName,
     required String userType,
   });
+
+  /// True only when [expectedUserId] both matches the locally cached
+  /// [currentUser] AND still exists in `auth.users` per
+  /// `current_auth_user_is_live()` — a cached JWT can be well-formed and
+  /// unexpired for a user an admin already deleted, which `currentUser`
+  /// alone cannot detect.
+  ///
+  /// A temporary RPC/network failure is NOT reported as `false` — it
+  /// propagates as a thrown exception so a connectivity blip is never
+  /// mistaken for a deleted account. Callers that need "block the write on
+  /// any doubt" behaviour should use [requireLiveUser] instead of catching
+  /// this method's exceptions themselves.
+  Future<bool> isCurrentUserLive(String expectedUserId);
+
+  /// Returns normally when [expectedUserId] is live. Otherwise clears the
+  /// local session via the existing [logout] mechanism and throws
+  /// `'This account is no longer available. Please sign in again.'`.
+  ///
+  /// A temporary verification failure (network/RPC error) is never turned
+  /// into a sign-out — it propagates as-is so the caller can treat it as a
+  /// retryable failure rather than a confirmed-dead account.
+  Future<void> requireLiveUser(String expectedUserId);
 }
 
 class AuthService implements AuthServiceBase {
@@ -273,6 +295,11 @@ class AuthService implements AuthServiceBase {
     required String displayName,
     required String userType,
   }) async {
+    // A JWT cached from before an admin deleted this account can still look
+    // valid locally — the upsert below would otherwise proceed and hit
+    // profiles_user_id_fkey. Confirmed live before this identity-owned write.
+    await requireLiveUser(userId);
+
     // `upsert` rather than `update`: this can be the very first profile
     // write for a legacy user with no row yet (AuthDestination.profileMissing
     // routes here too). A plain `.update()` would silently affect zero rows
@@ -285,6 +312,27 @@ class AuthService implements AuthServiceBase {
       'user_type': userType,
       'profile_complete': false,
     }, onConflict: 'user_id');
+  }
+
+  @override
+  Future<bool> isCurrentUserLive(String expectedUserId) async {
+    final current = _supabase.auth.currentUser;
+    if (current == null || current.id != expectedUserId) return false;
+
+    // Deliberately no try/catch here: a network/RPC failure must propagate
+    // as an exception, not collapse into `false`, or a connectivity blip
+    // would be indistinguishable from a confirmed-deleted account.
+    final result = await _supabase.rpc('current_auth_user_is_live');
+    return result == true;
+  }
+
+  @override
+  Future<void> requireLiveUser(String expectedUserId) async {
+    final isLive = await isCurrentUserLive(expectedUserId);
+    if (isLive) return;
+
+    await logout();
+    throw 'This account is no longer available. Please sign in again.';
   }
 
   /// Update profile with additional fields (for profile completion)
