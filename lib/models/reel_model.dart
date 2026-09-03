@@ -75,10 +75,10 @@ class ReelModel {
   final bool isFeatured;
   final List<AmenityModel> amenities;
 
-  /// Real comment count would require a denormalized counter/trigger on
-  /// `influencer_videos` (none exists), so this stays 0 for display
-  /// purposes — comments themselves are real, backed by `post_comments`
-  /// with `post_type = 'video'`, mirroring the website's ReelView.tsx
+  /// `influencer_videos.comments` — a real denormalized counter column
+  /// (confirmed against the live schema), read by `ReelsService.getReels`'s
+  /// `select('*')`. Comments themselves are backed by `post_comments` with
+  /// `post_type = 'video'`, mirroring the website's ReelView.tsx
   /// (`postType={reel.type === 'influencer_video' ? 'video' : 'property'}`).
   final int commentCount;
 
@@ -177,7 +177,7 @@ class ReelModel {
       possessionStatus: _str(metadata['propertyCondition']),
       isFeatured: propertyViews >= 1,
       amenities: PropertyModel.parseAmenities(property?['amenities']),
-      commentCount: 0,
+      commentCount: (json['comments'] as num?)?.toInt() ?? 0,
       commentsEnabled: profile?['comments_enabled'] as bool? ?? true,
     );
   }

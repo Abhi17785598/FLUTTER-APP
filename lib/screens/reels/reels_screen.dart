@@ -363,7 +363,7 @@ class _ReelsScreenState extends State<ReelsScreen> {
         const SizedBox(height: 18),
         _buildMoreButton(reel),
         const SizedBox(height: 18),
-        _SoundDisc(onTap: _manager.toggleMute),
+        const _SoundDisc(),
       ],
     );
   }
@@ -523,9 +523,14 @@ class _ReelsScreenState extends State<ReelsScreen> {
   // ── Bottom overlay content ──────────────────────────────────────────────
   // Everything below the video's midpoint in the reference: creator row +
   // title + description + specs chips beside the action rail, then the
-  // full-width price/location/View Details bar, then the comment bar.
-  // Sits directly on the video (over `_BottomScrim`), replacing the old
-  // separate white card entirely.
+  // full-width price/location/View Details bar. Sits directly on the video
+  // (over `_BottomScrim`), replacing the old separate white card entirely.
+  //
+  // There used to also be an always-visible "Add a comment..." bar here, but
+  // it was a second entry point onto the exact same comments sheet the
+  // action rail's comment icon already opens — a duplicate "comment button"
+  // — and the portal has no such persistent composer bar either, so it was
+  // removed rather than kept as a redundant second control.
   Widget _buildBottomContent(ReelsProvider provider) {
     final reel = provider.reels[_currentIndex];
 
@@ -593,8 +598,6 @@ class _ReelsScreenState extends State<ReelsScreen> {
                 const SizedBox(height: 14),
                 _buildPriceBar(reel),
               ],
-              const SizedBox(height: 10),
-              _buildCommentBar(reel),
             ],
           ),
         ),
@@ -741,55 +744,6 @@ class _ReelsScreenState extends State<ReelsScreen> {
                 'View Details',
                 style: TextStyle(fontWeight: FontWeight.w700, fontSize: 11.5),
               ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  /// Always-visible "Add a comment..." row — mirrors the reference's
-  /// composer bar. Opens the same real comments sheet the rail's comment
-  /// icon already does (same [CommentService]-backed submit flow); this bar
-  /// is a second entry point onto that one existing flow, not a parallel one.
-  Widget _buildCommentBar(ReelModel reel) {
-    return GestureDetector(
-      behavior: HitTestBehavior.opaque,
-      onTap: () => _showComments(reel),
-      child: Row(
-        children: [
-          const CircleAvatar(
-            radius: 15,
-            backgroundColor: Colors.white24,
-            child: Icon(Icons.person, color: Colors.white, size: 16),
-          ),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Container(
-              padding: const EdgeInsets.symmetric(
-                horizontal: 14,
-                vertical: 9,
-              ),
-              decoration: BoxDecoration(
-                color: Colors.black.withOpacity(0.35),
-                borderRadius: BorderRadius.circular(20),
-              ),
-              child: Text(
-                'Add a comment...',
-                style: AppTextStyles.body.copyWith(
-                  color: Colors.white.withOpacity(0.6),
-                  fontSize: 13,
-                ),
-              ),
-            ),
-          ),
-          const SizedBox(width: 8),
-          Text(
-            'Send',
-            style: AppTextStyles.body.copyWith(
-              color: AppColors.primaryLight,
-              fontWeight: FontWeight.w700,
-              fontSize: 13,
             ),
           ),
         ],
@@ -1036,14 +990,16 @@ class _FactChip extends StatelessWidget {
   }
 }
 
-/// Decorative rotating "sound disc" at the foot of the action rail —
-/// mirrors the reference's spinning-record indicator that this reel has
-/// audio. Tapping it reuses the existing mute toggle rather than doing
-/// nothing.
+/// Decorative rotating "sound disc" at the foot of the action rail — mirrors
+/// the reference's spinning-record indicator that this reel has audio.
+///
+/// Purely decorative: it used to also reuse the mute toggle on tap, but that
+/// made a second, redundant way to mute/unmute alongside the top-right sound
+/// button (`_buildMuteButton`, which mirrors the website's actual mute
+/// control) — two controls on screen doing the same thing. Only the
+/// top-right one still toggles mute now.
 class _SoundDisc extends StatefulWidget {
-  const _SoundDisc({required this.onTap});
-
-  final VoidCallback onTap;
+  const _SoundDisc();
 
   @override
   State<_SoundDisc> createState() => _SoundDiscState();
@@ -1064,25 +1020,21 @@ class _SoundDiscState extends State<_SoundDisc>
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: widget.onTap,
-      behavior: HitTestBehavior.opaque,
-      child: RotationTransition(
-        turns: _controller,
-        child: Container(
-          width: 30,
-          height: 30,
-          decoration: BoxDecoration(
-            shape: BoxShape.circle,
-            color: Colors.black.withOpacity(0.4),
-            border: Border.all(color: Colors.white.withOpacity(0.5), width: 1.5),
-          ),
-          alignment: Alignment.center,
-          child: const Icon(
-            Icons.music_note_rounded,
-            color: Colors.white,
-            size: 15,
-          ),
+    return RotationTransition(
+      turns: _controller,
+      child: Container(
+        width: 30,
+        height: 30,
+        decoration: BoxDecoration(
+          shape: BoxShape.circle,
+          color: Colors.black.withOpacity(0.4),
+          border: Border.all(color: Colors.white.withOpacity(0.5), width: 1.5),
+        ),
+        alignment: Alignment.center,
+        child: const Icon(
+          Icons.music_note_rounded,
+          color: Colors.white,
+          size: 15,
         ),
       ),
     );
