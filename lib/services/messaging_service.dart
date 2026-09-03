@@ -678,7 +678,7 @@ class MessagingService {
 
       final conversationId = result?.toString();
       if (conversationId == null || conversationId.isEmpty) {
-        throw StateError('start_conversation returned no conversation id');
+        throw 'This user account is no longer available.';
       }
       return conversationId;
     } catch (e) {
