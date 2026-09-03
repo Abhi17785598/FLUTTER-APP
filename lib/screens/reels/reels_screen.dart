@@ -576,12 +576,33 @@ class _ReelsScreenState extends State<ReelsScreen> {
                               Shadow(color: Colors.black54, blurRadius: 6),
                             ],
                           ),
-                          maxLines: 1,
+                          // A real-estate title regularly runs longer than
+                          // one line ("3 BHK Apartment for Sale in Sector
+                          // 150, Noida..."); at maxLines: 1 those were
+                          // chopped after just a few words. Two lines gives
+                          // it room to breathe while still ellipsizing
+                          // anything longer, so the layout/height impact
+                          // stays bounded.
+                          maxLines: 2,
                           overflow: TextOverflow.ellipsis,
                         ),
-                        if (reel.description.trim().isNotEmpty) ...[
+                        if (reel.description.trim().isNotEmpty ||
+                            reel.hashtags.isNotEmpty) ...[
                           const SizedBox(height: 4),
-                          _ReelDescription(text: reel.description.trim()),
+                          // Keyed by reel id: without a key, this
+                          // StatefulWidget sits in the same overlay position
+                          // for every reel (the overlay is a single
+                          // always-mounted widget showing whichever reel is
+                          // current, not one instance per page), so Flutter
+                          // reused the same State object — and its
+                          // `_expanded` flag — across different reels when
+                          // swiping. The key forces a fresh State (starting
+                          // collapsed) whenever the underlying reel changes.
+                          _ReelDescription(
+                            key: ValueKey(reel.id),
+                            text: reel.description.trim(),
+                            hashtags: reel.hashtags,
+                          ),
                         ],
                         if (reel.hasSpecs) ...[
                           const SizedBox(height: 10),
@@ -903,13 +924,20 @@ class _BottomScrim extends StatelessWidget {
   }
 }
 
-/// Truncated description with a tappable "...more"/"less" toggle — mirrors
-/// the reference's "...more" affordance. Purely local widget state; no data
-/// beyond [ReelModel.description] is involved.
+/// Description + hashtags, collapsed to a single "View More" toggle by
+/// default — neither the description nor the hashtags show until the user
+/// taps it, matching the reference's collapsed-by-default caption. Tapping
+/// "View Less" hides both again. Purely local widget state; no data beyond
+/// [ReelModel.description]/[ReelModel.hashtags] is involved.
 class _ReelDescription extends StatefulWidget {
-  const _ReelDescription({required this.text});
+  const _ReelDescription({
+    super.key,
+    required this.text,
+    this.hashtags = const [],
+  });
 
   final String text;
+  final List<String> hashtags;
 
   @override
   State<_ReelDescription> createState() => _ReelDescriptionState();
@@ -930,27 +958,66 @@ class _ReelDescriptionState extends State<_ReelDescription> {
       height: 1.35,
       shadows: _shadow,
     );
+    final toggleStyle = style.copyWith(
+      color: Colors.white,
+      fontWeight: FontWeight.w700,
+    );
 
-    return GestureDetector(
-      behavior: HitTestBehavior.opaque,
-      onTap: () => setState(() => _expanded = !_expanded),
-      child: RichText(
-        maxLines: _expanded ? null : 2,
-        overflow: _expanded ? TextOverflow.visible : TextOverflow.ellipsis,
-        text: TextSpan(
-          style: style,
-          children: [
-            TextSpan(text: widget.text),
-            TextSpan(
-              text: _expanded ? '  less' : '  ...more',
-              style: style.copyWith(
-                color: Colors.white,
-                fontWeight: FontWeight.w700,
-              ),
-            ),
-          ],
+    void toggle() => setState(() => _expanded = !_expanded);
+
+    if (!_expanded) {
+      return GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTap: toggle,
+        child: Text('View More', style: toggleStyle),
+      );
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        if (widget.text.isNotEmpty) Text(widget.text, style: style),
+        if (widget.hashtags.isNotEmpty) ...[
+          const SizedBox(height: 4),
+          _ReelHashtags(hashtags: widget.hashtags),
+        ],
+        const SizedBox(height: 4),
+        GestureDetector(
+          behavior: HitTestBehavior.opaque,
+          onTap: toggle,
+          child: Text('View Less', style: toggleStyle),
         ),
-      ),
+      ],
+    );
+  }
+}
+
+/// Up to 3 hashtags below the description — mirrors the reference's
+/// `hashtagsArray.slice(0, 3)` row (ReelView.tsx), plain "#tag" text with no
+/// background/chip styling, matching that reference exactly rather than
+/// inventing a chip design here.
+class _ReelHashtags extends StatelessWidget {
+  const _ReelHashtags({required this.hashtags});
+
+  final List<String> hashtags;
+
+  @override
+  Widget build(BuildContext context) {
+    final style = AppTextStyles.body.copyWith(
+      color: Colors.white.withOpacity(0.8),
+      fontSize: 13,
+      fontWeight: FontWeight.w600,
+      shadows: const [Shadow(color: Colors.black54, blurRadius: 6)],
+    );
+
+    return Wrap(
+      spacing: 6,
+      runSpacing: 2,
+      children: hashtags
+          .take(3)
+          .map((String tag) => Text('#$tag', style: style))
+          .toList(),
     );
   }
 }
