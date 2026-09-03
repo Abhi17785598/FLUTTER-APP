@@ -651,7 +651,11 @@ final List<ListingRule> _mediaRules = [
     label: 'WhatsApp number',
     validate: validPhone,
   ),
-  const ListingRule(field: 'bestTimeToCall', label: 'Best time to call'),
+  ListingRule(
+    field: 'bestTimeToCall',
+    label: 'Best time to call',
+    validate: validTimeRange,
+  ),
   const ListingRule(field: 'hashtags', label: 'Hashtags'),
 ];
 

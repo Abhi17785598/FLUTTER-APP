@@ -16,7 +16,10 @@
 //
 // It is therefore registered once in `main.dart` alongside the other app-level
 // providers, and `load()` is idempotent per user id so a rebuild does not re-fetch.
+import 'dart:async';
+
 import 'package:flutter/foundation.dart';
+import 'package:flutter/services.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../models/app_notification.dart';
@@ -135,6 +138,15 @@ class NotificationProvider extends ChangeNotifier {
   void _onInserted(AppNotification notification) {
     if (_items.any((n) => n.id == notification.id)) return;
     _items = [notification, ..._items];
+    // A new notification had no alert at all — no sound, no vibration —
+    // so an in-app arrival was easy to miss. This is a real device cue,
+    // not just a badge-count bump; both calls are Flutter SDK built-ins
+    // (no new dependency, no platform config), and each is independently
+    // best-effort so one failing (e.g. vibration unsupported/disabled on
+    // this device) never blocks the other or the notification itself from
+    // landing in the list.
+    unawaited(SystemSound.play(SystemSoundType.alert).catchError((_) {}));
+    unawaited(HapticFeedback.mediumImpact().catchError((_) {}));
     _safeNotify();
   }
 

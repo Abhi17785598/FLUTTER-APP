@@ -169,18 +169,12 @@ class ReviewStep extends StatelessWidget {
             chips: enabledFeatures,
           ),
         ],
-        const SizedBox(height: 16),
-        _Section(
-          title: 'Legal & Approvals',
-          onEdit: () => context.read<PostPropertyProvider>().goToWizardStep(
-            WizardStep.legal,
-          ),
-          rows: [
-            ('RERA Registered', provider.reraRegistered ? 'Yes' : 'No'),
-            if (provider.reraRegistered)
-              ('RERA Number', _dash(provider.reraNumber)),
-          ],
-        ),
+        // No "Legal & Approvals" section here: RERA has no input anywhere in
+        // this wizard, for any category (confirmed against the portal's own
+        // LegalDetailsStep.tsx, which has no RERA field either — it's a
+        // Builder Project-only concept). Showing "RERA Registered: No" here
+        // implied a choice was made when there was never an input to make it
+        // with, for every single listing.
         const SizedBox(height: 16),
         _Section(
           title: 'Pricing & Terms',
@@ -199,7 +193,14 @@ class ReviewStep extends StatelessWidget {
             else if (isRentOrLease && category != PropertyCategory.land)
               ('Maintenance Charges', _dash(provider.maintenanceCharges)),
             ('Brokerage', _dash(provider.brokerage)),
-            ('Negotiable', provider.priceNegotiable ? 'Yes' : 'No'),
+            // Same gate as PricingStep's own checkbox (and the portal's own
+            // commented-out OtherDetails() for Commercial/Other): Land and
+            // Residential only. Showing this for every category implied a
+            // choice was made for Commercial/PG/Other listings, which have
+            // no Price Negotiable input at all.
+            if (category == PropertyCategory.land ||
+                category == PropertyCategory.residential)
+              ('Negotiable', provider.priceNegotiable ? 'Yes' : 'No'),
           ],
         ),
         const SizedBox(height: 16),

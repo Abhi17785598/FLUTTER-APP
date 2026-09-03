@@ -21,6 +21,17 @@ class ListingPattern {
   /// pattern-match beyond character set and length, so no state-specific
   /// format is enforced on purpose.
   static final RegExp rera = RegExp(r'^[A-Za-z0-9/-]{8,60}$');
+
+  /// A time range like "10 AM - 6 PM" or "9:30 am-5:45 pm" — not a React
+  /// port. The portal's own "Best Time to Call" input
+  /// (MediaAndFinalStep.tsx) is unrestricted free text; added on explicit
+  /// request so the field can't be saved with something that isn't a time
+  /// range at all.
+  static final RegExp timeRange = RegExp(
+    r'^(1[0-2]|0?[1-9])(:[0-5][0-9])?\s*(AM|PM)\s*-\s*'
+    r'(1[0-2]|0?[1-9])(:[0-5][0-9])?\s*(AM|PM)$',
+    caseSensitive: false,
+  );
 }
 
 /// Mirrors JavaScript's `Number(String)` coercion, which Dart does NOT share.
@@ -115,6 +126,11 @@ String? validRera(Object? value) =>
     ? null
     : 'RERA number must be 8-60 characters, using only letters, numbers, '
           'slashes and hyphens.';
+
+String? validTimeRange(Object? value) =>
+    ListingPattern.timeRange.hasMatch(value.toString().trim())
+    ? null
+    : 'Enter a valid time range, e.g. 10 AM - 6 PM.';
 
 String? Function(Object?) minLength(int n, String label) {
   return (Object? value) => value.toString().trim().length < n
