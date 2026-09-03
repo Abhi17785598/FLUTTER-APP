@@ -2299,19 +2299,22 @@ class _PropertyDetailScreenState extends State<PropertyDetailScreen>
       return;
     }
 
-    // Same 9-slot list `BookVisitModal.tsx:71-81` stores verbatim as
-    // `preferred_time` — not 24-hour labels, so kept exactly as the portal
-    // writes them rather than "corrected".
+    // Same 9-slot, 10 AM-6 PM visiting-hours day as `BookVisitModal.tsx:71-
+    // 81`, but suffixed with AM/PM here — the portal's own bare "01:00" etc.
+    // is ambiguous (is that 1 AM or 1 PM?), which is exactly the "no AM/PM"
+    // problem being fixed. `VisitFormValidation.isSlotDisabled` only reads
+    // the digits before the first ':', so the added suffix doesn't change
+    // its behaviour.
     const List<String> timeSlots = [
-      '10:00',
-      '11:00',
-      '12:00',
-      '01:00',
-      '02:00',
-      '03:00',
-      '04:00',
-      '05:00',
-      '06:00',
+      '10:00 AM',
+      '11:00 AM',
+      '12:00 PM',
+      '01:00 PM',
+      '02:00 PM',
+      '03:00 PM',
+      '04:00 PM',
+      '05:00 PM',
+      '06:00 PM',
     ];
 
     final TextEditingController nameController = TextEditingController(
@@ -2332,6 +2335,10 @@ class _PropertyDetailScreenState extends State<PropertyDetailScreen>
 
     DateTime? selectedDate;
     String? selectedTime;
+    // Non-null only when [selectedTime] came from the custom time picker
+    // (as opposed to one of the fixed [timeSlots] chips) — lets the "Custom"
+    // chip show/highlight the picked time and lets a fixed-slot tap clear it.
+    TimeOfDay? customTime;
     String? nameError;
     String? phoneError;
     String? dateError;
@@ -2355,6 +2362,59 @@ class _PropertyDetailScreenState extends State<PropertyDetailScreen>
               );
             }
 
+            // "11:30 AM" / "4:45 PM" — matches the format the user picks in
+            // the native time picker, distinct from the fixed slots' bare
+            // "HH:00" labels so a saved custom time is unambiguous.
+            String formatCustomTime(TimeOfDay time) {
+              final int hour12 = time.hourOfPeriod == 0
+                  ? 12
+                  : time.hourOfPeriod;
+              final String minute = time.minute.toString().padLeft(2, '0');
+              final String period = time.period == DayPeriod.am
+                  ? 'AM'
+                  : 'PM';
+              return '$hour12:$minute $period';
+            }
+
+            // `VisitFormValidation.isSlotDisabled` only understands the fixed
+            // slots' bare "HH:00" labels (its afternoon heuristic would
+            // misread an AM/PM custom string), so a custom pick gets its own
+            // straightforward past-time check instead of being run through it.
+            bool isCustomTimePast(DateTime date, TimeOfDay time) {
+              final DateTime now = DateTime.now();
+              final bool isToday =
+                  date.year == now.year &&
+                  date.month == now.month &&
+                  date.day == now.day;
+              if (!isToday) return false;
+              return (time.hour * 60 + time.minute) <=
+                  (now.hour * 60 + now.minute);
+            }
+
+            Future<void> pickCustomTime() async {
+              final TimeOfDay? picked = await showTimePicker(
+                context: ctx,
+                initialTime: customTime ?? TimeOfDay.now(),
+                // Force the 12-hour AM/PM dial regardless of the device's
+                // own 24-hour-clock setting, per the required hour/minute/
+                // AM-PM format.
+                builder: (BuildContext pickerContext, Widget? child) {
+                  return MediaQuery(
+                    data: MediaQuery.of(
+                      pickerContext,
+                    ).copyWith(alwaysUse24HourFormat: false),
+                    child: child!,
+                  );
+                },
+              );
+              if (picked == null) return;
+              setModalState(() {
+                customTime = picked;
+                selectedTime = formatCustomTime(picked);
+                timeError = null;
+              });
+            }
+
             Future<void> pickDate() async {
               final DateTime now = DateTime.now();
               final DateTime today = DateTime(now.year, now.month, now.day);
@@ -2368,7 +2428,13 @@ class _PropertyDetailScreenState extends State<PropertyDetailScreen>
                 setModalState(() {
                   selectedDate = picked;
                   dateError = null;
-                  if (selectedTime != null && isSlotDisabled(selectedTime!)) {
+                  if (customTime != null) {
+                    if (isCustomTimePast(picked, customTime!)) {
+                      selectedTime = null;
+                      customTime = null;
+                    }
+                  } else if (selectedTime != null &&
+                      isSlotDisabled(selectedTime!)) {
                     selectedTime = null;
                   }
                 });
@@ -2383,7 +2449,15 @@ class _PropertyDetailScreenState extends State<PropertyDetailScreen>
                 nameError = VisitFormValidation.nameError(name);
                 phoneError = VisitFormValidation.phoneError(phone);
                 dateError = selectedDate == null ? 'Please select date' : null;
-                timeError = selectedTime == null ? 'Please select time' : null;
+                if (selectedTime == null) {
+                  timeError = 'Please select time';
+                } else if (customTime != null &&
+                    selectedDate != null &&
+                    isCustomTimePast(selectedDate!, customTime!)) {
+                  timeError = 'Please pick a time later than now';
+                } else {
+                  timeError = null;
+                }
               });
               if (nameError != null ||
                   phoneError != null ||
@@ -2514,35 +2588,79 @@ class _PropertyDetailScreenState extends State<PropertyDetailScreen>
                     Wrap(
                       spacing: 8,
                       runSpacing: 8,
-                      children: timeSlots.map((String time) {
-                        final bool isSelected = time == selectedTime;
-                        final bool disabled = isSlotDisabled(time);
-                        return ChoiceChip(
-                          label: Text(time),
-                          selected: isSelected,
-                          selectedColor: AppColors.primary,
-                          backgroundColor: disabled
-                              ? AppColors.textHint.withOpacity(0.15)
-                              : AppColors.cardBackground,
-                          labelStyle: AppTextStyles.chip.copyWith(
-                            color: isSelected
+                      children: [
+                        ...timeSlots.map((String time) {
+                          final bool isSelected =
+                              customTime == null && time == selectedTime;
+                          final bool disabled = isSlotDisabled(time);
+                          return ChoiceChip(
+                            label: Text(time),
+                            selected: isSelected,
+                            selectedColor: AppColors.primary,
+                            backgroundColor: disabled
+                                ? AppColors.textHint.withOpacity(0.15)
+                                : AppColors.cardBackground,
+                            // The app's global ChipThemeData sets `side:
+                            // BorderSide.none`, and this chip's background
+                            // matches the sheet's own — with no outline an
+                            // unselected slot rendered as plain floating
+                            // text instead of a chip. A visible outline here
+                            // (only, not app-wide) fixes that.
+                            side: isSelected
+                                ? BorderSide.none
+                                : BorderSide(
+                                    color: AppColors.textHint.withOpacity(
+                                      0.4,
+                                    ),
+                                  ),
+                            labelStyle: AppTextStyles.chip.copyWith(
+                              color: isSelected
+                                  ? Colors.white
+                                  : (disabled
+                                        ? AppColors.textHint
+                                        : AppColors.textSecondary),
+                            ),
+                            onSelected: disabled
+                                ? null
+                                : (bool selected) {
+                                    if (selected) {
+                                      setModalState(() {
+                                        selectedTime = time;
+                                        customTime = null;
+                                        timeError = null;
+                                      });
+                                    }
+                                  },
+                          );
+                        }),
+                        // Lets the user pick any hour/minute/AM-PM combination
+                        // via the native 12-hour time picker, in addition to
+                        // (not instead of) the fixed slots above.
+                        ChoiceChip(
+                          avatar: Icon(
+                            Icons.access_time,
+                            size: 16,
+                            color: customTime != null
                                 ? Colors.white
-                                : (disabled
-                                      ? AppColors.textHint
-                                      : AppColors.textSecondary),
+                                : AppColors.textSecondary,
                           ),
-                          onSelected: disabled
-                              ? null
-                              : (bool selected) {
-                                  if (selected) {
-                                    setModalState(() {
-                                      selectedTime = time;
-                                      timeError = null;
-                                    });
-                                  }
-                                },
-                        );
-                      }).toList(),
+                          label: Text(customTime != null ? selectedTime! : 'Custom'),
+                          selected: customTime != null,
+                          selectedColor: AppColors.primary,
+                          backgroundColor: AppColors.cardBackground,
+                          side: customTime != null
+                              ? BorderSide.none
+                              : BorderSide(
+                                  color: AppColors.textHint.withOpacity(0.4),
+                                ),
+                          labelStyle: AppTextStyles.chip.copyWith(
+                            color: customTime != null
+                                ? Colors.white
+                                : AppColors.textSecondary,
+                          ),
+                          onSelected: (_) => pickCustomTime(),
+                        ),
+                      ],
                     ),
                     if (timeError != null)
                       Padding(
