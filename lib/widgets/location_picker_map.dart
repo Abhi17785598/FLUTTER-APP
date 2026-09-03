@@ -7,6 +7,8 @@
 // [GeocodingService], exactly like the portal's `performGeocode` +
 // `updateMarker`. The search bar the portal shows when `hideSearch` is false
 // is not built here, since no caller needs it.
+import 'package:flutter/foundation.dart' show Factory;
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 
@@ -85,6 +87,19 @@ class _LocationPickerMapState extends State<LocationPickerMap> {
         child: Stack(
           children: [
             GoogleMap(
+              // Both listing wizards render this inside a
+              // SingleChildScrollView, whose own vertical PanGestureRecognizer
+              // otherwise wins the gesture arena against the map's — a drag
+              // that should pan the map instead scrolls the page, and pinch
+              // zoom doesn't register either. EagerGestureRecognizer claims
+              // the gesture for the map immediately so panning/zooming work
+              // as expected; tapping to drop a pin was never affected by this
+              // (arena resolution for pans/scale, not taps).
+              gestureRecognizers: {
+                Factory<OneSequenceGestureRecognizer>(
+                  () => EagerGestureRecognizer(),
+                ),
+              },
               initialCameraPosition: CameraPosition(
                 target: center,
                 zoom: _selected != null ? 15 : 6,

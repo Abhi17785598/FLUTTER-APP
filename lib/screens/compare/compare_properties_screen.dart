@@ -1285,8 +1285,6 @@ class _ComparePropertiesScreenState extends State<ComparePropertiesScreen>
           ),
         ];
       case 'residential':
-      case 'pg_coliving':
-      default:
         return [
           _CompareRow(
             label: 'Bedrooms',
@@ -1346,6 +1344,17 @@ class _ComparePropertiesScreenState extends State<ComparePropertiesScreen>
                 p.ageOfProperty != null ? '${p.ageOfProperty} yrs' : '—',
           ),
         ];
+      // Mirrors the portal's own CompareProperties.tsx, which only ever
+      // renders category-specific detail rows for residential, commercial
+      // and land — PG/co-living and Other get no extra section there at
+      // all. This used to fall through to the residential case above, so
+      // an Other/PG listing (which has no properties_residential row, and
+      // therefore PropertyModel.beds/baths hardcoded at 0 — see
+      // property_model.dart's `fromSupabase`) showed "Bedrooms: 0 BHK" and
+      // "Bathrooms: 0" here.
+      case 'pg_coliving':
+      default:
+        return const [];
     }
   }
 

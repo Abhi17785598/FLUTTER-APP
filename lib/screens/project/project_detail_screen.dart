@@ -30,6 +30,7 @@ import 'package:url_launcher/url_launcher.dart';
 import '../../core/constants/app_constants.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_text_styles.dart';
+import '../feed/feed_video_player_screen.dart';
 import '../../core/widgets/empty_state_view.dart';
 import '../../models/project_model.dart';
 import '../../models/user_profile.dart';
@@ -287,8 +288,14 @@ class _ProjectDetailScreenState extends State<ProjectDetailScreen> {
                     const SizedBox(height: 10),
                     _VideoLinks(
                       urls: project.videosUrls,
-                      onOpen: (url) =>
-                          _openLink(url, 'Could not open that video.'),
+                      onOpen: (url) => Navigator.of(context).push(
+                        MaterialPageRoute(
+                          builder: (_) => FeedVideoPlayerScreen(
+                            videoUrl: url,
+                            title: project.title,
+                          ),
+                        ),
+                      ),
                     ),
                   ],
                   const SizedBox(height: AppConstants.spacingXL),
@@ -800,11 +807,17 @@ class _LayoutStrip extends StatelessWidget {
   }
 }
 
-/// Videos open externally.
+/// Each row opens its video in [FeedVideoPlayerScreen] — a dedicated
+/// full-screen player, not inline on this page.
 ///
-/// The project gallery already carries the images; embedding a player per video
-/// here would mean several controllers on one scrolling page. `url_launcher`
-/// hands each to the device's own player.
+/// The project gallery already carries the images; embedding a player per
+/// video directly in this scrolling page would mean several live controllers
+/// at once. Uploaded project videos are project-media-service assets
+/// (`project-videos/...`, always a direct playable file — never a YouTube
+/// page link), the same shape [FeedVideoPlayerScreen] already plays for Feed,
+/// so reusing it here needs no new player logic. Previously these opened via
+/// `url_launcher`'s `LaunchMode.externalApplication`, which handed the URL to
+/// the device's default browser (Chrome) instead of playing it in the app.
 class _VideoLinks extends StatelessWidget {
   const _VideoLinks({required this.urls, required this.onOpen});
 
