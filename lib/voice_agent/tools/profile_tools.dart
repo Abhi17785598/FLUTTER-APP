@@ -19,12 +19,6 @@ void registerProfileTools() {
   _registerLogout();
 }
 
-const Map<String, String> _manageDashboardByType = {
-  'builder': '/dashboard/builder',
-  'broker': '/dashboard/broker',
-  'influencer': '/dashboard/influencer',
-};
-
 // ─── view_my_profile ──────────────────────────────────────────────────────────
 
 void _registerViewMyProfile() {
@@ -75,9 +69,14 @@ void _registerOpenMyDashboard() {
   toolRegistry.register(
     ToolDefinition(
       name: 'open_my_dashboard',
-      description: 'Open the user\'s profile / dashboard screen.',
+      description: 'Open the user\'s dashboard screen.',
       execute: (params, ctx) async {
-        ctx.navigate('/profile');
+        // AppConstants.manageDashboardScreen: the thin ManageDashboardDispatcher
+        // that resolves to the correct role screen (builder/broker/influencer/
+        // individual/team_member) in one place — the same route the Workspace
+        // Drawer, More sheet and Profile screen all push. Was '/profile' — a
+        // stale fallback from before this dispatcher existed.
+        ctx.navigate('/manage-dashboard');
         return ToolResult.ok();
       },
     ),
@@ -92,8 +91,11 @@ void _registerOpenManageDashboard() {
       name: 'open_manage_dashboard',
       description: 'Open the role-specific management dashboard.',
       execute: (params, ctx) async {
-        final route = _manageDashboardByType[ctx.userType] ?? '/profile';
-        ctx.navigate(route);
+        // ManageDashboardDispatcher already performs this exact role switch
+        // (and additionally covers 'individual' and 'team_member', which the
+        // old hardcoded builder/broker/influencer map here did not), so route
+        // there instead of duplicating an incomplete copy of its logic.
+        ctx.navigate('/manage-dashboard');
         return ToolResult.ok();
       },
     ),
@@ -124,12 +126,11 @@ void _registerShowMyNetwork() {
       name: 'show_my_network',
       description: 'Navigate to the network / connections screen.',
       execute: (params, ctx) async {
-        // No separate network screen in Flutter Phase 1 — fallback to profile.
-        ctx.navigate('/profile');
-        return ToolResult.ok(
-          userMessage:
-              'Opening your profile — network details are shown there.',
-        );
+        // AppConstants.myNetworksScreen (MyNetworksScreen) — "View and manage
+        // your network connections", added in Phase 9. Was '/profile' from
+        // before this screen existed.
+        ctx.navigate('/network/memberships');
+        return ToolResult.ok();
       },
     ),
   );
@@ -147,8 +148,9 @@ void _registerOpenChat() {
         if (withUser != null) {
           IntentStash.set('va_open_chat_with', withUser);
         }
-        // Fallback to profile if dedicated chat screen not yet wired.
-        ctx.navigate('/profile');
+        // AppConstants.messagesScreen (MessagesListScreen) — the dedicated
+        // chat/messages screen. Was '/profile' from before it was wired.
+        ctx.navigate('/messages');
         return ToolResult.ok(
           userMessage: withUser != null
               ? 'Opening chat with $withUser.'
@@ -280,9 +282,14 @@ void _registerOpenDashboardAction() {
             ctx.navigate('/post-property');
             return ToolResult.ok();
           case 'settings':
+            // Settings has no route of its own — `showSettingsSheet()`
+            // (screens/profile/actions/settings_sheet.dart) is a modal bottom
+            // sheet that needs a BuildContext, and ToolContext.navigate only
+            // supports pushNamed(route). Land on Profile, where the real
+            // Settings entry point lives, rather than inventing a route.
             ctx.navigate('/profile');
             return ToolResult.ok(
-              userMessage: 'Opening settings on your profile.',
+              userMessage: 'Opening your profile — tap Settings from there.',
             );
           default:
             ctx.navigate('/profile');

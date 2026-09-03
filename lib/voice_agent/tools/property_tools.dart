@@ -1,6 +1,7 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../models/tool_result.dart';
 import '../services/intent_stash.dart';
+import 'permissions.dart';
 import 'registry.dart';
 
 void registerPropertyTools() {
@@ -32,58 +33,45 @@ void _registerCreateListing() {
           );
         }
 
+        // Property listings are for broker/influencer/individual — builders
+        // list projects. Mirrors the website's create_listing guard
+        // (listingTools.ts) so a builder gets the same friendly denial
+        // instead of an RLS failure deep inside the wizard.
+        if (!canCreate(CreatableContent.property, ctx.userType)) {
+          return ToolResult.fail(
+            'Builder accounts cannot create property listings.',
+            userMessage: createDeniedMessage(CreatableContent.property),
+          );
+        }
+
         // Build title if not provided by model.
         final title = params['title'] as String? ?? _buildListingTitle(params);
 
-        final payload = {
-          'user_id': ctx.userId,
-          'title': title,
-          'category': params['category'],
-          'deal': params['deal'],
-          'subtype': params['subtype'],
-          'bedrooms': params['bedrooms'],
-          'area': params['area'],
-          'area_unit': params['area_unit'] ?? 'sqft',
-          'city': params['city'] ?? ctx.profileCity,
-          'locality': params['locality'],
-          'price': params['price'],
-          'bathrooms': params['bathrooms'],
-          'furnishing': params['furnishing'],
-          'amenities': params['amenities'],
-          'is_negotiable': params['is_negotiable'] ?? false,
-          'available_from': params['available_from'],
-          'description': params['description'],
-          // Match website's payload shape exactly.
-          'status': 'inactive',
-          'approval_status': 'pending',
-        }..removeWhere((_, v) => v == null);
+        // Voice NEVER writes the listing directly. It used to insert its own
+        // `properties` row here using column names that don't exist on the
+        // table (deal, subtype, bedrooms, bathrooms, city, locality,
+        // furnishing — the real columns are property_type, residential_subtype,
+        // a single `location` field, and bedrooms/bathrooms/furnished live on
+        // the properties_residential sub-table) and omitted columns the schema
+        // requires (location, property_type), so the insert always threw a
+        // PostgrestException — surfaced to the user as "Could not create the
+        // listing. Please try again." — before a single photo could ever be
+        // uploaded.
+        //
+        // Matching the web portal's create_listing (listingTools.ts): stash the
+        // collected slots and hand off to the SAME wizard the manual "Post
+        // Property" flow already uses. PostPropertyProvider + PropertyService
+        // (property_service.dart) already upload photos to the `property-media`
+        // bucket and insert the row correctly — reusing that proven path avoids
+        // maintaining a second, drifting implementation here.
+        IntentStash.set('va_listing_draft', {...params, 'title': title});
+        ctx.navigate('/post-property');
 
-        try {
-          final result = await _supabase
-              .from('properties')
-              .insert(payload)
-              .select('id, title')
-              .single();
-
-          final id = result['id'] as String;
-
-          // Store draft reference in IntentStash for follow-up commands.
-          IntentStash.set('va_listing_draft', {'id': id, 'title': title});
-
-          // Deep-link to the media upload step.
-          ctx.navigate('/post-property?listingId=$id&step=media');
-
-          return ToolResult.ok(
-            data: result,
-            userMessage:
-                'Listing created! Opening the photo uploader so you can add images.',
-          );
-        } on PostgrestException catch (e) {
-          return ToolResult.fail(
-            e.message,
-            userMessage: 'Could not create the listing. Please try again.',
-          );
-        }
+        return ToolResult.ok(
+          data: {'title': title},
+          userMessage:
+              'Got it — "$title" is ready. Opening the listing form so you can review it and add photos.',
+        );
       },
     ),
   );
@@ -418,10 +406,19 @@ void _registerAddImages() {
       name: 'add_images',
       description: 'Add images to a listing.',
       execute: (params, ctx) async {
+        // `onGenerateRoute` (app.dart) matches route names verbatim and never
+        // parses a query string, so a route like '/post-property?search=...'
+        // never hit the '/post-property' case — it silently fell through to
+        // the default (Home) route. Navigate to the plain, real route instead;
+        // the user picks the listing to edit from there, same as the manual
+        // "My Listings" flow.
         final listingSearch = params['listing_search'] as String? ?? '';
-        ctx.navigate('/post-property?search=$listingSearch&step=media');
+        if (listingSearch.isNotEmpty) {
+          IntentStash.set('va_listing_search', listingSearch);
+        }
+        ctx.navigate('/post-property');
         return ToolResult.ok(
-          userMessage: 'Opening the photo uploader for your listing.',
+          userMessage: 'Opening the listing form so you can add photos.',
         );
       },
     ),

@@ -238,11 +238,19 @@ with a one-line reason in "response":
 Extended navigation for signed-in users:
 "my listings" / "properties"  → /post-property (via my_properties_summary intent)
 "create listing" / "add property" / "post property" → /post-property
-"dashboard" / "my dashboard" → /profile (Flutter profile/dashboard screen)
+"list a property" / "listing form" → /post-property
+"dashboard" / "my dashboard" / "manage dashboard" → /manage-dashboard (resolves to your role dashboard)
 "notifications"               → /notifications
 "profile" / "my profile"      → /profile
 "shortlist" / "saved"         → /shortlist
 "visits" / "my visits"        → /visits
+"feed" / "my feed"            → /feed
+"messages" / "chat"           → /messages (via open_chat intent)
+"my network" / "connections"  → /network/memberships (via show_my_network intent)
+"articles" / "my articles"    → /profile (My Content section — no dedicated Articles hub yet)
+"settings" / "account settings" → open_dashboard_action with action "settings"
+"CRM" / "leads"                → /network/leads
+"analytics" / "reports"        → /manage-dashboard
 
 --- MY PROPERTIES ---
 Intent: my_properties_summary
@@ -349,13 +357,12 @@ Triggered by: "my visits", "upcoming visits dikhao"
 Intent: open_my_dashboard
 Parameters: {}
 Triggered by: "dashboard", "my dashboard", "mera dashboard", "dashboard kholo".
-Routes to /profile (Flutter's unified profile/dashboard screen).
+Routes to /manage-dashboard (resolves to the caller's own role dashboard).
 
 Intent: open_manage_dashboard
 Parameters: {}
 Triggered by: "manage dashboard", "work dashboard", "management dashboard".
-Routing (by user_type): builder → /dashboard/builder; broker → /dashboard/broker;
-influencer → /dashboard/influencer; else → /profile.
+Opens /manage-dashboard, which resolves to the correct role dashboard itself.
 NOTE: use open_manage_dashboard ONLY when the user explicitly says "manage" or "work" dashboard.
 
 Intent: post_content
@@ -404,7 +411,7 @@ USER CONTEXT (injected at runtime — use to personalise)
 Personalisation rules:
 - Address the user by display_name on the first turn of a session (if known).
 - Pre-fill profile_city into create_listing when city is not given.
-- Route plain "dashboard" / "my dashboard" to open_my_dashboard (/profile).
+- Route plain "dashboard" / "my dashboard" to open_my_dashboard (/manage-dashboard).
 - Only use open_manage_dashboard when the user explicitly says "manage" or "work" dashboard.
 """;
 }

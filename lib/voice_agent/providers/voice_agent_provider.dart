@@ -10,6 +10,7 @@ import '../models/intent.dart';
 import '../models/tool_context.dart';
 import '../models/workflow_state.dart';
 import '../prompt/system_prompt.dart';
+import '../services/conversation_history_service.dart';
 import '../services/conversation_manager.dart';
 import '../services/intent_stash.dart';
 import '../services/speech_service.dart';
@@ -26,6 +27,7 @@ class _VoiceAgentState {
   final AgentResponse? lastResponse;
   final WorkflowState workflowState;
   final bool isTtsEnabled;
+  final bool isHistoryBusy;
 
   const _VoiceAgentState({
     required this.agentState,
@@ -35,6 +37,7 @@ class _VoiceAgentState {
     required this.lastResponse,
     required this.workflowState,
     required this.isTtsEnabled,
+    required this.isHistoryBusy,
   });
 
   factory _VoiceAgentState.initial() => const _VoiceAgentState(
@@ -45,6 +48,7 @@ class _VoiceAgentState {
     lastResponse: null,
     workflowState: initialWorkflowState,
     isTtsEnabled: false,
+    isHistoryBusy: false,
   );
 
   _VoiceAgentState copyWith({
@@ -56,6 +60,7 @@ class _VoiceAgentState {
     WorkflowState? workflowState,
     bool clearLastResponse = false,
     bool? isTtsEnabled,
+    bool? isHistoryBusy,
   }) {
     return _VoiceAgentState(
       agentState: agentState ?? this.agentState,
@@ -67,6 +72,7 @@ class _VoiceAgentState {
           : (lastResponse ?? this.lastResponse),
       workflowState: workflowState ?? this.workflowState,
       isTtsEnabled: isTtsEnabled ?? this.isTtsEnabled,
+      isHistoryBusy: isHistoryBusy ?? this.isHistoryBusy,
     );
   }
 }
@@ -98,10 +104,20 @@ class VoiceAgentProvider extends ChangeNotifier {
   bool get isListening => _state.agentState == VoiceAgentStateEnum.listening;
   bool get isSpeaking => _state.agentState == VoiceAgentStateEnum.speaking;
   bool get isTtsEnabled => _state.isTtsEnabled;
+  /// True while restore/clear (DB) history is in flight.
+  bool get isHistoryBusy => _state.isHistoryBusy;
 
   void toggleTts() {
     final newValue = !_state.isTtsEnabled;
     speechService.setTtsEnabled(newValue);
+    if (!newValue) {
+      // Muting must stop any speech that's already playing, not just prevent
+      // future utterances — setTtsEnabled() alone only gates the *next* speak().
+      speechService.cancelSpeech();
+      if (_state.agentState == VoiceAgentStateEnum.speaking) {
+        _state = _state.copyWith(agentState: VoiceAgentStateEnum.idle);
+      }
+    }
     _state = _state.copyWith(isTtsEnabled: newValue);
     notifyListeners();
   }
@@ -142,8 +158,8 @@ class VoiceAgentProvider extends ChangeNotifier {
     notifyListeners();
 
     // 1. Add user turn.
-    conversationManager.addTurn(role: 'user', text: userText);
-    // Phase 3: saveTurn(_auth.userId, userTurn) here — store return value then.
+    final userTurn = conversationManager.addTurn(role: 'user', text: userText);
+    conversationHistoryService.saveTurn(_auth.userId, userTurn); // best-effort DB persist
     _state = _state.copyWith(
       conversation: List.of(conversationManager.getHistory()),
     );
@@ -174,11 +190,12 @@ class VoiceAgentProvider extends ChangeNotifier {
         knowledgeContext: knowledgeContext,
       );
     } catch (e) {
-      conversationManager.addTurn(
+      final errorTurn = conversationManager.addTurn(
         role: 'assistant',
         text: '⚠️ ${e.toString()}',
         intent: Intent.unknown,
       );
+      conversationHistoryService.saveTurn(_auth.userId, errorTurn); // best-effort DB persist
       _state = _state.copyWith(
         conversation: List.of(conversationManager.getHistory()),
         agentState: VoiceAgentStateEnum.error,
@@ -268,7 +285,7 @@ class VoiceAgentProvider extends ChangeNotifier {
     _updateWorkflow(response, ws);
 
     // 9. Add assistant turn with raw JSON for multi-turn context.
-    conversationManager.addTurn(
+    final assistantTurn = conversationManager.addTurn(
       role: 'assistant',
       text: spokenText,
       rawJsonText: response.toJson(),
@@ -276,7 +293,7 @@ class VoiceAgentProvider extends ChangeNotifier {
       toolExecuted: shouldExec ? resolvedIntent.name : null,
       toolSuccess: shouldExec ? !toolFailed : null,
     );
-    // Phase 3: saveTurn(_auth.userId, assistantTurn) here — store return value then.
+    conversationHistoryService.saveTurn(_auth.userId, assistantTurn); // best-effort DB persist
     _state = _state.copyWith(
       conversation: List.of(conversationManager.getHistory()),
       agentState: _state.isTtsEnabled
@@ -423,12 +440,67 @@ class VoiceAgentProvider extends ChangeNotifier {
     notifyListeners();
   }
 
+  // ─── History persistence (authenticated only) ──────────────────────────────
+  // Mirrors the web portal's restoreHistory()/clearHistory() in
+  // VoiceAgentContext.tsx — reuses the same `ai_voice_conversations` table.
+
+  /// Reload the signed-in user's saved chat history from the database and
+  /// replace the active conversation with it. Returns the number of restored
+  /// messages so the caller can surface it (e.g. via a SnackBar), or null if
+  /// the user isn't signed in.
+  Future<int?> restoreHistory() async {
+    final userId = _auth.userId;
+    if (!_auth.isLoggedIn || userId == null) return null;
+
+    _state = _state.copyWith(isHistoryBusy: true);
+    notifyListeners();
+    try {
+      final stored = await conversationHistoryService.loadRecentTurns(
+        userId,
+        limit: 20,
+      );
+      final turns = stored.map(storedTurnToConversationTurn).toList();
+      conversationManager.replaceAll(turns);
+      _state = _state.copyWith(
+        conversation: List.of(conversationManager.getHistory()),
+      );
+      return turns.length;
+    } finally {
+      _state = _state.copyWith(isHistoryBusy: false);
+      notifyListeners();
+    }
+  }
+
+  /// Delete the signed-in user's saved chat history (local + database).
+  Future<void> clearHistory() async {
+    _state = _state.copyWith(isHistoryBusy: true);
+    notifyListeners();
+    try {
+      conversationManager.clear();
+      conversationHistoryService.resetSessionId();
+      _state = _state.copyWith(
+        conversation: [],
+        workflowState: initialWorkflowState,
+      );
+      final userId = _auth.userId;
+      if (_auth.isLoggedIn && userId != null) {
+        await conversationHistoryService.clearStoredHistory(userId);
+      }
+    } finally {
+      _state = _state.copyWith(isHistoryBusy: false);
+      notifyListeners();
+    }
+  }
+
   // ─── Auth change handler ───────────────────────────────────────────────────
 
   void _onAuthChanged() {
     // Clear conversation and stash on any auth state change (sign in / sign out).
     conversationManager.clear();
     IntentStash.clear();
+    // Start a fresh DB conversation session so one user's context can never
+    // leak into another session (matches the portal's resetSessionId()).
+    conversationHistoryService.resetSessionId();
     _state = _state.copyWith(
       conversation: [],
       workflowState: initialWorkflowState,

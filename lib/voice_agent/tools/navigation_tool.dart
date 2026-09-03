@@ -53,25 +53,17 @@ String _resolveVirtualAlias(String lower, String? userRole, String? userType) {
   if (lower == 'dashboard' ||
       lower == 'my dashboard' ||
       lower == 'mera dashboard' ||
-      lower == 'profile dashboard') {
-    // In Flutter, "dashboard" resolves to the profile screen or role dashboard.
-    return switch (userType) {
-      'builder' => '/dashboard/builder',
-      'broker' => '/dashboard/broker',
-      'influencer' => '/dashboard/influencer',
-      _ => '/profile',
-    };
-  }
-
-  if (lower == 'manage dashboard' ||
+      lower == 'profile dashboard' ||
+      lower == 'manage dashboard' ||
       lower == 'work dashboard' ||
       lower == 'management dashboard') {
-    return switch (userType) {
-      'builder' => '/dashboard/builder',
-      'broker' => '/dashboard/broker',
-      'influencer' => '/dashboard/influencer',
-      _ => '/profile',
-    };
+    // AppConstants.manageDashboardScreen — ManageDashboardDispatcher resolves
+    // this to the correct role screen itself (builder/broker/influencer/
+    // individual/team_member), so route there directly instead of
+    // duplicating (and, for 'individual', dropping) that switch here. Was a
+    // hardcoded builder/broker/influencer-only map that fell back to
+    // '/profile' for every other account type.
+    return '/manage-dashboard';
   }
 
   if (lower == 'home' || lower == 'homepage' || lower == 'ghar') {
@@ -80,6 +72,18 @@ String _resolveVirtualAlias(String lower, String? userRole, String? userType) {
 
   if (lower == 'login' || lower == 'sign in' || lower == 'signin') {
     return '/auth';
+  }
+
+  if (lower == 'settings' ||
+      lower == 'open settings' ||
+      lower == 'account settings' ||
+      lower == 'settings kholo') {
+    // Settings has no route of its own — it's a modal bottom sheet
+    // (showSettingsSheet in screens/profile/actions/settings_sheet.dart) that
+    // needs a BuildContext, and ToolContext.navigate only supports
+    // pushNamed(route). Land on Profile, where the real Settings entry point
+    // lives, rather than falling through to Home.
+    return '/profile';
   }
 
   // Phase 2: admin aliases go here.
@@ -110,6 +114,13 @@ const Map<String, String> _knownPaths = {
   '/dashboard/broker': '/dashboard/broker',
   '/dashboard/builder': '/dashboard/builder',
   '/dashboard/influencer': '/dashboard/influencer',
+  // Added — already registered in app.dart via AppConstants, but missing here.
+  '/feed': '/feed',
+  '/messages': '/messages',
+  '/manage-dashboard': '/manage-dashboard',
+  '/network': '/network',
+  '/network/memberships': '/network/memberships',
+  '/network/leads': '/network/leads',
 };
 
 // Step 3 — dynamic path families

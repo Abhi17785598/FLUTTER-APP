@@ -115,9 +115,19 @@ const List<RouteEntry> _routes = [
     title: 'Profile',
     tier: 'authenticated',
     section: 'account',
-    description: 'User profile and dashboard',
-    concepts: ['profile', 'my profile', 'account', 'dashboard', 'my dashboard'],
-    keywords: ['profile', 'account', 'dashboard', 'mera', 'my'],
+    // "dashboard" / "my dashboard" concepts deliberately removed — that
+    // concept now belongs to '/manage-dashboard' (ManageDashboardDispatcher)
+    // below. Leaving both entries claim "dashboard" would tie the fuzzy
+    // matcher and silently fall back to whichever entry happens to be
+    // earlier in this list.
+    //
+    // "articles" / "my articles" added: there is no dedicated Articles hub
+    // screen in this app yet — a user's own articles are shown inside the
+    // Profile screen's "My Content" section (see profile_screen.dart), so
+    // that is the closest existing destination for an "open articles" command.
+    description: 'User profile — includes "My Content" (listings, articles, videos)',
+    concepts: ['profile', 'my profile', 'account', 'articles', 'my articles'],
+    keywords: ['profile', 'account', 'mera', 'my', 'article', 'blog'],
   ),
   RouteEntry(
     path: '/post-property',
@@ -125,12 +135,21 @@ const List<RouteEntry> _routes = [
     tier: 'authenticated',
     section: 'listings',
     description: 'Create a new property listing',
+    // "list a property" / "i want to list a property" added: without a
+    // concept containing the exact phrase "list a property", this route tied
+    // with /shortlist at the same keyword score (both keyword sets contain a
+    // substring of "list" — "listing" here, "wishlist"/"shortlist" there) and
+    // the fuzzy matcher's first-entry-wins tiebreak sent "I want to list a
+    // property" to /shortlist instead of the actual listing form.
     concepts: [
       'post property',
       'create listing',
       'add property',
       'new listing',
       'list property',
+      'list a property',
+      'list my property',
+      'listing form',
     ],
     keywords: [
       'post',
@@ -213,8 +232,34 @@ const List<RouteEntry> _routes = [
     tier: 'authenticated',
     section: 'account',
     description: 'Notifications and alerts',
-    concepts: ['notifications', 'alerts', 'messages', 'updates'],
-    keywords: ['notification', 'alert', 'message', 'update', 'suchna'],
+    concepts: ['notifications', 'alerts', 'updates'],
+    keywords: ['notification', 'alert', 'update', 'suchna'],
+  ),
+  // Added — the app already has a dedicated Feed screen (FeedScreen at
+  // AppConstants.feedScreen), but the voice agent's route index never
+  // learned about it, so "open my feed" fell through to Home.
+  RouteEntry(
+    path: '/feed',
+    title: 'Feed',
+    tier: 'authenticated',
+    section: 'social',
+    description:
+        'Your social feed — properties, projects and videos merged',
+    concepts: ['feed', 'my feed', 'social feed', 'home feed', 'timeline'],
+    keywords: ['feed', 'timeline', 'posts', 'updates', 'social'],
+  ),
+  // Added — MessagesListScreen at AppConstants.messagesScreen already exists
+  // and is registered in app.dart, but had no route-index entry, so
+  // "messages" natural-language queries fell through to /notifications (the
+  // notifications entry's now-removed "message" keyword collided with it).
+  RouteEntry(
+    path: '/messages',
+    title: 'Messages',
+    tier: 'authenticated',
+    section: 'account',
+    description: 'Direct messages and conversations',
+    concepts: ['messages', 'chat', 'my messages', 'inbox', 'conversations'],
+    keywords: ['message', 'chat', 'inbox', 'conversation', 'dm', 'baat'],
   ),
   RouteEntry(
     path: '/visits',
@@ -286,6 +331,79 @@ const List<RouteEntry> _routes = [
       'content dashboard',
     ],
     keywords: ['influencer', 'dashboard', 'content', 'reel', 'video'],
+  ),
+
+  // ── Added — Phase 9 / dashboard-redesign routes that already exist in
+  // app_constants.dart + app.dart but were never taught to the voice agent ──
+  RouteEntry(
+    path: '/manage-dashboard',
+    title: 'My Dashboard',
+    tier: 'authenticated',
+    section: 'dashboard',
+    // ManageDashboardDispatcher — resolves to the caller's own role dashboard
+    // (builder/broker/influencer/individual/team_member) in one place. Most
+    // of those dashboards default-open on their Analytics tab (Broker,
+    // Individual, Influencer all do; Builder opens on Overview), so this
+    // also doubles as the best available destination for a bare "analytics"
+    // request — mirroring the portal's own fallback, where a non-admin's
+    // "analytics"/"reports" concept resolves to their generic dashboard too.
+    description:
+        'Your dashboard — resolves to the correct dashboard for your account type',
+    concepts: [
+      'dashboard',
+      'my dashboard',
+      'manage dashboard',
+      'work dashboard',
+      'management dashboard',
+      'analytics',
+      'reports',
+    ],
+    keywords: ['dashboard', 'manage', 'analytics', 'reports', 'overview'],
+  ),
+  RouteEntry(
+    path: '/network/memberships',
+    title: 'My Networks',
+    tier: 'authenticated',
+    section: 'network',
+    description: 'View and manage your network connections and memberships',
+    concepts: [
+      'my network',
+      'my networks',
+      'my connections',
+      'network memberships',
+      'connections',
+    ],
+    keywords: ['network', 'connections', 'memberships', 'members'],
+  ),
+  RouteEntry(
+    path: '/network',
+    title: 'Network Hub',
+    tier: 'authenticated',
+    section: 'network',
+    description: 'Network hub — memberships, leads and referrals',
+    concepts: ['network', 'network hub', 'networks'],
+    keywords: ['network', 'hub', 'referrals'],
+  ),
+  // "CRM Leads" — this app has no admin-tier CRM console yet; the closest
+  // standalone, always-reachable leads pipeline (assign/track leads with
+  // status) is Network ▸ My Leads. (A role-scoped "Leads" tab also exists
+  // inside the Broker/Builder dashboards, but it isn't independently
+  // routable — see the voice agent report for details.)
+  RouteEntry(
+    path: '/network/leads',
+    title: 'My Leads',
+    tier: 'authenticated',
+    section: 'network',
+    description: 'Distribute and track leads shared through your network',
+    concepts: [
+      'crm',
+      'crm leads',
+      'leads',
+      'my leads',
+      'lead pipeline',
+      'enquiries',
+    ],
+    keywords: ['crm', 'leads', 'enquiries', 'pipeline'],
   ),
 ];
 

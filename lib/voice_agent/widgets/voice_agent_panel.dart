@@ -28,6 +28,55 @@ class _VoiceAgentPanelState extends State<VoiceAgentPanel> {
     provider.processText(text, context);
   }
 
+  Future<void> _confirmClearConversation(
+    BuildContext context,
+    VoiceAgentProvider provider,
+  ) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Delete Chat?'),
+        content: const Text('Are you sure you want to delete this chat?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(false),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(true),
+            style: TextButton.styleFrom(foregroundColor: AppColors.error),
+            child: const Text('Delete'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed == true) {
+      await provider.clearHistory();
+    }
+  }
+
+  Future<void> _restoreHistory(
+    BuildContext context,
+    VoiceAgentProvider provider,
+  ) async {
+    final messenger = ScaffoldMessenger.maybeOf(context);
+    final count = await provider.restoreHistory();
+    if (!context.mounted) return;
+    if (count == null) {
+      messenger?.showSnackBar(
+        const SnackBar(content: Text('Sign in to restore your chat history.')),
+      );
+      return;
+    }
+    messenger?.showSnackBar(
+      SnackBar(
+        content: Text(
+          count > 0 ? 'Restored $count messages.' : 'No saved history found.',
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Consumer<VoiceAgentProvider>(
@@ -88,10 +137,30 @@ class _VoiceAgentPanelState extends State<VoiceAgentPanel> {
                                 ?.copyWith(fontWeight: FontWeight.w600),
                           ),
                           const Spacer(),
+                          if (provider.canPersistHistory) ...[
+                            IconButton(
+                              icon: provider.isHistoryBusy
+                                  ? const SizedBox(
+                                      width: 18,
+                                      height: 18,
+                                      child: CircularProgressIndicator(
+                                        strokeWidth: 2,
+                                      ),
+                                    )
+                                  : const Icon(Icons.history, size: 20),
+                              tooltip: 'Restore saved chat history',
+                              onPressed: provider.isHistoryBusy
+                                  ? null
+                                  : () => _restoreHistory(context, provider),
+                            ),
+                          ],
                           IconButton(
                             icon: const Icon(Icons.delete_outline, size: 20),
                             tooltip: 'Clear conversation',
-                            onPressed: provider.clearConversation,
+                            onPressed: provider.isHistoryBusy
+                                ? null
+                                : () =>
+                                    _confirmClearConversation(context, provider),
                           ),
                           IconButton(
                             icon: Icon(
