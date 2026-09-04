@@ -46,31 +46,47 @@ class _FeedVideoPlayerScreenState extends State<FeedVideoPlayerScreen> {
     super.dispose();
   }
 
+  void _togglePlay() {
+    setState(() {
+      _controller.value.isPlaying ? _controller.pause() : _controller.play();
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.black,
+      // The AppBar sits transparently over the video instead of reserving
+      // its own opaque strip — previously `Center` + `AspectRatio` shrank
+      // the video to fit under the AppBar, letterboxing it whenever its
+      // aspect ratio didn't exactly match the remaining space, so it never
+      // actually filled the frame.
+      extendBodyBehindAppBar: true,
       appBar: AppBar(
-        backgroundColor: Colors.black,
+        backgroundColor: Colors.transparent,
+        elevation: 0,
         foregroundColor: Colors.white,
         title: Text(widget.title, maxLines: 1, overflow: TextOverflow.ellipsis),
       ),
-      body: Center(
+      body: GestureDetector(
+        onTap: _ready ? _togglePlay : null,
         child: _ready
-            ? GestureDetector(
-                onTap: () {
-                  setState(() {
-                    _controller.value.isPlaying
-                        ? _controller.pause()
-                        : _controller.play();
-                  });
-                },
-                child: AspectRatio(
-                  aspectRatio: _controller.value.aspectRatio,
-                  child: VideoPlayer(_controller),
+            // Fills the entire screen behind the AppBar, cropping any excess
+            // rather than letterboxing — the same cover-fill approach the
+            // Reels feed and the listing-form video preview already use.
+            ? SizedBox.expand(
+                child: FittedBox(
+                  fit: BoxFit.cover,
+                  child: SizedBox(
+                    width: _controller.value.size.width,
+                    height: _controller.value.size.height,
+                    child: VideoPlayer(_controller),
+                  ),
                 ),
               )
-            : const CircularProgressIndicator(color: AppColors.primary),
+            : const Center(
+                child: CircularProgressIndicator(color: AppColors.primary),
+              ),
       ),
     );
   }

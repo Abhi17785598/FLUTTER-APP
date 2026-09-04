@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
+import 'package:video_player/video_player.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_text_styles.dart';
 import '../../../core/widgets/wizard_kit.dart';
@@ -304,15 +305,23 @@ class _MediaContactStepState extends State<MediaContactStep> {
                             children: [
                               ClipRRect(
                                 borderRadius: BorderRadius.circular(12),
-                                child: Image.network(
-                                  media.url,
-                                  fit: BoxFit.cover,
-                                  errorBuilder: (context, error, stackTrace) =>
-                                      Container(
-                                        color: Colors.grey.shade200,
-                                        child: const Icon(Icons.broken_image),
+                                child: _isVideoCategory(media.category)
+                                    ? _VideoPreviewTile(
+                                        source: media.url,
+                                        isNetwork: true,
+                                      )
+                                    : Image.network(
+                                        media.url,
+                                        fit: BoxFit.cover,
+                                        errorBuilder:
+                                            (context, error, stackTrace) =>
+                                                Container(
+                                                  color: Colors.grey.shade200,
+                                                  child: const Icon(
+                                                    Icons.broken_image,
+                                                  ),
+                                                ),
                                       ),
-                                ),
                               ),
                               Positioned(
                                 top: 4,
@@ -405,13 +414,9 @@ class _MediaContactStepState extends State<MediaContactStep> {
                               ClipRRect(
                                 borderRadius: BorderRadius.circular(12),
                                 child: _isVideoCategory(item.category)
-                                    ? Container(
-                                        color: Colors.grey.shade800,
-                                        child: const Icon(
-                                          Icons.play_circle_outline,
-                                          color: Colors.white,
-                                          size: 32,
-                                        ),
+                                    ? _VideoPreviewTile(
+                                        source: item.file.path,
+                                        isNetwork: kIsWeb,
                                       )
                                     // `Image.file` needs `dart:io` file
                                     // access, unsupported on Flutter Web —
@@ -632,6 +637,126 @@ class _MediaContactStepState extends State<MediaContactStep> {
           ),
         ),
       ],
+    );
+  }
+}
+
+/// Real inline preview for a video attached to the listing — local file,
+/// already-uploaded URL, or a web `blob:`/network source — so the uploader
+/// can confirm the right clip was picked before submitting. Previously this
+/// tile was a static grey box with a generic play icon (new videos), or an
+/// `Image.network` call that silently failed into a broken-image icon
+/// (existing videos in edit mode) — neither ever showed the actual content.
+///
+/// Shows the first frame once the controller initialises; tapping toggles
+/// play/pause in place. Never blocks the picker or submission on a preview
+/// that fails to load — it just falls back to a "can't preview" icon.
+class _VideoPreviewTile extends StatefulWidget {
+  final String source;
+  final bool isNetwork;
+
+  const _VideoPreviewTile({required this.source, required this.isNetwork});
+
+  @override
+  State<_VideoPreviewTile> createState() => _VideoPreviewTileState();
+}
+
+class _VideoPreviewTileState extends State<_VideoPreviewTile> {
+  VideoPlayerController? _controller;
+  bool _failed = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _initialise();
+  }
+
+  Future<void> _initialise() async {
+    final controller = widget.isNetwork
+        ? VideoPlayerController.networkUrl(Uri.parse(widget.source))
+        : VideoPlayerController.file(File(widget.source));
+    _controller = controller;
+    try {
+      await controller.initialize();
+      if (!mounted) return;
+      setState(() {});
+    } catch (_) {
+      if (mounted) setState(() => _failed = true);
+    }
+  }
+
+  @override
+  void dispose() {
+    _controller?.dispose();
+    super.dispose();
+  }
+
+  void _togglePlay() {
+    final controller = _controller;
+    if (controller == null || !controller.value.isInitialized) return;
+    setState(() {
+      controller.value.isPlaying ? controller.pause() : controller.play();
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (_failed) {
+      return Container(
+        color: Colors.grey.shade800,
+        child: const Icon(Icons.videocam_off, color: Colors.white, size: 28),
+      );
+    }
+
+    final controller = _controller;
+    if (controller == null || !controller.value.isInitialized) {
+      return Container(
+        color: Colors.grey.shade800,
+        child: const Center(
+          child: SizedBox(
+            width: 18,
+            height: 18,
+            child: CircularProgressIndicator(
+              strokeWidth: 2,
+              color: Colors.white70,
+            ),
+          ),
+        ),
+      );
+    }
+
+    return GestureDetector(
+      onTap: _togglePlay,
+      child: Container(
+        color: Colors.grey.shade800,
+        child: Stack(
+          fit: StackFit.expand,
+          alignment: Alignment.center,
+          children: [
+            FittedBox(
+              fit: BoxFit.cover,
+              child: SizedBox(
+                width: controller.value.size.width,
+                height: controller.value.size.height,
+                child: VideoPlayer(controller),
+              ),
+            ),
+            if (!controller.value.isPlaying)
+              Container(
+                padding: const EdgeInsets.all(4),
+                decoration: const BoxDecoration(
+                  color: Colors.black45,
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(
+                  Icons.play_arrow,
+                  color: Colors.white,
+                  size: 20,
+                ),
+              ),
+          ],
+        ),
+      ),
     );
   }
 }

@@ -83,6 +83,10 @@ class _ReelsScreenState extends State<ReelsScreen> {
   @override
   void initState() {
     super.initState();
+    // Lets navigation started from OUTSIDE Reels (the bottom nav's "+"
+    // button) pause/resume this screen's playback across a pushed route —
+    // see ReelControllerManager.active's doc comment.
+    ReelControllerManager.active = _manager;
     SystemChrome.setSystemUIOverlayStyle(
       const SystemUiOverlayStyle(
         statusBarColor: Colors.transparent,
@@ -103,6 +107,9 @@ class _ReelsScreenState extends State<ReelsScreen> {
 
   @override
   void dispose() {
+    if (identical(ReelControllerManager.active, _manager)) {
+      ReelControllerManager.active = null;
+    }
     _pageController.dispose();
     _manager.disposeAll();
     SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);

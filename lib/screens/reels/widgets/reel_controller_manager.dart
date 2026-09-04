@@ -69,6 +69,17 @@ class ReelControllerManager extends ChangeNotifier {
   /// forever with no way to recover.
   final Duration initTimeout;
 
+  /// The manager backing whichever [ReelsScreen] is currently live in the
+  /// navigator stack, or null when none is mounted. Widgets outside Reels
+  /// that push a route on top of it (e.g. the bottom nav's "+" button) read
+  /// this to pause/resume playback across that navigation — the same way
+  /// `ReelsScreen._openUploaderProfile` already does internally with its own
+  /// direct reference. Without it, the active reel's video/audio keeps
+  /// running behind whatever got pushed on top, since pushing a route does
+  /// not dispose the screen underneath. Set/cleared by `_ReelsScreenState`'s
+  /// `initState`/`dispose`.
+  static ReelControllerManager? active;
+
   final Map<int, VideoPlayerController> _controllers = {};
   final Map<int, Future<void>> _initializationFutures = {};
   final Set<int> _failedIndices = {};

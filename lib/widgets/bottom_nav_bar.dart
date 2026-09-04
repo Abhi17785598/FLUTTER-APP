@@ -4,6 +4,7 @@ import '../core/constants/app_constants.dart';
 import '../core/theme/app_colors.dart';
 import '../providers/navigation_provider.dart';
 import '../screens/reels/reels_screen.dart';
+import '../screens/reels/widgets/reel_controller_manager.dart';
 
 class BottomNavBar extends StatelessWidget {
   final int currentIndex;
@@ -219,8 +220,15 @@ class BottomNavBar extends StatelessWidget {
 
   Widget _buildPostPropertyButton(BuildContext context) {
     return GestureDetector(
-      onTap: () {
-        Navigator.pushNamed(context, AppConstants.postPropertyScreen);
+      onTap: () async {
+        // If Reels is live underneath (this button is reachable from its
+        // own bottom nav), pushing a route on top does not dispose it, so
+        // its active video/audio would otherwise keep playing behind the
+        // form — see ReelControllerManager.active's doc comment.
+        final reelsManager = ReelControllerManager.active;
+        reelsManager?.pauseAll();
+        await Navigator.pushNamed(context, AppConstants.postPropertyScreen);
+        reelsManager?.resumeWindow();
       },
       // Explicit semantics so screen readers announce the action correctly even
       // though this button is not a standard nav item.

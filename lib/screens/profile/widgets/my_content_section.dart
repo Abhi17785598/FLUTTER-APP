@@ -92,7 +92,16 @@ class _MyContentSectionState extends State<MyContentSection> {
           itemVerticalPadding: 8,
         ),
         const SizedBox(height: AppConstants.spacingL),
-        _buildBody(),
+        // `EmptyStateView` shrink-wraps to its widest child rather than
+        // filling the available width, and this Column left-aligns
+        // (`crossAxisAlignment.start`) — so a short empty-state message
+        // (e.g. "Articles you write will appear here.") rendered visibly
+        // left-aligned instead of centered, while a longer one (e.g.
+        // Properties', plus its "Add Property" button) only looked centered
+        // by coincidence of being nearly full width already. Forcing full
+        // width here lets `EmptyStateView`'s own `CrossAxisAlignment.center`
+        // actually center every empty/failed state consistently.
+        SizedBox(width: double.infinity, child: _buildBody()),
       ],
     );
   }

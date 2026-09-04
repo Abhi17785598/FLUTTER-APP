@@ -20,6 +20,7 @@ import '../../widgets/bottom_nav_bar.dart';
 import '../../widgets/more_bottom_sheet.dart';
 import '../../widgets/workspace_drawer.dart';
 import '../dashboard/builder_dashboard_screen.dart';
+import '../feed/feed_video_player_screen.dart';
 import '../influencer/influencer_video_form_screen.dart';
 import '../post_property/post_property_screen.dart';
 import 'actions/visiting_card_sheet.dart';
@@ -517,11 +518,34 @@ class _ProfileViewState extends State<_ProfileView> {
                         onPropertyTap: _openPropertyDetail,
                         onArticleTap: (article) =>
                             _openArticleEditor(article.id),
-                        onVideoTap: (video) => Navigator.pushNamed(
-                          context,
-                          AppConstants.reelsScreen,
-                          arguments: {'reelId': video.id},
-                        ),
+                        // Reels' feed (AppConstants.reelsScreen) only ever
+                        // loads approval_status = 'approved' videos
+                        // (ReelsService.getReels), so a pending/rejected
+                        // video's id is never found there — `_maybeInitFeed`
+                        // then silently falls back to index 0, which looked
+                        // like "the video I tapped isn't playing" (a
+                        // different, arbitrary reel played instead). Only an
+                        // approved video is guaranteed to actually be in that
+                        // feed; anything else opens directly in the same
+                        // standalone player Feed/Project videos already use,
+                        // which just plays the given URL with no approval
+                        // gate at all.
+                        onVideoTap: (video) =>
+                            video.approvalStatus == 'approved'
+                            ? Navigator.pushNamed(
+                                context,
+                                AppConstants.reelsScreen,
+                                arguments: {'reelId': video.id},
+                              )
+                            : Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (_) => FeedVideoPlayerScreen(
+                                    videoUrl: video.videoUrl,
+                                    title: video.title,
+                                  ),
+                                ),
+                              ),
                         onAddProperty: () => Navigator.pushNamed(
                           context,
                           AppConstants.postPropertyScreen,

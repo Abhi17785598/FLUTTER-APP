@@ -31,6 +31,18 @@ class ReviewStep extends StatelessWidget {
     }
   }
 
+  /// Same category ids as `MediaContactStep._isVideoCategory` — kept local
+  /// rather than shared, since that widget's version is private and this is
+  /// the only other place that needs the distinction.
+  static bool _isVideoCategory(String category) =>
+      category == 'property_video' || category == 'land_video';
+
+  static int _mediaCount(PostPropertyProvider provider, {required bool video}) {
+    bool matches(String category) => _isVideoCategory(category) == video;
+    return provider.mediaItems.where((m) => matches(m.category)).length +
+        provider.existingMedia.where((m) => matches(m.category)).length;
+  }
+
   static String _intentLabel(ListingIntent? i) {
     switch (i) {
       case ListingIntent.sell:
@@ -214,10 +226,17 @@ class ReviewStep extends StatelessWidget {
             // already has photos) — matching the count the media-step
             // validation rule itself uses, so Review can't show a lower
             // number than what's actually required/saved.
+            //
+            // Split by type: a video (category 'property_video'/
+            // 'land_video' — see MediaContactStep._isVideoCategory) was
+            // previously folded into this same "Images Selected" count,
+            // so attaching a video showed as an image.
             (
               'Images Selected',
-              '${provider.mediaItems.length + provider.existingMedia.length}',
+              '${_mediaCount(provider, video: false)}',
             ),
+            if (_mediaCount(provider, video: true) > 0)
+              ('Videos Selected', '${_mediaCount(provider, video: true)}'),
             ('Contact Name', _dash(provider.contactName)),
             ('Contact Phone', _dash(provider.contactPhone)),
             if (provider.whatsappNumber.isNotEmpty)
