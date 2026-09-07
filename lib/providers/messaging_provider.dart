@@ -18,10 +18,17 @@ class CollabInboxEntry {
   final ConversationParticipant? counterparty;
   final List<CollabReelPreview> attachedReels;
 
+  /// This collaboration's own conversation unread count (0 while still
+  /// `requested`, since there is no conversation yet) — drives the numeric
+  /// badge on active collaboration rows, cross-referenced from the same
+  /// `conversations` read the Chats tab uses, by `conversation_id`.
+  final int unreadCount;
+
   const CollabInboxEntry({
     required this.collaboration,
     this.counterparty,
     this.attachedReels = const [],
+    this.unreadCount = 0,
   });
 
   /// Only meaningful while [collaboration.isRequested] — who this request is
@@ -66,7 +73,11 @@ class MessagingProvider extends ChangeNotifier {
   int _channelsRequestId = 0;
   int _collabsRequestId = 0;
 
-  List<ConversationSummary> _conversations = const [];
+  /// Every conversation the caller is a party to, INCLUDING collaboration
+  /// threads — kept privately only to cross-reference each collaboration's
+  /// own unread count in [_loadCollabs]. The public [conversations] getter
+  /// below is the Chats-tab-only, collaboration-free view.
+  List<ConversationSummary> _allConversations = const [];
   bool _conversationsLoading = true;
   bool _conversationsFailed = false;
 
@@ -78,8 +89,11 @@ class MessagingProvider extends ChangeNotifier {
   bool _collabsLoading = true;
   bool _collabsFailed = false;
 
+  /// Chats tab only — `Chat.tsx`'s `plainConversations`: every collaboration
+  /// conversation is excluded here so it can never appear in both tabs at
+  /// once. Collaboration conversations surface only via [collabs].
   List<ConversationSummary> get conversations =>
-      List.unmodifiable(_conversations);
+      List.unmodifiable(_allConversations.where((c) => !c.isCollaboration));
   bool get conversationsLoading => _conversationsLoading;
   bool get conversationsFailed => _conversationsFailed;
 
@@ -90,6 +104,12 @@ class MessagingProvider extends ChangeNotifier {
   List<CollabInboxEntry> get collabs => List.unmodifiable(_collabs);
   bool get collabsLoading => _collabsLoading;
   bool get collabsFailed => _collabsFailed;
+
+  /// Sum of every active collaboration's own conversation unread count —
+  /// the Collabs tab's numeric badge, alongside (not instead of) the
+  /// incoming-request dot below.
+  int get totalCollabUnread =>
+      _collabs.fold(0, (sum, e) => sum + e.unreadCount);
 
   /// Drives the Collabs tab's badge dot — an incoming request the signed-in
   /// user hasn't acted on yet.
@@ -124,7 +144,7 @@ class MessagingProvider extends ChangeNotifier {
 
   Future<void> _loadConversations(String userId) async {
     final requestId = ++_conversationsRequestId;
-    final hadData = _conversations.isNotEmpty;
+    final hadData = _allConversations.isNotEmpty;
     _conversationsLoading = true;
     // A transient refresh failure must not wipe an already-populated list —
     // only a genuine first load starts from "failed" being meaningful as
@@ -135,14 +155,14 @@ class MessagingProvider extends ChangeNotifier {
     try {
       final loaded = await _service.listConversations(userId);
       if (requestId != _conversationsRequestId) return;
-      _conversations = loaded;
+      _allConversations = loaded;
       _conversationsFailed = false;
     } catch (e) {
       if (requestId != _conversationsRequestId) return;
       debugPrint('MessagingProvider._loadConversations failed: $e');
       if (!hadData) {
         _conversationsFailed = true;
-        _conversations = const [];
+        _allConversations = const [];
       }
       // else: keep showing the last-known-good list; the pull-to-refresh
       // spinner simply stops with nothing changed.
@@ -202,7 +222,18 @@ class MessagingProvider extends ChangeNotifier {
       final reels = await _collabService.resolveReels(reelIds);
       if (requestId != _collabsRequestId) return;
 
+      // A `declined` request never gains a conversation (only `accept`
+      // creates one), so it can never leave `requested` behind as an inert,
+      // unopenable card — filtering to "still a live request" OR "has a
+      // conversation" drops it (and anything else that is neither) from the
+      // list entirely rather than rendering it disabled forever.
+      final unreadByCollabId = {
+        for (final c in _allConversations)
+          if (c.collaborationId != null) c.collaborationId!: c.unreadCount,
+      };
+
       _collabs = rows
+          .where((c) => c.isRequested || c.hasConversation)
           .map(
             (c) => CollabInboxEntry(
               collaboration: c,
@@ -211,6 +242,7 @@ class MessagingProvider extends ChangeNotifier {
                   .map((id) => reels[id])
                   .whereType<CollabReelPreview>()
                   .toList(),
+              unreadCount: unreadByCollabId[c.id] ?? 0,
             ),
           )
           .toList();
@@ -268,7 +300,7 @@ class MessagingProvider extends ChangeNotifier {
   /// mark-as-read can be rolled back with [restoreConversationBadge].
   int clearConversationBadge(String conversationId) {
     var prior = 0;
-    _conversations = _conversations.map((c) {
+    _allConversations = _allConversations.map((c) {
       if (c.id != conversationId) return c;
       prior = c.unreadCount;
       return c.copyWith(unreadCount: 0);
@@ -282,7 +314,7 @@ class MessagingProvider extends ChangeNotifier {
   /// unread state until the next full refresh.
   void restoreConversationBadge(String conversationId, int count) {
     if (count <= 0) return;
-    _conversations = _conversations
+    _allConversations = _allConversations
         .map((c) => c.id == conversationId ? c.copyWith(unreadCount: count) : c)
         .toList();
     _safeNotify();
@@ -291,7 +323,7 @@ class MessagingProvider extends ChangeNotifier {
   Future<String?> acceptRequest(String conversationId) async {
     try {
       await _service.acceptConversationRequest(conversationId);
-      _conversations = _conversations
+      _allConversations = _allConversations
           .map(
             (c) => c.id == conversationId
                 ? c.copyWith(requestStatus: 'accepted')
@@ -311,7 +343,7 @@ class MessagingProvider extends ChangeNotifier {
   Future<String?> declineRequest(String conversationId) async {
     try {
       await _service.hideConversation(conversationId);
-      _conversations = _conversations
+      _allConversations = _allConversations
           .where((c) => c.id != conversationId)
           .toList();
       _safeNotify();
@@ -328,7 +360,7 @@ class MessagingProvider extends ChangeNotifier {
   ) async {
     try {
       await _service.setConversationMuted(conversationId, muted);
-      _conversations = _conversations
+      _allConversations = _allConversations
           .map((c) => c.id == conversationId ? c.copyWith(isMuted: muted) : c)
           .toList();
       _safeNotify();

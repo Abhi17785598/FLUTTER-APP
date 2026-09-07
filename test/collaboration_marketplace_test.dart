@@ -34,6 +34,7 @@ import 'package:propcid_app/models/collaboration.dart';
 import 'package:propcid_app/models/conversation_summary.dart';
 import 'package:propcid_app/providers/messaging_provider.dart';
 import 'package:propcid_app/screens/messaging/widgets/collab_action_panel.dart';
+import 'package:propcid_app/services/collab_functions_client.dart';
 import 'package:propcid_app/services/collaboration_exceptions.dart';
 import 'package:propcid_app/services/collaboration_service.dart';
 import 'package:propcid_app/services/messaging_service.dart';
@@ -95,6 +96,70 @@ void main() {
         expect(() => collab.roleFor('client-1'), returnsNormally);
       },
     );
+
+    test('parses the three pending-offer fields', () {
+      final collab = Collaboration.fromSupabase({
+        'id': 'c-1',
+        'client_id': 'client-1',
+        'influencer_id': 'inf-1',
+        'status': 'accepted',
+        'pending_offer_amount_minor': 500000,
+        'pending_offer_by': 'influencer',
+        'pending_offer_is_final': true,
+      });
+      expect(collab.pendingOfferAmountMinor, 500000);
+      expect(collab.pendingOfferBy, 'influencer');
+      expect(collab.pendingOfferIsFinal, isTrue);
+      expect(collab.hasPendingOffer, isTrue);
+      expect(collab.proposedPendingOfferBy('inf-1'), isTrue);
+      expect(collab.proposedPendingOfferBy('client-1'), isFalse);
+    });
+
+    test('no pending offer when the amount/by fields are absent', () {
+      final collab = Collaboration.fromSupabase({
+        'id': 'c-2',
+        'client_id': 'client-1',
+        'influencer_id': 'inf-1',
+        'status': 'accepted',
+      });
+      expect(collab.hasPendingOffer, isFalse);
+      expect(collab.pendingOfferIsFinal, isFalse);
+    });
+
+    test(
+      'a stray pending-offer value on a non-accepted status is not live',
+      () {
+        // The RPC clears pending_offer_* on accept_offer/cancel; a lingering
+        // non-null value on any other status must not drive UI as if an
+        // offer were actually on the table.
+        final collab = Collaboration.fromSupabase({
+          'id': 'c-3',
+          'client_id': 'client-1',
+          'influencer_id': 'inf-1',
+          'status': 'agreement_pending',
+          'pending_offer_amount_minor': 100000,
+          'pending_offer_by': 'client',
+        });
+        expect(collab.hasPendingOffer, isFalse);
+      },
+    );
+
+    test('copyWith preserves the pending-offer fields', () {
+      const collab = Collaboration(
+        id: 'c-4',
+        initiatedBy: CollabRoles.client,
+        clientId: 'client-1',
+        influencerId: 'inf-1',
+        status: CollabStatuses.accepted,
+        pendingOfferAmountMinor: 250000,
+        pendingOfferBy: CollabRoles.client,
+        pendingOfferIsFinal: true,
+      );
+      final copied = collab.copyWith(status: CollabStatuses.accepted);
+      expect(copied.pendingOfferAmountMinor, 250000);
+      expect(copied.pendingOfferBy, CollabRoles.client);
+      expect(copied.pendingOfferIsFinal, isTrue);
+    });
 
     test('roleFor / counterpartyIdFor / involves', () {
       const collab = Collaboration(
@@ -372,6 +437,85 @@ void main() {
       final error = await provider.declineCollab('c-3');
       expect(error, "This collaboration can no longer be declined.");
     });
+
+    test('Chats excludes collaboration conversations; Collabs excludes '
+        'declined-without-conversation and carries unread counts', () async {
+      final requested = Collaboration(
+        id: 'c-req',
+        initiatedBy: CollabRoles.influencer,
+        clientId: 'me',
+        influencerId: 'inf-1',
+        status: CollabStatuses.requested,
+        createdAt: DateTime.now(),
+      );
+      final declinedNoConversation = Collaboration(
+        id: 'c-declined',
+        initiatedBy: CollabRoles.client,
+        clientId: 'me',
+        influencerId: 'inf-2',
+        status: CollabStatuses.declined,
+        createdAt: DateTime.now(),
+      );
+      final active = Collaboration(
+        id: 'c-active',
+        initiatedBy: CollabRoles.client,
+        clientId: 'me',
+        influencerId: 'inf-3',
+        conversationId: 'conv-active',
+        status: CollabStatuses.inProgress,
+        createdAt: DateTime.now(),
+      );
+
+      final fakeCollab = _FakeCollabService(
+        rows: [requested, declinedNoConversation, active],
+      );
+      final fakeMessaging = _ConversationsFakeMessagingService(
+        conversations: [
+          const ConversationSummary(
+            id: 'conv-plain',
+            lastMessage: 'hey',
+            unreadCount: 2,
+          ),
+          const ConversationSummary(
+            id: 'conv-active',
+            collaborationId: 'c-active',
+            unreadCount: 5,
+          ),
+        ],
+      );
+      final provider = MessagingProvider(
+        service: fakeMessaging,
+        collabService: fakeCollab,
+      );
+
+      await provider.load('me');
+
+      // Chats: only the plain conversation, never the collaboration one.
+      expect(provider.conversations.length, 1);
+      expect(provider.conversations.single.id, 'conv-plain');
+      expect(provider.conversations.any((c) => c.isCollaboration), isFalse);
+
+      // Collabs: the pending request and the active collaboration, but
+      // NOT the declined-with-no-conversation row — it must not linger
+      // as an inert card.
+      expect(provider.collabs.length, 2);
+      expect(
+        provider.collabs.map((e) => e.collaboration.id),
+        containsAll(['c-req', 'c-active']),
+      );
+      expect(
+        provider.collabs.any((e) => e.collaboration.id == 'c-declined'),
+        isFalse,
+      );
+
+      // The active collaboration's unread count is cross-referenced from
+      // its own conversation row; the still-pending request has none.
+      final activeEntry = provider.collabs.firstWhere(
+        (e) => e.collaboration.id == 'c-active',
+      );
+      expect(activeEntry.unreadCount, 5);
+      expect(provider.totalCollabUnread, 5);
+    });
   });
 
   // ── 4. Status -> action -> role matrix (the 6-step stepper) ───────────
@@ -547,6 +691,27 @@ void main() {
     });
   }, skip: false);
 
+  // ── 6b. Auth helper — fails closed before any network call ────────────
+
+  group('CollabFunctionsClient', () {
+    test(
+      'no signed-in user -> "session expired" without touching the network',
+      () async {
+        final client = CollabFunctionsClient();
+        await expectLater(
+          client.invoke('collab-agreement', body: {'collaborationId': 'c-1'}),
+          throwsA(
+            isA<CollabAuthException>().having(
+              (e) => e.message,
+              'message',
+              'Your session expired. Please sign in again.',
+            ),
+          ),
+        );
+      },
+    );
+  });
+
   // ── 7. Notifications — every collab type has a style and a filter bucket ─
 
   test('every collab_* notification type has a style outside the fallback', () {
@@ -625,6 +790,22 @@ class _NoopMessagingService extends MessagingService {
   @override
   Future<List<ConversationSummary>> listConversations(String userId) async =>
       const [];
+
+  @override
+  Future<List<ChannelSummary>> listChannels(String userId) async => const [];
+}
+
+/// A `MessagingService` stand-in that returns a fixed conversation list —
+/// for exercising the Chats/Collabs separation and unread cross-reference,
+/// which `_NoopMessagingService`'s always-empty list can't.
+class _ConversationsFakeMessagingService extends MessagingService {
+  _ConversationsFakeMessagingService({required this.conversations});
+
+  final List<ConversationSummary> conversations;
+
+  @override
+  Future<List<ConversationSummary>> listConversations(String userId) async =>
+      conversations;
 
   @override
   Future<List<ChannelSummary>> listChannels(String userId) async => const [];

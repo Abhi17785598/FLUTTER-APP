@@ -25,6 +25,11 @@ class CollabTile extends StatelessWidget {
   final VoidCallback? onAccept;
   final VoidCallback? onDecline;
 
+  /// This collaboration's own conversation unread count — shown as a
+  /// numeric badge on active (accepted-or-later) rows, alongside the
+  /// existing incoming-request dot for still-`requested` rows.
+  final int unreadCount;
+
   const CollabTile({
     super.key,
     required this.entry,
@@ -33,6 +38,7 @@ class CollabTile extends StatelessWidget {
     this.busy = false,
     this.onAccept,
     this.onDecline,
+    this.unreadCount = 0,
   });
 
   @override
@@ -108,6 +114,25 @@ class CollabTile extends StatelessWidget {
                       decoration: const BoxDecoration(
                         color: kCollabAccent,
                         shape: BoxShape.circle,
+                      ),
+                    )
+                  else if (unreadCount > 0)
+                    Container(
+                      constraints: const BoxConstraints(minWidth: 20),
+                      height: 20,
+                      padding: const EdgeInsets.symmetric(horizontal: 6),
+                      alignment: Alignment.center,
+                      decoration: const BoxDecoration(
+                        color: kCollabAccent,
+                        borderRadius: BorderRadius.all(Radius.circular(10)),
+                      ),
+                      child: Text(
+                        unreadCount > 99 ? '99+' : '$unreadCount',
+                        style: AppTextStyles.caption.copyWith(
+                          fontSize: 10.5,
+                          fontWeight: FontWeight.w700,
+                          color: Colors.white,
+                        ),
                       ),
                     ),
                 ],

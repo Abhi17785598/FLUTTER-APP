@@ -570,54 +570,149 @@ class _SearchScreenState extends State<SearchScreen>
 
     return Scaffold(
       backgroundColor: AppColors.background,
-      body: SafeArea(
-        child: Column(
-          children: [
-            _buildAppBar(context),
-            Expanded(
-              child: SingleChildScrollView(
-                child:
-                    Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            const SizedBox(height: AppConstants.spacingL),
-                            _buildHeading(),
-                            const SizedBox(height: 18),
-                            _buildSearchBar(),
-                            if (_isParsingSmartQuery) ...[
-                              const SizedBox(height: AppConstants.spacingS),
-                              const Padding(
-                                padding: EdgeInsets.symmetric(
-                                  horizontal: AppConstants.spacingXL,
-                                ),
-                                child: AiUnderstandingIndicator(),
-                              ),
-                            ],
-                            if (isQueryNotEmpty)
-                              _buildSuggestions()
-                            else ...[
-                              const SizedBox(height: 22),
-                              _buildPropertyTypeSection(),
-                              const SizedBox(height: 26),
-                              _buildRecentSearches(),
-                            ],
-                            const SizedBox(height: 100),
-                          ],
-                        )
-                        .animate()
-                        .fadeIn(duration: 400.ms)
-                        .slideY(
-                          begin: 0.08,
-                          end: 0,
-                          duration: 400.ms,
-                          curve: Curves.easeOut,
-                        ),
-              ),
+      body: Stack(
+        children: [
+          SafeArea(
+            child: Column(
+              children: [
+                _buildAppBar(context),
+                Expanded(
+                  child: SingleChildScrollView(
+                    child:
+                        Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                const SizedBox(height: AppConstants.spacingL),
+                                _buildHeading(),
+                                const SizedBox(height: 18),
+                                _buildSearchBar(),
+                                if (_isParsingSmartQuery) ...[
+                                  const SizedBox(
+                                    height: AppConstants.spacingS,
+                                  ),
+                                  const Padding(
+                                    padding: EdgeInsets.symmetric(
+                                      horizontal: AppConstants.spacingXL,
+                                    ),
+                                    child: AiUnderstandingIndicator(),
+                                  ),
+                                ],
+                                if (isQueryNotEmpty)
+                                  _buildSuggestions()
+                                else ...[
+                                  const SizedBox(height: 22),
+                                  _buildPropertyTypeSection(),
+                                  const SizedBox(height: 26),
+                                  _buildRecentSearches(),
+                                ],
+                                const SizedBox(height: 100),
+                              ],
+                            )
+                            .animate()
+                            .fadeIn(duration: 400.ms)
+                            .slideY(
+                              begin: 0.08,
+                              end: 0,
+                              duration: 400.ms,
+                              curve: Curves.easeOut,
+                            ),
+                  ),
+                ),
+              ],
             ),
-          ],
-        ),
+          ),
+          // The mic badge (`_buildMicBadge`) already reflects listening state
+          // (pulse + "Listening…" hint), but that's small and easy to miss —
+          // this makes it unmissable, and gives an explicit way to stop that
+          // isn't "realise you have to tap the same tiny icon again". Purely
+          // additive: it appears/disappears in lockstep with the existing
+          // `_isListening` flag every other part of this screen already
+          // drives, and its Cancel action calls the exact same
+          // `_toggleVoiceSearch` the mic badge itself uses to cancel — no new
+          // cancel path, just a far more visible way to reach the one that
+          // already existed.
+          if (_isListening) _buildVoiceListeningOverlay(),
+        ],
       ),
       bottomNavigationBar: const BottomNavBar(currentIndex: 1),
+    );
+  }
+
+  Widget _buildVoiceListeningOverlay() {
+    return Positioned.fill(
+      child: GestureDetector(
+        onTap: _toggleVoiceSearch,
+        child: Container(
+          color: Colors.black.withValues(alpha: 0.55),
+          child: Center(
+            child: GestureDetector(
+              // Swallow taps on the card itself so tapping near the Cancel
+              // button doesn't also trigger the scrim's cancel-on-tap.
+              onTap: () {},
+              child: Container(
+                margin: const EdgeInsets.symmetric(horizontal: 40),
+                padding: const EdgeInsets.symmetric(
+                  vertical: 28,
+                  horizontal: 24,
+                ),
+                decoration: BoxDecoration(
+                  color: AppColors.cardBackground,
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Container(
+                          width: 64,
+                          height: 64,
+                          decoration: BoxDecoration(
+                            gradient: AppColors.primaryGradient,
+                            shape: BoxShape.circle,
+                            boxShadow: AppColors.primaryGlow,
+                          ),
+                          child: const Icon(
+                            Icons.mic,
+                            color: Colors.white,
+                            size: 30,
+                          ),
+                        )
+                        .animate(onPlay: (c) => c.repeat(reverse: true))
+                        .scaleXY(
+                          begin: 1,
+                          end: 1.15,
+                          duration: 700.ms,
+                          curve: Curves.easeInOut,
+                        ),
+                    const SizedBox(height: 16),
+                    Text(
+                      'Listening…',
+                      style: AppTextStyles.heading3.copyWith(
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                    const SizedBox(height: 6),
+                    Text(
+                      _searchController.text.isNotEmpty
+                          ? '"${_searchController.text}"'
+                          : 'Speak now to search',
+                      textAlign: TextAlign.center,
+                      style: AppTextStyles.caption.copyWith(
+                        color: AppColors.textSecondary,
+                      ),
+                    ),
+                    const SizedBox(height: 20),
+                    OutlinedButton.icon(
+                      onPressed: _toggleVoiceSearch,
+                      icon: const Icon(Icons.close, size: 16),
+                      label: const Text('Cancel'),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
     );
   }
 

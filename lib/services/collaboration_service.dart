@@ -27,6 +27,7 @@ import 'package:video_player/video_player.dart';
 
 import '../models/collaboration.dart';
 import '../models/conversation_summary.dart';
+import 'collab_functions_client.dart';
 import 'collaboration_exceptions.dart';
 
 /// A reel (`influencer_videos` row) as it appears in the collaboration
@@ -99,10 +100,14 @@ class CollabNotificationDestination {
 }
 
 class CollaborationService {
-  CollaborationService({SupabaseClient? client})
-    : _supabase = client ?? Supabase.instance.client;
+  CollaborationService({
+    SupabaseClient? client,
+    CollabFunctionsClient? functionsClient,
+  }) : _supabase = client ?? Supabase.instance.client,
+       _functions = functionsClient ?? CollabFunctionsClient(client: client);
 
   final SupabaseClient _supabase;
+  final CollabFunctionsClient _functions;
   static const _uuid = Uuid();
 
   // Phase 5 constants — portal parity (CollabActionPanel.tsx: SAMPLE_MIN/MAX
@@ -246,7 +251,9 @@ class CollaborationService {
   }
 
   /// The signed-in influencer's own active reels — the attach picker in the
-  /// request sheet. Mirrors `UserProfile.tsx`'s `myReels` query exactly.
+  /// request sheet. Mirrors `UserProfile.tsx`'s `myReels` query: both
+  /// `status = 'active'` AND `approval_status = 'approved'` — a
+  /// pending/rejected reel must never be offered for attachment.
   Future<List<CollabReelPreview>> listMyActiveReels(String userId) async {
     try {
       final rows = await _supabase
@@ -254,6 +261,7 @@ class CollaborationService {
           .select('id, title, thumbnail_url, video_url')
           .eq('user_id', userId)
           .eq('status', 'active')
+          .eq('approval_status', 'approved')
           .order('created_at', ascending: false);
       return List<Map<String, dynamic>>.from(
         rows as List,
@@ -261,6 +269,34 @@ class CollaborationService {
     } catch (e) {
       debugPrint('CollaborationService.listMyActiveReels failed: $e');
       return const [];
+    }
+  }
+
+  /// An existing `requested` collaboration between the signed-in user and
+  /// [counterpartyId], if any — `UserProfile.tsx`'s duplicate-request guard.
+  /// Drives the "Collab Requested" CTA state instead of letting a second
+  /// request be sent for the same pair.
+  Future<Collaboration?> findExistingRequest({
+    required String viewerId,
+    required String counterpartyId,
+  }) async {
+    try {
+      final rows = await _supabase
+          .from('collaborations')
+          .select()
+          .or(
+            'and(client_id.eq.$viewerId,influencer_id.eq.$counterpartyId),'
+            'and(client_id.eq.$counterpartyId,influencer_id.eq.$viewerId)',
+          )
+          .eq('status', CollabStatuses.requested)
+          .order('created_at', ascending: false)
+          .limit(1);
+      final list = List<Map<String, dynamic>>.from(rows as List);
+      if (list.isEmpty) return null;
+      return Collaboration.fromSupabase(list.first);
+    } catch (e) {
+      debugPrint('CollaborationService.findExistingRequest failed: $e');
+      return null;
     }
   }
 
@@ -343,54 +379,99 @@ class CollaborationService {
   Future<Collaboration> decline(String collaborationId) =>
       _transition(collaborationId, 'decline');
 
-  /// Either party may set/re-set the agreement while `accepted` or still
-  /// `agreement_pending` — no role gate, matching `CollabActionPanel.tsx`.
-  /// Advance/final amounts are computed server-side (25%/75%); this only
-  /// sends the total.
-  Future<Collaboration> setAgreement(
+  /// Either participant proposes a positive total amount while `accepted` —
+  /// the current negotiated-offer workflow (`collab_transition`'s
+  /// `propose_offer` action). [isFinal] marks this as a take-it-or-leave-it
+  /// offer: the recipient can then only Accept it or Cancel the
+  /// collaboration, never counter it — enforced server-side, not just in
+  /// the UI.
+  Future<Collaboration> proposeOffer(
     String collaborationId, {
-    required double amountRupees,
-    String? agreementStoragePath,
+    required int amountMinor,
+    required bool isFinal,
   }) {
-    if (amountRupees <= 0) {
-      throw const CollaborationException(
-        'Enter an agreement amount greater than zero.',
-      );
+    if (amountMinor <= 0) {
+      throw const CollaborationException('Enter an amount greater than zero.');
     }
-    return _transition(collaborationId, 'set_agreement', {
-      'agreed_amount_minor': (amountRupees * 100).round(),
-      if (agreementStoragePath != null) 'agreement_url': agreementStoragePath,
+    return _transition(collaborationId, 'propose_offer', {
+      'amount_minor': amountMinor,
+      'is_final': isFinal,
+    });
+  }
+
+  /// Accepts the OTHER participant's pending offer only — the server itself
+  /// enforces "not your own offer" (`collab_transition`'s `accept_offer`
+  /// action); this never sends the amount back, since the server already
+  /// knows which offer is pending. Locks the amount, creates/updates the
+  /// 25%/75% payment rows and moves the collaboration to
+  /// `agreement_pending`.
+  Future<Collaboration> acceptOffer(String collaborationId) =>
+      _transition(collaborationId, 'accept_offer');
+
+  /// Either participant may cancel while `accepted`, or while
+  /// `agreement_pending` before the advance has been paid — server-enforced;
+  /// this just forwards the (optional, <=1000 char) reason.
+  Future<Collaboration> cancelCollaboration(
+    String collaborationId, {
+    String? reason,
+  }) {
+    final trimmed = reason?.trim();
+    final capped = (trimmed != null && trimmed.length > maxDisputeReasonLength)
+        ? trimmed.substring(0, maxDisputeReasonLength)
+        : trimmed;
+    return _transition(collaborationId, 'cancel', {
+      if (capped != null && capped.isNotEmpty) 'reason': capped,
     });
   }
 
   // ── Edge Functions ────────────────────────────────────────────────────
+  //
+  // Every one of these routes through [CollabFunctionsClient], which
+  // requires a real current session, refreshes an expired one before
+  // calling, sends the latest bearer token explicitly, times out, and
+  // retries exactly once on a 401 with a freshly refreshed token — never
+  // blindly, and never more than once.
 
   Future<Map<String, dynamic>> _invoke(
     String function, {
     required Map<String, dynamic> body,
   }) async {
     try {
-      final response = await _supabase.functions.invoke(function, body: body);
-      final data = response.data;
-      if (data is Map && data['error'] != null) {
-        throw CollaborationException(data['error'].toString());
-      }
-      if (data is Map) return Map<String, dynamic>.from(data);
-      return const <String, dynamic>{};
-    } on CollaborationException {
-      rethrow;
-    } on FunctionException catch (e) {
-      final details = e.details;
-      final message = details is Map ? details['error'] : null;
-      throw CollaborationException(
-        message?.toString() ?? 'Could not reach the server. Please try again.',
-      );
+      return await _functions.invoke(function, body: body);
+    } on CollabAuthException catch (e) {
+      throw CollaborationException(e.message);
     } catch (e) {
       debugPrint('CollaborationService._invoke($function) failed: $e');
       throw const CollaborationException(
         'A network error occurred. Please try again.',
       );
     }
+  }
+
+  /// Verifies a completed Razorpay payment for a collaboration milestone —
+  /// the same `verify-payment` function the subscription checkout uses, but
+  /// invoked through the collaboration auth helper rather than
+  /// `PaymentService`, per the collaboration marketplace's own auth
+  /// requirements. Never advances collaboration state locally: the
+  /// collaboration/payment rows only ever change server-side, and the
+  /// caller's own refresh/realtime subscription is what shows the result.
+  Future<Map<String, dynamic>> verifyPayment({
+    required String razorpayOrderId,
+    required String razorpayPaymentId,
+    required String razorpaySignature,
+  }) async {
+    final data = await _invoke(
+      'verify-payment',
+      body: {
+        'razorpayOrderId': razorpayOrderId,
+        'razorpayPaymentId': razorpayPaymentId,
+        'razorpaySignature': razorpaySignature,
+      },
+    );
+    if (data['success'] != true) {
+      throw const CollaborationException('Payment verification failed.');
+    }
+    return data;
   }
 
   /// Always the *current* agreement PDF (server regenerates on every call),
@@ -673,9 +754,11 @@ class CollaborationService {
     }
   }
 
-  /// `CollabActionPanel.tsx`'s "Request site location" (influencer-only). A
-  /// plain system note — there is no dedicated RPC for this on the portal
-  /// either.
+  /// `CollabActionPanel.tsx`'s "Request site location" (influencer-only) —
+  /// a plain, ordinary text message (`message_type: 'text'`), NOT a
+  /// `collab_system` note; the portal's `requestLocation()` inserts exactly
+  /// this content as a normal message so it reads and behaves like anything
+  /// else either participant could have typed.
   Future<void> requestLocationMessage({
     required String conversationId,
     required String senderId,
@@ -684,8 +767,8 @@ class CollaborationService {
       await _supabase.from('messages').insert({
         'conversation_id': conversationId,
         'sender_id': senderId,
-        'content': 'Requested the current site location.',
-        'message_type': 'collab_system',
+        'content': 'Could you share your current location?',
+        'message_type': 'text',
       });
     } catch (e) {
       debugPrint('CollaborationService.requestLocationMessage failed: $e');

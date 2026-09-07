@@ -37,11 +37,13 @@ import '../../models/user_profile.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/chat_thread_provider.dart';
 import '../../providers/public_profile_provider.dart';
+import '../../services/collaboration_service.dart';
 import '../../services/messaging_service.dart';
 // `ProfileConnectionStatus` — the four-state enum the connect control switches on.
 import '../../services/profile_connection_service.dart';
 import '../messaging/chat_thread_screen.dart';
 import '../messaging/collab_request_sheet.dart';
+import '../messaging/messages_list_screen.dart';
 import 'actions/profile_qr_sheet.dart';
 import 'actions/rating_sheet.dart';
 import 'actions/share_profile_sheet.dart';
@@ -130,6 +132,14 @@ class _PublicProfileViewState extends State<_PublicProfileView> {
   bool _messaging = false;
   String? _loadedFor;
 
+  final _collabService = CollaborationService();
+
+  /// A `requested`-status collaboration already between the viewer and this
+  /// profile, if any — `UserProfile.tsx`'s duplicate-request guard. Drives
+  /// the sticky bar's "Requested" state instead of letting a second request
+  /// be sent for the same pair.
+  Collaboration? _existingCollabRequest;
+
   /// `UserProfile.tsx`'s `canCollaborate`: viewer authenticated, not self,
   /// and exactly one of {viewer, viewed profile} is an influencer. The
   /// viewer's own `user_type` is already cached on `AuthProvider` — no extra
@@ -145,6 +155,18 @@ class _PublicProfileViewState extends State<_PublicProfileView> {
   }
 
   Future<void> _collaborate(UserProfile profile) async {
+    // A request already exists for this pair — "Collab Requested" opens/
+    // focuses it in the Collabs tab rather than letting a second request
+    // be sent for the same pair.
+    if (_existingCollabRequest != null && mounted) {
+      Navigator.of(context).push(
+        MaterialPageRoute(
+          builder: (_) => const MessagesListScreen(initialTab: 2),
+        ),
+      );
+      return;
+    }
+
     final auth = context.read<AuthProvider>();
     final viewerIsInfluencer = (auth.userType?.toLowerCase()) == 'influencer';
     final sent = await showCollabRequestSheet(
@@ -154,13 +176,17 @@ class _PublicProfileViewState extends State<_PublicProfileView> {
       viewerIsInfluencer: viewerIsInfluencer,
     );
     if (sent == true && mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text(
-            "Collaboration request sent. You'll see it in the Collabs tab in Messages once they respond.",
-          ),
+      // Navigate to/focus the created request rather than only telling the
+      // user where to go look for it.
+      await Navigator.of(context).push(
+        MaterialPageRoute(
+          builder: (_) => const MessagesListScreen(initialTab: 2),
         ),
       );
+      if (mounted) {
+        final viewerId = auth.userId;
+        if (viewerId != null) _checkExistingCollabRequest(viewerId);
+      }
     }
   }
 
@@ -193,6 +219,19 @@ class _PublicProfileViewState extends State<_PublicProfileView> {
       if (!mounted) return;
       provider.load(userId: widget.userId, viewerId: viewerId);
     });
+
+    if (viewerId != null && viewerId != widget.userId) {
+      _checkExistingCollabRequest(viewerId);
+    }
+  }
+
+  Future<void> _checkExistingCollabRequest(String viewerId) async {
+    final existing = await _collabService.findExistingRequest(
+      viewerId: viewerId,
+      counterpartyId: widget.userId,
+    );
+    if (!mounted || _loadedFor != widget.userId) return;
+    setState(() => _existingCollabRequest = existing);
   }
 
   void _onScroll() {
@@ -563,6 +602,7 @@ class _PublicProfileViewState extends State<_PublicProfileView> {
                   onCollaborate: _canCollaborate(profile)
                       ? () => _collaborate(profile)
                       : null,
+                  collabRequested: _existingCollabRequest != null,
                   onSignIn: () => Navigator.pushNamed(context, '/auth'),
                 )
                 .animate()

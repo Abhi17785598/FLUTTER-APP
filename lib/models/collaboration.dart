@@ -113,6 +113,15 @@ class Collaboration {
   final String? disputeReason;
   final DateTime? createdAt;
 
+  /// The current negotiated-offer state — present only while `accepted` (an
+  /// offer is on the table, awaiting the other participant). Null once
+  /// accepted/countered/cancelled, since `accept_offer` clears these fields
+  /// server-side. Raw `collab_role` value ('influencer'/'client'), same
+  /// unknown-safe treatment as every other status/role string here.
+  final int? pendingOfferAmountMinor;
+  final String? pendingOfferBy;
+  final bool pendingOfferIsFinal;
+
   const Collaboration({
     required this.id,
     required this.initiatedBy,
@@ -130,6 +139,9 @@ class Collaboration {
     this.completedAt,
     this.disputeReason,
     this.createdAt,
+    this.pendingOfferAmountMinor,
+    this.pendingOfferBy,
+    this.pendingOfferIsFinal = false,
   });
 
   factory Collaboration.fromSupabase(Map<String, dynamic> json) {
@@ -150,7 +162,26 @@ class Collaboration {
       completedAt: _asDate(json['completed_at']),
       disputeReason: json['dispute_reason'] as String?,
       createdAt: _asDate(json['created_at']),
+      pendingOfferAmountMinor: _asInt(json['pending_offer_amount_minor']),
+      pendingOfferBy: json['pending_offer_by'] as String?,
+      pendingOfferIsFinal: json['pending_offer_is_final'] == true,
     );
+  }
+
+  /// An offer is on the table, awaiting a response, only while `accepted`
+  /// (the RPC clears these fields on accept/cancel — a stray non-null value
+  /// on any other status is not meaningful and must not drive UI).
+  bool get hasPendingOffer =>
+      status == CollabStatuses.accepted &&
+      pendingOfferAmountMinor != null &&
+      pendingOfferAmountMinor! > 0 &&
+      pendingOfferBy != null;
+
+  /// Whether [userId] is the one who proposed the current pending offer —
+  /// they see a waiting state and cannot replace their own offer.
+  bool proposedPendingOfferBy(String userId) {
+    if (!hasPendingOffer) return false;
+    return roleFor(userId) == pendingOfferBy;
   }
 
   /// `'influencer'` or `'client'` for [userId] — the role the state machine
@@ -198,6 +229,9 @@ class Collaboration {
         completedAt: completedAt,
         disputeReason: disputeReason,
         createdAt: createdAt,
+        pendingOfferAmountMinor: pendingOfferAmountMinor,
+        pendingOfferBy: pendingOfferBy,
+        pendingOfferIsFinal: pendingOfferIsFinal,
       );
 }
 

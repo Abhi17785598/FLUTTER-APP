@@ -57,6 +57,13 @@ class ProfileStickyActionBar extends StatelessWidget {
   /// disabling it.
   final VoidCallback? onCollaborate;
 
+  /// True when a `requested`-status collaboration already exists between
+  /// the viewer and this profile — `UserProfile.tsx`'s duplicate-request
+  /// guard. Swaps the button to "Requested" instead of letting a second
+  /// request be sent for the same pair; [onCollaborate] still fires (it
+  /// opens/focuses the existing request rather than a new one).
+  final bool collabRequested;
+
   /// Prompts sign-in for an anonymous viewer.
   final VoidCallback? onSignIn;
 
@@ -70,6 +77,7 @@ class ProfileStickyActionBar extends StatelessWidget {
     this.onConnect,
     this.onMessage,
     this.onCollaborate,
+    this.collabRequested = false,
     this.onSignIn,
   });
 
@@ -138,8 +146,10 @@ class ProfileStickyActionBar extends StatelessWidget {
           const SizedBox(width: AppConstants.spacingM),
           Expanded(
             child: AppActionButton(
-              label: 'Collab',
-              icon: Icons.handshake_outlined,
+              label: collabRequested ? 'Requested' : 'Collab',
+              icon: collabRequested
+                  ? Icons.schedule_rounded
+                  : Icons.handshake_outlined,
               variant: AppActionButtonVariant.outline,
               height: 46,
               onTap: collaborate,

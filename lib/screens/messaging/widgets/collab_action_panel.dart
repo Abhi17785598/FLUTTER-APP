@@ -12,15 +12,22 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'package:video_player/video_player.dart';
 
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_text_styles.dart';
 import '../../../models/collaboration.dart';
 import '../../../providers/collaboration_thread_controller.dart';
+import '../../../services/collaboration_exceptions.dart';
 import '../../../services/location_service.dart';
-import '../../../services/payment_service.dart';
 import '../../../services/razorpay_checkout_session.dart';
 import 'collab_dispute_sheet.dart';
+
+/// Bounded so a checkout the user opened and then abandoned (backgrounded
+/// the app, lost connectivity mid-flow) cannot leave the caller's Future
+/// pending forever — Razorpay's own callbacks are the fast path; this is
+/// only the ceiling.
+const Duration _kCheckoutTimeout = Duration(minutes: 5);
 
 const List<({String status, String label})> kCollabSteps = [
   (status: CollabStatuses.accepted, label: 'Agreement'),
@@ -63,6 +70,13 @@ const Set<String> _kDisputableStatuses = {
   CollabStatuses.inProgress,
   CollabStatuses.deliverablePending,
   CollabStatuses.delivered,
+};
+
+/// `CollabActionPanel.tsx`'s `canCancel` — either participant, only while
+/// `accepted` or still-unpaid `agreement_pending`.
+const Set<String> _kCancellableStatuses = {
+  CollabStatuses.accepted,
+  CollabStatuses.agreementPending,
 };
 
 class CollabActionPanel extends StatefulWidget {
@@ -111,40 +125,152 @@ class _CollabActionPanelState extends State<CollabActionPanel> {
     ).showSnackBar(SnackBar(content: Text(message)));
   }
 
-  Future<void> _setAgreement() async {
-    final controllerText = TextEditingController();
-    final amount = await showDialog<double>(
+  /// Opens the propose/counter dialog. `CollabActionPanel.tsx`'s title is
+  /// "Counter offer" when responding to the other party's live offer, else
+  /// "Propose amount"; same copy, same "final offer" checkbox either way.
+  Future<void> _proposeOffer({required bool isCounter}) async {
+    final amountController = TextEditingController();
+    var isFinal = false;
+    final result = await showDialog<(int, bool)>(
+      context: context,
+      builder: (dialogContext) => StatefulBuilder(
+        builder: (context, setDialogState) => AlertDialog(
+          title: Text(isCounter ? 'Counter offer' : 'Propose amount'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                'Total amount in INR. 25% is due as an advance, 75% on '
+                'final delivery.',
+                style: TextStyle(fontSize: 12.5),
+              ),
+              const SizedBox(height: 10),
+              TextField(
+                controller: amountController,
+                keyboardType: const TextInputType.numberWithOptions(
+                  decimal: true,
+                ),
+                decoration: const InputDecoration(
+                  prefixText: '₹ ',
+                  hintText: 'Total amount',
+                ),
+                autofocus: true,
+              ),
+              const SizedBox(height: 4),
+              CheckboxListTile(
+                value: isFinal,
+                onChanged: (v) => setDialogState(() => isFinal = v ?? false),
+                contentPadding: EdgeInsets.zero,
+                controlAffinity: ListTileControlAffinity.leading,
+                dense: true,
+                title: const Text(
+                  'Send as a final offer (the other party can only accept '
+                  'it or cancel — no further counters)',
+                  style: TextStyle(fontSize: 12),
+                ),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(dialogContext).pop(),
+              child: const Text('Cancel'),
+            ),
+            TextButton(
+              onPressed: () {
+                final value = double.tryParse(amountController.text.trim());
+                if (value == null || value <= 0) return;
+                Navigator.of(
+                  dialogContext,
+                ).pop(((value * 100).round(), isFinal));
+              },
+              child: const Text('Send'),
+            ),
+          ],
+        ),
+      ),
+    );
+    if (result == null || !mounted) return;
+    final (amountMinor, isFinalOffer) = result;
+    await _guard(() async {
+      final error = await controller.proposeOffer(
+        amountMinor: amountMinor,
+        isFinal: isFinalOffer,
+      );
+      if (error != null) {
+        _snack(error);
+      } else {
+        _snack(isFinalOffer ? 'Final offer sent' : 'Offer sent');
+      }
+    });
+  }
+
+  Future<void> _acceptOffer() async {
+    await _guard(() async {
+      final error = await controller.acceptOffer();
+      if (error != null) {
+        _snack(error);
+      } else {
+        _snack('Offer accepted — agreement set');
+      }
+    });
+  }
+
+  Future<void> _cancelCollaboration() async {
+    final reasonController = TextEditingController();
+    final confirmed = await showDialog<String>(
       context: context,
       builder: (dialogContext) => AlertDialog(
-        title: const Text('Set agreement amount'),
-        content: TextField(
-          controller: controllerText,
-          keyboardType: const TextInputType.numberWithOptions(decimal: true),
-          decoration: const InputDecoration(
-            prefixText: '₹ ',
-            hintText: 'Total amount',
-          ),
-          autofocus: true,
+        title: const Text('Cancel this collaboration?'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'This ends the collaboration for both parties. No payment '
+              'has been made yet, so nothing needs to be refunded.',
+              style: TextStyle(fontSize: 12.5),
+            ),
+            const SizedBox(height: 10),
+            TextField(
+              controller: reasonController,
+              maxLines: 3,
+              // Matches CollaborationService.maxDisputeReasonLength — the
+              // server's own cap on `cancel`'s optional reason, same as the
+              // dispute reason.
+              maxLength: 1000,
+              decoration: const InputDecoration(hintText: 'Reason (optional)'),
+            ),
+          ],
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(dialogContext).pop(),
-            child: const Text('Cancel'),
+            child: const Text('Keep collaboration'),
           ),
           TextButton(
-            onPressed: () {
-              final value = double.tryParse(controllerText.text.trim());
-              Navigator.of(dialogContext).pop(value);
-            },
-            child: const Text('Save'),
+            onPressed: () =>
+                Navigator.of(dialogContext).pop(reasonController.text),
+            child: const Text(
+              'Yes, cancel',
+              style: TextStyle(color: Colors.red),
+            ),
           ),
         ],
       ),
     );
-    if (amount == null || amount <= 0 || !mounted) return;
+    if (confirmed == null || !mounted) return;
     await _guard(() async {
-      final error = await controller.setAgreement(amount);
-      if (error != null) _snack(error);
+      final trimmed = confirmed.trim();
+      final error = await controller.cancelCollaboration(
+        reason: trimmed.isEmpty ? null : trimmed,
+      );
+      if (error != null) {
+        _snack(error);
+      } else {
+        _snack('Collaboration cancelled');
+      }
     });
   }
 
@@ -183,24 +309,34 @@ class _CollabActionPanelState extends State<CollabActionPanel> {
 
       final session = RazorpayCheckoutSession();
       try {
-        final result = await session.open(
-          keyId: keyId,
-          amountMinor: amount is int ? amount : int.tryParse('$amount') ?? 0,
-          currency: currency,
-          orderId: orderId,
-          name: 'PropCid',
-          description: milestone == CollabMilestones.advance
-              ? 'Collaboration advance (25%)'
-              : 'Collaboration final payment (75%)',
-          customerId: order['customerId'] as String?,
-          prefill: (order['prefill'] as Map?)?.map(
-            (k, v) => MapEntry(k.toString(), v.toString()),
-          ),
-        );
+        final result = await session
+            .open(
+              keyId: keyId,
+              amountMinor: amount is int
+                  ? amount
+                  : int.tryParse('$amount') ?? 0,
+              currency: currency,
+              orderId: orderId,
+              name: 'PropCid',
+              description: milestone == CollabMilestones.advance
+                  ? 'Collaboration advance (25%)'
+                  : 'Collaboration final payment (75%)',
+              customerId: order['customerId'] as String?,
+              prefill: (order['prefill'] as Map?)?.map(
+                (k, v) => MapEntry(k.toString(), v.toString()),
+              ),
+            )
+            .timeout(
+              _kCheckoutTimeout,
+              onTimeout: () => const CheckoutFailed(
+                'The payment window timed out. If you completed payment, '
+                'it will be reconciled automatically.',
+              ),
+            );
 
         if (result is CheckoutSuccess) {
           try {
-            await PaymentService().verifyPayment(
+            await controller.verifyPayment(
               razorpayOrderId: result.orderId,
               razorpayPaymentId: result.paymentId,
               razorpaySignature: result.signature,
@@ -212,7 +348,11 @@ class _CollabActionPanelState extends State<CollabActionPanel> {
             _snack('Payment successful.');
           } catch (e) {
             _snack(
-              'Payment could not be verified. If you were charged, it will be reconciled automatically.',
+              e is CollaborationException
+                  ? e.message
+                  : 'Payment could not be verified. If you were charged, '
+                        'webhook reconciliation may still complete it — '
+                        'we will not create another order automatically.',
             );
           }
         } else if (result is CheckoutCancelled) {
@@ -226,17 +366,99 @@ class _CollabActionPanelState extends State<CollabActionPanel> {
     });
   }
 
+  /// `CollabActionPanel.tsx`'s sample flow, in order: instructions ->
+  /// pick file -> stage in a preview dialog -> explicit "Send?" confirm ->
+  /// upload. Previously this skipped straight from picking a file to
+  /// uploading it, with none of the portal's confirmation steps.
   Future<void> _sendSample() async {
+    final proceed = await _showSampleInstructions();
+    if (proceed != true || !mounted) return;
+
     final picked = await _imagePicker.pickVideo(source: ImageSource.gallery);
     if (picked == null || !mounted) return;
+
+    final confirmed = await _showSamplePreview(File(picked.path));
+    if (confirmed != true || !mounted) return;
+
     await _guard(() async {
       final error = await controller.uploadSample(File(picked.path));
       if (error != null) {
         _snack(error);
       } else {
+        _snack('Sample sent (view once)');
         widget.onMessagesChanged?.call();
       }
     });
+  }
+
+  Future<bool?> _showSampleInstructions() {
+    return showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Send a one-time sample'),
+        content: const Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            _BulletLine('MP4 video, 10-15 seconds long.'),
+            SizedBox(height: 8),
+            _BulletLine(
+              "The client can watch it only once — it's gone for good the "
+              'moment they close the player.',
+            ),
+            SizedBox(height: 8),
+            _BulletLine(
+              "You'll see a preview and confirm before it's actually sent.",
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(false),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(true),
+            child: const Text('Choose video'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<bool?> _showSamplePreview(File file) {
+    return showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Send this sample?'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            ClipRRect(
+              borderRadius: BorderRadius.circular(10),
+              child: _LocalVideoPreview(file: file),
+            ),
+            const SizedBox(height: 12),
+            const Text(
+              'Once sent, the client can view this video only once — '
+              "there's no way to undo this.",
+              style: TextStyle(fontSize: 12.5),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(false),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(true),
+            child: const Text('Send'),
+          ),
+        ],
+      ),
+    );
   }
 
   Future<void> _sendDeliverable() async {
@@ -345,18 +567,44 @@ class _CollabActionPanelState extends State<CollabActionPanel> {
   Widget build(BuildContext context) {
     final collab = controller.collaboration;
     if (collab == null) {
-      return controller.loading
-          ? const Padding(
-              padding: EdgeInsets.symmetric(vertical: 10),
-              child: Center(
-                child: SizedBox(
-                  height: 18,
-                  width: 18,
-                  child: CircularProgressIndicator(strokeWidth: 2),
+      if (controller.loading) {
+        return const Padding(
+          padding: EdgeInsets.symmetric(vertical: 10),
+          child: Center(
+            child: SizedBox(
+              height: 18,
+              width: 18,
+              child: CircularProgressIndicator(strokeWidth: 2),
+            ),
+          ),
+        );
+      }
+      // Previously fell through to an empty SizedBox here, silently hiding
+      // the whole panel on a load failure with no way to recover short of
+      // leaving and reopening the thread.
+      if (controller.failed) {
+        return Container(
+          color: AppColors.cardBackground,
+          padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 16),
+          child: Column(
+            children: [
+              Text(
+                "Couldn't load this collaboration.",
+                style: AppTextStyles.caption.copyWith(
+                  color: AppColors.textSecondary,
                 ),
               ),
-            )
-          : const SizedBox.shrink();
+              const SizedBox(height: 8),
+              OutlinedButton.icon(
+                onPressed: controller.refresh,
+                icon: const Icon(Icons.refresh, size: 16),
+                label: const Text('Retry'),
+              ),
+            ],
+          ),
+        );
+      }
+      return const SizedBox.shrink();
     }
 
     final status = collab.status;
@@ -445,13 +693,7 @@ class _CollabActionPanelState extends State<CollabActionPanel> {
     final actions = <Widget>[];
 
     if (status == CollabStatuses.accepted) {
-      actions.add(
-        _actionButton(
-          'Set agreement amount',
-          Icons.handshake_outlined,
-          _setAgreement,
-        ),
-      );
+      actions.addAll(_buildOfferActions(collab));
     }
 
     if (status == CollabStatuses.agreementPending) {
@@ -581,11 +823,78 @@ class _CollabActionPanelState extends State<CollabActionPanel> {
       );
     }
 
+    // `CollabActionPanel.tsx`'s `canCancel`: either participant, only while
+    // `accepted` or `agreement_pending` — and the latter only stays that
+    // status while genuinely unpaid, since a paid advance moves it on to
+    // `advance_paid`/`in_progress` server-side, so no extra payment check is
+    // needed here beyond the status itself.
+    if (_kCancellableStatuses.contains(status)) {
+      actions.add(
+        Align(
+          alignment: Alignment.centerLeft,
+          child: TextButton.icon(
+            onPressed: _busy ? null : _cancelCollaboration,
+            icon: const Icon(
+              Icons.cancel_outlined,
+              size: 15,
+              color: Colors.red,
+            ),
+            label: const Text(
+              'Cancel collaboration',
+              style: TextStyle(color: Colors.red, fontSize: 12.5),
+            ),
+          ),
+        ),
+      );
+    }
+
     return actions
         .map(
           (w) => Padding(padding: const EdgeInsets.only(bottom: 6), child: w),
         )
         .toList();
+  }
+
+  /// The `accepted`-status negotiation block — propose/counter/accept/wait,
+  /// same block regardless of role, matching `CollabActionPanel.tsx`'s
+  /// `accepted` case exactly.
+  List<Widget> _buildOfferActions(Collaboration collab) {
+    if (!collab.hasPendingOffer) {
+      return [
+        _actionButton(
+          'Propose amount',
+          Icons.handshake_outlined,
+          () => _proposeOffer(isCounter: false),
+        ),
+      ];
+    }
+
+    final amountText = formatCollabAmount(collab.pendingOfferAmountMinor);
+    final mine = collab.proposedPendingOfferBy(controller.userId);
+
+    if (mine) {
+      return [
+        _infoLine(
+          'Waiting for the other party to respond to your offer of '
+          '$amountText'
+          '${collab.pendingOfferIsFinal ? ' (final offer)' : ''}.',
+        ),
+      ];
+    }
+
+    return [
+      _infoLine(
+        '${collab.pendingOfferIsFinal ? 'Final offer' : 'Offer'}: $amountText',
+      ),
+      _actionButton('Accept', Icons.check_circle_outline, _acceptOffer),
+      if (!collab.pendingOfferIsFinal)
+        _actionButton(
+          'Counter',
+          Icons.sync_alt,
+          () => _proposeOffer(isCounter: true),
+          outlined: true,
+        ),
+    ];
   }
 
   Widget _buildInvoices() {
@@ -677,4 +986,96 @@ class _CollabActionPanelState extends State<CollabActionPanel> {
       ),
     ),
   );
+}
+
+/// One "•" bullet line for the sample-instructions dialog.
+class _BulletLine extends StatelessWidget {
+  final String text;
+  const _BulletLine(this.text);
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text('•  ', style: TextStyle(fontSize: 12.5)),
+        Expanded(child: Text(text, style: const TextStyle(fontSize: 12.5))),
+      ],
+    );
+  }
+}
+
+/// Local-file video preview for the "stage before sending" sample dialog —
+/// first frame only, no playback controls needed for a quick confirm step.
+class _LocalVideoPreview extends StatefulWidget {
+  final File file;
+  const _LocalVideoPreview({required this.file});
+
+  @override
+  State<_LocalVideoPreview> createState() => _LocalVideoPreviewState();
+}
+
+class _LocalVideoPreviewState extends State<_LocalVideoPreview> {
+  VideoPlayerController? _controller;
+  bool _failed = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _init();
+  }
+
+  Future<void> _init() async {
+    final controller = VideoPlayerController.file(widget.file);
+    try {
+      await controller.initialize();
+      if (!mounted) {
+        await controller.dispose();
+        return;
+      }
+      setState(() => _controller = controller);
+    } catch (e) {
+      debugPrint('CollabActionPanel: sample preview init failed: $e');
+      if (mounted) setState(() => _failed = true);
+    }
+  }
+
+  @override
+  void dispose() {
+    _controller?.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final controller = _controller;
+    return SizedBox(
+      height: 160,
+      width: double.infinity,
+      child: ColoredBox(
+        color: Colors.black87,
+        child: _failed
+            ? const Center(child: Icon(Icons.videocam_off, color: Colors.white))
+            : controller == null
+            ? const Center(
+                child: SizedBox(
+                  width: 20,
+                  height: 20,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2,
+                    color: Colors.white70,
+                  ),
+                ),
+              )
+            : FittedBox(
+                fit: BoxFit.contain,
+                child: SizedBox(
+                  width: controller.value.size.width,
+                  height: controller.value.size.height,
+                  child: VideoPlayer(controller),
+                ),
+              ),
+      ),
+    );
+  }
 }

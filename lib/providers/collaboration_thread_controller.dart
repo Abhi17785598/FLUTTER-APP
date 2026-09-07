@@ -193,10 +193,48 @@ class CollaborationThreadController extends ChangeNotifier {
     }
   }
 
-  Future<String?> setAgreement(double amountRupees) => _run(() async {
-    await _service.setAgreement(collaborationId, amountRupees: amountRupees);
+  /// Proposes a new offer (or a counter-offer) while `accepted`. The server
+  /// rejects it if the caller already has a pending offer of their own on
+  /// the table (`propose_offer` requires responding to the OTHER
+  /// participant's offer, not replacing your own) or if the prior offer was
+  /// marked final.
+  Future<String?> proposeOffer({
+    required int amountMinor,
+    required bool isFinal,
+  }) => _run(() async {
+    await _service.proposeOffer(
+      collaborationId,
+      amountMinor: amountMinor,
+      isFinal: isFinal,
+    );
     await refresh();
   });
+
+  /// Accepts the counterparty's pending offer — locks the amount and moves
+  /// to `agreement_pending` server-side.
+  Future<String?> acceptOffer() => _run(() async {
+    await _service.acceptOffer(collaborationId);
+    await refresh();
+  });
+
+  /// Either participant, during `accepted` or unpaid `agreement_pending`.
+  Future<String?> cancelCollaboration({String? reason}) => _run(() async {
+    await _service.cancelCollaboration(collaborationId, reason: reason);
+    await refresh();
+  });
+
+  /// Verifies a completed collaboration-milestone payment through the
+  /// collaboration auth helper. Never advances state locally — the caller's
+  /// own `refresh()`/realtime subscription reflects the server's result.
+  Future<void> verifyPayment({
+    required String razorpayOrderId,
+    required String razorpayPaymentId,
+    required String razorpaySignature,
+  }) => _service.verifyPayment(
+    razorpayOrderId: razorpayOrderId,
+    razorpayPaymentId: razorpayPaymentId,
+    razorpaySignature: razorpaySignature,
+  );
 
   Future<String?> raiseDispute(String reason) => _run(() async {
     await _service.raiseDispute(collaborationId, reason);

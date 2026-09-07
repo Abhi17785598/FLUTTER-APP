@@ -1022,12 +1022,13 @@ class _ChatThreadViewState extends State<_ChatThreadView> {
             message: message,
             isClient: collab?.isClient ?? false,
             asset: _assetFor(collab, message.collabAssetId),
-            onViewSample: message.collabAssetId == null
+            onViewSample: (message.collabAssetId == null || collab == null)
                 ? null
-                : () => collab!.viewSample(message.collabAssetId!),
-            onDownloadDeliverable: message.collabAssetId == null
+                : () => collab.viewSample(message.collabAssetId!),
+            onDownloadDeliverable:
+                (message.collabAssetId == null || collab == null)
                 ? null
-                : () => collab!.fetchDeliverableUrl(message.collabAssetId!),
+                : () => collab.fetchDeliverableUrl(message.collabAssetId!),
             onDownloadAgreement: collab == null
                 ? null
                 : () => collab.fetchAgreementUrl(),

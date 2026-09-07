@@ -280,6 +280,32 @@ class _SampleBubbleState extends State<_SampleBubble> {
     final action = widget.onView;
     final asset = widget.asset;
     if (action == null || asset == null || _state == _ViewState.loading) return;
+
+    // `CollabMessageBubbles.tsx`'s confirm-before-view dialog — previously
+    // missing here, so a tap called `collab-sample-view` (which burns the
+    // one-time view server-side) immediately with no warning at all.
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('View once'),
+        content: const Text(
+          "This is a view-once video — once you watch it, it's gone for "
+          "good and can't be viewed again.",
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(false),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(true),
+            child: const Text('View now'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted) return;
+
     setState(() => _state = _ViewState.loading);
     final (url, error) = await action();
     if (!mounted) return;

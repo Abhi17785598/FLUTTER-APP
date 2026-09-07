@@ -232,6 +232,12 @@ class _MessagesListViewState extends State<_MessagesListView> {
           participantUserId: conversation.otherParticipant?.userId,
           requestStatus: conversation.requestStatus,
           isMuted: conversation.isMuted,
+          // Always null for anything reachable from the Chats tab (which
+          // excludes collaboration conversations entirely) — passed through
+          // anyway so this entry point never has to be revisited if that
+          // ever changes; every route into a conversation should carry its
+          // real collaborationId rather than assume it has none.
+          collaborationId: conversation.collaborationId,
         ),
       ),
     );
@@ -294,10 +300,12 @@ class _MessagesListViewState extends State<_MessagesListView> {
                     labels: [
                       'Chats',
                       'Channels',
-                      if (messaging.hasIncomingCollabRequest)
-                        'Collabs •'
-                      else
-                        'Collabs',
+                      // Total unread across every active collaboration's own
+                      // conversation, plus the existing incoming-request dot
+                      // — both signals, not one replacing the other.
+                      'Collabs'
+                          '${messaging.totalCollabUnread > 0 ? ' (${messaging.totalCollabUnread})' : ''}'
+                          '${messaging.hasIncomingCollabRequest ? ' •' : ''}',
                     ],
                     selectedIndex: _tab,
                     onChanged: (i) => setState(() => _tab = i),
@@ -581,6 +589,7 @@ class _MessagesListViewState extends State<_MessagesListView> {
           onTap: () => _openCollab(entry),
           onAccept: () => _acceptCollab(entry),
           onDecline: () => _declineCollab(entry),
+          unreadCount: entry.unreadCount,
         );
       },
     );
