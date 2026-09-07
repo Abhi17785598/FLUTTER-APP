@@ -4,6 +4,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../core/constants/app_constants.dart';
 import '../core/navigation/banner_destination_resolver.dart';
+import '../core/theme/app_colors.dart';
 import '../core/theme/app_text_styles.dart';
 import '../models/banner_destination.dart';
 import '../providers/filter_provider.dart';
@@ -156,10 +157,38 @@ class CategoryIconGrid extends StatefulWidget {
 }
 
 class _CategoryIconGridState extends State<CategoryIconGrid> {
-  /// Side length each category illustration renders at. Bigger than the
-  /// old flat icon's 52 dp — these are detailed illustrations, not simple
-  /// glyphs, and need more room to stay legible.
-  static const double _kTileImageSize = 64.0;
+  /// Height of the illustration zone inside each card.
+  static const double _kTileImageHeight = 92.0;
+
+  /// Gap between adjacent cards, and the horizontal page padding either
+  /// side of the rail — shared by the width computation below and the
+  /// `ListView`'s own padding/gap so the maths and the actual layout never
+  /// drift apart.
+  static const double _kTileGap = 14.0;
+  static const double _kRailPadding = 16.0;
+
+  /// How many cards the row is sized to fill edge-to-edge.
+  static const int _kTilesPerRow = 4;
+
+  /// Sliver of the next card deliberately left peeking in from the right —
+  /// an intentional "there's more" affordance (this app has nine real
+  /// categories; none are ever hidden to force a tidy row) rather than an
+  /// ambiguous mid-cut card or an invisible-until-you-try-scrolling row.
+  static const double _kNextCardPeek = 14.0;
+
+  /// Sizes the first [_kTilesPerRow] cards to fill (almost) exactly one
+  /// viewport width, so the row reads as intentionally full on any screen
+  /// size, while every one of the app's nine tiles stays reachable by
+  /// scrolling — never deletes any of them just to make the row look tidy.
+  double _tileWidth(BuildContext context) {
+    final screenWidth = MediaQuery.of(context).size.width;
+    final usableWidth = screenWidth - _kRailPadding * 2 - _kNextCardPeek;
+    final width =
+        (usableWidth - _kTileGap * (_kTilesPerRow - 1)) / _kTilesPerRow;
+    // Clamped so a very narrow or very wide phone still gets a sane card
+    // rather than something illegibly small or a stretched illustration.
+    return width.clamp(92.0, 132.0);
+  }
 
   late final Future<Map<String, int>> _counts = _loadCounts();
 
@@ -239,9 +268,104 @@ class _CategoryIconGridState extends State<CategoryIconGrid> {
     BannerDestinationResolver.navigate(context, category.destination!);
   }
 
+  /// One category card — extracted from `build()` so the eagerly-built
+  /// `ListView(children: [...])` above can construct all nine via a plain
+  /// collection-`for`, rather than needing a `.builder`'s lazy `itemBuilder`
+  /// callback shape.
+  Widget _buildCategoryCard(
+    BuildContext context,
+    CategoryItem category,
+    int? count,
+    double tileWidth,
+  ) {
+    return Padding(
+      padding: const EdgeInsets.only(right: _kTileGap),
+      child: GestureDetector(
+        onTap: () => _open(context, category),
+        child: Container(
+          width: tileWidth,
+          clipBehavior: Clip.antiAlias,
+          decoration: BoxDecoration(
+            // A plain, elevated white card — no colour wash behind the
+            // illustration. Each source image already sits on its own
+            // plain white canvas, so painting the card the exact same
+            // white makes that canvas disappear entirely instead of
+            // reading as a separate box.
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(AppConstants.cardRadius),
+            boxShadow: AppColors.surfaceCardShadow,
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Stack(
+                children: [
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(8, 10, 8, 0),
+                    child: Image.asset(
+                      category.imageAsset,
+                      height: _kTileImageHeight,
+                      width: double.infinity,
+                      fit: BoxFit.contain,
+                    ),
+                  ),
+                  if (count != null && count > 0)
+                    Positioned(
+                      top: 6,
+                      right: 6,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 6,
+                          vertical: 2,
+                        ),
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(
+                            AppConstants.pillRadius,
+                          ),
+                          border: Border.all(
+                            color: category.accentColor,
+                            width: 1,
+                          ),
+                          boxShadow: AppColors.surfaceCardShadow,
+                        ),
+                        child: Text(
+                          count > 999 ? '999+' : '$count',
+                          style: AppTextStyles.chip.copyWith(
+                            fontSize: 9.5,
+                            fontWeight: FontWeight.w700,
+                            color: category.accentColor,
+                          ),
+                        ),
+                      ),
+                    ),
+                ],
+              ),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(8, 6, 8, 10),
+                child: Text(
+                  category.label,
+                  style: AppTextStyles.caption.copyWith(
+                    fontSize: 11.5,
+                    fontWeight: FontWeight.w600,
+                    color: AppColors.textPrimary,
+                  ),
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     const categories = CategoryIconGrid.categories;
+    final tileWidth = _tileWidth(context);
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -253,93 +377,77 @@ class _CategoryIconGridState extends State<CategoryIconGrid> {
             final counts = snapshot.data ?? const <String, int>{};
 
             return SizedBox(
-              // Was 100 for the old flat icon-in-circle (52 dp). The
-              // portal-sourced illustrations need more room to read clearly
-              // (_kTileImageSize, 64 dp) — 100 → 112 keeps the same
-              // gap(8)/2-line-label allowance as before, just around the
-              // bigger image.
-              height: 112,
-              child: ListView.builder(
-                scrollDirection: Axis.horizontal,
-                padding: const EdgeInsets.symmetric(horizontal: 16),
-                itemCount: categories.length,
-                itemBuilder: (context, index) {
-                  final category = categories[index];
-                  final count = counts[category.countKey];
-                  return Padding(
-                    padding: const EdgeInsets.only(right: 16),
-                    child: GestureDetector(
-                      onTap: () => _open(context, category),
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Stack(
-                            clipBehavior: Clip.none,
-                            children: [
-                              // The portal renders these with plain
-                              // `object-contain` — no colour chip behind
-                              // them, since each illustration already
-                              // carries its own backdrop/badge art baked
-                              // in. Matching that here rather than boxing
-                              // it in the old flat circle.
-                              Image.asset(
-                                category.imageAsset,
-                                width: _kTileImageSize,
-                                height: _kTileImageSize,
-                                fit: BoxFit.contain,
-                              ),
-                              if (count != null && count > 0)
-                                Positioned(
-                                  top: -4,
-                                  right: -6,
-                                  child: Container(
-                                    padding: const EdgeInsets.symmetric(
-                                      horizontal: 6,
-                                      vertical: 2,
-                                    ),
-                                    decoration: BoxDecoration(
-                                      color: Colors.white,
-                                      borderRadius: BorderRadius.circular(
-                                        AppConstants.pillRadius,
-                                      ),
-                                      border: Border.all(
-                                        color: category.accentColor,
-                                        width: 1,
-                                      ),
-                                    ),
-                                    child: Text(
-                                      count > 999 ? '999+' : '$count',
-                                      style: AppTextStyles.chip.copyWith(
-                                        fontSize: 9.5,
-                                        fontWeight: FontWeight.w700,
-                                        color: category.accentColor,
-                                      ),
-                                    ),
-                                  ),
-                                ),
-                            ],
-                          ),
-                          const SizedBox(height: 8),
-                          SizedBox(
-                            width: _kTileImageSize,
-                            child: Text(
-                              category.label,
-                              style: AppTextStyles.caption,
-                              textAlign: TextAlign.center,
-                              maxLines: 2,
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                          ),
-                        ],
-                      ),
+              // Illustration zone + label footer, inside a proper card.
+              height: _kTileImageHeight + 62,
+              child: Stack(
+                children: [
+                  SingleChildScrollView(
+                    scrollDirection: Axis.horizontal,
+                    // A `Row` inside a plain `SingleChildScrollView`, not a
+                    // `ListView` — even `ListView(children: [...])` (not
+                    // just `.builder`) still virtualises via a sliver
+                    // underneath, so it only mounts the cards currently
+                    // within the viewport/cache area, not every card that
+                    // exists. A `Row` has no such concept: with only nine
+                    // small cards total, there is no meaningful cost to
+                    // every one of them genuinely existing in the tree from
+                    // the first frame — which is also what a real swipe (or
+                    // a test's `ensureVisible`) needs to reach any of them.
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: _kRailPadding,
                     ),
-                  );
-                },
+                    child: Row(
+                      children: [
+                        for (final category in categories)
+                          _buildCategoryCard(
+                            context,
+                            category,
+                            counts[category.countKey],
+                            tileWidth,
+                          ),
+                      ],
+                    ),
+                  ),
+                  // A subtle fade at the trailing edge hints that the rail
+                  // continues past the visible cards, without hiding the
+                  // deliberate next-card peek computed by [_tileWidth] or
+                  // removing any of the nine real categories.
+                  const Positioned(
+                    top: 0,
+                    right: 0,
+                    bottom: 0,
+                    width: 32,
+                    child: IgnorePointer(child: _CategoryRailFadeEdge()),
+                  ),
+                ],
               ),
             );
           },
         ),
       ],
+    );
+  }
+}
+
+/// Right-edge fade mask for [CategoryIconGrid]'s horizontal rail — matches
+/// the page's own [AppColors.background] so it reads as the page fading the
+/// content out rather than a hard-edged overlay.
+class _CategoryRailFadeEdge extends StatelessWidget {
+  const _CategoryRailFadeEdge();
+
+  @override
+  Widget build(BuildContext context) {
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.centerLeft,
+          end: Alignment.centerRight,
+          colors: [
+            AppColors.background.withOpacity(0),
+            AppColors.background.withOpacity(0.9),
+          ],
+        ),
+      ),
     );
   }
 }

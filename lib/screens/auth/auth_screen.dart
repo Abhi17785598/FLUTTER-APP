@@ -1,9 +1,28 @@
+import 'dart:ui';
+
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import 'package:provider/provider.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/validation/validators.dart';
 import '../../core/widgets/premium_button.dart';
 import '../../providers/auth_provider.dart';
+
+/// The real, official Google "G" mark (Google's own multi-colour logo, as
+/// used on every standard "Sign in with Google" button) — inlined as raw SVG
+/// so it renders pixel-accurately via the app's existing `flutter_svg`
+/// dependency, with no new package and no new asset file. Replaces the
+/// earlier hand-painted 4-arc approximation, which read as an approximation
+/// rather than the real logo.
+const String _googleLogoSvg = '''
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48">
+  <path fill="#4285F4" d="M45.12 24.5c0-1.56-.14-3.06-.4-4.5H24v8.51h11.84c-.51 2.75-2.06 5.08-4.39 6.64v5.52h7.11c4.16-3.83 6.56-9.47 6.56-16.17z"/>
+  <path fill="#34A853" d="M24 46c5.94 0 10.92-1.97 14.56-5.33l-7.11-5.52c-1.97 1.32-4.49 2.1-7.45 2.1-5.73 0-10.58-3.87-12.31-9.07H4.34v5.7C7.96 41.07 15.4 46 24 46z"/>
+  <path fill="#FBBC05" d="M11.69 28.18C11.25 26.86 11 25.45 11 24s.25-2.86.69-4.18v-5.7H4.34C2.85 17.09 2 20.45 2 24s.85 6.91 2.34 9.88l7.35-5.7z"/>
+  <path fill="#EA4335" d="M24 10.75c3.23 0 6.13 1.11 8.41 3.29l6.31-6.31C34.91 4.18 29.93 2 24 2 15.4 2 7.96 6.93 4.34 14.12l7.35 5.7c1.73-5.2 6.58-9.07 12.31-9.07z"/>
+</svg>
+''';
 
 class AuthScreen extends StatefulWidget {
   const AuthScreen({super.key});
@@ -258,48 +277,153 @@ class _AuthScreenState extends State<AuthScreen> with TickerProviderStateMixin {
 
   // ─── Root Build ───────────────────────────────────────────
 
+  /// Same premium house photo already used elsewhere in this app (the
+  /// second slide of the Home hero carousel, `HeroBannerSection`) — reused
+  /// verbatim rather than a new, unrelated image.
+  static const String _backgroundImageUrl =
+      'https://images.unsplash.com/photo-1512917774080-9991f1c4c750?w=900&q=80';
+
   @override
   Widget build(BuildContext context) {
+    // Bottom safe-area inset (home indicator / gesture bar), folded into the
+    // card's own bottom padding below rather than left to `SafeArea` — the
+    // card must reach the literal bottom edge of the screen with no bare
+    // strip of photo left showing under it, on every device, so it owns
+    // that inset itself instead of a wrapping `SafeArea` reserving it as
+    // dead space above the card.
+    final bottomInset = MediaQuery.of(context).padding.bottom;
+
     return Scaffold(
-      body: Container(
-        decoration: const BoxDecoration(
-          gradient: LinearGradient(
-            colors: [Color(0xFFF0EEFF), Color(0xFFF4F4F8)],
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
+      body: Stack(
+        fit: StackFit.expand,
+        children: [
+          // Full-bleed background photo behind everything.
+          CachedNetworkImage(
+            imageUrl: _backgroundImageUrl,
+            fit: BoxFit.cover,
+            placeholder: (context, url) =>
+                Container(color: AppColors.primaryLight),
+            errorWidget: (context, url, error) =>
+                Container(color: AppColors.primaryLight),
           ),
-        ),
-        child: SafeArea(
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.symmetric(horizontal: 24),
-            keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+          // A soft light-to-transparent wash behind the header text so it
+          // stays legible over whatever part of the photo sits at the top,
+          // without hiding the photo the way a solid banner would.
+          const DecoratedBox(
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+                colors: [Color(0xCCF8F8FC), Color(0x00F8F8FC)],
+                stops: [0.0, 0.42],
+              ),
+            ),
+          ),
+          SafeArea(
+            bottom: false,
             child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const SizedBox(height: 40),
-                _buildHeader(),
-                const SizedBox(height: 32),
-                _buildTabBar(),
-                const SizedBox(height: 24),
-                // Use AnimatedBuilder to rebuild tab content on tab switch
-                AnimatedBuilder(
-                  animation: _tabController,
-                  builder: (context, _) {
-                    switch (_tabController.index) {
-                      case 0:
-                        return _buildLoginForm();
-                      case 1:
-                        return _buildSignUpForm();
-                      default:
-                        return _buildPhoneForm();
-                    }
-                  },
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(24, 32, 24, 0),
+                  child: Align(
+                    alignment: Alignment.centerLeft,
+                    child: _buildHeader(),
+                  ),
                 ),
-                const SizedBox(height: 40),
+                const SizedBox(height: 20),
+                // The frosted glass card carrying the tab bar and the
+                // active form. `Expanded` pins it to fill every bit of
+                // remaining space down to the true bottom edge of the
+                // screen — on a tall device that's more empty card padding,
+                // on a short one (or with the keyboard open) its own
+                // `SingleChildScrollView` below takes over, but the photo
+                // is never left exposed under a short-and-floating card.
+                Expanded(
+                  child: ClipRRect(
+                    borderRadius: const BorderRadius.only(
+                      topLeft: Radius.circular(28),
+                      topRight: Radius.circular(28),
+                    ),
+                    child: BackdropFilter(
+                      filter: ImageFilter.blur(sigmaX: 18, sigmaY: 18),
+                      child: Container(
+                        width: double.infinity,
+                        decoration: BoxDecoration(
+                          color: Colors.white.withOpacity(0.86),
+                          borderRadius: const BorderRadius.only(
+                            topLeft: Radius.circular(28),
+                            topRight: Radius.circular(28),
+                          ),
+                          border: Border(
+                            top: BorderSide(
+                              color: Colors.white.withOpacity(0.6),
+                            ),
+                          ),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withOpacity(0.12),
+                              blurRadius: 24,
+                              offset: const Offset(0, -6),
+                            ),
+                          ],
+                        ),
+                        child: Column(
+                          children: [
+                            const SizedBox(height: 10),
+                            // A small grabber handle — the usual affordance
+                            // for a card anchored to the bottom of the
+                            // screen, and a cheap extra touch of polish.
+                            Container(
+                              width: 36,
+                              height: 4,
+                              decoration: BoxDecoration(
+                                color: AppColors.textHint.withOpacity(0.35),
+                                borderRadius: BorderRadius.circular(2),
+                              ),
+                            ),
+                            Expanded(
+                              child: SingleChildScrollView(
+                                keyboardDismissBehavior:
+                                    ScrollViewKeyboardDismissBehavior.onDrag,
+                                padding: EdgeInsets.fromLTRB(
+                                  24,
+                                  18,
+                                  24,
+                                  24 + bottomInset,
+                                ),
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    _buildTabBar(),
+                                    const SizedBox(height: 22),
+                                    // Use AnimatedBuilder to rebuild tab content on tab switch
+                                    AnimatedBuilder(
+                                      animation: _tabController,
+                                      builder: (context, _) {
+                                        switch (_tabController.index) {
+                                          case 0:
+                                            return _buildLoginForm();
+                                          case 1:
+                                            return _buildSignUpForm();
+                                          default:
+                                            return _buildPhoneForm();
+                                        }
+                                      },
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
               ],
             ),
           ),
-        ),
+        ],
       ),
     );
   }
@@ -324,7 +448,7 @@ class _AuthScreenState extends State<AuthScreen> with TickerProviderStateMixin {
                   boxShadow: AppColors.primaryGlow,
                 ),
                 child: const Icon(
-                  Icons.home_work_rounded,
+                  Icons.home_outlined,
                   color: Colors.white,
                   size: 28,
                 ),
@@ -334,30 +458,22 @@ class _AuthScreenState extends State<AuthScreen> with TickerProviderStateMixin {
             FadeTransition(
               opacity: _text1Animation,
               child: const Text(
-                'Find your perfect',
+                'Your Next Home',
                 style: TextStyle(
-                  fontSize: 28,
-                  fontWeight: FontWeight.w700,
+                  fontSize: 26,
+                  fontWeight: FontWeight.w600,
                   color: AppColors.textPrimary,
                 ),
               ),
             ),
             FadeTransition(
               opacity: _text2Animation,
-              child: RichText(
-                text: const TextSpan(
-                  style: TextStyle(
-                    fontSize: 28,
-                    fontWeight: FontWeight.w700,
-                    color: AppColors.textPrimary,
-                  ),
-                  children: [
-                    TextSpan(
-                      text: 'property ',
-                      style: TextStyle(color: AppColors.primary),
-                    ),
-                    TextSpan(text: '🏡'),
-                  ],
+              child: const Text(
+                'Is Just a Login Away',
+                style: TextStyle(
+                  fontSize: 26,
+                  fontWeight: FontWeight.w800,
+                  color: AppColors.primary,
                 ),
               ),
             ),
@@ -365,7 +481,7 @@ class _AuthScreenState extends State<AuthScreen> with TickerProviderStateMixin {
             FadeTransition(
               opacity: _text2Animation,
               child: const Text(
-                'Login or create an account to get started',
+                'Discover. Explore. Own.',
                 style: TextStyle(fontSize: 14, color: AppColors.textSecondary),
               ),
             ),
@@ -424,9 +540,9 @@ class _AuthScreenState extends State<AuthScreen> with TickerProviderStateMixin {
           fontWeight: FontWeight.w500,
         ),
         tabs: const [
-          Tab(text: 'Login'),
-          Tab(text: 'Sign Up'),
-          Tab(text: 'Phone'),
+          _IconTab(icon: Icons.person_outline, label: 'Login'),
+          _IconTab(icon: Icons.add, label: 'Sign Up'),
+          _IconTab(icon: Icons.phone_outlined, label: 'Phone'),
         ],
       ),
     );
@@ -599,90 +715,77 @@ class _AuthScreenState extends State<AuthScreen> with TickerProviderStateMixin {
     VoidCallback? onTogglePassword,
     TextInputType keyboardType = TextInputType.text,
   }) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          label,
-          style: const TextStyle(
-            fontSize: 13,
-            fontWeight: FontWeight.w600,
-            color: AppColors.textPrimary,
+    // Matches the reference: just the icon + field name inside the box, no
+    // separate bold label floating above it (the field's semantic label is
+    // still set below via InputDecoration.labelText's usual accessibility
+    // role — this only changes what's painted, not what a label means for
+    // validation, which is untouched).
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.04),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
           ),
-        ),
-        const SizedBox(height: 6),
-        Container(
-          decoration: BoxDecoration(
-            color: Colors.white,
+        ],
+      ),
+      child: TextField(
+        controller: controller,
+        obscureText: isPassword && !passwordVisible,
+        keyboardType: keyboardType,
+        style: const TextStyle(fontSize: 14, color: AppColors.textPrimary),
+        decoration: InputDecoration(
+          hintText: label,
+          hintStyle: const TextStyle(color: AppColors.textHint, fontSize: 14),
+          prefixIcon: Icon(icon, color: AppColors.textSecondary, size: 20),
+          suffixIcon: isPassword
+              ? IconButton(
+                  onPressed: onTogglePassword,
+                  icon: Icon(
+                    passwordVisible
+                        ? Icons.visibility_outlined
+                        : Icons.visibility_off_outlined,
+                    color: AppColors.textSecondary,
+                    size: 20,
+                  ),
+                )
+              : null,
+          filled: true,
+          fillColor: Colors.white,
+          border: OutlineInputBorder(
             borderRadius: BorderRadius.circular(12),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withOpacity(0.04),
-                blurRadius: 8,
-                offset: const Offset(0, 2),
-              ),
-            ],
+            borderSide: BorderSide.none,
           ),
-          child: TextField(
-            controller: controller,
-            obscureText: isPassword && !passwordVisible,
-            keyboardType: keyboardType,
-            style: const TextStyle(fontSize: 14, color: AppColors.textPrimary),
-            decoration: InputDecoration(
-              hintText: hint,
-              hintStyle: const TextStyle(
-                color: AppColors.textHint,
-                fontSize: 14,
-              ),
-              prefixIcon: Icon(icon, color: AppColors.textSecondary, size: 20),
-              suffixIcon: isPassword
-                  ? IconButton(
-                      onPressed: onTogglePassword,
-                      icon: Icon(
-                        passwordVisible
-                            ? Icons.visibility_outlined
-                            : Icons.visibility_off_outlined,
-                        color: AppColors.textSecondary,
-                        size: 20,
-                      ),
-                    )
-                  : null,
-              filled: true,
-              fillColor: Colors.white,
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(12),
-                borderSide: BorderSide.none,
-              ),
-              enabledBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(12),
-                borderSide: BorderSide(color: Colors.grey.shade200, width: 1),
-              ),
-              focusedBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(12),
-                borderSide: const BorderSide(
-                  color: AppColors.primary,
-                  width: 2,
-                ),
-              ),
-              contentPadding: const EdgeInsets.symmetric(
-                horizontal: 16,
-                vertical: 14,
-              ),
-            ),
+          enabledBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(12),
+            borderSide: BorderSide(color: Colors.grey.shade200, width: 1),
+          ),
+          focusedBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(12),
+            borderSide: const BorderSide(color: AppColors.primary, width: 2),
+          ),
+          contentPadding: const EdgeInsets.symmetric(
+            horizontal: 16,
+            vertical: 14,
           ),
         ),
-      ],
+      ),
     );
   }
 
   Widget _buildPrimaryButton({
     required String label,
     required VoidCallback? onPressed,
+    IconData? icon = Icons.arrow_forward_rounded,
   }) {
     return PremiumButton(
       label: label,
       onPressed: onPressed,
       isLoading: _isLoading,
+      icon: icon,
     );
   }
 
@@ -716,13 +819,10 @@ class _AuthScreenState extends State<AuthScreen> with TickerProviderStateMixin {
                 height: 18,
                 child: CircularProgressIndicator(strokeWidth: 2),
               )
-            : const Text(
-                'G',
-                style: TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.w700,
-                  color: Color(0xFF4285F4),
-                ),
+            : SvgPicture.string(
+                _googleLogoSvg,
+                width: 20,
+                height: 20,
               ),
         label: Text(
           _googleOAuthStarting ? 'Opening Google…' : 'Continue with Google',
@@ -744,3 +844,35 @@ class _AuthScreenState extends State<AuthScreen> with TickerProviderStateMixin {
     );
   }
 }
+
+/// A `TabBar` tab with its icon and label laid out side by side. The stock
+/// `Tab(icon:, text:)` constructor stacks them vertically, which doesn't
+/// match the reference's horizontal "🧑 Login" / "＋ Sign Up" / "📞 Phone"
+/// pills — this just wraps `Tab(child:)` with a `Row` instead. Colour
+/// (selected white / unselected grey) still comes entirely from the parent
+/// `TabBar.labelColor`/`unselectedLabelColor` via `IconTheme`/`DefaultTextStyle`
+/// inherited from `Tab`'s own internals, so selection state needs no extra
+/// wiring here.
+class _IconTab extends StatelessWidget {
+  const _IconTab({required this.icon, required this.label});
+
+  final IconData icon;
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    return Tab(
+      height: 44,
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 17),
+          const SizedBox(width: 6),
+          Flexible(child: Text(label, overflow: TextOverflow.ellipsis)),
+        ],
+      ),
+    );
+  }
+}
+

@@ -158,13 +158,33 @@ class _RoleDirectoryScreenState extends State<RoleDirectoryScreen> {
                   );
                 }
 
+                // A fixed column count with an explicit row height, not
+                // `SliverGridDelegateWithMaxCrossAxisExtent` +
+                // `childAspectRatio` — that combination lets the actual
+                // per-column width end up NARROWER than `kAgentCardWidth`
+                // whenever the screen width doesn't divide evenly into
+                // `maxCrossAxisExtent`-sized columns (its `crossAxisCount`
+                // is a `.ceil()`, so it always tries to fit one more column
+                // than fits cleanly). Since `childAspectRatio` derives cell
+                // *height* from that same possibly-shrunken width, the row
+                // height shrank right along with it — while `AgentCard`'s
+                // own content (a 64dp avatar plus two lines of text plus a
+                // badge) doesn't shrink to match, so it overflowed the now
+                // too-short cell by a small, fixed amount on most real
+                // phone widths. `mainAxisExtent` fixes the row height
+                // directly, independent of however many columns fit.
+                final gridWidth = MediaQuery.of(context).size.width - 32;
+                final crossAxisCount = (gridWidth / (kAgentCardWidth + 14))
+                    .floor()
+                    .clamp(2, 6);
+
                 return GridView.builder(
                   padding: const EdgeInsets.fromLTRB(16, 4, 16, 24),
-                  gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
-                    maxCrossAxisExtent: kAgentCardWidth + 16,
+                  gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                    crossAxisCount: crossAxisCount,
                     mainAxisSpacing: 14,
                     crossAxisSpacing: 14,
-                    childAspectRatio: kAgentCardWidth / kAgentRailHeight,
+                    mainAxisExtent: kAgentRailHeight,
                   ),
                   itemCount: results.length,
                   itemBuilder: (context, index) {
