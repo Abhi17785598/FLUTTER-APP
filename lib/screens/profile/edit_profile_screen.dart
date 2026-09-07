@@ -158,6 +158,10 @@ class _EditProfileViewState extends State<_EditProfileView> {
           _mediaSection(p),
           const SizedBox(height: AppConstants.spacingL),
           _basicSection(p),
+          if (p.hasFlaggedDocuments) ...[
+            const SizedBox(height: AppConstants.spacingL),
+            _reuploadBanner(p),
+          ],
           if (p.isBuilder) ...[
             const SizedBox(height: AppConstants.spacingL),
             _builderCompanySection(p),
@@ -274,7 +278,15 @@ class _EditProfileViewState extends State<_EditProfileView> {
               ? p.companyLogoUrl
               : p.documentUrl(kind),
           busy: p.uploading == ProfileMediaTarget.document(kind),
-          onChange: () => _runUpload(() => p.pickAndUploadDocument(kind)),
+          // KYC documents (everything but the company logo) can only be
+          // re-uploaded once an admin explicitly flags one — see
+          // `_reuploadBanner`. EditProfile.tsx has no upload input for these
+          // at all outside that flagged state; matching that here is what
+          // actually stops a user from freely changing an already-submitted
+          // PAN/Aadhaar.
+          onChange: kind == ProfileDocumentKind.companyLogo
+              ? () => _runUpload(() => p.pickAndUploadDocument(kind))
+              : null,
         ),
       Text(
         'Images only — PDF upload is not yet supported.',
@@ -285,6 +297,61 @@ class _EditProfileViewState extends State<_EditProfileView> {
       ),
     ],
   );
+
+  /// "Action Needed: Re-upload Documents" — EditProfile.tsx:969-1002. Shown
+  /// only while at least one of this role's documents carries a
+  /// `document_reviews[kind].status == 'reupload_requested'` entry, and
+  /// lists only those flagged fields, never the whole document set.
+  Widget _reuploadBanner(EditProfileProvider p) {
+    final flagged = _documentKindsFor(
+      p,
+    ).where((k) => p.reviewFor(k)?.isReuploadRequested ?? false).toList();
+    if (flagged.isEmpty) return const SizedBox.shrink();
+
+    return Container(
+      padding: const EdgeInsets.all(AppConstants.spacingL),
+      decoration: BoxDecoration(
+        color: const Color(0xFFFEF3C7),
+        borderRadius: BorderRadius.circular(AppConstants.cardRadius),
+        border: Border.all(color: AppColors.warning.withValues(alpha: 0.35)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Icon(
+                Icons.warning_amber_rounded,
+                size: 16,
+                color: AppColors.warning,
+              ),
+              const SizedBox(width: 6),
+              Text(
+                'Action Needed: Re-upload Documents',
+                style: AppTextStyles.caption.copyWith(
+                  fontSize: 11.5,
+                  fontWeight: FontWeight.w700,
+                  color: AppColors.warning,
+                  letterSpacing: 0.3,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: AppConstants.spacingM),
+          for (var i = 0; i < flagged.length; i++) ...[
+            if (i > 0) const SizedBox(height: AppConstants.spacingM),
+            _ReuploadRow(
+              label: _documentLabel(flagged[i]),
+              reason: p.reviewFor(flagged[i])?.reason,
+              busy: p.uploading == ProfileMediaTarget.document(flagged[i]),
+              onUpload: () =>
+                  _runUpload(() => p.pickAndUploadDocument(flagged[i])),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
 
   // ── Sections ──────────────────────────────────────────────────────────────
 
@@ -711,11 +778,17 @@ class _AvatarRow extends StatelessWidget {
 }
 
 /// A labelled upload row with an uploaded/not-yet state.
+///
+/// [onChange] is null for a KYC document locked against re-upload — see
+/// `_documentsSection`. The row still shows its uploaded/not-uploaded status;
+/// it just renders no "Change" control at all, matching EditProfile.tsx
+/// having no upload input for these fields outside the flagged-for-reupload
+/// banner.
 class _MediaRow extends StatelessWidget {
   final String label;
   final String? url;
   final bool busy;
-  final VoidCallback onChange;
+  final VoidCallback? onChange;
 
   const _MediaRow({
     required this.label,
@@ -767,8 +840,67 @@ class _MediaRow extends StatelessWidget {
             ],
           ),
         ),
-        _UploadButton(busy: busy, onTap: onChange),
+        if (onChange != null) _UploadButton(busy: busy, onTap: onChange!),
       ],
+    );
+  }
+}
+
+/// One row inside `_reuploadBanner` — label, admin's optional reason, and an
+/// always-active upload control (unlike `_MediaRow`, this one is never
+/// locked; being rendered here at all already means an admin flagged it).
+class _ReuploadRow extends StatelessWidget {
+  final String label;
+  final String? reason;
+  final bool busy;
+  final VoidCallback onUpload;
+
+  const _ReuploadRow({
+    required this.label,
+    required this.reason,
+    required this.busy,
+    required this.onUpload,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(AppConstants.spacingM),
+      decoration: BoxDecoration(
+        color: AppColors.cardBackground,
+        borderRadius: BorderRadius.circular(AppConstants.buttonRadius),
+        border: Border.all(color: AppColors.warning.withValues(alpha: 0.25)),
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  label,
+                  style: AppTextStyles.body.copyWith(
+                    fontSize: 13.5,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                if (reason != null && reason!.isNotEmpty) ...[
+                  const SizedBox(height: 2),
+                  Text(
+                    "Admin's note: $reason",
+                    style: AppTextStyles.caption.copyWith(
+                      fontSize: 11.5,
+                      color: AppColors.warning,
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          ),
+          const SizedBox(width: AppConstants.spacingM),
+          _UploadButton(busy: busy, onTap: onUpload),
+        ],
+      ),
     );
   }
 }

@@ -6,11 +6,12 @@ import '../../models/conversation_summary.dart';
 import '../../services/messaging_service.dart';
 import 'widgets/chat_avatar.dart';
 
-/// Channel participants + role management — mirrors the portal's
-/// `ChannelSettingsModal.tsx`. Promote/demote calls are gated client-side by
-/// [_isAdmin] purely for UX (hiding controls a non-admin couldn't use
-/// anyway); the real enforcement is the `channel_participants` UPDATE RLS
-/// policy (admin/moderator/creator only) on the server.
+/// Channel participants — mirrors the portal's `ChannelSettingsModal.tsx`,
+/// which only ever shows each member's role as a read-only badge. There is
+/// no promote/demote action here (nor on the portal): `channel_participants`
+/// has no UPDATE RLS policy at all (see `ChannelSettingsModal.tsx`'s own
+/// `addMembers` comment), so a role-change control could never actually
+/// work — it would just fail silently or error every time.
 class ChannelSettingsScreen extends StatefulWidget {
   final String channelId;
   final String channelName;
@@ -55,23 +56,6 @@ class _ChannelSettingsScreenState extends State<ChannelSettingsScreen> {
       if (mounted) setState(() => _failed = true);
     } finally {
       if (mounted) setState(() => _loading = false);
-    }
-  }
-
-  Future<void> _setRole(String userId, String role) async {
-    try {
-      await _service.setChannelParticipantRole(
-        channelId: widget.channelId,
-        userId: userId,
-        role: role,
-      );
-      await _load();
-    } catch (_) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text("Couldn't update that member's role.")),
-        );
-      }
     }
   }
 
@@ -179,19 +163,6 @@ class _ChannelSettingsScreenState extends State<ChannelSettingsScreen> {
             entry.role[0].toUpperCase() + entry.role.substring(1),
             style: AppTextStyles.caption.copyWith(fontSize: 12),
           ),
-          trailing: (widget.isAdmin && !isSelf)
-              ? PopupMenuButton<String>(
-                  onSelected: (role) => _setRole(entry.profile.userId, role),
-                  itemBuilder: (context) => const [
-                    PopupMenuItem(value: 'admin', child: Text('Make admin')),
-                    PopupMenuItem(
-                      value: 'moderator',
-                      child: Text('Make moderator'),
-                    ),
-                    PopupMenuItem(value: 'member', child: Text('Make member')),
-                  ],
-                )
-              : null,
         );
       },
     );

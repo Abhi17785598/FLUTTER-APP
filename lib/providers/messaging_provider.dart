@@ -354,6 +354,26 @@ class MessagingProvider extends ChangeNotifier {
     }
   }
 
+  /// Deletes this conversation for the signed-in user only — mirrors the
+  /// portal's per-row "delete chat" action (`Chat.tsx`'s trash icon), which
+  /// also just hides the caller's own copy. The other participant's copy and
+  /// every message are untouched; a later reply from either side un-hides it,
+  /// same as any other conversation [_service.hideConversation] already
+  /// touches (declining a request uses the same RPC).
+  Future<String?> deleteConversation(String conversationId) async {
+    try {
+      await _service.hideConversation(conversationId);
+      _allConversations = _allConversations
+          .where((c) => c.id != conversationId)
+          .toList();
+      _safeNotify();
+      return null;
+    } catch (e) {
+      debugPrint('MessagingProvider.deleteConversation failed: $e');
+      return "Couldn't delete the conversation.";
+    }
+  }
+
   Future<String?> setConversationMuted(
     String conversationId,
     bool muted,

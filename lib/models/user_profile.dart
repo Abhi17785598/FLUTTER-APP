@@ -54,6 +54,31 @@ import 'package:flutter/foundation.dart';
 /// (`pages/UserProfile.tsx`) wins, because this model backs a display screen —
 /// then the other spelling is tried, so a value written by either path is still
 /// visible. Reading only one spelling would silently hide data for whole roles.
+/// One entry in `social_media.document_reviews` — written by an admin
+/// reviewing a KYC document (`AdminPanel.tsx`'s `reviewDocument`). Mirrors
+/// the portal's `DocumentReviewEntry` interface; `requested_at`/
+/// `resubmitted_at`/`reviewed_at` are stored but not modelled here since
+/// nothing in this app reads them.
+@immutable
+class DocumentReviewEntry {
+  final String status; // 'reupload_requested' | 'resubmitted' | 'approved'
+  final String? reason;
+
+  const DocumentReviewEntry({required this.status, this.reason});
+
+  bool get isReuploadRequested => status == 'reupload_requested';
+
+  static DocumentReviewEntry? fromValue(dynamic value) {
+    if (value is! Map) return null;
+    final status = value['status']?.toString();
+    if (status == null || status.isEmpty) return null;
+    return DocumentReviewEntry(
+      status: status,
+      reason: value['reason']?.toString(),
+    );
+  }
+}
+
 @immutable
 class ProfileSocialMedia {
   /// The raw map, kept so a key nothing has modelled yet is still reachable and
@@ -161,6 +186,21 @@ class ProfileSocialMedia {
   String? get registrationProofUrl =>
       _firstText([raw['registration_proof_url']]);
   String? get aadhaarCardUrl => _firstText([raw['aadhaar_card_url']]);
+
+  /// Admin's per-document review state, keyed by the same 'rera'/'gst'/'pan'/
+  /// 'proof'/'aadhaar' strings `ProfileDocumentKind.slug` already uses — so no
+  /// separate key mapping is needed to look one up for a given document kind.
+  /// Empty until an admin has reviewed anything for this user.
+  Map<String, DocumentReviewEntry> get documentReviews {
+    final value = raw['document_reviews'];
+    if (value is! Map) return const {};
+    final result = <String, DocumentReviewEntry>{};
+    value.forEach((key, entry) {
+      final parsed = DocumentReviewEntry.fromValue(entry);
+      if (parsed != null) result[key.toString()] = parsed;
+    });
+    return result;
+  }
 
   /// True when any social handle is set — drives whether the profile's social
   /// row renders at all.

@@ -489,12 +489,67 @@ class _MessagesListViewState extends State<_MessagesListView> {
       itemCount: visible.length,
       itemBuilder: (context, index) {
         final conversation = visible[index];
-        return ConversationTile(
-          conversation: conversation,
-          onTap: () => _openConversation(conversation),
+        return Dismissible(
+          key: ValueKey(conversation.id),
+          direction: DismissDirection.endToStart,
+          background: Container(
+            alignment: Alignment.centerRight,
+            padding: const EdgeInsets.symmetric(horizontal: 20),
+            color: AppColors.error,
+            child: const Icon(Icons.delete_outline, color: Colors.white),
+          ),
+          confirmDismiss: (_) => _confirmDeleteChat(conversation),
+          child: ConversationTile(
+            conversation: conversation,
+            onTap: () => _openConversation(conversation),
+          ),
         );
       },
     );
+  }
+
+  /// Swipe-to-delete on a Chats row — the mobile equivalent of the portal's
+  /// per-row trash icon (`Chat.tsx`). Deletes only after the user confirms,
+  /// and only actually dismisses the row once the delete call succeeds — a
+  /// failure snaps the row back instead of leaving the list out of sync with
+  /// the server.
+  Future<bool> _confirmDeleteChat(ConversationSummary conversation) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Delete chat?'),
+        content: Text(
+          'This removes your copy of the conversation with '
+          '${conversation.title}. They can still message you again.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(false),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(true),
+            child: const Text(
+              'Delete',
+              style: TextStyle(color: AppColors.error),
+            ),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted) return false;
+
+    final error = await context.read<MessagingProvider>().deleteConversation(
+      conversation.id,
+    );
+    if (!mounted) return false;
+    if (error != null) {
+      ScaffoldMessenger.of(context)
+        ..hideCurrentSnackBar()
+        ..showSnackBar(SnackBar(content: Text(error)));
+      return false;
+    }
+    return true;
   }
 
   Widget _buildChannels(MessagingProvider messaging) {

@@ -212,6 +212,8 @@ void main() {
         'social_retry_started',
         'social_retry_success',
         ...NotificationTypes.collabTypes,
+        NotificationTypes.documentReuploadRequested,
+        NotificationTypes.documentApproved,
       ];
       for (final type in applied) {
         expect(kNotificationStyles.containsKey(type), isTrue, reason: type);
@@ -653,6 +655,22 @@ void main() {
         expect(resolve(type), isNull, reason: type);
       }
     });
+
+    test(
+      'document review types both open Edit Profile — NotificationList.tsx:220-223',
+      () {
+        for (final type in [
+          'document_reupload_requested',
+          'document_approved',
+        ]) {
+          expect(
+            resolve(type)!.route,
+            AppConstants.editProfileScreen,
+            reason: type,
+          );
+        }
+      },
+    );
 
     test('an unknown type goes nowhere rather than throwing', () {
       expect(resolve('invented_later'), isNull);

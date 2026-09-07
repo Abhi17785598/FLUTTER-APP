@@ -52,17 +52,22 @@ class MessagingService {
 
       final participantRows = await _supabase
           .from('conversation_participants')
-          .select('conversation_id, user_id, request_status, muted_at')
+          .select(
+            'conversation_id, user_id, request_status, muted_at, hidden_at',
+          )
           .inFilter('conversation_id', ids);
 
       // conversation_id -> the *other* participant's user id, and the
-      // caller's own request_status/mute state for that conversation. A row
-      // with a null conversation_id/user_id is skipped rather than
+      // caller's own request_status/mute/hidden state for that conversation.
+      // A row with a null conversation_id/user_id is skipped rather than
       // `.toString()`'d into the literal `"null"`, which would otherwise
       // silently pollute the batched profile lookup below with a bogus id.
       final otherIdByConversation = <String, String>{};
       final selfStatusByConversation =
-          <String, ({String requestStatus, bool isMuted})>{};
+          <
+            String,
+            ({String requestStatus, bool isMuted, DateTime? hiddenAt})
+          >{};
       for (final row in List<Map<String, dynamic>>.from(
         participantRows as List,
       )) {
@@ -79,6 +84,7 @@ class MessagingService {
           selfStatusByConversation[convId] = (
             requestStatus: (row['request_status'] as String?) ?? 'accepted',
             isMuted: row['muted_at'] != null,
+            hiddenAt: DateTime.tryParse((row['hidden_at'] as String?) ?? ''),
           );
         } else {
           otherIdByConversation[convId] = memberId;
@@ -128,29 +134,55 @@ class MessagingService {
         unread = const {};
       }
 
-      return conversations.where((c) => c['id'] != null).map((conv) {
-        final id = conv['id'].toString();
-        final otherId = otherIdByConversation[id];
-        final createdRaw = conv['last_message_at'] as String?;
-        final selfStatus = selfStatusByConversation[id];
+      return conversations
+          .where((c) => c['id'] != null)
+          .map((conv) {
+            final id = conv['id'].toString();
+            final otherId = otherIdByConversation[id];
+            final createdRaw = conv['last_message_at'] as String?;
+            final lastMessageAt = createdRaw == null
+                ? null
+                : DateTime.tryParse(createdRaw);
+            final selfStatus = selfStatusByConversation[id];
 
-        return ConversationSummary(
-          id: id,
-          lastMessageAt: createdRaw == null
-              ? null
-              : DateTime.tryParse(createdRaw),
-          otherParticipant: otherId == null ? null : profilesById[otherId],
-          lastMessage: lastMessageByConversation[id] ?? '',
-          unreadCount: unread[id] ?? 0,
-          requestStatus: selfStatus?.requestStatus ?? 'accepted',
-          isMuted: selfStatus?.isMuted ?? false,
-          collaborationId: conv['collaboration_id']?.toString(),
-        );
-      }).toList();
+            return (
+              summary: ConversationSummary(
+                id: id,
+                lastMessageAt: lastMessageAt,
+                otherParticipant: otherId == null
+                    ? null
+                    : profilesById[otherId],
+                lastMessage: lastMessageByConversation[id] ?? '',
+                unreadCount: unread[id] ?? 0,
+                requestStatus: selfStatus?.requestStatus ?? 'accepted',
+                isMuted: selfStatus?.isMuted ?? false,
+                collaborationId: conv['collaboration_id']?.toString(),
+              ),
+              hiddenForMe: _isHiddenForMe(selfStatus?.hiddenAt, lastMessageAt),
+            );
+          })
+          // A conversation "deleted" from the caller's own list (Trash2 in
+          // the portal, swipe-to-delete here) stays hidden only until a
+          // newer message arrives — same WhatsApp/Telegram behaviour as the
+          // portal's fetchConversations: an incoming message un-hides the
+          // thread rather than the hide being permanent/one-way.
+          .where((row) => !row.hiddenForMe)
+          .map((row) => row.summary)
+          .toList();
     } catch (e) {
       debugPrint('MessagingService.listConversations failed: $e');
       rethrow;
     }
+  }
+
+  /// Mirrors the portal's `_hiddenForMe` in useDmMessaging.ts exactly: hidden
+  /// only while nothing newer than the hide has arrived. A conversation with
+  /// no messages at all (`lastMessageAt` null) stays hidden once hidden —
+  /// there is nothing that could have superseded it.
+  bool _isHiddenForMe(DateTime? hiddenAt, DateTime? lastMessageAt) {
+    if (hiddenAt == null) return false;
+    if (lastMessageAt == null) return true;
+    return !lastMessageAt.isAfter(hiddenAt);
   }
 
   /// Resolves display names and avatars from the `profiles_public` view —
@@ -1163,25 +1195,6 @@ class MessagingService {
       }).toList();
     } catch (e) {
       debugPrint('MessagingService.fetchChannelParticipants failed: $e');
-      rethrow;
-    }
-  }
-
-  /// Admin/moderator only (server-enforced by RLS) — promotes or demotes a
-  /// participant.
-  Future<void> setChannelParticipantRole({
-    required String channelId,
-    required String userId,
-    required String role,
-  }) async {
-    try {
-      await _supabase
-          .from('channel_participants')
-          .update({'role': role})
-          .eq('channel_id', channelId)
-          .eq('user_id', userId);
-    } catch (e) {
-      debugPrint('MessagingService.setChannelParticipantRole failed: $e');
       rethrow;
     }
   }

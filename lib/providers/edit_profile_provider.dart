@@ -179,6 +179,13 @@ class EditProfileProvider extends ChangeNotifier {
   String? _companyLogoUrl;
   final Map<ProfileDocumentKind, String> _documentUrls = {};
 
+  /// Raw `social_media.document_reviews` jsonb, kept mutable so a resubmit
+  /// (below) can flip one entry's status locally while preserving every
+  /// field neither this screen nor the portal's own edit form models
+  /// (`requested_at`, etc.) for every other entry — mirrors
+  /// EditProfile.tsx's `documentReviews` state.
+  Map<String, dynamic> _documentReviewsRaw = {};
+
   /// Which upload is in flight, so the UI can show a spinner on that row only.
   ProfileMediaTarget? _uploading;
 
@@ -188,6 +195,19 @@ class EditProfileProvider extends ChangeNotifier {
   ProfileMediaTarget? get uploading => _uploading;
 
   String? documentUrl(ProfileDocumentKind kind) => _documentUrls[kind];
+
+  /// The admin's review state for [kind], or null if it has never been
+  /// reviewed. EditProfile.tsx:970 — the only KYC document upload control
+  /// this screen shows is scoped to whichever kind(s) this is
+  /// `reupload_requested` for.
+  DocumentReviewEntry? reviewFor(ProfileDocumentKind kind) =>
+      DocumentReviewEntry.fromValue(_documentReviewsRaw[kind.slug]);
+
+  /// Whether any document is currently flagged for re-upload — gates the
+  /// "Action Needed" banner.
+  bool get hasFlaggedDocuments => _documentReviewsRaw.values.any(
+    (v) => DocumentReviewEntry.fromValue(v)?.isReuploadRequested ?? false,
+  );
 
   /// Picks and uploads the avatar. Returns null on success, else a message.
   Future<String?> pickAndUploadAvatar() =>
@@ -227,6 +247,18 @@ class EditProfileProvider extends ChangeNotifier {
           _companyLogoUrl = url;
         } else {
           _documentUrls[kind] = url;
+          // Re-uploading a document an admin flagged clears the flag
+          // locally — the admin sees "resubmitted" once Save Changes
+          // persists this, rather than the field silently staying stuck on
+          // "needs re-upload". Mirrors EditProfile.tsx:429-437.
+          if (reviewFor(kind)?.isReuploadRequested ?? false) {
+            final existing = _documentReviewsRaw[kind.slug];
+            _documentReviewsRaw[kind.slug] = {
+              if (existing is Map) ...existing,
+              'status': 'resubmitted',
+              'resubmitted_at': DateTime.now().toIso8601String(),
+            };
+          }
         }
         return null;
       });
@@ -420,6 +452,11 @@ class EditProfileProvider extends ChangeNotifier {
       final url = _storedDocumentUrl(sm, kind);
       if (url != null) _documentUrls[kind] = url;
     }
+
+    final storedReviews = sm.raw['document_reviews'];
+    _documentReviewsRaw = storedReviews is Map
+        ? Map<String, dynamic>.from(storedReviews)
+        : {};
   }
 
   /// The stored URL for [kind], from the `social_media` key the portal uses.
@@ -651,6 +688,11 @@ class EditProfileProvider extends ChangeNotifier {
       final key = _socialMediaKeyFor(entry.key);
       if (key != null) changes[key] = entry.value;
     }
+
+    // Always included, mirroring EditProfile.tsx:573 — round-trips unchanged
+    // unless a flagged re-upload just flipped one entry to "resubmitted"
+    // above.
+    changes['document_reviews'] = _documentReviewsRaw;
 
     return changes;
   }

@@ -159,6 +159,11 @@ NotificationDestination? resolveNotificationDestination({
       // right dashboard for the role.
       return const NotificationDestination(AppConstants.manageDashboardScreen);
 
+    case 'document_reupload_requested':
+    case 'document_approved':
+      // `navigate('/edit-profile')` for both (`NotificationList.tsx:220-223`).
+      return const NotificationDestination(AppConstants.editProfileScreen);
+
     // ── Deliberately nowhere ───────────────────────────────────────────────
     //
     // `visit_booking_update` carries no booking or property id from either writer,

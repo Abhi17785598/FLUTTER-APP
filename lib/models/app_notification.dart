@@ -70,6 +70,14 @@ class NotificationTypes {
   static const String collabDisputed = 'collab_disputed';
   static const String collabCompleted = 'collab_completed';
 
+  // ── KYC document review —
+  // 20270423000000_document_review_notification_types.sql, both applied.
+  // Written client-side by the portal's admin panel (`AdminPanel.tsx`'s
+  // `reviewDocument`) straight into `notifications`, so this app only ever
+  // reads these — it never writes them.
+  static const String documentReuploadRequested = 'document_reupload_requested';
+  static const String documentApproved = 'document_approved';
+
   static const Set<String> collabTypes = {
     collabRequest,
     collabAccepted,
@@ -324,6 +332,21 @@ const Map<String, NotificationStyle> kNotificationStyles = {
   ),
   NotificationTypes.socialRetrySuccess: NotificationStyle(
     icon: Icons.cloud_done_outlined,
+    color: AppColors.success,
+    background: Color(0xFFDCFCE7),
+    filter: 'System',
+  ),
+
+  // ── KYC document review — same two icons NotificationList.tsx:59-62 uses
+  // (ShieldAlert amber / ShieldCheck emerald), Material equivalents.
+  NotificationTypes.documentReuploadRequested: NotificationStyle(
+    icon: Icons.gpp_maybe_outlined,
+    color: AppColors.warning,
+    background: Color(0xFFFEF3C7),
+    filter: 'System',
+  ),
+  NotificationTypes.documentApproved: NotificationStyle(
+    icon: Icons.verified_user_outlined,
     color: AppColors.success,
     background: Color(0xFFDCFCE7),
     filter: 'System',

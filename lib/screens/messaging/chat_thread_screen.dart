@@ -200,12 +200,37 @@ class _ChatThreadViewState extends State<_ChatThreadView> {
 
   @override
   void dispose() {
+    _maybeHideEmptyConversation();
     _scrollController.removeListener(_onScroll);
     _scrollController.dispose();
     _searchDebounce?.cancel();
     _searchController.dispose();
     if (_recorderOpen) _recorder.closeRecorder();
     super.dispose();
+  }
+
+  /// Leaving a DM with zero messages ever exchanged must not leave a
+  /// permanent, empty contact behind in the caller's own chat list — the
+  /// conversation row a cold `start_conversation` call already created the
+  /// instant this screen opened, regardless of whether anyone typed
+  /// anything. Hidden for the caller only (`hide_conversation` is "for me");
+  /// an actual message from either side un-hides it later, same as any
+  /// other hidden thread. Collaboration threads are exempt — those persist
+  /// by design even before either side has said anything, and channels have
+  /// no such ambient creation to clean up after.
+  void _maybeHideEmptyConversation() {
+    if (widget.isCollaboration) return;
+    try {
+      final thread = context.read<ChatThreadProvider>();
+      if (thread.isChannel || thread.messages.isNotEmpty) return;
+      _service
+          .hideConversation(thread.threadId)
+          .catchError(
+            (e) => debugPrint('Failed to hide empty conversation on exit: $e'),
+          );
+    } catch (e) {
+      debugPrint('_maybeHideEmptyConversation: could not read thread: $e');
+    }
   }
 
   void _toggleSearch(ChatThreadProvider thread) {
