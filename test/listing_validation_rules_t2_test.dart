@@ -24,9 +24,11 @@ Set<String> firingFields(
   final p = PostPropertyProvider()
     ..setCategory(category)
     ..setListingIntent(intent);
-  return validatePropertyStep(step, ListingFormData(p), onlyCollectable: false)
-      .map((i) => i.field)
-      .toSet();
+  return validatePropertyStep(
+    step,
+    ListingFormData(p),
+    onlyCollectable: false,
+  ).map((i) => i.field).toSet();
 }
 
 void main() {
@@ -34,11 +36,24 @@ void main() {
 
   group('Step visibility of rules by category', () {
     test('land gets land dimensions, never bedrooms or soil-free fields', () {
-      final f = firingFields('Dimensions', PropertyCategory.land, ListingIntent.sell);
-      expect(f, containsAll(<String>[
-        'front', 'back', 'right', 'left', 'surveyNumber',
-        'soilType', 'area', 'availableFrom',
-      ]));
+      final f = firingFields(
+        'Dimensions',
+        PropertyCategory.land,
+        ListingIntent.sell,
+      );
+      expect(
+        f,
+        containsAll(<String>[
+          'front',
+          'back',
+          'right',
+          'left',
+          'surveyNumber',
+          'soilType',
+          'area',
+          'availableFrom',
+        ]),
+      );
       // fsiFarAllowed/floorAllowed/heightRestriction are collected but have
       // no rule at all in propertyListingRules.ts for Land — optional there.
       expect(f, isNot(contains('fsiFarAllowed')));
@@ -52,11 +67,24 @@ void main() {
 
     test('residential gets BHK block, never land dimensions', () {
       final f = firingFields(
-          'Dimensions', PropertyCategory.residential, ListingIntent.sell);
-      expect(f, containsAll(<String>[
-        'bhkType', 'bedrooms', 'bathrooms', 'balconies', 'carpetArea',
-        'totalFloors', 'propertyCondition', 'area', 'availableFrom',
-      ]));
+        'Dimensions',
+        PropertyCategory.residential,
+        ListingIntent.sell,
+      );
+      expect(
+        f,
+        containsAll(<String>[
+          'bhkType',
+          'bedrooms',
+          'bathrooms',
+          'balconies',
+          'carpetArea',
+          'totalFloors',
+          'propertyCondition',
+          'area',
+          'availableFrom',
+        ]),
+      );
       expect(f, isNot(contains('soilType')));
       expect(f, isNot(contains('surveyNumber')));
     });
@@ -65,17 +93,30 @@ void main() {
       // propertyListingRules.ts:94 — commercial mirrors superBuiltUpArea into
       // area, so requiring `area` would be an error with no field to fix it.
       final f = firingFields(
-          'Dimensions', PropertyCategory.commercial, ListingIntent.sell);
+        'Dimensions',
+        PropertyCategory.commercial,
+        ListingIntent.sell,
+      );
       expect(f, isNot(contains('area')));
-      expect(f, containsAll(<String>[
-        'buildingName', 'buildingCode', 'buildingType', 'totalFloorsBuilding',
-        'plotArea', 'superBuiltUpArea',
-      ]));
+      expect(
+        f,
+        containsAll(<String>[
+          'buildingName',
+          'buildingCode',
+          'buildingType',
+          'totalFloorsBuilding',
+          'plotArea',
+          'superBuiltUpArea',
+        ]),
+      );
     });
 
     test('PG requires facing and carpet area, not BHK', () {
-      final f =
-          firingFields('Dimensions', PropertyCategory.pg, ListingIntent.rent);
+      final f = firingFields(
+        'Dimensions',
+        PropertyCategory.pg,
+        ListingIntent.rent,
+      );
       expect(f, contains('facing'));
       expect(f, contains('carpetArea'));
       expect(f, contains('totalFloors'));
@@ -86,7 +127,10 @@ void main() {
 
     test('others requires carpet area but no category-specific block', () {
       final f = firingFields(
-          'Dimensions', PropertyCategory.other, ListingIntent.sell);
+        'Dimensions',
+        PropertyCategory.other,
+        ListingIntent.sell,
+      );
       expect(f, contains('carpetArea'));
       expect(f, contains('area'));
       expect(f, isNot(contains('soilType')));
@@ -95,18 +139,98 @@ void main() {
     });
   });
 
+  // Not a React port — added on explicit request as a real ceiling on "Total
+  // Floors", on top of the rendering-safety limits
+  // PropertyDimensionsStep's floor-wise editors already impose on themselves.
+  group('Total Floors ceiling (163) blocks Continue on Dimensions', () {
+    String? messageFor(String field, List<ListingIssue> issues) {
+      for (final issue in issues) {
+        if (issue.field == field) return issue.message;
+      }
+      return null;
+    }
+
+    test('PG: 163 passes, 164 is rejected', () {
+      final p = PostPropertyProvider()
+        ..setCategory(PropertyCategory.pg)
+        ..setListingIntent(ListingIntent.rent)
+        ..setTotalFloors('163');
+      expect(
+        messageFor(
+          'totalFloors',
+          validatePropertyStep(
+            'Dimensions',
+            ListingFormData(p),
+            onlyCollectable: false,
+          ),
+        ),
+        isNull,
+      );
+
+      p.setTotalFloors('164');
+      expect(
+        messageFor(
+          'totalFloors',
+          validatePropertyStep(
+            'Dimensions',
+            ListingFormData(p),
+            onlyCollectable: false,
+          ),
+        ),
+        'Total floors cannot exceed 163.',
+      );
+    });
+
+    test('Commercial: 163 passes, 164 is rejected', () {
+      final p = PostPropertyProvider()
+        ..setCategory(PropertyCategory.commercial)
+        ..setListingIntent(ListingIntent.rent)
+        ..setBuildingInventoryValue('totalFloorsBuilding', '163');
+      expect(
+        messageFor(
+          'totalFloorsBuilding',
+          validatePropertyStep(
+            'Dimensions',
+            ListingFormData(p),
+            onlyCollectable: false,
+          ),
+        ),
+        isNull,
+      );
+
+      p.setBuildingInventoryValue('totalFloorsBuilding', '164');
+      expect(
+        messageFor(
+          'totalFloorsBuilding',
+          validatePropertyStep(
+            'Dimensions',
+            ListingFormData(p),
+            onlyCollectable: false,
+          ),
+        ),
+        'Total floors in building cannot exceed 163.',
+      );
+    });
+  });
+
   group('landUseMasterPlan is rent-only for land (Q7)', () {
     test('required when renting land', () {
-      final f =
-          firingFields('Dimensions', PropertyCategory.land, ListingIntent.rent);
+      final f = firingFields(
+        'Dimensions',
+        PropertyCategory.land,
+        ListingIntent.rent,
+      );
       expect(f, contains('landUseMasterPlan'));
     });
 
     test('NOT required when selling or leasing land', () {
       for (final intent in [ListingIntent.sell, ListingIntent.lease]) {
         final f = firingFields('Dimensions', PropertyCategory.land, intent);
-        expect(f, isNot(contains('landUseMasterPlan')),
-            reason: 'should not fire for ${intent.name}');
+        expect(
+          f,
+          isNot(contains('landUseMasterPlan')),
+          reason: 'should not fire for ${intent.name}',
+        );
       }
     });
   });
@@ -120,10 +244,11 @@ void main() {
       return ListingFormData(p);
     }
 
-    Set<String> fields(String step, String subtype) =>
-        validatePropertyStep(step, withSubtype(subtype), onlyCollectable: false)
-            .map((i) => i.field)
-            .toSet();
+    Set<String> fields(String step, String subtype) => validatePropertyStep(
+      step,
+      withSubtype(subtype),
+      onlyCollectable: false,
+    ).map((i) => i.field).toSet();
 
     test('apartment subtype requires floorNo and societyCharges', () {
       final dims = fields('Dimensions', 'Flat');
@@ -164,10 +289,14 @@ void main() {
         firingFields('Pricing', c, i);
 
     test('sell requires ratePerArea except for PG', () {
-      expect(pricing(PropertyCategory.residential, ListingIntent.sell),
-          contains('ratePerArea'));
-      expect(pricing(PropertyCategory.pg, ListingIntent.sell),
-          isNot(contains('ratePerArea')));
+      expect(
+        pricing(PropertyCategory.residential, ListingIntent.sell),
+        contains('ratePerArea'),
+      );
+      expect(
+        pricing(PropertyCategory.pg, ListingIntent.sell),
+        isNot(contains('ratePerArea')),
+      );
     });
 
     test('PG rent uses per-bed rent instead of price', () {
@@ -190,17 +319,27 @@ void main() {
     });
 
     test('rent/lease require deposit; sell does not', () {
-      expect(pricing(PropertyCategory.residential, ListingIntent.rent),
-          contains('securityDeposit'));
-      expect(pricing(PropertyCategory.residential, ListingIntent.sell),
-          isNot(contains('securityDeposit')));
+      expect(
+        pricing(PropertyCategory.residential, ListingIntent.rent),
+        contains('securityDeposit'),
+      );
+      expect(
+        pricing(PropertyCategory.residential, ListingIntent.sell),
+        isNot(contains('securityDeposit')),
+      );
     });
 
     test('commercial lease terms only for rent/lease, ROI only for sell', () {
       final rent = pricing(PropertyCategory.commercial, ListingIntent.rent);
-      expect(rent, containsAll(<String>[
-        'leaseDuration', 'leaseEscalationPercent', 'camCharges', 'fitOutPeriod',
-      ]));
+      expect(
+        rent,
+        containsAll(<String>[
+          'leaseDuration',
+          'leaseEscalationPercent',
+          'camCharges',
+          'fitOutPeriod',
+        ]),
+      );
       expect(rent, isNot(contains('roiEstimate')));
 
       final sell = pricing(PropertyCategory.commercial, ListingIntent.sell);
@@ -226,33 +365,61 @@ void main() {
 
   group('Other steps', () {
     test('amenities rule fires for residential and others only', () {
-      expect(firingFields('Amenities', PropertyCategory.residential,
-          ListingIntent.sell), contains('amenities'));
-      expect(firingFields('Amenities', PropertyCategory.other,
-          ListingIntent.sell), contains('amenities'));
-      expect(firingFields('Amenities', PropertyCategory.pg, ListingIntent.rent),
-          contains('pgAmenities'));
-      expect(firingFields('Amenities', PropertyCategory.land, ListingIntent.sell),
-          isEmpty);
+      expect(
+        firingFields(
+          'Amenities',
+          PropertyCategory.residential,
+          ListingIntent.sell,
+        ),
+        contains('amenities'),
+      );
+      expect(
+        firingFields('Amenities', PropertyCategory.other, ListingIntent.sell),
+        contains('amenities'),
+      );
+      expect(
+        firingFields('Amenities', PropertyCategory.pg, ListingIntent.rent),
+        contains('pgAmenities'),
+      );
+      expect(
+        firingFields('Amenities', PropertyCategory.land, ListingIntent.sell),
+        isEmpty,
+      );
     });
 
     test('legal step is land ownership + PG quiet hours only', () {
-      expect(firingFields('Legal', PropertyCategory.land, ListingIntent.sell),
-          containsAll(<String>['ownershipType', 'ownerName']));
-      expect(firingFields('Legal', PropertyCategory.pg, ListingIntent.rent),
-          contains('quietHours'));
       expect(
-          firingFields('Legal', PropertyCategory.residential, ListingIntent.sell),
-          isEmpty);
+        firingFields('Legal', PropertyCategory.land, ListingIntent.sell),
+        containsAll(<String>['ownershipType', 'ownerName']),
+      );
+      expect(
+        firingFields('Legal', PropertyCategory.pg, ListingIntent.rent),
+        contains('quietHours'),
+      );
+      expect(
+        firingFields('Legal', PropertyCategory.residential, ListingIntent.sell),
+        isEmpty,
+      );
     });
 
     test('media/contact rules are category-independent except PG extras', () {
       final res = firingFields(
-          'Media', PropertyCategory.residential, ListingIntent.sell);
-      expect(res, containsAll(<String>[
-        'mediaFiles', 'contactName', 'contactPhone', 'contactEmail',
-        'whatsappNumber', 'bestTimeToCall', 'hashtags',
-      ]));
+        'Media',
+        PropertyCategory.residential,
+        ListingIntent.sell,
+      );
+      expect(
+        res,
+        containsAll(<String>[
+          'mediaFiles',
+          'contactName',
+          'contactPhone',
+          'contactEmail',
+          'whatsappNumber',
+          'bestTimeToCall',
+          'hashtags',
+        ]),
+      );
       expect(res, isNot(contains('ownerManagerName')));
 
       final pg = firingFields('Media', PropertyCategory.pg, ListingIntent.rent);
@@ -265,27 +432,35 @@ void main() {
   });
 
   group('Enforcement gate', () {
-    test('every rule field the app collects is enforced identically gated or not', () {
-      // The map pin used to be the one example of a rule that must be
-      // evaluated (parity with React) but never block, because no input
-      // collected it yet. LocationPickerMap / AddressAutocompleteField now
-      // set latitude/longitude, so gated and ungated results are identical —
-      // see "the not-yet-collectable set is down to the map pin" below.
-      final p = PostPropertyProvider()
-        ..setCategory(PropertyCategory.residential)
-        ..setListingIntent(ListingIntent.sell);
+    test(
+      'every rule field the app collects is enforced identically gated or not',
+      () {
+        // The map pin used to be the one example of a rule that must be
+        // evaluated (parity with React) but never block, because no input
+        // collected it yet. LocationPickerMap / AddressAutocompleteField now
+        // set latitude/longitude, so gated and ungated results are identical —
+        // see "the not-yet-collectable set is down to the map pin" below.
+        final p = PostPropertyProvider()
+          ..setCategory(PropertyCategory.residential)
+          ..setListingIntent(ListingIntent.sell);
 
-      final gated = validatePropertyStep('Basic Info', ListingFormData(p))
-          .map((i) => i.field)
-          .toSet();
-      final ungated = validatePropertyStep('Basic Info', ListingFormData(p),
-              onlyCollectable: false)
-          .map((i) => i.field)
-          .toSet();
+        final gated = validatePropertyStep(
+          'Basic Info',
+          ListingFormData(p),
+        ).map((i) => i.field).toSet();
+        final ungated = validatePropertyStep(
+          'Basic Info',
+          ListingFormData(p),
+          onlyCollectable: false,
+        ).map((i) => i.field).toSet();
 
-      expect(gated, ungated);
-      expect(gated, containsAll(<String>['title', 'city', 'state', 'latitude']));
-    });
+        expect(gated, ungated);
+        expect(
+          gated,
+          containsAll(<String>['title', 'city', 'state', 'latitude']),
+        );
+      },
+    );
 
     test('the not-yet-collectable set is now empty', () {
       // This list shrank with every category phase, then the map pin — the
@@ -319,8 +494,11 @@ void main() {
       // must not block re-saving it.
       expect(p.grandfatheredBlankFields, contains('description'));
       expect(p.grandfatheredBlankFields, contains('city'));
-      expect(p.isStepValid(1), isTrue,
-          reason: 'pre-existing blanks must not block an edit');
+      expect(
+        p.isStepValid(1),
+        isTrue,
+        reason: 'pre-existing blanks must not block an edit',
+      );
     });
 
     test('a field the user fills is validated normally again', () {
@@ -336,7 +514,10 @@ void main() {
       expect(p.grandfatheredBlankFields, contains('pincode'));
 
       // While still blank, the required check is suppressed.
-      expect(p.issuesForStep(1).map((i) => i.field), isNot(contains('pincode')));
+      expect(
+        p.issuesForStep(1).map((i) => i.field),
+        isNot(contains('pincode')),
+      );
 
       // Once the user types something, the FORMAT check applies again —
       // grandfathering exempts "you must supply a value", not validation
@@ -346,7 +527,10 @@ void main() {
 
       // ...and a valid one clears it.
       p.setPincode('560001');
-      expect(p.issuesForStep(1).map((i) => i.field), isNot(contains('pincode')));
+      expect(
+        p.issuesForStep(1).map((i) => i.field),
+        isNot(contains('pincode')),
+      );
     });
   });
 

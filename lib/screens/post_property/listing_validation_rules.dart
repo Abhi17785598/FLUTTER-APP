@@ -317,7 +317,7 @@ final List<ListingRule> _dimensionRules = [
     field: 'totalFloors',
     label: 'Total floors',
     applies: (d) => _isResidential(d) || _isPg(d),
-    validate: nonNegativeNumber('Total floors'),
+    validate: nonNegativeNumberWithMax(163, 'Total floors'),
   ),
   ListingRule(
     field: 'propertyCondition',
@@ -349,7 +349,7 @@ final List<ListingRule> _dimensionRules = [
     label: 'Total floors in building',
     applies: _isCommercial,
     get: _fromBuilding('totalFloorsBuilding'),
-    validate: positiveNumber('Total floors in building'),
+    validate: positiveNumberWithMax(163, 'Total floors in building'),
   ),
   ListingRule(
     field: 'plotArea',

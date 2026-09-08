@@ -91,6 +91,32 @@ void main() {
     });
   });
 
+  // Not a React port — added on explicit request as a real ceiling on "Total
+  // Floors" (163), on top of the rendering-safety limits
+  // PropertyDimensionsStep's floor-wise editors already impose on themselves.
+  group('nonNegativeNumberWithMax / positiveNumberWithMax', () {
+    test('163 itself is allowed; 164 is rejected', () {
+      final nonNeg = nonNegativeNumberWithMax(163, 'Total floors');
+      expect(nonNeg('163'), isNull);
+      expect(nonNeg('164'), 'Total floors cannot exceed 163.');
+
+      final positive = positiveNumberWithMax(163, 'Total floors in building');
+      expect(positive('163'), isNull);
+      expect(positive('164'), 'Total floors in building cannot exceed 163.');
+    });
+
+    test('every other case still behaves exactly like its base validator', () {
+      final nonNeg = nonNegativeNumberWithMax(163, 'Floor');
+      expect(nonNeg('0'), isNull);
+      expect(nonNeg(''), isNull);
+      expect(nonNeg('-1'), 'Floor cannot be negative.');
+
+      final positive = positiveNumberWithMax(163, 'Floor');
+      expect(positive(''), 'Floor must be greater than 0.');
+      expect(positive('0'), 'Floor must be greater than 0.');
+    });
+  });
+
   group('PATTERN regexes', () {
     test('pincode is exactly 6 digits', () {
       expect(validPincode('560001'), isNull);
@@ -139,8 +165,10 @@ void main() {
       expect(summariseIssues(['Area']), 'Area');
       expect(summariseIssues(['Area', 'Beds']), 'Area and Beds');
       expect(summariseIssues(['A', 'B', 'C']), 'A, B and C');
-      expect(summariseIssues(['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H']),
-          'A, B, C, D and 4 more');
+      expect(
+        summariseIssues(['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H']),
+        'A, B, C, D and 4 more',
+      );
     });
   });
 }

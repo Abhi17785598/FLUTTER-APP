@@ -104,6 +104,34 @@ String? Function(Object?) nonNegativeNumber(String label) {
   };
 }
 
+/// Same as [nonNegativeNumber] but also rejects anything above [max] — not a
+/// React port. Added on explicit request as a real "Total Floors" ceiling
+/// (163, the tallest habitable building anywhere today), so a mistyped or
+/// unrealistic value can no longer be saved — on top of, not instead of, the
+/// rendering-safety limits `PropertyDimensionsStep`'s floor-wise editors
+/// already impose on themselves.
+String? Function(Object?) nonNegativeNumberWithMax(num max, String label) {
+  return (Object? value) {
+    final double? n = _jsNumber(_stripToNumeric(value));
+    if (n == null) return '$label must be a number.';
+    if (n < 0) return '$label cannot be negative.';
+    if (n > max) return '$label cannot exceed $max.';
+    return null;
+  };
+}
+
+/// Same as [positiveNumber] but also rejects anything above [max] — not a
+/// React port; see [nonNegativeNumberWithMax].
+String? Function(Object?) positiveNumberWithMax(num max, String label) {
+  return (Object? value) {
+    final double? n = _jsNumber(_stripToNumeric(value));
+    if (n == null) return '$label must be a number.';
+    if (n <= 0) return '$label must be greater than 0.';
+    if (n > max) return '$label cannot exceed $max.';
+    return null;
+  };
+}
+
 /// NOTE: React does NOT trim before testing email, but DOES for pincode/phone.
 /// Preserved exactly, so a trailing space fails email here as it does on web.
 String? validEmail(Object? value) =>

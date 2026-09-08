@@ -16,18 +16,22 @@ void main() {
   /// Every field label on the step, in render order, with a trailing `*` on the
   /// ones the portal marks required.
   Future<List<String>> labelsOf(
-      WidgetTester tester, PostPropertyProvider p) async {
+    WidgetTester tester,
+    PostPropertyProvider p,
+  ) async {
     tester.view.physicalSize = const Size(390, 4000);
     tester.view.devicePixelRatio = 1.0;
     addTearDown(tester.view.reset);
-    await tester.pumpWidget(MaterialApp(
-      home: ChangeNotifierProvider.value(
-        value: p,
-        child: const Scaffold(
-          body: SingleChildScrollView(child: PropertyDimensionsStep()),
+    await tester.pumpWidget(
+      MaterialApp(
+        home: ChangeNotifierProvider.value(
+          value: p,
+          child: const Scaffold(
+            body: SingleChildScrollView(child: PropertyDimensionsStep()),
+          ),
         ),
       ),
-    ));
+    );
     await tester.pump();
     return [
       for (final e in find.byType(PortalLabelledField).evaluate())
@@ -40,12 +44,13 @@ void main() {
 
   /// The bare `<h4>` block headings, in render order.
   List<String> headingsOf(WidgetTester tester) => [
-        for (final e in find.byType(PortalBlockHeading).evaluate())
-          (e.widget as PortalBlockHeading).title,
-      ];
+    for (final e in find.byType(PortalBlockHeading).evaluate())
+      (e.widget as PortalBlockHeading).title,
+  ];
 
-  testWidgets('land rent — LandArea, LandDimensions(isRent), AvailableFrom',
-      (tester) async {
+  testWidgets('land rent — LandArea, LandDimensions(isRent), AvailableFrom', (
+    tester,
+  ) async {
     final p = PostPropertyProvider()
       ..setCategory(PropertyCategory.land)
       ..setListingIntent(ListingIntent.rent);
@@ -67,7 +72,10 @@ void main() {
     final p = PostPropertyProvider()
       ..setCategory(PropertyCategory.land)
       ..setListingIntent(ListingIntent.sell);
-    expect(await labelsOf(tester, p), isNot(contains('Land Use / Master Plan')));
+    expect(
+      await labelsOf(tester, p),
+      isNot(contains('Land Use / Master Plan')),
+    );
     expect((await labelsOf(tester, p)).first, 'Total Land Area *');
   });
 
@@ -96,8 +104,9 @@ void main() {
     }
   });
 
-  testWidgets('residential house subtypes — Plot + Build Up, no Floor No',
-      (tester) async {
+  testWidgets('residential house subtypes — Plot + Build Up, no Floor No', (
+    tester,
+  ) async {
     final p = PostPropertyProvider()
       ..setCategory(PropertyCategory.residential)
       ..setListingIntent(ListingIntent.sell)
@@ -116,8 +125,9 @@ void main() {
     ]);
   });
 
-  testWidgets('an unresolved residential subtype takes the house branch',
-      (tester) async {
+  testWidgets('an unresolved residential subtype takes the house branch', (
+    tester,
+  ) async {
     // Apartment / Row House / Hostel Building / Residential Plot are preserved
     // unmapped by decision; the portal treats anything outside
     // `residentialappartment` as a house, and so must Flutter.
@@ -149,6 +159,43 @@ void main() {
     expect(await labelsOf(tester, p), isNot(contains('Available From *')));
   });
 
+  testWidgets(
+    'commercial — an extreme Total Floors builds lazily instead of all at once',
+    (tester) async {
+      final p = PostPropertyProvider()
+        ..setCategory(PropertyCategory.commercial)
+        ..setListingIntent(ListingIntent.rent);
+      await labelsOf(tester, p);
+
+      p.setBuildingInventoryValue('totalFloorsBuilding', '1000');
+      await tester.pump();
+
+      // The first floor sits inside the fixed-height viewport and is always
+      // built; a floor near the far end of 1000 must never have been built
+      // at all — proof the list is genuinely virtualized (a
+      // `ListView.builder` inside a bounded box), not a `Column` that builds
+      // every floor regardless of what is actually on screen.
+      expect(find.text('Floor 1'), findsOneWidget);
+      expect(find.text('Floor 999'), findsNothing);
+    },
+  );
+
+  testWidgets('commercial — Total Floors cannot be typed past 3 digits', (
+    tester,
+  ) async {
+    final p = PostPropertyProvider()
+      ..setCategory(PropertyCategory.commercial)
+      ..setListingIntent(ListingIntent.rent);
+    await labelsOf(tester, p);
+
+    final field = find.byType(PortalTextField).at(2); // Total Floors
+    await tester.enterText(field, '1000');
+    // LengthLimitingTextInputFormatter(3) truncates the keystroke itself —
+    // "1000" can never reach the provider at all, not just get rejected
+    // later at Continue.
+    expect(p.buildingInventoryText('totalFloorsBuilding'), '100');
+  });
+
   testWidgets('pg — Area then PG Structure & Capacity', (tester) async {
     final p = PostPropertyProvider()
       ..setCategory(PropertyCategory.pg)
@@ -163,8 +210,9 @@ void main() {
     expect(headingsOf(tester), ['PG Structure & Capacity']);
   });
 
-  testWidgets('pg — Floor-wise Room Details appears once floors are set',
-      (tester) async {
+  testWidgets('pg — Floor-wise Room Details appears once floors are set', (
+    tester,
+  ) async {
     final p = PostPropertyProvider()
       ..setCategory(PropertyCategory.pg)
       ..setListingIntent(ListingIntent.rent);
@@ -175,6 +223,37 @@ void main() {
     p.setTotalFloors('3');
     await tester.pump();
     expect(headingsOf(tester), contains('Floor-wise Room Details'));
+  });
+
+  testWidgets(
+    'pg — an extreme Total Floors builds lazily instead of all at once',
+    (tester) async {
+      final p = PostPropertyProvider()
+        ..setCategory(PropertyCategory.pg)
+        ..setListingIntent(ListingIntent.rent);
+      await labelsOf(tester, p);
+
+      p.setTotalFloors('1000');
+      await tester.pump();
+
+      // Same proof as the commercial case below: only what the fixed-height
+      // viewport can actually show gets built, not all 1000 floors.
+      expect(find.text('Floor 1'), findsOneWidget);
+      expect(find.text('Floor 999'), findsNothing);
+    },
+  );
+
+  testWidgets('pg — Total Floors cannot be typed past 3 digits', (
+    tester,
+  ) async {
+    final p = PostPropertyProvider()
+      ..setCategory(PropertyCategory.pg)
+      ..setListingIntent(ListingIntent.rent);
+    await labelsOf(tester, p);
+
+    final field = find.byType(PortalTextField).at(2); // Total Floors
+    await tester.enterText(field, '1000');
+    expect(p.totalFloors, '100');
   });
 
   testWidgets('others — Area only', (tester) async {
@@ -247,14 +326,16 @@ void main() {
         tester.view.physicalSize = const Size(320, 4000);
         tester.view.devicePixelRatio = 1.0;
         addTearDown(tester.view.reset);
-        await tester.pumpWidget(MaterialApp(
-          home: ChangeNotifierProvider.value(
-            value: entry.value(),
-            child: const Scaffold(
-              body: SingleChildScrollView(child: PropertyDimensionsStep()),
+        await tester.pumpWidget(
+          MaterialApp(
+            home: ChangeNotifierProvider.value(
+              value: entry.value(),
+              child: const Scaffold(
+                body: SingleChildScrollView(child: PropertyDimensionsStep()),
+              ),
             ),
           ),
-        ));
+        );
         await tester.pump();
         expect(tester.takeException(), isNull);
         expect(overflowingBoxes(tester), isEmpty);
@@ -262,8 +343,9 @@ void main() {
     }
   });
 
-  testWidgets('commercial Super Built-up Area keeps `area` in step',
-      (tester) async {
+  testWidgets('commercial Super Built-up Area keeps `area` in step', (
+    tester,
+  ) async {
     final p = PostPropertyProvider()
       ..setCategory(PropertyCategory.commercial)
       ..setListingIntent(ListingIntent.rent);

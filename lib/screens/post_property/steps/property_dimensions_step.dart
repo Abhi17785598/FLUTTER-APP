@@ -97,6 +97,16 @@ final List<TextInputFormatter> _kNumericish = [
   FilteringTextInputFormatter.allow(RegExp(r'[\d.]')),
 ];
 
+/// Total Floors' own formatters — digits only, and never more of them than
+/// 163 (the validated ceiling, see `listing_validation_rules.dart`) itself
+/// needs: 3. Blocking a 4th digit at the keyboard, not just at Continue,
+/// is what actually stops "1000" or "100000000" from being typeable in the
+/// first place, rather than only being rejected after the fact.
+final List<TextInputFormatter> _kTotalFloorsFormatters = [
+  FilteringTextInputFormatter.digitsOnly,
+  LengthLimitingTextInputFormatter(3),
+];
+
 class _PropertyDimensionsStepState extends State<PropertyDimensionsStep> {
   // Named provider fields.
   late final TextEditingController _area;
@@ -553,7 +563,7 @@ class _PropertyDimensionsStepState extends State<PropertyDimensionsStep> {
       controller: _totalFloors,
       prefix: const PortalIconTint('layers', color: _cFloors),
       keyboardType: TextInputType.number,
-      inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+      inputFormatters: _kTotalFloorsFormatters,
       onChanged: p.setTotalFloors,
     ),
   );
@@ -749,7 +759,7 @@ class _PropertyDimensionsStepState extends State<PropertyDimensionsStep> {
           controller: _totalFloorsBuilding,
           hint: 'e.g. 10',
           keyboardType: TextInputType.number,
-          inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+          inputFormatters: _kTotalFloorsFormatters,
           onChanged: (v) =>
               p.setBuildingInventoryValue('totalFloorsBuilding', v),
         ),
@@ -943,6 +953,25 @@ class _FloorWiseRoomDetails extends StatefulWidget {
 }
 
 class _FloorWiseRoomDetailsState extends State<_FloorWiseRoomDetails> {
+  /// Fixed viewport height for the lazily-built floor list below — enough to
+  /// show a few cards with an obvious internal scroll for the rest. A card's
+  /// natural height varies (whether its room-type row is showing), which is
+  /// exactly why this is a `ListView.builder` and not a fixed `itemExtent`:
+  /// each card lays itself out and only the ones actually scrolled into view
+  /// are ever built, so typing an arbitrarily large "Total Floors" no longer
+  /// costs anything at keystroke time — see the class doc above for why a
+  /// plain `Column` of one card per floor used to freeze/crash the app.
+  static const double _listHeight = 340;
+
+  /// A floor's own "Total Rooms" is unbounded and drives an equally
+  /// unbounded `Wrap` of room-type selects below — but a `Wrap` of even 50
+  /// simple rows is cheap to build in full, so this stays a rendering cap
+  /// rather than needing the list-view treatment above. 50 matches the
+  /// portal's actual `max="50"` on this same input
+  /// (`PropertyDimensionsStep.tsx:149`) — this one *is* portal parity, not
+  /// an invented number.
+  static const int _maxRenderedRoomsPerFloor = 50;
+
   final Map<int, TextEditingController> _roomsControllers = {};
 
   TextEditingController _controllerFor(int floorNumber, int totalRooms) {
@@ -984,8 +1013,17 @@ class _FloorWiseRoomDetailsState extends State<_FloorWiseRoomDetails> {
             'Floor-wise Room Details',
             subtitle: 'Specify room details for each floor',
           ),
-          for (var floorNumber = 1; floorNumber <= numFloors; floorNumber++)
-            _floorCard(p, floorNumber),
+          const SizedBox(height: 8),
+          SizedBox(
+            height: _listHeight,
+            child: Scrollbar(
+              child: ListView.builder(
+                padding: EdgeInsets.zero,
+                itemCount: numFloors,
+                itemBuilder: (context, index) => _floorCard(p, index + 1),
+              ),
+            ),
+          ),
         ],
       ),
     );
@@ -1043,7 +1081,14 @@ class _FloorWiseRoomDetailsState extends State<_FloorWiseRoomDetails> {
               spacing: 8,
               runSpacing: 8,
               children: [
-                for (var roomNumber = 1; roomNumber <= totalRooms; roomNumber++)
+                for (
+                  var roomNumber = 1;
+                  roomNumber <=
+                      (totalRooms > _maxRenderedRoomsPerFloor
+                          ? _maxRenderedRoomsPerFloor
+                          : totalRooms);
+                  roomNumber++
+                )
                   SizedBox(
                     width: 168,
                     child: Row(
@@ -1116,6 +1161,23 @@ class _BuildingFloorInventory extends StatefulWidget {
 }
 
 class _BuildingFloorInventoryState extends State<_BuildingFloorInventory> {
+  /// Same fix this step's PG editor needed —
+  /// see `_FloorWiseRoomDetailsState._listHeight` — except each commercial
+  /// floor card is heavier (six fields plus, potentially, a nested office
+  /// card per office), so a taller viewport is worth it here: still enough
+  /// to make the internal scroll obvious, without showing so little at once
+  /// that entering a handful of floors feels cramped.
+  static const double _listHeight = 460;
+
+  /// "Number of Offices on this Floor" is unbounded and drives an equally
+  /// unbounded run of nested office cards — each one full of its own text
+  /// fields, so unlike the room-type `Wrap` in the PG editor this stays a
+  /// genuine crash risk on its own even with the floor list above fixed.
+  /// There is no portal-side cap to mirror here (unlike Total Rooms' real
+  /// `max="50"`), so this is a rendering safety limit, not invented
+  /// business validation — nothing about what gets saved changes.
+  static const int _maxRenderedOfficesPerFloor = 50;
+
   final Map<String, TextEditingController> _controllers = {};
   final Set<String> _expandedOffices = {};
 
@@ -1159,20 +1221,27 @@ class _BuildingFloorInventoryState extends State<_BuildingFloorInventory> {
 
     // Controllers (and their accordion state) for floors/offices removed by
     // lowering a count are dropped, so raising it again starts fresh rather
-    // than resurrecting stale typed text.
-    final validFloorKeys = List.generate(totalFloors, (i) => '${i + 1}:');
+    // than resurrecting stale typed text. Checked by parsing each key's own
+    // leading floor number rather than generating every valid key up front
+    // ('$floorNumber:field' / '$floorNumber:$companyIndex:field') — the
+    // fastest-typed digit of an extreme Total Floors is otherwise itself
+    // enough to hang on `List.generate(totalFloors, ...)`.
     _controllers.removeWhere((key, c) {
-      if (validFloorKeys.any((k) => key.startsWith(k))) return false;
+      final floorNum = int.tryParse(key.split(':').first);
+      if (floorNum != null && floorNum <= totalFloors) return false;
       c.dispose();
       return true;
     });
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        for (var floorNumber = 1; floorNumber <= totalFloors; floorNumber++)
-          _floorCard(p, floorNumber),
-      ],
+    return SizedBox(
+      height: _listHeight,
+      child: Scrollbar(
+        child: ListView.builder(
+          padding: EdgeInsets.zero,
+          itemCount: totalFloors,
+          itemBuilder: (context, index) => _floorCard(p, index + 1),
+        ),
+      ),
     );
   }
 
@@ -1359,12 +1428,27 @@ class _BuildingFloorInventoryState extends State<_BuildingFloorInventory> {
               ),
             ),
           ),
-          for (var i = 0; i < numberOfCompanies && i < companies.length; i++)
+          for (
+            var i = 0;
+            i < numberOfCompanies &&
+                i < companies.length &&
+                i < _maxRenderedOfficesPerFloor;
+            i++
+          )
             _officeCard(
               p,
               floorNumber,
               i,
               (companies[i] as Map?) ?? const <String, dynamic>{},
+            ),
+          if (numberOfCompanies > _maxRenderedOfficesPerFloor)
+            Padding(
+              padding: const EdgeInsets.only(top: 10),
+              child: Text(
+                'Showing the first $_maxRenderedOfficesPerFloor offices. '
+                'Lower this count to manage the rest individually.',
+                style: PortalTheme.blockSubtitle,
+              ),
             ),
         ],
       ),
@@ -1473,7 +1557,9 @@ class _BuildingFloorInventoryState extends State<_BuildingFloorInventory> {
                         text('contactPerson'),
                       ),
                       inputFormatters: [
-                        FilteringTextInputFormatter.allow(RegExp(r'[a-zA-Z\s]')),
+                        FilteringTextInputFormatter.allow(
+                          RegExp(r'[a-zA-Z\s]'),
+                        ),
                       ],
                       onChanged: (v) => p.setBuildingOfficeField(
                         floorNumber,
