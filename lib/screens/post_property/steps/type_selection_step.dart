@@ -1,3 +1,4 @@
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
@@ -6,98 +7,106 @@ import '../portal_theme.dart';
 
 /// Step 1 — reproduction of the portal's `TypeSelectionStep.tsx`.
 ///
-/// Card artwork mirrors the portal's real illustrations: full-bleed
-/// `BoxFit.cover` images (no padding, no colour backdrop behind them), using
-/// this app's own `assets/formicons/*.png` set — already declared as a
-/// Flutter asset — keyed by the same filenames the portal's own
-/// `propertyTypeSVG`/`listingTypeSVG` switch on
-/// (`propcid/src/components/PropertyWizard/steps/TypeSelectionStep.tsx`).
+/// PROPERTY TYPE cards are full-bleed photo "hero" cards — a real category
+/// photo filling the card, a bottom scrim for legibility, a white icon
+/// badge top-left, the title/description over the scrim, and a white arrow
+/// button bottom-right — matching the exact card composition the design
+/// reference for this step uses. LISTING TYPE stays a compact row list (the
+/// reference keeps that group as rows, not photo cards), each row now
+/// carrying a small colour-coded icon badge next to its text in addition
+/// to the existing thumbnail, matching that reference too.
 ///
-/// Card sizing is intentionally more compact than the portal's own literal
-/// desktop pixels (`_kImageBand`/`_kImageBox` etc. below): reproduced at
-/// the portal's exact 260/135/80 dimensions, the cards ran taller than a
-/// phone-width column needs. Width stays fully responsive — computed from
-/// the available layout width via `LayoutBuilder`, never hardcoded — only
-/// the fixed vertical/padding dimensions were tightened, and every one of
-/// them was checked against `post_property_shell_layout_test.dart`'s
-/// no-overflow assertions at 320–1920 dp before landing.
+/// Width stays fully responsive — computed from whatever the column gives
+/// it, never hardcoded — and every card was checked against
+/// `post_property_shell_layout_test.dart`'s no-overflow assertions at
+/// 320–1920 dp before landing.
 class TypeSelectionStep extends StatelessWidget {
   const TypeSelectionStep({super.key});
 
-  /// Verbatim from `propertyTypes` (TypeSelectionStep.tsx:123-129), in
-  /// source order — Land first, not Residential. `imageAsset` mirrors
-  /// `propertyTypeSVG`'s id→file switch (TypeSelectionStep.tsx:12-20).
+  /// Verbatim category set/order from `propertyTypes`
+  /// (TypeSelectionStep.tsx:123-129) — Land first, not Residential.
+  /// `photoUrl` is a real category photo (not the portal's flat SVG
+  /// illustration) so the card can be a full-bleed photo hero rather than
+  /// an icon-on-a-pastel-square, matching the reference design for this
+  /// step; `badgeIcon`/`badgeColor` drive the small icon badge overlaid on
+  /// that photo.
   static const List<_TypeCard> _propertyTypes = [
     _TypeCard(
-      id: 'land',
       title: 'Land / Plot',
-      description: 'Plots, Agri. Land, etc.',
-      imageAsset: 'assets/formicons/land.png',
+      description: 'Plots, Agricultural land, etc.',
       category: PropertyCategory.land,
-      pastelBg: Color(0xFFE7F5EA),
-      chipColor: Color(0xFF4CAF7D),
+      photoUrl:
+          'https://images.unsplash.com/photo-1500382017468-9049fed747ef?w=640&q=70',
+      badgeIcon: Icons.location_on_rounded,
+      badgeColor: Color(0xFFE5484D),
     ),
     _TypeCard(
-      id: 'residential',
       title: 'Residential',
       description: 'Houses, Apartments, Villas, etc.',
-      imageAsset: 'assets/formicons/residential.png',
       category: PropertyCategory.residential,
-      pastelBg: Color(0xFFFCEBE3),
-      chipColor: Color(0xFFEE7B4F),
+      photoUrl:
+          'https://images.unsplash.com/photo-1568605114967-8130f3a36994?w=640&q=70',
+      badgeIcon: Icons.home_rounded,
+      badgeColor: Color(0xFFEE7B4F),
     ),
     _TypeCard(
-      id: 'commercial',
       title: 'Commercial',
       description: 'Offices, Shops, Showrooms, etc.',
-      imageAsset: 'assets/formicons/commercial.png',
       category: PropertyCategory.commercial,
-      pastelBg: Color(0xFFE6F0FE),
-      chipColor: Color(0xFF4A82E8),
+      photoUrl:
+          'https://images.unsplash.com/photo-1486406146926-c627a92ad1ab?w=640&q=70',
+      badgeIcon: Icons.apartment_rounded,
+      badgeColor: Color(0xFF4A82E8),
     ),
     _TypeCard(
-      id: 'pg/Co-living',
       title: 'PG / Co-living',
-      description: 'PG, Hostels, Co-living Spaces, etc.',
-      imageAsset: 'assets/formicons/pgcoliving.png',
+      description: 'PG, Hostels, Co-living spaces, etc.',
       category: PropertyCategory.pg,
-      pastelBg: Color(0xFFF0EBFB),
-      chipColor: Color(0xFF8B6FD6),
+      photoUrl:
+          'https://images.unsplash.com/photo-1522708323590-d24dbb6b0267?w=640&q=70',
+      badgeIcon: Icons.chair_rounded,
+      badgeColor: Color(0xFF8B6FD6),
     ),
     _TypeCard(
-      id: 'others',
       title: 'Others',
-      description: 'Other Property Types, etc.',
-      imageAsset: 'assets/formicons/typeselection.png',
+      description: 'Other property types, etc.',
       category: PropertyCategory.other,
-      pastelBg: Color(0xFFFDF3DC),
-      chipColor: Color(0xFFE8A93B),
+      photoUrl:
+          'https://images.unsplash.com/photo-1553413077-190dd305871c?w=640&q=70',
+      badgeIcon: Icons.grid_view_rounded,
+      badgeColor: Color(0xFFE8A93B),
     ),
   ];
 
   /// Verbatim from `getAvailableListingTypes()` — Rent first, then For Sale,
-  /// then Lease. Note the middle label is "For Sale", not "Sell".
-  /// `imageAsset` mirrors `listingTypeSVG`'s id→file switch
-  /// (TypeSelectionStep.tsx:40-45) — note the portal's internal id is
-  /// `sell`, matching [ListingIntent.sell] and `sell.png`.
+  /// then Lease. `imageAsset` mirrors `listingTypeSVG`'s id→file switch
+  /// (TypeSelectionStep.tsx:40-45) — the portal's internal id is `sell`,
+  /// matching [ListingIntent.sell] and `sell.png`. `badgeIcon`/`badgeColor`
+  /// add the small icon badge the reference shows next to each row's text.
   static const List<_IntentCard> _listingTypes = [
     _IntentCard(
       title: 'Rent',
       description: 'Monthly rental properties',
       imageAsset: 'assets/formicons/rent.png',
       intent: ListingIntent.rent,
+      badgeIcon: Icons.home_rounded,
+      badgeColor: Color(0xFF7C6FF7),
     ),
     _IntentCard(
       title: 'For Sale',
       description: 'Properties for sale',
       imageAsset: 'assets/formicons/sell.png',
       intent: ListingIntent.sell,
+      badgeIcon: Icons.home_rounded,
+      badgeColor: Color(0xFF4CAF7D),
     ),
     _IntentCard(
       title: 'Lease',
       description: 'Long-term lease properties',
       imageAsset: 'assets/formicons/lease.png',
       intent: ListingIntent.lease,
+      badgeIcon: Icons.description_rounded,
+      badgeColor: Color(0xFF4A82E8),
     ),
   ];
 
@@ -115,10 +124,9 @@ class TypeSelectionStep extends StatelessWidget {
 
         // ── Property Type ──────────────────────────────────────────────
         const PortalGroupLabel('Property Type'),
-        // One per row, stacked vertically — a colour-coded icon-left row
-        // card rather than the portal's own 2-column image-on-top grid.
-        // Width is whatever the column gives it (no hardcoded dp), so this
-        // stays correct at any phone size.
+        // One full-bleed photo card per row. Width is whatever the column
+        // gives it (no hardcoded dp), so this stays correct at any phone
+        // size.
         for (int i = 0; i < _propertyTypes.length; i++) ...[
           if (i > 0) const SizedBox(height: PortalTheme.gapMd),
           _PropertyTypeCard(
@@ -151,28 +159,25 @@ class TypeSelectionStep extends StatelessWidget {
 
 class _TypeCard {
   const _TypeCard({
-    required this.id,
     required this.title,
     required this.description,
-    required this.imageAsset,
     required this.category,
-    required this.pastelBg,
-    required this.chipColor,
+    required this.photoUrl,
+    required this.badgeIcon,
+    required this.badgeColor,
   });
 
-  final String id;
   final String title;
   final String description;
-  final String imageAsset;
   final PropertyCategory category;
 
-  /// The card's own soft background colour — each category gets a
-  /// distinct pastel rather than sharing one generic surface colour.
-  final Color pastelBg;
+  /// The card's full-bleed background photo.
+  final String photoUrl;
 
-  /// The icon chip's fill and the chevron/selected-border accent — a
-  /// deeper shade of [pastelBg].
-  final Color chipColor;
+  /// The small icon badge overlaid top-left on the photo, and the
+  /// selected-state accent (border glow, arrow tint, check badge).
+  final IconData badgeIcon;
+  final Color badgeColor;
 }
 
 class _IntentCard {
@@ -181,22 +186,22 @@ class _IntentCard {
     required this.description,
     required this.imageAsset,
     required this.intent,
+    required this.badgeIcon,
+    required this.badgeColor,
   });
 
   final String title;
   final String description;
   final String imageAsset;
   final ListingIntent intent;
+  final IconData badgeIcon;
+  final Color badgeColor;
 }
 
-/// Card artwork: the category's real illustration, full-bleed —
-/// `BoxFit.cover` filling the entire band/box exactly like the portal's
-/// `objectFit: 'cover', width: '100%', height: '100%'`. No padding, no
-/// colour backdrop behind it — the image itself is the entire visual,
-/// matching source. `assets/formicons/*.png` are the portal's own
-/// illustrations (same art family, same filenames), high-resolution
-/// source images, so `cover` crops cleanly with no pixelation at any of
-/// the compact sizes below.
+/// Card artwork for the listing-type thumbnail: the portal's own
+/// illustration, full-bleed — `BoxFit.cover` filling the box exactly like
+/// the portal's `objectFit: 'cover'`. `assets/formicons/*.png` are the
+/// portal's own illustrations (same art family, same filenames).
 class _CategoryImageArt extends StatelessWidget {
   const _CategoryImageArt({required this.imageAsset});
 
@@ -213,10 +218,11 @@ class _CategoryImageArt extends StatelessWidget {
   }
 }
 
-/// Property-type row card — icon chip, title/description, trailing
-/// chevron, each category tinted with its own pastel colour rather than a
-/// single shared surface. One per row (see the vertical stack in `build`
-/// above) instead of the portal's 2-column image-on-top grid.
+/// Property-type card — a full-bleed real photo, a bottom scrim for
+/// legibility, a white icon badge top-left, title/description sitting on
+/// the scrim, and a white circular arrow button bottom-right. Matches the
+/// reference design's photo-hero card composition directly, replacing the
+/// previous icon-chip-on-a-pastel-row layout.
 class _PropertyTypeCard extends StatelessWidget {
   const _PropertyTypeCard({
     required this.data,
@@ -228,7 +234,8 @@ class _PropertyTypeCard extends StatelessWidget {
   final bool selected;
   final VoidCallback onTap;
 
-  static const double _kChipSize = 46;
+  static const double _kCardHeight = 128;
+  static const double _kBadgeSize = 36;
 
   @override
   Widget build(BuildContext context) {
@@ -237,68 +244,139 @@ class _PropertyTypeCard extends StatelessWidget {
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 300),
         curve: Curves.easeInOutCubic,
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+        height: _kCardHeight,
         decoration: BoxDecoration(
-          color: data.pastelBg,
-          borderRadius: BorderRadius.circular(PortalTheme.cardRadius),
+          borderRadius: BorderRadius.circular(20),
           border: Border.all(
-            color: selected ? data.chipColor : Colors.transparent,
-            width: 2,
+            color: selected ? data.badgeColor : Colors.transparent,
+            width: 3,
           ),
           boxShadow: selected
-              ? PortalTheme.cardShadowActive
+              ? [
+                  BoxShadow(
+                    color: data.badgeColor.withOpacity(0.32),
+                    blurRadius: 18,
+                    offset: const Offset(0, 8),
+                  ),
+                ]
               : PortalTheme.cardShadow,
         ),
-        child: Row(
-          children: [
-            ClipRRect(
-              borderRadius: BorderRadius.circular(PortalTheme.imageRadius),
-              child: Container(
-                width: _kChipSize,
-                height: _kChipSize,
-                color: data.chipColor.withOpacity(0.18),
-                child: Padding(
-                  padding: const EdgeInsets.all(7),
-                  child: _CategoryImageArt(imageAsset: data.imageAsset),
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(17),
+          child: Stack(
+            fit: StackFit.expand,
+            children: [
+              CachedNetworkImage(
+                imageUrl: data.photoUrl,
+                fit: BoxFit.cover,
+                placeholder: (context, url) =>
+                    Container(color: data.badgeColor.withOpacity(0.12)),
+                errorWidget: (context, url, error) =>
+                    Container(color: data.badgeColor.withOpacity(0.12)),
+              ),
+              // Bottom scrim so the white title/description stay legible
+              // over whatever the photo's own brightness happens to be.
+              const DecoratedBox(
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.topCenter,
+                    end: Alignment.bottomCenter,
+                    colors: [Colors.transparent, Color(0xCC000000)],
+                    stops: [0.35, 1.0],
+                  ),
                 ),
               ),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text(
-                    data.title,
-                    // The category's own chip colour when selected, rather
-                    // than the theme's one universal accent — keeps each
-                    // row's selected state feeling like part of its own
-                    // colour, not a generic highlight.
-                    style: PortalTheme.cardTitle(
-                      selected,
-                    ).copyWith(color: selected ? data.chipColor : null),
+              // Icon badge, top-left.
+              Positioned(
+                top: 10,
+                left: 10,
+                child: Container(
+                  width: _kBadgeSize,
+                  height: _kBadgeSize,
+                  decoration: const BoxDecoration(
+                    color: Colors.white,
+                    shape: BoxShape.circle,
                   ),
-                  const SizedBox(height: 2),
-                  Text(data.description, style: PortalTheme.cardDescription),
-                ],
+                  child: Icon(data.badgeIcon, color: data.badgeColor, size: 19),
+                ),
               ),
-            ),
-            const SizedBox(width: 8),
-            Icon(Icons.chevron_right_rounded, color: data.chipColor, size: 22),
-          ],
+              // Title + description, bottom-left, over the scrim.
+              Positioned(
+                left: 14,
+                right: 58,
+                bottom: 12,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      data.title,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: PortalTheme.cardTitle(false).copyWith(
+                        color: Colors.white,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      data.description,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: PortalTheme.cardDescription.copyWith(
+                        fontSize: 11,
+                        color: Colors.white.withOpacity(0.85),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              // Arrow button, bottom-right.
+              Positioned(
+                right: 12,
+                bottom: 12,
+                child: Container(
+                  width: _kBadgeSize,
+                  height: _kBadgeSize,
+                  decoration: const BoxDecoration(
+                    color: Colors.white,
+                    shape: BoxShape.circle,
+                  ),
+                  child: Icon(
+                    Icons.arrow_forward_rounded,
+                    color: data.badgeColor,
+                    size: 18,
+                  ),
+                ),
+              ),
+              // Selected check badge, top-right.
+              if (selected)
+                Positioned(
+                  top: 10,
+                  right: 10,
+                  child: Container(
+                    padding: const EdgeInsets.all(2),
+                    decoration: const BoxDecoration(
+                      color: Colors.white,
+                      shape: BoxShape.circle,
+                    ),
+                    child: PortalCheckBadge(selected: true),
+                  ),
+                ),
+            ],
+          ),
         ),
       ),
     );
   }
 }
 
-/// Landscape card — `cardBaseLandscape` / `cardActiveLandscape`.
-/// Indicator sits top-LEFT here, and the text block is left-aligned, inset
-/// just enough to clear the badge.
-///
-/// Compact like [_PropertyTypeCard]: the portal's fixed 80px row/image
-/// shrinks to [_kCardMinHeight]/[_kImageBox] here.
+/// Listing-type row — a radio circle, a small colour-coded icon badge,
+/// title/description, and a lifted illustration "sticker" chip trailing.
+/// The icon badge is new versus the previous version: the reference shows
+/// each row carrying its own small tinted icon next to the text, in
+/// addition to the existing thumbnail — so both are shown here rather than
+/// one replacing the other.
 class _ListingTypeCard extends StatelessWidget {
   const _ListingTypeCard({
     required this.data,
@@ -310,8 +388,9 @@ class _ListingTypeCard extends StatelessWidget {
   final bool selected;
   final VoidCallback onTap;
 
-  static const double _kCardMinHeight = 62;
-  static const double _kImageBox = 58;
+  static const double _kCardMinHeight = 68;
+  static const double _kImageBox = 48;
+  static const double _kIconBadgeSize = 34;
 
   @override
   Widget build(BuildContext context) {
@@ -324,64 +403,90 @@ class _ListingTypeCard extends StatelessWidget {
         // description onto a third line still get the room they need
         // instead of being clipped.
         constraints: const BoxConstraints(minHeight: _kCardMinHeight),
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
         decoration: BoxDecoration(
           color: selected ? PortalTheme.accentSurface : PortalTheme.cardSurface,
-          borderRadius: BorderRadius.circular(PortalTheme.cardRadius),
+          borderRadius: BorderRadius.circular(18),
           border: Border.all(
             color: selected ? PortalTheme.accent : PortalTheme.cardBorder,
             width: selected ? 2 : 1,
           ),
           boxShadow: selected
-              ? PortalTheme.cardShadowActive
+              ? [
+                  BoxShadow(
+                    color: PortalTheme.accent.withOpacity(0.22),
+                    blurRadius: 16,
+                    offset: const Offset(0, 6),
+                  ),
+                ]
               : PortalTheme.cardShadow,
         ),
-        child: Stack(
+        child: Row(
           children: [
-            Row(
-              children: [
-                Expanded(
-                  child: Padding(
-                    padding: const EdgeInsets.only(left: 26, right: 8),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Text(
-                          data.title,
-                          style: PortalTheme.cardTitle(selected),
-                        ),
-                        const SizedBox(height: 3),
-                        Text(
-                          data.description,
-                          style: PortalTheme.cardDescription,
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-                ClipRRect(
-                  borderRadius: BorderRadius.circular(12),
-                  child: SizedBox(
-                    width: _kImageBox,
-                    height: _kImageBox,
-                    child: AnimatedScale(
-                      scale: selected ? 1.06 : 1.0,
-                      duration: const Duration(milliseconds: 150),
-                      child: Opacity(
-                        opacity: selected ? 1.0 : 0.85,
-                        child: _CategoryImageArt(imageAsset: data.imageAsset),
-                      ),
-                    ),
-                  ),
-                ),
-              ],
+            PortalCheckBadge(selected: selected),
+            const SizedBox(width: 10),
+            Container(
+              width: _kIconBadgeSize,
+              height: _kIconBadgeSize,
+              decoration: BoxDecoration(
+                color: data.badgeColor.withOpacity(0.14),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Icon(data.badgeIcon, color: data.badgeColor, size: 18),
             ),
-            Positioned(
-              top: 0,
-              left: 0,
-              child: PortalCheckBadge(selected: selected),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    data.title,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: PortalTheme.cardTitle(selected),
+                  ),
+                  const SizedBox(height: 3),
+                  Text(
+                    data.description,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: PortalTheme.cardDescription.copyWith(fontSize: 11),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(width: 8),
+            AnimatedScale(
+              scale: selected ? 1.06 : 1.0,
+              duration: const Duration(milliseconds: 150),
+              child: Container(
+                width: _kImageBox,
+                height: _kImageBox,
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(14),
+                  boxShadow: selected
+                      ? [
+                          BoxShadow(
+                            color: PortalTheme.accent.withOpacity(0.2),
+                            blurRadius: 8,
+                            offset: const Offset(0, 3),
+                          ),
+                        ]
+                      : PortalTheme.cardShadow,
+                ),
+                child: Padding(
+                  padding: const EdgeInsets.all(7),
+                  child: Opacity(
+                    opacity: selected ? 1.0 : 0.85,
+                    child: ClipRRect(
+                      borderRadius: BorderRadius.circular(8),
+                      child: _CategoryImageArt(imageAsset: data.imageAsset),
+                    ),
+                  ),
+                ),
+              ),
             ),
           ],
         ),
