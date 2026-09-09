@@ -148,7 +148,18 @@ class FakeAuthService implements AuthServiceBase {
 /// — it's stored but never read once these overrides are in place.
 class FakeTeamService extends BuilderTeamService {
   FakeTeamService()
-    : super(client: SupabaseClient('http://localhost:54321', 'test-anon-key'));
+    : super(
+        client: SupabaseClient(
+          'http://localhost:54321',
+          'test-anon-key',
+          // Its `auth` is never read (both network methods below are
+          // overridden), but GoTrue's auto-refresh timer still starts by
+          // default on construction — a `testWidgets` test that drives it
+          // far enough to lazily create this client trips flutter_test's
+          // "Timer is still pending" invariant at teardown otherwise.
+          authOptions: const AuthClientOptions(autoRefreshToken: false),
+        ),
+      );
 
   @override
   Future<List<BuilderTeamMember>> myActiveMemberships(String userId) async =>

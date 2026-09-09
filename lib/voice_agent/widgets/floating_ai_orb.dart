@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../../app_navigator.dart';
+import '../floating_ai_orb_visibility.dart';
 import '../providers/voice_agent_provider.dart';
 import 'voice_agent_panel.dart';
 
@@ -134,172 +135,186 @@ class _FloatingAiOrbState extends State<FloatingAiOrb>
       );
     }
 
-    return Positioned(
-      left: _position!.dx,
-      top: _position!.dy,
-      child: Consumer<VoiceAgentProvider>(
-        builder: (context, provider, _) {
-          final agentState = provider.agentState;
-          final isListening = agentState == VoiceAgentStateEnum.listening;
-          final isProcessing = agentState == VoiceAgentStateEnum.processing;
-          final isSpeaking = agentState == VoiceAgentStateEnum.speaking;
+    // `floatingAiOrbVisible` defaults to true everywhere; only a screen that
+    // explicitly sets it false (currently just AuthScreen, while mounted)
+    // ever sees this return `SizedBox.shrink()` instead. Every gesture
+    // handler, animation controller and piece of drag state above is
+    // unaffected either way — this only gates what `build` paints.
+    return ValueListenableBuilder<bool>(
+      valueListenable: floatingAiOrbVisible,
+      builder: (context, visible, child) {
+        if (!visible) return const SizedBox.shrink();
+        return Positioned(
+          left: _position!.dx,
+          top: _position!.dy,
+          child: Consumer<VoiceAgentProvider>(
+            builder: (context, provider, _) {
+              final agentState = provider.agentState;
+              final isListening = agentState == VoiceAgentStateEnum.listening;
+              final isProcessing = agentState == VoiceAgentStateEnum.processing;
+              final isSpeaking = agentState == VoiceAgentStateEnum.speaking;
 
-          Widget icon;
-          Color bg;
+              Widget icon;
+              Color bg;
 
-          if (isListening) {
-            icon = const Icon(Icons.mic, color: Colors.white);
-            bg = Colors.red;
-          } else if (isProcessing) {
-            icon = SizedBox(
-              width: 22,
-              height: 22,
-              child: CircularProgressIndicator(
-                strokeWidth: 2.5,
-                color: Theme.of(context).colorScheme.onPrimary,
-              ),
-            );
-            bg = Theme.of(context).colorScheme.primary;
-          } else if (isSpeaking) {
-            icon = const Icon(Icons.volume_up, color: Colors.white);
-            bg = Colors.deepPurple;
-          } else {
-            icon = Icon(
-              Icons.support_agent_rounded,
-              color: Theme.of(context).colorScheme.onPrimary,
-            );
-            bg = Theme.of(context).colorScheme.primary;
-          }
+              if (isListening) {
+                icon = const Icon(Icons.mic, color: Colors.white);
+                bg = Colors.red;
+              } else if (isProcessing) {
+                icon = SizedBox(
+                  width: 22,
+                  height: 22,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2.5,
+                    color: Theme.of(context).colorScheme.onPrimary,
+                  ),
+                );
+                bg = Theme.of(context).colorScheme.primary;
+              } else if (isSpeaking) {
+                icon = const Icon(Icons.volume_up, color: Colors.white);
+                bg = Colors.deepPurple;
+              } else {
+                icon = Icon(
+                  Icons.support_agent_rounded,
+                  color: Theme.of(context).colorScheme.onPrimary,
+                );
+                bg = Theme.of(context).colorScheme.primary;
+              }
 
-          return GestureDetector(
-            onTap: _openPanel,
-            onPanUpdate: (details) => _onPanUpdate(details, screenSize),
-            onPanEnd: (_) => _onPanEnd(screenSize),
-            onLongPress: () => _onLongPress(provider),
-            // Deliberately NOT wrapped in a SizedBox any larger than _size —
-            // the decorative layers below overflow past this box (via
-            // Clip.none), but the box itself must stay _size×_size so the
-            // drag/clamp math in _onPanUpdate/_onPanEnd (all keyed off
-            // `_size`) matches where the orb actually renders.
-            child: Stack(
-              clipBehavior: Clip.none,
-              alignment: Alignment.center,
-              children: [
-                // Slow-orbiting particle glow.
-                AnimatedBuilder(
-                  animation: _orbitController,
-                  builder: (context, _) {
-                    // Every child of this Stack is Positioned, so it cannot
-                    // size itself from its children — it would fall back to
-                    // `constraints.biggest`. The constraints here are
-                    // unbounded (the orb's root is a Positioned with only
-                    // left/top, and the parent Stack is StackFit.loose), so
-                    // that fallback is Size.infinite and RenderStack asserts.
-                    // Pin it to the orb box, which is also the coordinate
-                    // space the offsets below are written in (centre at
-                    // _size / 2). Clip.none is retained so the particles still
-                    // paint on their orbit outside this box.
-                    return SizedBox(
-                      width: _size,
-                      height: _size,
-                      child: Stack(
-                        clipBehavior: Clip.none,
-                        children: List.generate(3, (i) {
-                          final angle =
-                              _orbitController.value * 2 * math.pi +
-                              i * (2 * math.pi / 3);
-                          final radius = _size / 2 + 9;
-                          final dx = radius * math.cos(angle);
-                          final dy = radius * math.sin(angle);
-                          return Positioned(
-                            left: _size / 2 + dx - 3,
-                            top: _size / 2 + dy - 3,
-                            child: Container(
-                              width: 6,
-                              height: 6,
-                              decoration: BoxDecoration(
-                                shape: BoxShape.circle,
-                                color: bg.withOpacity(0.7),
-                                boxShadow: [
-                                  BoxShadow(
-                                    color: bg.withOpacity(0.55),
-                                    blurRadius: 6,
+              return GestureDetector(
+                onTap: _openPanel,
+                onPanUpdate: (details) => _onPanUpdate(details, screenSize),
+                onPanEnd: (_) => _onPanEnd(screenSize),
+                onLongPress: () => _onLongPress(provider),
+                // Deliberately NOT wrapped in a SizedBox any larger than _size —
+                // the decorative layers below overflow past this box (via
+                // Clip.none), but the box itself must stay _size×_size so the
+                // drag/clamp math in _onPanUpdate/_onPanEnd (all keyed off
+                // `_size`) matches where the orb actually renders.
+                child: Stack(
+                  clipBehavior: Clip.none,
+                  alignment: Alignment.center,
+                  children: [
+                    // Slow-orbiting particle glow.
+                    AnimatedBuilder(
+                      animation: _orbitController,
+                      builder: (context, _) {
+                        // Every child of this Stack is Positioned, so it cannot
+                        // size itself from its children — it would fall back to
+                        // `constraints.biggest`. The constraints here are
+                        // unbounded (the orb's root is a Positioned with only
+                        // left/top, and the parent Stack is StackFit.loose), so
+                        // that fallback is Size.infinite and RenderStack asserts.
+                        // Pin it to the orb box, which is also the coordinate
+                        // space the offsets below are written in (centre at
+                        // _size / 2). Clip.none is retained so the particles still
+                        // paint on their orbit outside this box.
+                        return SizedBox(
+                          width: _size,
+                          height: _size,
+                          child: Stack(
+                            clipBehavior: Clip.none,
+                            children: List.generate(3, (i) {
+                              final angle =
+                                  _orbitController.value * 2 * math.pi +
+                                  i * (2 * math.pi / 3);
+                              final radius = _size / 2 + 9;
+                              final dx = radius * math.cos(angle);
+                              final dy = radius * math.sin(angle);
+                              return Positioned(
+                                left: _size / 2 + dx - 3,
+                                top: _size / 2 + dy - 3,
+                                child: Container(
+                                  width: 6,
+                                  height: 6,
+                                  decoration: BoxDecoration(
+                                    shape: BoxShape.circle,
+                                    color: bg.withOpacity(0.7),
+                                    boxShadow: [
+                                      BoxShadow(
+                                        color: bg.withOpacity(0.55),
+                                        blurRadius: 6,
+                                      ),
+                                    ],
                                   ),
-                                ],
-                              ),
-                            ),
-                          );
-                        }),
-                      ),
-                    );
-                  },
-                ),
-                // Translucent glass ring — blurs whatever is scrolling
-                // underneath the orb for a genuine glassmorphism look.
-                ClipOval(
-                  child: BackdropFilter(
-                    filter: ImageFilter.blur(sigmaX: 6, sigmaY: 6),
-                    child: Container(
-                      width: _size + 10,
-                      height: _size + 10,
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        color: Colors.white.withOpacity(0.06),
-                        border: Border.all(
-                          color: Colors.white.withOpacity(0.25),
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
-                AnimatedBuilder(
-                  animation: _breatheController,
-                  builder: (context, child) {
-                    final t = _breatheController.value;
-                    return Container(
-                      width: _size,
-                      height: _size,
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        gradient: RadialGradient(
-                          colors: [bg.withOpacity(0.35), bg.withOpacity(0.05)],
-                        ),
-                        boxShadow: [
-                          BoxShadow(
-                            color: bg.withOpacity(0.30 + 0.18 * t),
-                            blurRadius: 18 + 10 * t,
-                            spreadRadius: 1 + t,
+                                ),
+                              );
+                            }),
                           ),
-                        ],
-                      ),
-                      child: child,
-                    );
-                  },
-                  child: Container(
-                    margin: const EdgeInsets.all(4),
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      color: bg,
-                      border: Border.all(
-                        color: Colors.white.withOpacity(0.35),
-                        width: 1.5,
-                      ),
-                      boxShadow: const [
-                        BoxShadow(
-                          color: Colors.black26,
-                          blurRadius: 8,
-                          offset: Offset(0, 3),
-                        ),
-                      ],
+                        );
+                      },
                     ),
-                    child: Center(child: icon),
-                  ),
+                    // Translucent glass ring — blurs whatever is scrolling
+                    // underneath the orb for a genuine glassmorphism look.
+                    ClipOval(
+                      child: BackdropFilter(
+                        filter: ImageFilter.blur(sigmaX: 6, sigmaY: 6),
+                        child: Container(
+                          width: _size + 10,
+                          height: _size + 10,
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            color: Colors.white.withOpacity(0.06),
+                            border: Border.all(
+                              color: Colors.white.withOpacity(0.25),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                    AnimatedBuilder(
+                      animation: _breatheController,
+                      builder: (context, child) {
+                        final t = _breatheController.value;
+                        return Container(
+                          width: _size,
+                          height: _size,
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            gradient: RadialGradient(
+                              colors: [
+                                bg.withOpacity(0.35),
+                                bg.withOpacity(0.05),
+                              ],
+                            ),
+                            boxShadow: [
+                              BoxShadow(
+                                color: bg.withOpacity(0.30 + 0.18 * t),
+                                blurRadius: 18 + 10 * t,
+                                spreadRadius: 1 + t,
+                              ),
+                            ],
+                          ),
+                          child: child,
+                        );
+                      },
+                      child: Container(
+                        margin: const EdgeInsets.all(4),
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          color: bg,
+                          border: Border.all(
+                            color: Colors.white.withOpacity(0.35),
+                            width: 1.5,
+                          ),
+                          boxShadow: const [
+                            BoxShadow(
+                              color: Colors.black26,
+                              blurRadius: 8,
+                              offset: Offset(0, 3),
+                            ),
+                          ],
+                        ),
+                        child: Center(child: icon),
+                      ),
+                    ),
+                  ],
                 ),
-              ],
-            ),
-          );
-        },
-      ),
+              );
+            },
+          ),
+        );
+      },
     );
   }
 }

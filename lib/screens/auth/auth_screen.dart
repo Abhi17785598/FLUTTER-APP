@@ -1,13 +1,15 @@
-import 'dart:ui';
-
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:provider/provider.dart';
+import '../../app_navigator.dart';
 import '../../core/theme/app_colors.dart';
+import '../../core/theme/app_text_styles.dart';
 import '../../core/validation/validators.dart';
-import '../../core/widgets/premium_button.dart';
+import '../../core/widgets/scale_tap.dart';
 import '../../providers/auth_provider.dart';
+import '../../voice_agent/floating_ai_orb_visibility.dart';
+import '../../voice_agent/widgets/voice_agent_panel.dart';
 
 /// The real, official Google "G" mark (Google's own multi-colour logo, as
 /// used on every standard "Sign in with Google" button) — inlined as raw SVG
@@ -42,6 +44,13 @@ class _AuthScreenState extends State<AuthScreen> with TickerProviderStateMixin {
   final _loginEmailCtrl = TextEditingController();
   final _loginPasswordCtrl = TextEditingController();
   bool _loginPasswordVisible = false;
+
+  // Focus traversal: Email's keyboard "next" action moves here explicitly
+  // (see `_buildLoginForm`) rather than relying on implicit tab order.
+  // Password keeps the default `TextInputAction.done`, which only dismisses
+  // the keyboard — it must never itself trigger `_handleLogin`.
+  final _loginEmailFocus = FocusNode();
+  final _loginPasswordFocus = FocusNode();
 
   // Sign Up — email only, portal parity. No name/password/role/type here:
   // Supabase's own `signInWithOtp(shouldCreateUser: true)` both creates the
@@ -91,6 +100,13 @@ class _AuthScreenState extends State<AuthScreen> with TickerProviderStateMixin {
 
     _headerController.forward();
 
+    // The floating assistant orb otherwise sits on top of the Sign In
+    // button on this screen. It stays fully intact (same tap/long-press,
+    // same drag/edge-snap, same VoiceAgentProvider) everywhere else — this
+    // only stops *this* screen's build from painting it, and the inline
+    // "Need help?" action (`_openHelpPanel`) opens the identical panel.
+    floatingAiOrbVisible.value = false;
+
     // A blocked-account sign-out (AuthProvider.handleBlockedAccount) lands
     // here — surface its message through the same snackbar every other
     // auth failure already uses, rather than a new screen.
@@ -104,10 +120,14 @@ class _AuthScreenState extends State<AuthScreen> with TickerProviderStateMixin {
 
   @override
   void dispose() {
+    // Restores the process-wide default for every other screen.
+    floatingAiOrbVisible.value = true;
     _tabController.dispose();
     _headerController.dispose();
     _loginEmailCtrl.dispose();
     _loginPasswordCtrl.dispose();
+    _loginEmailFocus.dispose();
+    _loginPasswordFocus.dispose();
     _signUpEmailCtrl.dispose();
     _phoneNameCtrl.dispose();
     _phoneCtrl.dispose();
@@ -262,6 +282,29 @@ class _AuthScreenState extends State<AuthScreen> with TickerProviderStateMixin {
     }
   }
 
+  /// Opens the same assistant panel `FloatingAiOrb._openPanel` does — that
+  /// widget's own `_openPanel` is private, so this mirrors its two-line body
+  /// (same `appNavigatorKey` overlay context, same `VoiceAgentPanel`, same
+  /// `VoiceAgentProvider` underneath) rather than reaching into its private
+  /// state. This is an inline, auth-route-local trigger for the identical
+  /// assistant functionality — not a second assistant.
+  ///
+  /// `floating_ai_orb.dart` and `app.dart` are both untouched: this screen
+  /// has no way to also suppress the *floating* orb's global presentation
+  /// without editing one of those two files, which is out of scope here
+  /// (global overlay infrastructure) — see the redesign report for that
+  /// reported gap.
+  void _openHelpPanel() {
+    final overlayContext = appNavigatorKey.currentState?.overlay?.context;
+    if (overlayContext == null) return;
+    showModalBottomSheet(
+      context: overlayContext,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (_) => const VoiceAgentPanel(),
+    );
+  }
+
   void _showSnackBar(String msg, {bool isError = false}) {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
@@ -279,271 +322,418 @@ class _AuthScreenState extends State<AuthScreen> with TickerProviderStateMixin {
 
   /// Same premium house photo already used elsewhere in this app (the
   /// second slide of the Home hero carousel, `HeroBannerSection`) — reused
-  /// verbatim rather than a new, unrelated image.
+  /// verbatim rather than a new, unrelated image; only the crop query
+  /// params below select a different region of that same photo.
+  ///
+  /// This is the one piece of hero artwork this redesign could not source
+  /// exactly: no local "modern white property" photograph (or any local
+  /// hero image at all) exists in this checkout — every hero photo across
+  /// the app, this one included, is already a remote Unsplash URL. Reusing
+  /// this exact existing URL is a reported fallback, not a claim that it is
+  /// a specific reference photograph.
+  ///
+  /// `crop=left,top` (Unsplash's own imgix-backed crop API — no new
+  /// dependency) biases the served frame toward the villa's glass frontage
+  /// and away from the large foreground shrub, which the original
+  /// center-right crop put front and center. Verified by fetching and
+  /// visually inspecting several crop candidates before picking this one.
   static const String _backgroundImageUrl =
-      'https://images.unsplash.com/photo-1512917774080-9991f1c4c750?w=900&q=80';
+      'https://images.unsplash.com/photo-1512917774080-9991f1c4c750?w=960&h=920&fit=crop&crop=left,top&q=80';
 
   @override
   Widget build(BuildContext context) {
-    // Bottom safe-area inset (home indicator / gesture bar), folded into the
-    // card's own bottom padding below rather than left to `SafeArea` — the
-    // card must reach the literal bottom edge of the screen with no bare
-    // strip of photo left showing under it, on every device, so it owns
-    // that inset itself instead of a wrapping `SafeArea` reserving it as
-    // dead space above the card.
-    final bottomInset = MediaQuery.of(context).padding.bottom;
+    final mediaQuery = MediaQuery.of(context);
+    // Bottom safe-area inset (home indicator / gesture bar).
+    final bottomInset = mediaQuery.padding.bottom;
+    // > 0 exactly while the software keyboard is showing — Scaffold's own
+    // `resizeToAvoidBottomInset` (left at its default `true`) already
+    // shrinks `body`'s available height for this; this flag is read only to
+    // decide *what* to show in the shrunk space, never to add more padding
+    // on top of what Scaffold already resized, which would double-count it.
+    final keyboardOpen = mediaQuery.viewInsets.bottom > 0;
 
     return Scaffold(
-      body: Stack(
-        fit: StackFit.expand,
-        children: [
-          // Full-bleed background photo behind everything.
-          CachedNetworkImage(
-            imageUrl: _backgroundImageUrl,
-            fit: BoxFit.cover,
-            placeholder: (context, url) =>
-                Container(color: AppColors.primaryLight),
-            errorWidget: (context, url, error) =>
-                Container(color: AppColors.primaryLight),
-          ),
-          // A soft light-to-transparent wash behind the header text so it
-          // stays legible over whatever part of the photo sits at the top,
-          // without hiding the photo the way a solid banner would.
-          const DecoratedBox(
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                begin: Alignment.topCenter,
-                end: Alignment.bottomCenter,
-                colors: [Color(0xCCF8F8FC), Color(0x00F8F8FC)],
-                stops: [0.0, 0.42],
+      backgroundColor: AppColors.background,
+      // Explicit even though it's the default — this whole restructure
+      // depends on it staying enabled.
+      resizeToAvoidBottomInset: true,
+      body: SafeArea(
+        bottom: false,
+        // ONE coordinated scroll view for the header and the form, replacing
+        // the previous non-scrolling hero stacked above a separately
+        // scrolling form card. That structure reserved a fixed hero height
+        // no matter how little room the keyboard left the form; this way,
+        // scrolling (and the hero's own collapse below) both come from the
+        // same source of truth, and a focused field's own built-in
+        // "scroll ancestor into view on focus" behavior has just the one
+        // scrollable to work with.
+        child: SingleChildScrollView(
+          keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+          padding: EdgeInsets.only(bottom: 24 + bottomInset),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              // A short, restrained resize between the full hero and the
+              // compact logo-only bar — no focus is ever inside this
+              // subtree, so collapsing it cannot itself steal focus or
+              // jump the scroll position other than the natural reflow of
+              // the space it frees up for the form below.
+              AnimatedSize(
+                duration: const Duration(milliseconds: 220),
+                curve: Curves.easeOut,
+                alignment: Alignment.topCenter,
+                child: keyboardOpen ? _buildCompactLogoBar() : _buildHero(),
               ),
-            ),
-          ),
-          SafeArea(
-            bottom: false,
-            child: Column(
-              children: [
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(24, 32, 24, 0),
-                  child: Align(
-                    alignment: Alignment.centerLeft,
-                    child: _buildHeader(),
+              ClipRRect(
+                key: const Key('authFormCard'),
+                borderRadius: const BorderRadius.only(
+                  topLeft: Radius.circular(24),
+                  topRight: Radius.circular(24),
+                ),
+                child: ColoredBox(
+                  color: Colors.white,
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(24, 22, 24, 24),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        _buildTabBar(),
+                        const SizedBox(height: 22),
+                        // Use AnimatedBuilder to rebuild tab content on tab switch
+                        AnimatedBuilder(
+                          animation: _tabController,
+                          builder: (context, _) {
+                            switch (_tabController.index) {
+                              case 0:
+                                return _buildLoginForm();
+                              case 1:
+                                return _buildSignUpForm();
+                              default:
+                                return _buildPhoneForm();
+                            }
+                          },
+                        ),
+                        const SizedBox(height: 20),
+                        _buildHelpFooter(),
+                      ],
+                    ),
                   ),
                 ),
-                const SizedBox(height: 20),
-                // The frosted glass card carrying the tab bar and the
-                // active form. `Expanded` pins it to fill every bit of
-                // remaining space down to the true bottom edge of the
-                // screen — on a tall device that's more empty card padding,
-                // on a short one (or with the keyboard open) its own
-                // `SingleChildScrollView` below takes over, but the photo
-                // is never left exposed under a short-and-floating card.
-                Expanded(
-                  child: ClipRRect(
-                    borderRadius: const BorderRadius.only(
-                      topLeft: Radius.circular(28),
-                      topRight: Radius.circular(28),
-                    ),
-                    child: BackdropFilter(
-                      filter: ImageFilter.blur(sigmaX: 18, sigmaY: 18),
-                      child: Container(
-                        width: double.infinity,
-                        decoration: BoxDecoration(
-                          color: Colors.white.withOpacity(0.86),
-                          borderRadius: const BorderRadius.only(
-                            topLeft: Radius.circular(28),
-                            topRight: Radius.circular(28),
-                          ),
-                          border: Border(
-                            top: BorderSide(
-                              color: Colors.white.withOpacity(0.6),
-                            ),
-                          ),
-                          boxShadow: [
-                            BoxShadow(
-                              color: Colors.black.withOpacity(0.12),
-                              blurRadius: 24,
-                              offset: const Offset(0, -6),
-                            ),
-                          ],
-                        ),
-                        child: Column(
-                          children: [
-                            const SizedBox(height: 10),
-                            // A small grabber handle — the usual affordance
-                            // for a card anchored to the bottom of the
-                            // screen, and a cheap extra touch of polish.
-                            Container(
-                              width: 36,
-                              height: 4,
-                              decoration: BoxDecoration(
-                                color: AppColors.textHint.withOpacity(0.35),
-                                borderRadius: BorderRadius.circular(2),
-                              ),
-                            ),
-                            Expanded(
-                              child: SingleChildScrollView(
-                                keyboardDismissBehavior:
-                                    ScrollViewKeyboardDismissBehavior.onDrag,
-                                padding: EdgeInsets.fromLTRB(
-                                  24,
-                                  18,
-                                  24,
-                                  24 + bottomInset,
-                                ),
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    _buildTabBar(),
-                                    const SizedBox(height: 22),
-                                    // Use AnimatedBuilder to rebuild tab content on tab switch
-                                    AnimatedBuilder(
-                                      animation: _tabController,
-                                      builder: (context, _) {
-                                        switch (_tabController.index) {
-                                          case 0:
-                                            return _buildLoginForm();
-                                          case 1:
-                                            return _buildSignUpForm();
-                                          default:
-                                            return _buildPhoneForm();
-                                        }
-                                      },
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  // ─── Hero ─────────────────────────────────────────────────
+  //
+  // Compact by design now (per explicit direction superseding the earlier,
+  // taller mockup-literal pass): a small right-side photo accent — never
+  // full-bleed, so it cannot dominate the screen the way the previous
+  // pass's cover photo did — a strong white wash over the whole hero, and a
+  // height that scales gently with the viewport instead of the previous
+  // 230–340px range.
+
+  static const String _logoAssetPath =
+      'assets/branding/propcid_logo_trimmed.png';
+  // Fixed aspect ratio of the trimmed asset (1998×495 px) — used to size the
+  // logo by width alone via `AspectRatio`, so both call sites below stay
+  // pixel-faithful to the source file without hand-tuned height numbers.
+  static const double _logoAspectRatio = 1998 / 495;
+
+  /// `Image.asset` with a real accessible label, matching the "PropCid"
+  /// name a screen-reader user would expect — a bare decorative image would
+  /// otherwise announce nothing at all.
+  Widget _logoImage({required double width}) {
+    return Semantics(
+      label: 'PropCid',
+      image: true,
+      child: SizedBox(
+        width: width,
+        child: AspectRatio(
+          aspectRatio: _logoAspectRatio,
+          child: Image.asset(_logoAssetPath, fit: BoxFit.contain),
+        ),
+      ),
+    );
+  }
+
+  /// What's left of the hero once the keyboard is open — see `build`'s
+  /// `AnimatedSize`. No photo, no headline, no tagline, just the wordmark,
+  /// so the form below gets essentially all of the space the keyboard
+  /// didn't take.
+  Widget _buildCompactLogoBar() {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(24, 14, 24, 14),
+      child: Align(
+        alignment: Alignment.centerLeft,
+        // ~130px wide at a ~4:1 aspect ratio is a ~32px-tall logo; with the
+        // 14px padding above and below that lands the whole bar in the
+        // "approximately 44–56px" compact-header range this is meant to hit.
+        child: _logoImage(width: 130),
+      ),
+    );
+  }
+
+  Widget _buildHero() {
+    final double screenHeight = MediaQuery.of(context).size.height;
+    final double screenWidth = MediaQuery.of(context).size.width;
+    // Compact per explicit direction: was `(screenHeight * 0.36).clamp(230,
+    // 340)`; the whole point of this pass is that the hero must never again
+    // reserve that much space out from under the form.
+    final double heroHeight = (screenHeight * 0.22).clamp(160.0, 190.0);
+    // The text column no longer shares the hero with a separate photo box
+    // (that hard-edged strip was the seam) — it just needs to stay clear of
+    // where the gradient below has fully revealed the photo, so it keeps
+    // roughly the same width the old strip-based layout left it.
+    final double maxTextWidth = screenWidth * 0.66 - 24;
+
+    return AnimatedBuilder(
+      animation: _headerController,
+      builder: (context, child) {
+        // A `minHeight`, not a fixed height: enlarged text scaling can make
+        // the wordmark/headline/subtitle column taller than `heroHeight` —
+        // a fixed `SizedBox` would rather overflow than yield, so this lets
+        // the hero grow to fit instead.
+        return SizedBox(
+          width: double.infinity,
+          child: ConstrainedBox(
+            constraints: BoxConstraints(minHeight: heroHeight),
+            child: Stack(
+              // Anchors the (non-positioned) text block to the *bottom* of
+              // this min-height box. Its own `Column` always sizes to fit
+              // its content (`mainAxisSize.min`), so without this the block
+              // would sit at the Stack's default top-left instead — any
+              // slack between `heroHeight` and the content's real height
+              // now collects above the logo rather than below the tagline,
+              // which is what keeps the gap before the form card fixed at
+              // this padding's own 22px instead of growing with that slack.
+              alignment: Alignment.bottomLeft,
+              children: [
+                // The photo now sits behind the *entire* header — the
+                // gradient below is what hides/reveals it, so there is no
+                // box edge left for a seam to appear at. Alignment keeps
+                // the crop on the villa's facade/windows, above the pool
+                // and shrub lower in the frame.
+                Positioned.fill(
+                  child: CachedNetworkImage(
+                    imageUrl: _backgroundImageUrl,
+                    fit: BoxFit.cover,
+                    alignment: const Alignment(0, -0.5),
+                    placeholder: (context, url) =>
+                        Container(color: AppColors.primaryLight),
+                    errorWidget: (context, url, error) =>
+                        Container(color: AppColors.primaryLight),
+                  ),
+                ),
+                // A single smooth horizontal fade, not a flat wash: fully
+                // opaque behind the text so it reads as a clean surface,
+                // then a gradual reveal (not a uniform opacity drop, which
+                // would just wash the photo out everywhere) down to fully
+                // transparent, so the photo shows at full colour on the
+                // right rather than looking faded.
+                const Positioned.fill(
+                  child: DecoratedBox(
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        begin: Alignment.centerLeft,
+                        end: Alignment.centerRight,
+                        colors: [
+                          Color(0xFFF8F8FC),
+                          Color(0xFFF8F8FC),
+                          Color(0x40F8F8FC),
+                          Color(0x00F8F8FC),
+                        ],
+                        stops: [0.0, 0.5, 0.75, 1.0],
                       ),
+                    ),
+                  ),
+                ),
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(24, 18, 24, 22),
+                  child: ConstrainedBox(
+                    constraints: BoxConstraints(maxWidth: maxTextWidth),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisSize: MainAxisSize.min,
+                      // No effect on spacing (the column always sizes to
+                      // its own content) — the actual bottom-anchoring is
+                      // the enclosing `Stack`'s `alignment` above; this is
+                      // just its natural default.
+                      mainAxisAlignment: MainAxisAlignment.end,
+                      children: [
+                        FadeTransition(
+                          opacity: _logoAnimation,
+                          // Targets the 130–150px visible-width range.
+                          child: _logoImage(width: 140),
+                        ),
+                        const SizedBox(height: 12),
+                        FadeTransition(
+                          opacity: _text1Animation,
+                          child: Text(
+                            'Your next home',
+                            style: AppTextStyles.heading1.copyWith(
+                              fontSize: 19,
+                              fontWeight: FontWeight.w700,
+                              color: AppColors.textPrimary,
+                              height: 1.2,
+                            ),
+                          ),
+                        ),
+                        FadeTransition(
+                          opacity: _text2Animation,
+                          child: Text(
+                            'starts here.',
+                            style: AppTextStyles.heading1.copyWith(
+                              fontSize: 19,
+                              fontWeight: FontWeight.w800,
+                              color: AppColors.primary,
+                              height: 1.2,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 9),
+                        FadeTransition(
+                          opacity: _text2Animation,
+                          child: Text(
+                            'Discover. Explore. Own.',
+                            style: AppTextStyles.body.copyWith(
+                              fontSize: 13,
+                              color: AppColors.textSecondary,
+                            ),
+                          ),
+                        ),
+                      ],
                     ),
                   ),
                 ),
               ],
             ),
           ),
-        ],
-      ),
-    );
-  }
-
-  // ─── Header ───────────────────────────────────────────────
-
-  Widget _buildHeader() {
-    return AnimatedBuilder(
-      animation: _headerController,
-      builder: (context, child) {
-        return Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Transform.scale(
-              scale: _logoAnimation.value,
-              child: Container(
-                width: 52,
-                height: 52,
-                decoration: BoxDecoration(
-                  color: AppColors.primary,
-                  borderRadius: BorderRadius.circular(14),
-                  boxShadow: AppColors.primaryGlow,
-                ),
-                child: const Icon(
-                  Icons.home_outlined,
-                  color: Colors.white,
-                  size: 28,
-                ),
-              ),
-            ),
-            const SizedBox(height: 20),
-            FadeTransition(
-              opacity: _text1Animation,
-              child: const Text(
-                'Your Next Home',
-                style: TextStyle(
-                  fontSize: 26,
-                  fontWeight: FontWeight.w600,
-                  color: AppColors.textPrimary,
-                ),
-              ),
-            ),
-            FadeTransition(
-              opacity: _text2Animation,
-              child: const Text(
-                'Is Just a Login Away',
-                style: TextStyle(
-                  fontSize: 26,
-                  fontWeight: FontWeight.w800,
-                  color: AppColors.primary,
-                ),
-              ),
-            ),
-            const SizedBox(height: 8),
-            FadeTransition(
-              opacity: _text2Animation,
-              child: const Text(
-                'Discover. Explore. Own.',
-                style: TextStyle(fontSize: 14, color: AppColors.textSecondary),
-              ),
-            ),
-          ],
         );
       },
     );
   }
 
   // ─── Tab Bar ──────────────────────────────────────────────
+  //
+  // A compact custom segmented control, matching the reference's "Sign In /
+  // Sign Up / Phone" pill row — replacing the previous full-height `TabBar`
+  // with its heavy card/shadow treatment. Still driven by the same
+  // `_tabController` at the same three indices; nothing about which form
+  // shows for which index has changed, only how the control itself is
+  // painted (`TabBar`/`Tab`/`_IconTab` are no longer used here at all).
 
   Widget _buildTabBar() {
-    return Container(
-      height: 62,
-      padding: const EdgeInsets.all(6),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(18),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.04),
-            blurRadius: 20,
-            offset: const Offset(0, 8),
+    return AnimatedBuilder(
+      animation: _tabController,
+      builder: (context, _) {
+        return Container(
+          padding: const EdgeInsets.all(4),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: AppColors.primaryLight, width: 1.2),
           ),
-        ],
+          child: Row(
+            children: [
+              _buildTabSegment(
+                index: 0,
+                icon: Icons.person_outline,
+                label: 'Sign In',
+              ),
+              _buildTabSegment(index: 1, icon: Icons.add, label: 'Sign Up'),
+              _buildTabSegment(
+                index: 2,
+                icon: Icons.phone_outlined,
+                label: 'Phone',
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildTabSegment({
+    required int index,
+    required IconData icon,
+    required String label,
+  }) {
+    final bool selected = _tabController.index == index;
+    return Expanded(
+      child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTap: () => setState(() => _tabController.animateTo(index)),
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 200),
+          padding: const EdgeInsets.symmetric(vertical: 10),
+          decoration: BoxDecoration(
+            color: selected ? AppColors.primary : Colors.transparent,
+            borderRadius: BorderRadius.circular(13),
+            boxShadow: selected ? AppColors.primaryActionShadow : null,
+          ),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(
+                icon,
+                size: 15,
+                color: selected ? Colors.white : AppColors.textSecondary,
+              ),
+              const SizedBox(width: 5),
+              Flexible(
+                child: Text(
+                  label,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    fontSize: 12.5,
+                    fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
+                    color: selected ? Colors.white : AppColors.textSecondary,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
       ),
-      child: TabBar(
-        controller: _tabController,
-        onTap: (_) => setState(() {}),
-        indicator: BoxDecoration(
-          gradient: const LinearGradient(
-            colors: [Color(0xFF6C63FF), Color(0xFF5B50E8)],
-          ),
-          borderRadius: BorderRadius.circular(14),
-          boxShadow: [
-            BoxShadow(
-              color: AppColors.primary.withOpacity(0.35),
-              blurRadius: 12,
-              offset: const Offset(0, 4),
+    );
+  }
+
+  /// Inline "Need help?" — shared chrome under every tab, matching the
+  /// reference's persistent footer rather than being Sign-In-specific.
+  /// Terms/Privacy links are deliberately not reproduced alongside it: no
+  /// genuine destination for either exists yet (checked — every other
+  /// "Terms"/"Privacy" mention in this app is plain checkbox-label text,
+  /// never an actual route or URL), and a non-functional link was
+  /// explicitly ruled out.
+  Widget _buildHelpFooter() {
+    return Center(
+      child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTap: _openHelpPanel,
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Icon(
+              Icons.support_agent_rounded,
+              size: 16,
+              color: AppColors.primary,
+            ),
+            const SizedBox(width: 6),
+            Text(
+              'Need help?',
+              style: AppTextStyles.body.copyWith(
+                fontSize: 13,
+                fontWeight: FontWeight.w600,
+                color: AppColors.primary,
+              ),
             ),
           ],
         ),
-        indicatorSize: TabBarIndicatorSize.tab,
-        dividerColor: Colors.transparent,
-        splashBorderRadius: BorderRadius.circular(14),
-        overlayColor: WidgetStateProperty.all(Colors.transparent),
-        labelColor: Colors.white,
-        unselectedLabelColor: AppColors.textSecondary,
-        labelStyle: const TextStyle(
-          fontSize: 15,
-          fontWeight: FontWeight.w700,
-          letterSpacing: 0.2,
-        ),
-        unselectedLabelStyle: const TextStyle(
-          fontSize: 14,
-          fontWeight: FontWeight.w500,
-        ),
-        tabs: const [
-          _IconTab(icon: Icons.person_outline, label: 'Login'),
-          _IconTab(icon: Icons.add, label: 'Sign Up'),
-          _IconTab(icon: Icons.phone_outlined, label: 'Phone'),
-        ],
       ),
     );
   }
@@ -554,23 +744,44 @@ class _AuthScreenState extends State<AuthScreen> with TickerProviderStateMixin {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
+        Text(
+          'Welcome back',
+          style: AppTextStyles.heading1.copyWith(fontSize: 21),
+        ),
+        const SizedBox(height: 5),
+        Text(
+          'Sign in to continue your property journey.',
+          style: AppTextStyles.body.copyWith(
+            fontSize: 13.5,
+            color: AppColors.textSecondary,
+          ),
+        ),
+        const SizedBox(height: 20),
         _buildTextField(
           controller: _loginEmailCtrl,
-          label: 'Email or Username',
-          hint: 'you@example.com',
+          label: 'Email or username',
+          hint: 'Enter your email or username',
           icon: Icons.email_outlined,
           keyboardType: TextInputType.text,
+          focusNode: _loginEmailFocus,
+          // "Next" moves straight to Password — explicit `requestFocus`
+          // rather than relying on implicit traversal order, so it's
+          // deterministic (and directly testable). Password itself keeps
+          // the default `done`, which only dismisses the keyboard.
+          textInputAction: TextInputAction.next,
+          onSubmitted: (_) => _loginPasswordFocus.requestFocus(),
         ),
         const SizedBox(height: 14),
         _buildTextField(
           controller: _loginPasswordCtrl,
           label: 'Password',
-          hint: '••••••••',
+          hint: 'Enter your password',
           icon: Icons.lock_outline,
           isPassword: true,
           passwordVisible: _loginPasswordVisible,
           onTogglePassword: () =>
               setState(() => _loginPasswordVisible = !_loginPasswordVisible),
+          focusNode: _loginPasswordFocus,
         ),
         const SizedBox(height: 4),
         Align(
@@ -585,13 +796,53 @@ class _AuthScreenState extends State<AuthScreen> with TickerProviderStateMixin {
         ),
         const SizedBox(height: 8),
         _buildPrimaryButton(
-          label: 'Login',
+          label: 'Sign In',
           onPressed: _isLoading ? null : _handleLogin,
         ),
         const SizedBox(height: 20),
         _buildDivider(),
         const SizedBox(height: 16),
         _buildGoogleButton(),
+        const SizedBox(height: 20),
+        // Switches the existing TabController to the Sign Up tab in place —
+        // no new route, same as tapping the "Sign Up" segment above. A
+        // `Wrap`, not a `Row`: at 320px width or with enlarged text scaling
+        // the two pieces need to be able to fall onto separate lines rather
+        // than force an unbounded-width overflow.
+        //
+        // The `Center` is load-bearing, not decorative: this `Column` uses
+        // `crossAxisAlignment.start`, so a bare `Wrap` shrink-wraps to its
+        // own content width and sits flush left regardless of its own
+        // `WrapAlignment.center` — that param only centers content *within*
+        // whatever width the Wrap already has, and without `Center` giving
+        // it the full row width, there is no slack left to center into.
+        Center(
+          child: Wrap(
+            alignment: WrapAlignment.center,
+            crossAxisAlignment: WrapCrossAlignment.center,
+            children: [
+              Text(
+                'New to PropCid? ',
+                style: AppTextStyles.body.copyWith(
+                  fontSize: 13,
+                  color: AppColors.textSecondary,
+                ),
+              ),
+              GestureDetector(
+                behavior: HitTestBehavior.opaque,
+                onTap: () => setState(() => _tabController.animateTo(1)),
+                child: Text(
+                  'Sign up',
+                  style: AppTextStyles.body.copyWith(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w700,
+                    color: AppColors.primary,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
       ],
     );
   }
@@ -714,74 +965,104 @@ class _AuthScreenState extends State<AuthScreen> with TickerProviderStateMixin {
     bool passwordVisible = false,
     VoidCallback? onTogglePassword,
     TextInputType keyboardType = TextInputType.text,
+    FocusNode? focusNode,
+    // `done` on every field except where a call site opts into `next` —
+    // `done`'s Enter/Return never submits anything on its own; only the
+    // Sign In button calls `_handleLogin`.
+    TextInputAction textInputAction = TextInputAction.done,
+    ValueChanged<String>? onSubmitted,
   }) {
-    // Matches the reference: just the icon + field name inside the box, no
-    // separate bold label floating above it (the field's semantic label is
-    // still set below via InputDecoration.labelText's usual accessibility
-    // role — this only changes what's painted, not what a label means for
-    // validation, which is untouched).
-    return Container(
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.04),
-            blurRadius: 8,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
-      child: TextField(
-        controller: controller,
-        obscureText: isPassword && !passwordVisible,
-        keyboardType: keyboardType,
-        style: const TextStyle(fontSize: 14, color: AppColors.textPrimary),
-        decoration: InputDecoration(
-          hintText: label,
-          hintStyle: const TextStyle(color: AppColors.textHint, fontSize: 14),
-          prefixIcon: Icon(icon, color: AppColors.textSecondary, size: 20),
-          suffixIcon: isPassword
-              ? IconButton(
-                  onPressed: onTogglePassword,
-                  icon: Icon(
-                    passwordVisible
-                        ? Icons.visibility_outlined
-                        : Icons.visibility_off_outlined,
-                    color: AppColors.textSecondary,
-                    size: 20,
-                  ),
-                )
-              : null,
-          filled: true,
-          fillColor: Colors.white,
-          border: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(12),
-            borderSide: BorderSide.none,
-          ),
-          enabledBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(12),
-            borderSide: BorderSide(color: Colors.grey.shade200, width: 1),
-          ),
-          focusedBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(12),
-            borderSide: const BorderSide(color: AppColors.primary, width: 2),
-          ),
-          contentPadding: const EdgeInsets.symmetric(
-            horizontal: 16,
-            vertical: 14,
+    // Matches the reference: a persistent label above the field, and a
+    // separate (usually more specific) hint painted inside it once it's
+    // empty. Previously `hint` was accepted but never used — `label` was
+    // painted as the visible hintText instead, so the two arguments always
+    // showed the same string no matter what `hint` actually said. Fixed
+    // here in presentation only: same controller, same keyboardType, same
+    // obscureText/onTogglePassword wiring, same validation (nothing here
+    // participates in it either before or after).
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          label,
+          style: AppTextStyles.caption.copyWith(
+            fontSize: 13,
+            fontWeight: FontWeight.w600,
+            color: AppColors.textPrimary,
           ),
         ),
-      ),
+        const SizedBox(height: 6),
+        TextField(
+          controller: controller,
+          focusNode: focusNode,
+          obscureText: isPassword && !passwordVisible,
+          keyboardType: keyboardType,
+          textInputAction: textInputAction,
+          onSubmitted: onSubmitted,
+          style: const TextStyle(fontSize: 14, color: AppColors.textPrimary),
+          decoration: InputDecoration(
+            hintText: hint,
+            hintStyle: const TextStyle(color: AppColors.textHint, fontSize: 14),
+            prefixIcon: Icon(icon, color: AppColors.textSecondary, size: 20),
+            suffixIcon: isPassword
+                ? IconButton(
+                    onPressed: onTogglePassword,
+                    icon: Icon(
+                      passwordVisible
+                          ? Icons.visibility_outlined
+                          : Icons.visibility_off_outlined,
+                      color: AppColors.textSecondary,
+                      size: 20,
+                    ),
+                  )
+                : null,
+            filled: true,
+            fillColor: Colors.white,
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(14),
+              borderSide: const BorderSide(
+                color: AppColors.primaryLight,
+                width: 1.2,
+              ),
+            ),
+            enabledBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(14),
+              borderSide: const BorderSide(
+                color: AppColors.primaryLight,
+                width: 1.2,
+              ),
+            ),
+            focusedBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(14),
+              borderSide: const BorderSide(
+                color: AppColors.primary,
+                width: 1.6,
+              ),
+            ),
+            contentPadding: const EdgeInsets.symmetric(
+              horizontal: 14,
+              vertical: 14,
+            ),
+          ),
+        ),
+      ],
     );
   }
 
+  /// Delegates to [_AuthPrimaryButton] rather than the shared `PremiumButton`
+  /// — same call signature as before (label/onPressed/icon), so every call
+  /// site above is untouched, but `PremiumButton` itself (used across the
+  /// rest of the app) is never modified. The reference's CTA reads "Sign
+  /// In →" — label, then a trailing arrow — which `PremiumButton` cannot
+  /// produce: it always renders its `icon` *before* the label. Building a
+  /// small auth-local widget for the trailing-icon layout was the
+  /// alternative explicitly allowed over changing `PremiumButton` globally.
   Widget _buildPrimaryButton({
     required String label,
     required VoidCallback? onPressed,
     IconData? icon = Icons.arrow_forward_rounded,
   }) {
-    return PremiumButton(
+    return _AuthPrimaryButton(
       label: label,
       onPressed: onPressed,
       isLoading: _isLoading,
@@ -792,15 +1073,15 @@ class _AuthScreenState extends State<AuthScreen> with TickerProviderStateMixin {
   Widget _buildDivider() {
     return Row(
       children: [
-        Expanded(child: Divider(color: Colors.grey.shade300)),
+        const Expanded(child: Divider(color: AppColors.hairline)),
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 12),
           child: Text(
             'or continue with',
-            style: TextStyle(fontSize: 12, color: Colors.grey.shade500),
+            style: AppTextStyles.caption.copyWith(fontSize: 12),
           ),
         ),
-        Expanded(child: Divider(color: Colors.grey.shade300)),
+        const Expanded(child: Divider(color: AppColors.hairline)),
       ],
     );
   }
@@ -809,70 +1090,111 @@ class _AuthScreenState extends State<AuthScreen> with TickerProviderStateMixin {
     return SizedBox(
       width: double.infinity,
       height: 52,
-      child: OutlinedButton.icon(
+      child: OutlinedButton(
         onPressed: (_isLoading || _googleOAuthStarting)
             ? null
             : _handleGoogleSignIn,
-        icon: _googleOAuthStarting
-            ? const SizedBox(
-                width: 18,
-                height: 18,
-                child: CircularProgressIndicator(strokeWidth: 2),
-              )
-            : SvgPicture.string(
-                _googleLogoSvg,
-                width: 20,
-                height: 20,
-              ),
-        label: Text(
-          _googleOAuthStarting ? 'Opening Google…' : 'Continue with Google',
-          style: const TextStyle(
-            fontSize: 14,
-            fontWeight: FontWeight.w500,
-            color: AppColors.textPrimary,
-          ),
-        ),
         style: OutlinedButton.styleFrom(
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(14),
           ),
-          side: BorderSide(color: Colors.grey.shade300),
+          side: const BorderSide(color: AppColors.primaryLight, width: 1.2),
           backgroundColor: Colors.white,
-          disabledBackgroundColor: Colors.grey.shade100,
+          disabledBackgroundColor: AppColors.surfaceMuted,
+        ),
+        // Explicit centered Row rather than `.icon()`'s own layout, so the
+        // icon+label group is guaranteed centered as a unit — matching the
+        // target rather than relying on the constructor's default padding.
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            _googleOAuthStarting
+                ? const SizedBox(
+                    width: 18,
+                    height: 18,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
+                : SvgPicture.string(_googleLogoSvg, width: 20, height: 20),
+            const SizedBox(width: 10),
+            Flexible(
+              child: Text(
+                _googleOAuthStarting
+                    ? 'Opening Google…'
+                    : 'Continue with Google',
+                overflow: TextOverflow.ellipsis,
+                style: AppTextStyles.body.copyWith(
+                  fontSize: 14,
+                  // Stronger than the previous w500, matching the target.
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
+          ],
         ),
       ),
     );
   }
 }
 
-/// A `TabBar` tab with its icon and label laid out side by side. The stock
-/// `Tab(icon:, text:)` constructor stacks them vertically, which doesn't
-/// match the reference's horizontal "🧑 Login" / "＋ Sign Up" / "📞 Phone"
-/// pills — this just wraps `Tab(child:)` with a `Row` instead. Colour
-/// (selected white / unselected grey) still comes entirely from the parent
-/// `TabBar.labelColor`/`unselectedLabelColor` via `IconTheme`/`DefaultTextStyle`
-/// inherited from `Tab`'s own internals, so selection state needs no extra
-/// wiring here.
-class _IconTab extends StatelessWidget {
-  const _IconTab({required this.icon, required this.label});
+/// Auth-local primary CTA. Reproduces `PremiumButton`'s gradient/glow/
+/// loading treatment (that file is untouched and still used everywhere
+/// else), but with the label truly centered in the button regardless of
+/// the icon — `PremiumButton` centers the icon-and-label *group* as one
+/// unit, which visually off-centers the label whenever an icon is present.
+/// The target centers "Sign In" on its own and pins the arrow near the
+/// button's right inset instead.
+class _AuthPrimaryButton extends StatelessWidget {
+  const _AuthPrimaryButton({
+    required this.label,
+    required this.onPressed,
+    required this.isLoading,
+    this.icon,
+  });
 
-  final IconData icon;
   final String label;
+  final VoidCallback? onPressed;
+  final bool isLoading;
+  final IconData? icon;
 
   @override
   Widget build(BuildContext context) {
-    return Tab(
-      height: 44,
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.center,
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(icon, size: 17),
-          const SizedBox(width: 6),
-          Flexible(child: Text(label, overflow: TextOverflow.ellipsis)),
-        ],
+    return ScaleTap(
+      onTap: isLoading ? null : onPressed,
+      child: Container(
+        width: double.infinity,
+        height: 52,
+        decoration: BoxDecoration(
+          gradient: AppColors.primaryGradient,
+          borderRadius: BorderRadius.circular(14),
+          boxShadow: AppColors.primaryGlow,
+        ),
+        child: isLoading
+            ? const Center(
+                child: SizedBox(
+                  width: 22,
+                  height: 22,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2,
+                    valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                  ),
+                ),
+              )
+            : Stack(
+                alignment: Alignment.center,
+                children: [
+                  // Centered independently of the arrow, not as a group
+                  // with it — this is the whole point of the `Stack`
+                  // instead of `PremiumButton`'s single centered `Row`.
+                  Center(child: Text(label, style: AppTextStyles.button)),
+                  if (icon != null)
+                    Positioned(
+                      right: 18,
+                      child: Icon(icon, size: 18, color: Colors.white),
+                    ),
+                ],
+              ),
       ),
     );
   }
 }
-
