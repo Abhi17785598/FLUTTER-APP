@@ -16,8 +16,10 @@ import '../../../core/theme/app_text_styles.dart';
 import '../../../core/widgets/scale_tap.dart';
 import '../../../models/profile_review.dart';
 import '../../../models/user_profile.dart';
+import '../../../services/profile_connection_service.dart';
 import '../public_profile_role.dart';
 import 'public_profile_cover_header.dart';
+import 'public_profile_sticky_bar.dart' show ConnectActionButton;
 
 /// Large avatar that straddles the cover's bottom edge.
 ///
@@ -52,7 +54,9 @@ class PublicProfileAvatar extends StatelessWidget {
       decoration: BoxDecoration(
         color: AppColors.primaryLight,
         shape: BoxShape.circle,
-        border: Border.all(color: AppColors.background, width: 4),
+        // Accent ring instead of a plain white one — the reference cover-card
+        // design uses a coloured ring around the avatar.
+        border: Border.all(color: AppColors.primary, width: 3),
       ),
       child: ClipOval(
         child: hasImage
@@ -178,11 +182,42 @@ class _FullScreenAvatar extends StatelessWidget {
   }
 }
 
-/// Name + role pill + subtitle + handle.
+/// Name + role pill + subtitle + handle, with an optional Follow/Share action
+/// pair alongside it.
+///
+/// The Follow/Share controls are entirely optional (default: hidden) and,
+/// when shown, are wired to the exact same connect/share handlers and
+/// [ProfileConnectionStatus] the bottom `ProfileStickyActionBar` already
+/// uses — this reuses `ConnectActionButton` as-is rather than introducing any
+/// new connection logic, so having the control appear here as well changes
+/// nothing about how connecting or sharing actually works.
 class PublicIdentityBlock extends StatelessWidget {
   final UserProfile profile;
 
-  const PublicIdentityBlock({super.key, required this.profile});
+  /// Viewing your own profile — Follow/Share are never shown here, matching
+  /// `ProfileStickyActionBar.isSelf`.
+  final bool isSelf;
+  final bool viewerSignedIn;
+  final ProfileConnectionStatus connectionStatus;
+  final bool statusLoading;
+
+  /// Null hides the Follow control entirely (mirrors the bottom bar's rule
+  /// for an unresolved/unavailable connect action).
+  final VoidCallback? onConnect;
+
+  /// Null hides the Share icon.
+  final VoidCallback? onShare;
+
+  const PublicIdentityBlock({
+    super.key,
+    required this.profile,
+    this.isSelf = true,
+    this.viewerSignedIn = false,
+    this.connectionStatus = ProfileConnectionStatus.none,
+    this.statusLoading = false,
+    this.onConnect,
+    this.onShare,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -190,7 +225,7 @@ class PublicIdentityBlock extends StatelessWidget {
     final tint = roleColor(profile.userType);
     final handle = profile.username;
 
-    return Column(
+    final identity = Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       mainAxisSize: MainAxisSize.min,
       children: [
@@ -248,6 +283,69 @@ class PublicIdentityBlock extends StatelessWidget {
           ),
         ],
       ],
+    );
+
+    if (isSelf || !viewerSignedIn) return identity;
+
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Expanded(child: identity),
+        const SizedBox(width: AppConstants.spacingS),
+        Padding(
+          padding: const EdgeInsets.only(top: 2),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              ConnectActionButton(
+                status: connectionStatus,
+                isLoading: statusLoading,
+                onTap: onConnect,
+              ),
+              if (onShare != null) ...[
+                const SizedBox(width: 8),
+                _ShareIconButton(onTap: onShare!),
+              ],
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+/// Plain outlined circular share button — the identity block's compact
+/// companion to [ConnectActionButton], for the same [onShare] the bottom
+/// sticky bar's share action already uses.
+class _ShareIconButton extends StatelessWidget {
+  final VoidCallback onTap;
+
+  const _ShareIconButton({required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    return Semantics(
+      label: 'Share this profile',
+      button: true,
+      child: ExcludeSemantics(
+        child: ScaleTap(
+          onTap: onTap,
+          child: Container(
+            width: 40,
+            height: 40,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: AppColors.cardBackground,
+              border: Border.all(color: AppColors.hairline),
+            ),
+            child: const Icon(
+              Icons.ios_share_rounded,
+              size: 18,
+              color: AppColors.textPrimary,
+            ),
+          ),
+        ),
+      ),
     );
   }
 }

@@ -34,6 +34,7 @@ import 'widgets/profile_completion_card.dart';
 import 'widgets/profile_cover_header.dart';
 import 'widgets/profile_identity_block.dart';
 import 'widgets/profile_stats_row.dart';
+import 'widgets/sticky_identity_bar.dart';
 
 /// The user's personal landing screen — identity, stats, quick content
 /// creation, a content overview and entry points into the management
@@ -68,6 +69,12 @@ class _ProfileView extends StatefulWidget {
 
 class _ProfileViewState extends State<_ProfileView> {
   final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
+
+  final ScrollController _scroll = ScrollController();
+
+  /// Tracks the real, in-flow identity block so `StickyIdentityOverlay` knows
+  /// exactly when it has scrolled out of view — see that widget's doc comment.
+  final GlobalKey _identityKey = GlobalKey();
 
   /// Guards against re-loading on every rebuild while still picking up the
   /// user id when it arrives asynchronously from AuthProvider.
@@ -113,6 +120,12 @@ class _ProfileViewState extends State<_ProfileView> {
       if (!mounted) return;
       provider.load(userId);
     });
+  }
+
+  @override
+  void dispose() {
+    _scroll.dispose();
+    super.dispose();
   }
 
   // ── Navigation helpers ────────────────────────────────────────────────────
@@ -395,210 +408,231 @@ class _ProfileViewState extends State<_ProfileView> {
       body: RefreshIndicator(
         color: AppColors.primary,
         onRefresh: profile.refresh,
-        child: SingleChildScrollView(
-          physics: const AlwaysScrollableScrollPhysics(
-            parent: BouncingScrollPhysics(),
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              ProfileCoverHeader(
-                avatarUrl: auth.avatarUrl,
-                coverImageUrl: auth.backgroundImageUrl,
-                initial: initial,
-                // "Verified" is the existing condition, not a new definition.
-                isVerified: auth.userRole != null,
-                onMenuTap: () => _scaffoldKey.currentState?.openDrawer(),
-                onNotificationsTap: () => Navigator.pushNamed(
-                  context,
-                  AppConstants.notificationsScreen,
-                ),
+        // Plain `SingleChildScrollView` over a `Column` — the cover and
+        // everything below it scroll away together exactly as before. The
+        // sticky avatar+name bar is a `Positioned` overlay on top (see
+        // `StickyIdentityOverlay`), not part of this scrolling list, so it
+        // never renders alongside the real avatar/name further down at the
+        // same time. Neither `ProfileCoverHeader` nor anything in the padded
+        // column below it was touched — only the outer container changed.
+        child: Stack(
+          children: [
+            SingleChildScrollView(
+              controller: _scroll,
+              physics: const AlwaysScrollableScrollPhysics(
+                parent: BouncingScrollPhysics(),
               ),
-              Padding(
-                padding: const EdgeInsets.fromLTRB(
-                  AppConstants.spacingXL,
-                  6,
-                  AppConstants.spacingXL,
-                  0,
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    ProfileIdentityBlock(
-                      displayName: auth.userName,
-                      username: auth.profileRow?['username'] as String?,
-                      userType: auth.userType,
+              child: Column(
+                children: [
+                  ProfileCoverHeader(
+                    avatarUrl: auth.avatarUrl,
+                    coverImageUrl: auth.backgroundImageUrl,
+                    initial: initial,
+                    // "Verified" is the existing condition, not a new
+                    // definition.
+                    isVerified: auth.userRole != null,
+                    onMenuTap: () => _scaffoldKey.currentState?.openDrawer(),
+                    onNotificationsTap: () => Navigator.pushNamed(
+                      context,
+                      AppConstants.notificationsScreen,
                     ),
-                    const SizedBox(height: 18),
-
-                    ProfileStatsRow(
-                      stats: profile.stats,
-                      isLoading: profile.statsLoading,
-                      hasFailed: profile.statsFailed,
-                    ).animate().fadeIn(duration: 400.ms, delay: 100.ms),
-                    const SizedBox(height: AppConstants.spacingM),
-
-                    ProfileCompletionCard(
-                      completion: completion,
-                      onTap: () => _editProfile(auth),
-                    ).animate().fadeIn(duration: 400.ms, delay: 150.ms),
-                    const SizedBox(height: AppConstants.spacingM),
-
-                    ProfileActionRow(
-                      onEdit: () => _editProfile(auth),
-                      onShare: () {
-                        final row = auth.profileRow;
-                        final userProfile = row != null
-                            ? UserProfile.fromMap(row)
-                            : null;
-                        showDigitalVisitingCard(
-                          context,
-                          userId: auth.userId,
-                          name: auth.userName,
-                          companyName: userProfile?.displayTitle,
+                  ),
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(
+                      AppConstants.spacingXL,
+                      6,
+                      AppConstants.spacingXL,
+                      0,
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        ProfileIdentityBlock(
+                          key: _identityKey,
+                          displayName: auth.userName,
+                          username: auth.profileRow?['username'] as String?,
                           userType: auth.userType,
-                          avatarUrl: auth.avatarUrl,
-                          city: auth.profileCity,
-                          experience: userProfile?.effectiveExperience,
-                          rating: profile.stats.averageRating,
-                          reviewsCount: profile.stats.reviews,
-                          phone: userProfile?.effectivePhone,
-                          reraNumber: userProfile?.effectiveRera,
-                        );
-                      },
-                    ).animate().fadeIn(duration: 400.ms, delay: 200.ms),
-                    const SizedBox(height: 26),
-
-                    const _SectionLabel('Create Content'),
-                    const SizedBox(height: 10),
-                    CreateContentGrid(
-                      onAddProperty: () => Navigator.pushNamed(
-                        context,
-                        AppConstants.postPropertyScreen,
-                      ),
-                      onAddArticle: isBuilder ? null : _openArticleEditor,
-                      onAddVideo: isInfluencer
-                          ? () => Navigator.pushNamed(
-                              context,
-                              AppConstants.influencerVideoFormScreen,
-                            )
-                          : null,
-                    ).animate().fadeIn(duration: 400.ms, delay: 250.ms),
-                    const SizedBox(height: 26),
-
-                    // A builder's content IS their projects.
-                    //
-                    // The portal makes the same substitution rather than adding
-                    // a fourth tab: `PROFILE_TYPE_CONFIG` marks builder as
-                    // `content: "projects"` and
-                    // `ProfileDashboardShell.tsx:3894-3900` swaps the whole My
-                    // Content block for `BuilderProjectsManager`. Properties,
-                    // articles and videos are still fetched for a builder there
-                    // and then never rendered — which is exactly what this
-                    // screen was doing, hence the permanent "No content yet":
-                    // a builder's work lives in `builder_projects`, and
-                    // `ProfileProvider.properties` only ever reads `properties`.
-                    _SectionLabel(isBuilder ? 'My Projects' : 'My Content'),
-                    const SizedBox(height: 10),
-                    if (isBuilder && auth.userId != null)
-                      // Same widget the Builder dashboard's Content tab uses,
-                      // with the Edit / Delete / Share actions the portal's
-                      // `BuilderProjectsManager` offers. It fetches and handles
-                      // its own loading and empty states.
-                      MyProjectsSection(userId: auth.userId!)
-                    else
-                      MyContentSection(
-                        properties: profile.properties,
-                        articles: profile.articles,
-                        videos: profile.videos,
-                        showVideosTab: isInfluencer,
-                        isLoading: profile.contentLoading,
-                        hasFailed: profile.contentFailed,
-                        onRetry: profile.refresh,
-                        onPropertyTap: _openPropertyDetail,
-                        onArticleTap: (article) =>
-                            _openArticleEditor(article.id),
-                        // Reels' feed (AppConstants.reelsScreen) only ever
-                        // loads approval_status = 'approved' videos
-                        // (ReelsService.getReels), so a pending/rejected
-                        // video's id is never found there — `_maybeInitFeed`
-                        // then silently falls back to index 0, which looked
-                        // like "the video I tapped isn't playing" (a
-                        // different, arbitrary reel played instead). Only an
-                        // approved video is guaranteed to actually be in that
-                        // feed; anything else opens directly in the same
-                        // standalone player Feed/Project videos already use,
-                        // which just plays the given URL with no approval
-                        // gate at all.
-                        onVideoTap: (video) =>
-                            video.approvalStatus == 'approved'
-                            ? Navigator.pushNamed(
-                                context,
-                                AppConstants.reelsScreen,
-                                arguments: {'reelId': video.id},
-                              )
-                            : Navigator.push(
-                                context,
-                                MaterialPageRoute(
-                                  builder: (_) => FeedVideoPlayerScreen(
-                                    videoUrl: video.videoUrl,
-                                    title: video.title,
-                                  ),
-                                ),
-                              ),
-                        onAddProperty: () => Navigator.pushNamed(
-                          context,
-                          AppConstants.postPropertyScreen,
                         ),
-                        onEditProperty: _openEditProperty,
-                        onDeleteProperty: _deleteProperty,
-                        onEditVideo: _editVideo,
-                        onDeleteVideo: _deleteVideo,
-                        onEditArticle: (article) =>
-                            _openArticleEditor(article.id),
-                        onDeleteArticle: _deleteArticle,
-                      ),
-                    const SizedBox(height: 26),
+                        const SizedBox(height: 18),
 
-                    // Mirrors the portal's IndividualUserActivity — Liked/
-                    // Saved tabs reading the same existing user_likes/
-                    // saved_properties-backed state PropertyProvider already
-                    // persists, so Like/Save actions now surface here too.
-                    const _SectionLabel('My Activity'),
-                    const SizedBox(height: 10),
-                    const MyActivitySection(),
-                    const SizedBox(height: 26),
+                        ProfileStatsRow(
+                          stats: profile.stats,
+                          isLoading: profile.statsLoading,
+                          hasFailed: profile.statsFailed,
+                        ).animate().fadeIn(duration: 400.ms, delay: 100.ms),
+                        const SizedBox(height: AppConstants.spacingM),
 
-                    const _SectionLabel('Manage'),
-                    const SizedBox(height: 10),
-                    ManageListSection(
-                      onDashboard: _openDashboard,
-                      // No standalone "my properties" screen exists; the
-                      // role dashboard is where listings are managed, and the
-                      // old "Manage Properties → Post Property" destination is
-                      // preserved by the Add Property tile above.
-                      onMyProperties: _openDashboard,
-                      onSaved: () => Navigator.pushNamed(
-                        context,
-                        AppConstants.shortlistScreen,
-                      ),
-                      onMore: () => showMoreBottomSheet(context),
-                      // Builder-only, preserved from the old Business section.
-                      onProjects: isBuilder
-                          ? () => Navigator.push(
+                        ProfileCompletionCard(
+                          completion: completion,
+                          onTap: () => _editProfile(auth),
+                        ).animate().fadeIn(duration: 400.ms, delay: 150.ms),
+                        const SizedBox(height: AppConstants.spacingM),
+
+                        ProfileActionRow(
+                          onEdit: () => _editProfile(auth),
+                          onShare: () {
+                            final row = auth.profileRow;
+                            final userProfile = row != null
+                                ? UserProfile.fromMap(row)
+                                : null;
+                            showDigitalVisitingCard(
                               context,
-                              MaterialPageRoute(
-                                builder: (_) => const BuilderDashboardScreen(),
-                              ),
-                            )
-                          : null,
-                    ).animate().fadeIn(duration: 400.ms, delay: 300.ms),
-                    const SizedBox(height: 100),
-                  ],
-                ),
+                              userId: auth.userId,
+                              name: auth.userName,
+                              companyName: userProfile?.displayTitle,
+                              userType: auth.userType,
+                              avatarUrl: auth.avatarUrl,
+                              city: auth.profileCity,
+                              experience: userProfile?.effectiveExperience,
+                              rating: profile.stats.averageRating,
+                              reviewsCount: profile.stats.reviews,
+                              phone: userProfile?.effectivePhone,
+                              reraNumber: userProfile?.effectiveRera,
+                            );
+                          },
+                        ).animate().fadeIn(duration: 400.ms, delay: 200.ms),
+                        const SizedBox(height: 26),
+
+                        const _SectionLabel('Create Content'),
+                        const SizedBox(height: 10),
+                        CreateContentGrid(
+                          onAddProperty: () => Navigator.pushNamed(
+                            context,
+                            AppConstants.postPropertyScreen,
+                          ),
+                          onAddArticle: isBuilder ? null : _openArticleEditor,
+                          onAddVideo: isInfluencer
+                              ? () => Navigator.pushNamed(
+                                  context,
+                                  AppConstants.influencerVideoFormScreen,
+                                )
+                              : null,
+                        ).animate().fadeIn(duration: 400.ms, delay: 250.ms),
+                        const SizedBox(height: 26),
+
+                        // A builder's content IS their projects.
+                        //
+                        // The portal makes the same substitution rather than adding
+                        // a fourth tab: `PROFILE_TYPE_CONFIG` marks builder as
+                        // `content: "projects"` and
+                        // `ProfileDashboardShell.tsx:3894-3900` swaps the whole My
+                        // Content block for `BuilderProjectsManager`. Properties,
+                        // articles and videos are still fetched for a builder there
+                        // and then never rendered — which is exactly what this
+                        // screen was doing, hence the permanent "No content yet":
+                        // a builder's work lives in `builder_projects`, and
+                        // `ProfileProvider.properties` only ever reads `properties`.
+                        _SectionLabel(isBuilder ? 'My Projects' : 'My Content'),
+                        const SizedBox(height: 10),
+                        if (isBuilder && auth.userId != null)
+                          // Same widget the Builder dashboard's Content tab uses,
+                          // with the Edit / Delete / Share actions the portal's
+                          // `BuilderProjectsManager` offers. It fetches and handles
+                          // its own loading and empty states.
+                          MyProjectsSection(userId: auth.userId!)
+                        else
+                          MyContentSection(
+                            properties: profile.properties,
+                            articles: profile.articles,
+                            videos: profile.videos,
+                            showVideosTab: isInfluencer,
+                            isLoading: profile.contentLoading,
+                            hasFailed: profile.contentFailed,
+                            onRetry: profile.refresh,
+                            onPropertyTap: _openPropertyDetail,
+                            onArticleTap: (article) =>
+                                _openArticleEditor(article.id),
+                            // Reels' feed (AppConstants.reelsScreen) only ever
+                            // loads approval_status = 'approved' videos
+                            // (ReelsService.getReels), so a pending/rejected
+                            // video's id is never found there — `_maybeInitFeed`
+                            // then silently falls back to index 0, which looked
+                            // like "the video I tapped isn't playing" (a
+                            // different, arbitrary reel played instead). Only an
+                            // approved video is guaranteed to actually be in that
+                            // feed; anything else opens directly in the same
+                            // standalone player Feed/Project videos already use,
+                            // which just plays the given URL with no approval
+                            // gate at all.
+                            onVideoTap: (video) =>
+                                video.approvalStatus == 'approved'
+                                ? Navigator.pushNamed(
+                                    context,
+                                    AppConstants.reelsScreen,
+                                    arguments: {'reelId': video.id},
+                                  )
+                                : Navigator.push(
+                                    context,
+                                    MaterialPageRoute(
+                                      builder: (_) => FeedVideoPlayerScreen(
+                                        videoUrl: video.videoUrl,
+                                        title: video.title,
+                                      ),
+                                    ),
+                                  ),
+                            onAddProperty: () => Navigator.pushNamed(
+                              context,
+                              AppConstants.postPropertyScreen,
+                            ),
+                            onEditProperty: _openEditProperty,
+                            onDeleteProperty: _deleteProperty,
+                            onEditVideo: _editVideo,
+                            onDeleteVideo: _deleteVideo,
+                            onEditArticle: (article) =>
+                                _openArticleEditor(article.id),
+                            onDeleteArticle: _deleteArticle,
+                          ),
+                        const SizedBox(height: 26),
+
+                        // Mirrors the portal's IndividualUserActivity — Liked/
+                        // Saved tabs reading the same existing user_likes/
+                        // saved_properties-backed state PropertyProvider already
+                        // persists, so Like/Save actions now surface here too.
+                        const _SectionLabel('My Activity'),
+                        const SizedBox(height: 10),
+                        const MyActivitySection(),
+                        const SizedBox(height: 26),
+
+                        const _SectionLabel('Manage'),
+                        const SizedBox(height: 10),
+                        ManageListSection(
+                          onDashboard: _openDashboard,
+                          // No standalone "my properties" screen exists; the
+                          // role dashboard is where listings are managed, and the
+                          // old "Manage Properties → Post Property" destination is
+                          // preserved by the Add Property tile above.
+                          onMyProperties: _openDashboard,
+                          onSaved: () => Navigator.pushNamed(
+                            context,
+                            AppConstants.shortlistScreen,
+                          ),
+                          onMore: () => showMoreBottomSheet(context),
+                          // Builder-only, preserved from the old Business section.
+                          onProjects: isBuilder
+                              ? () => Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (_) =>
+                                        const BuilderDashboardScreen(),
+                                  ),
+                                )
+                              : null,
+                        ).animate().fadeIn(duration: 400.ms, delay: 300.ms),
+                        const SizedBox(height: 100),
+                      ],
+                    ),
+                  ),
+                ],
               ),
-            ],
-          ),
+            ),
+            StickyIdentityOverlay(
+              scrollController: _scroll,
+              identityKey: _identityKey,
+              avatarUrl: auth.avatarUrl,
+              initials: initial,
+              name: auth.userName,
+            ),
+          ],
         ),
       ),
       bottomNavigationBar: const BottomNavBar(currentIndex: 3),

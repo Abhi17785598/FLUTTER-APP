@@ -55,6 +55,7 @@ import 'widgets/public_profile_info_cards.dart';
 import 'widgets/public_profile_skeleton.dart';
 import 'widgets/public_profile_stats.dart';
 import 'widgets/public_profile_sticky_bar.dart';
+import 'widgets/sticky_identity_bar.dart';
 
 class PublicProfileScreen extends StatelessWidget {
   /// `profiles.user_id` of the profile being viewed.
@@ -123,11 +124,16 @@ class _PublicProfileView extends StatefulWidget {
 const int _kMaxProfileDepth = 3;
 
 class _PublicProfileViewState extends State<_PublicProfileView> {
+  // Same role as `ProfileScreen`'s own scroll view: this screen has no
+  // collapsing-header mechanism to drive any more (see
+  // `public_profile_cover_header.dart`'s doc comment) — `_scroll` now only
+  // backs `_animate`'s "already scrolled, skip the entrance fade" check
+  // below, same as before.
   final ScrollController _scroll = ScrollController();
 
-  /// 0 → 1 as the cover collapses. A ValueNotifier rather than `setState` so a
-  /// scroll frame rebuilds only the header, not the twelve sections below it.
-  final ValueNotifier<double> _collapse = ValueNotifier<double>(0);
+  /// Tracks the real, in-flow identity block so `StickyIdentityOverlay` knows
+  /// exactly when it has scrolled out of view — see that widget's doc comment.
+  final GlobalKey _identityKey = GlobalKey();
 
   bool _messaging = false;
   String? _loadedFor;
@@ -193,7 +199,6 @@ class _PublicProfileViewState extends State<_PublicProfileView> {
   @override
   void initState() {
     super.initState();
-    _scroll.addListener(_onScroll);
 
     // Deferred to the end of the frame for the reason `ProfileScreen` documents:
     // the provider raises its loading flags and notifies synchronously, which
@@ -234,22 +239,9 @@ class _PublicProfileViewState extends State<_PublicProfileView> {
     setState(() => _existingCollabRequest = existing);
   }
 
-  void _onScroll() {
-    // The travel available before the bar is fully pinned. Measured against the
-    // header's full reserved height (cover + avatar overhang), not the cover
-    // alone, or collapse would hit 1.0 while 42 dp of the bar is still expanded.
-    final value = (_scroll.offset / kPublicHeaderCollapseRange).clamp(0.0, 1.0);
-    if ((value - _collapse.value).abs() > 0.001) {
-      _collapse.value = value;
-    }
-  }
-
   @override
   void dispose() {
-    _scroll
-      ..removeListener(_onScroll)
-      ..dispose();
-    _collapse.dispose();
+    _scroll.dispose();
     super.dispose();
   }
 
@@ -553,36 +545,62 @@ class _PublicProfileViewState extends State<_PublicProfileView> {
       body: RefreshIndicator(
         color: AppColors.primary,
         onRefresh: provider.refresh,
-        child: CustomScrollView(
-          controller: _scroll,
-          physics: const AlwaysScrollableScrollPhysics(
-            parent: BouncingScrollPhysics(),
-          ),
-          slivers: [
-            PublicProfileCoverHeader(
-              coverImageUrl: profile?.backgroundImageUrl,
-              title: profile?.displayTitle ?? '',
-              avatarUrl: profile?.avatarUrl,
-              initials: profile?.initials ?? 'U',
-              collapse: _collapse,
-              onBack: () => Navigator.of(context).maybePop(),
-              onShare: profile == null ? () {} : () => _share(profile),
-              onMore: profile == null ? () {} : () => _showMoreSheet(profile),
-              // Lives in the header so it is not painted over by the pinned bar —
-              // see [kPublicHeaderHeight]. Null on the error states, where there
-              // is no identity to show at all.
-              avatarOverlay: profile != null
-                  ? PublicProfileAvatar(
-                      avatarUrl: profile.avatarUrl,
-                      initials: profile.initials,
-                      isVerified: profile.isVerified,
-                      heroTag: widget.avatarHeroTag,
-                    )
-                  : provider.isInitialLoad
-                  ? const PublicProfileAvatarSkeleton()
-                  : null,
+        // Same scroll architecture as `ProfileScreen`: a plain
+        // `SingleChildScrollView` over a `Column`, so the cover header
+        // below scrolls away with everything else exactly like
+        // `ProfileCoverHeader` does there — no `CustomScrollView`, no
+        // sliver, no pinned/collapsing header. The sticky avatar+name bar
+        // is a `Positioned` overlay on top (see `StickyIdentityOverlay`),
+        // not part of this scrolling list, so it never renders alongside
+        // the real avatar/name further down.
+        child: Stack(
+          children: [
+            SingleChildScrollView(
+              // Same key as before, so it stays disambiguated from
+              // `TrustChipStrip`'s unrelated horizontal chip scroller
+              // further down the tree in tests.
+              key: const Key('publicProfileScrollView'),
+              controller: _scroll,
+              physics: const AlwaysScrollableScrollPhysics(
+                parent: BouncingScrollPhysics(),
+              ),
+              child: Column(
+                children: [
+                  PublicProfileCoverHeader(
+                    coverImageUrl: profile?.backgroundImageUrl,
+                    onBack: () => Navigator.of(context).maybePop(),
+                    onShare: profile == null ? () {} : () => _share(profile),
+                    onMore: profile == null
+                        ? () {}
+                        : () => _showMoreSheet(profile),
+                    // Null on the error states, where there is no identity
+                    // to show at all.
+                    avatarOverlay: profile != null
+                        ? PublicProfileAvatar(
+                            avatarUrl: profile.avatarUrl,
+                            initials: profile.initials,
+                            isVerified: profile.isVerified,
+                            heroTag: widget.avatarHeroTag,
+                          )
+                        : provider.isInitialLoad
+                        ? const PublicProfileAvatarSkeleton()
+                        : null,
+                  ),
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: _buildBody(provider, profile),
+                  ),
+                ],
+              ),
             ),
-            ..._buildBody(provider, profile),
+            if (profile != null)
+              StickyIdentityOverlay(
+                scrollController: _scroll,
+                identityKey: _identityKey,
+                avatarUrl: profile.avatarUrl,
+                initials: profile.initials,
+                name: profile.displayTitle ?? '',
+              ),
           ],
         ),
       ),
@@ -619,19 +637,21 @@ class _PublicProfileViewState extends State<_PublicProfileView> {
     if (provider.isInitialLoad) {
       // Not const: `Semantics` has no const constructor.
       return [
-        SliverToBoxAdapter(
-          child: Semantics(
-            label: 'Loading profile',
-            child: const ExcludeSemantics(child: PublicProfileSkeleton()),
-          ),
+        Semantics(
+          label: 'Loading profile',
+          child: const ExcludeSemantics(child: PublicProfileSkeleton()),
         ),
       ];
     }
 
     if (provider.profileNotFound) {
+      // No `SliverFillRemaining` any more (this is a plain `Column` now,
+      // not a `CustomScrollView`) — a fixed minimum height keeps this
+      // centred nicely below the header without needing viewport-fill
+      // sliver machinery for what is only ever a short message + button.
       return [
-        SliverFillRemaining(
-          hasScrollBody: false,
+        SizedBox(
+          height: MediaQuery.sizeOf(context).height * 0.5,
           child: Center(
             child: EmptyStateView(
               icon: Icons.person_off_outlined,
@@ -647,8 +667,8 @@ class _PublicProfileViewState extends State<_PublicProfileView> {
 
     if (profile == null) {
       return [
-        SliverFillRemaining(
-          hasScrollBody: false,
+        SizedBox(
+          height: MediaQuery.sizeOf(context).height * 0.5,
           child: Center(
             child: EmptyStateView(
               icon: Icons.cloud_off_rounded,
@@ -671,203 +691,190 @@ class _PublicProfileViewState extends State<_PublicProfileView> {
 
     return [
       // ── Identity ─────────────────────────────────────────────────────────
-      //
-      // No negative offset and no Stack: the avatar now lives in the header,
-      // because a pinned SliverAppBar paints over everything below it. This
-      // sliver starts cleanly beneath the avatar's reserved space.
-      SliverToBoxAdapter(
-        child: _animate(
-          delayMs: 100,
-          child: Padding(
-            padding: const EdgeInsets.only(
-              left: AppConstants.spacingL,
-              right: AppConstants.spacingL,
-              top: AppConstants.spacingM,
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                PublicIdentityBlock(profile: profile),
-                const SizedBox(height: AppConstants.spacingM),
-                RatingInlineRow(
-                  rating: provider.displayRating,
-                  isLoading: provider.ratingsLoading,
-                ),
-                const SizedBox(height: AppConstants.spacingM),
-                IdentityMetaStrip(profile: profile),
-              ],
-            ),
+      _animate(
+        delayMs: 100,
+        child: Padding(
+          padding: const EdgeInsets.only(
+            left: AppConstants.spacingL,
+            right: AppConstants.spacingL,
+            top: AppConstants.spacingM,
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              PublicIdentityBlock(
+                key: _identityKey,
+                profile: profile,
+                isSelf: provider.isSelf,
+                viewerSignedIn: provider.viewerSignedIn,
+                connectionStatus: provider.connectionStatus,
+                statusLoading:
+                    provider.connectionLoading || provider.connectionBusy,
+                // Same handlers `ProfileStickyActionBar` below is wired to —
+                // this only gives the Follow/Share pair a second, higher-up
+                // home, it does not change what either action does.
+                onConnect: provider.canActOnConnection
+                    ? () => _connect(provider)
+                    : null,
+                onShare: () => _share(profile),
+              ),
+              const SizedBox(height: AppConstants.spacingM),
+              RatingInlineRow(
+                rating: provider.displayRating,
+                isLoading: provider.ratingsLoading,
+              ),
+              const SizedBox(height: AppConstants.spacingM),
+              IdentityMetaStrip(profile: profile),
+            ],
           ),
         ),
       ),
 
       // ── Trust chips (own horizontal padding, so they can scroll edge to edge)
-      SliverToBoxAdapter(
-        child: _animate(
-          delayMs: 150,
-          child: Padding(
-            padding: const EdgeInsets.only(top: AppConstants.spacingXL),
-            child: TrustChipStrip(profile: profile),
-          ),
+      _animate(
+        delayMs: 150,
+        child: Padding(
+          padding: const EdgeInsets.only(top: AppConstants.spacingXL),
+          child: TrustChipStrip(profile: profile),
         ),
       ),
 
       // ── Stats ────────────────────────────────────────────────────────────
-      SliverToBoxAdapter(
-        child: _animate(
-          delayMs: 200,
-          child: Padding(
-            padding: gutter.copyWith(top: AppConstants.spacingL),
-            child: StatTripletCard(
-              isLoading: provider.contentLoading || provider.connectionLoading,
-              hasFailed: provider.contentFailed,
-              tiles: [
+      _animate(
+        delayMs: 200,
+        child: Padding(
+          padding: gutter.copyWith(top: AppConstants.spacingL),
+          child: StatTripletCard(
+            isLoading: provider.contentLoading || provider.connectionLoading,
+            hasFailed: provider.contentFailed,
+            tiles: [
+              ProfileStatTile(
+                label: contentLabel(profile.userType, plural: true),
+                value: formatCompactCount(provider.contentCount),
+              ),
+              // Hidden for individuals — the portal's rule.
+              if (!profile.isIndividual)
                 ProfileStatTile(
-                  label: contentLabel(profile.userType, plural: true),
-                  value: formatCompactCount(provider.contentCount),
+                  label: 'Connections',
+                  value: formatCompactCount(provider.connectionsCount),
+                  onTap: provider.isSelf
+                      ? () => _openConnections(provider)
+                      : null,
                 ),
-                // Hidden for individuals — the portal's rule.
-                if (!profile.isIndividual)
-                  ProfileStatTile(
-                    label: 'Connections',
-                    value: formatCompactCount(provider.connectionsCount),
-                    onTap: provider.isSelf
-                        ? () => _openConnections(provider)
-                        : null,
-                  ),
-                ProfileStatTile(
-                  label: 'Rating',
-                  value: formatRating(provider.displayRating.average),
-                ),
-              ],
-            ),
+              ProfileStatTile(
+                label: 'Rating',
+                value: formatRating(provider.displayRating.average),
+              ),
+            ],
           ),
         ),
       ),
 
       // ── About ────────────────────────────────────────────────────────────
       if (profile.effectiveBio != null)
-        SliverToBoxAdapter(
-          child: _animate(
-            delayMs: 250,
-            child: Padding(
-              padding: gutter.copyWith(top: AppConstants.spacingL),
-              child: ProfileAboutCard(bio: profile.effectiveBio!),
-            ),
+        _animate(
+          delayMs: 250,
+          child: Padding(
+            padding: gutter.copyWith(top: AppConstants.spacingL),
+            child: ProfileAboutCard(bio: profile.effectiveBio!),
           ),
         ),
 
       // ── Contact ──────────────────────────────────────────────────────────
-      SliverToBoxAdapter(
-        child: _animate(
-          delayMs: 300,
-          child: Padding(
-            padding: gutter.copyWith(top: AppConstants.spacingL),
-            child: ProfileContactCard(
-              profile: profile,
-              unlocked: provider.canSeeContactDetails,
-              // Phase 6 wires this; until then the locked card explains the gate
-              // without offering a button that does nothing.
-              onConnect: null,
-            ),
+      _animate(
+        delayMs: 300,
+        child: Padding(
+          padding: gutter.copyWith(top: AppConstants.spacingL),
+          child: ProfileContactCard(
+            profile: profile,
+            unlocked: provider.canSeeContactDetails,
+            // Phase 6 wires this; until then the locked card explains the gate
+            // without offering a button that does nothing.
+            onConnect: null,
           ),
         ),
       ),
 
       // ── Details ──────────────────────────────────────────────────────────
       if (ProfileDetailsCard.hasContent(detailGroups))
-        SliverToBoxAdapter(
-          child: _animate(
-            delayMs: 350,
-            child: Padding(
-              padding: gutter.copyWith(top: AppConstants.spacingL),
-              child: ProfileDetailsCard(groups: detailGroups),
-            ),
+        _animate(
+          delayMs: 350,
+          child: Padding(
+            padding: gutter.copyWith(top: AppConstants.spacingL),
+            child: ProfileDetailsCard(groups: detailGroups),
           ),
         ),
 
       // ── Social links ─────────────────────────────────────────────────────
       if (ProfileSocialLinksRow.hasContent(profile))
-        SliverToBoxAdapter(
-          child: _animate(
-            delayMs: 400,
-            child: Padding(
-              padding: gutter.copyWith(top: AppConstants.spacingL),
-              child: ProfileSocialLinksRow(profile: profile),
-            ),
+        _animate(
+          delayMs: 400,
+          child: Padding(
+            padding: gutter.copyWith(top: AppConstants.spacingL),
+            child: ProfileSocialLinksRow(profile: profile),
           ),
         ),
 
       // ── Social reach ─────────────────────────────────────────────────────
       if (SocialReachCard.hasData(profile))
-        SliverToBoxAdapter(
-          child: _animate(
-            delayMs: 400,
-            child: Padding(
-              padding: gutter.copyWith(top: AppConstants.spacingXXL),
-              child: SocialReachCard(profile: profile),
-            ),
+        _animate(
+          delayMs: 400,
+          child: Padding(
+            padding: gutter.copyWith(top: AppConstants.spacingXXL),
+            child: SocialReachCard(profile: profile),
           ),
         ),
 
       // ── Listings ─────────────────────────────────────────────────────────
-      SliverToBoxAdapter(
-        child: _animate(
-          delayMs: 400,
-          child: Padding(
-            padding: const EdgeInsets.only(top: AppConstants.spacingM),
-            child: ProfileListingsSection(
-              userType: profile.userType,
-              displayName: name,
-              properties: provider.properties,
-              projects: provider.projects,
-              isLoading: provider.contentLoading,
-              hasFailed: provider.contentFailed,
-              onRetry: provider.retryContent,
-              onPropertyTap: _openProperty,
-              onProjectTap: _openProject,
-              // Stage 2 introduces the dedicated list screen; until then the
-              // footer button is hidden rather than pointing nowhere.
-              onViewAll: null,
-            ),
+      _animate(
+        delayMs: 400,
+        child: Padding(
+          padding: const EdgeInsets.only(top: AppConstants.spacingM),
+          child: ProfileListingsSection(
+            userType: profile.userType,
+            displayName: name,
+            properties: provider.properties,
+            projects: provider.projects,
+            isLoading: provider.contentLoading,
+            hasFailed: provider.contentFailed,
+            onRetry: provider.retryContent,
+            onPropertyTap: _openProperty,
+            onProjectTap: _openProject,
+            // Stage 2 introduces the dedicated list screen; until then the
+            // footer button is hidden rather than pointing nowhere.
+            onViewAll: null,
           ),
         ),
       ),
 
       // ── Reviews ──────────────────────────────────────────────────────────
-      SliverToBoxAdapter(
-        child: _animate(
-          delayMs: 400,
-          child: Padding(
-            padding: const EdgeInsets.only(top: AppConstants.spacingM),
-            child: ProfileReviewsSection(
-              ratings: provider.ratings,
-              isBuilder: profile.isBuilder,
-              displayName: name,
-              isLoading: provider.ratingsLoading,
-              hasFailed: provider.ratingsFailed,
-              onRetry: provider.retryRatings,
-              onViewAll: null,
-              // Phase 5. Null when the viewer cannot rate — signed out, or
-              // looking at their own profile.
-              onWriteReview: provider.canRate
-                  ? () => _rate(provider, profile)
-                  : null,
-              writeReviewLabel: provider.myRating == null
-                  ? 'Write a review'
-                  : 'Update your review',
-              onReviewerTap: (review) => _openReviewerProfile(review, profile),
-            ),
+      _animate(
+        delayMs: 400,
+        child: Padding(
+          padding: const EdgeInsets.only(top: AppConstants.spacingM),
+          child: ProfileReviewsSection(
+            ratings: provider.ratings,
+            isBuilder: profile.isBuilder,
+            displayName: name,
+            isLoading: provider.ratingsLoading,
+            hasFailed: provider.ratingsFailed,
+            onRetry: provider.retryRatings,
+            onViewAll: null,
+            // Phase 5. Null when the viewer cannot rate — signed out, or
+            // looking at their own profile.
+            onWriteReview: provider.canRate
+                ? () => _rate(provider, profile)
+                : null,
+            writeReviewLabel: provider.myRating == null
+                ? 'Write a review'
+                : 'Update your review',
+            onReviewerTap: (review) => _openReviewerProfile(review, profile),
           ),
         ),
       ),
 
       // Clearance for the sticky bar.
-      const SliverToBoxAdapter(
-        child: SizedBox(
-          height: kProfileStickyBarHeight + AppConstants.spacingXXL,
-        ),
-      ),
+      const SizedBox(height: kProfileStickyBarHeight + AppConstants.spacingXXL),
     ];
   }
 

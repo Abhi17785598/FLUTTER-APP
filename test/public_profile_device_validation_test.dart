@@ -459,7 +459,7 @@ void main() {
       // top is pinned to the viewport, so it does not scroll unless the header
       // subtracts the travel itself. If that compensation is dropped, the avatar
       // hangs in place while the name slides up under it and this gap collapses.
-      await tester.drag(find.byType(CustomScrollView), const Offset(0, -60));
+      await tester.drag(find.byKey(const Key('publicProfileScrollView')), const Offset(0, -60));
       await tester.pumpAndSettle();
 
       final gapScrolled =
@@ -482,7 +482,7 @@ void main() {
         ),
       );
 
-      final scrollable = find.byType(CustomScrollView);
+      final scrollable = find.byKey(const Key('publicProfileScrollView'));
       expect(scrollable, findsOneWidget);
 
       // Drive past the collapse range (172 - kToolbarHeight) in stages, the way
@@ -690,19 +690,29 @@ void main() {
         provider: _provider(profile: _profileFor('broker', rich: false)),
       );
 
-      // Scrolled before asserting, because slivers below the viewport plus its
-      // cache extent are never built — so a bare `find.text` here proves nothing
-      // about the sections further down.
+      // Scrolled before asserting — a habit kept from when this screen was a
+      // lazy `CustomScrollView` (sections far below the viewport were not
+      // built yet), though it is a plain eagerly-built `Column` now.
       //
-      // This assertion previously passed by accident: it was matching the
-      // identity zone's "No reviews yet" line, not the Reviews section's empty
-      // state. The redesign removed that duplicate string and exposed it.
+      // "No reviews yet" genuinely appears twice at once in this fixture:
+      // the identity zone's rating summary shows it in addition to the
+      // Reviews section's own empty state, so the assertion below is scoped
+      // to the latter specifically — the same disambiguation pattern this
+      // file already uses elsewhere (e.g. "the identity text clears the
+      // avatar" scopes into `PublicIdentityBlock`) — rather than a bare
+      // `find.text`, which is ambiguous between the two.
       expect(find.text('No listings yet'), findsOneWidget);
 
-      await tester.drag(find.byType(CustomScrollView), const Offset(0, -900));
+      await tester.drag(find.byKey(const Key('publicProfileScrollView')), const Offset(0, -900));
       await tester.pumpAndSettle();
 
-      expect(find.text('No reviews yet'), findsOneWidget);
+      expect(
+        find.descendant(
+          of: find.byType(ProfileReviewsSection),
+          matching: find.text('No reviews yet'),
+        ),
+        findsOneWidget,
+      );
       expect(overflowingBoxes(tester), isEmpty);
     });
 

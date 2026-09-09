@@ -49,6 +49,7 @@ class CreateContentGrid extends StatelessWidget {
             child: _ContentTile(
               icon: Icons.apartment_rounded,
               label: 'Add Property',
+              tint: AppColors.primary,
               onTap: onAddProperty,
             ),
           ),
@@ -58,6 +59,7 @@ class CreateContentGrid extends StatelessWidget {
               child: _ContentTile(
                 icon: Icons.article_outlined,
                 label: 'Add Article',
+                tint: AppColors.amenityBlue,
                 onTap: addArticle,
               ),
             ),
@@ -68,6 +70,7 @@ class CreateContentGrid extends StatelessWidget {
               child: _ContentTile(
                 icon: Icons.videocam_rounded,
                 label: 'Add Video',
+                tint: AppColors.amenityGreen,
                 onTap: addVideo,
               ),
             ),
@@ -78,14 +81,19 @@ class CreateContentGrid extends StatelessWidget {
   }
 }
 
+/// A compact row tile — icon badge, label, trailing chevron — rather than
+/// the previous icon-stacked-above-label layout, and each tile now carries
+/// its own accent colour instead of every icon sharing the one brand tint.
 class _ContentTile extends StatelessWidget {
   final IconData icon;
   final String label;
+  final Color tint;
   final VoidCallback onTap;
 
   const _ContentTile({
     required this.icon,
     required this.label,
+    required this.tint,
     required this.onTap,
   });
 
@@ -99,32 +107,47 @@ class _ContentTile extends StatelessWidget {
         child: ColoredBox(
           color: AppColors.background,
           child: Container(
-            padding: const EdgeInsets.all(AppConstants.spacingL),
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 12),
             decoration: BoxDecoration(
               color: AppColors.cardBackground,
               borderRadius: BorderRadius.circular(AppConstants.cardRadius),
               boxShadow: AppColors.surfaceCardShadow,
             ),
             child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
               mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.center,
               children: [
                 Container(
                   width: 38,
                   height: 38,
                   decoration: BoxDecoration(
-                    color: AppColors.primaryLight,
+                    color: tint.withValues(alpha: 0.12),
                     borderRadius: BorderRadius.circular(11),
                   ),
-                  child: Icon(icon, size: 20, color: AppColors.primary),
+                  child: Icon(icon, size: 19, color: tint),
                 ),
-                const SizedBox(height: 10),
-                Text(
-                  label,
-                  style: AppTextStyles.body.copyWith(
-                    fontSize: 13.5,
-                    fontWeight: FontWeight.w600,
-                  ),
+                const SizedBox(height: 8),
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Flexible(
+                      child: Text(
+                        label,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: AppTextStyles.body.copyWith(
+                          fontSize: 12.5,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 2),
+                    Icon(
+                      Icons.chevron_right_rounded,
+                      size: 16,
+                      color: AppColors.textHint,
+                    ),
+                  ],
                 ),
               ],
             ),
