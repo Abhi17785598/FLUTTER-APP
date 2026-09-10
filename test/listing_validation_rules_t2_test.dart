@@ -352,12 +352,13 @@ void main() {
       expect(f, isNot(contains('maintenanceCharges')));
     });
 
-    test('tokenAmount and brokerage are required for every combination', () {
+    test('tokenAmount is required for every combination; brokerage never is', () {
       for (final c in PropertyCategory.values) {
         for (final i in ListingIntent.values) {
           final f = pricing(c, i);
           expect(f, contains('tokenAmount'), reason: '${c.name}/${i.name}');
-          expect(f, contains('brokerage'), reason: '${c.name}/${i.name}');
+          // Brokerage is optional for every user/category.
+          expect(f, isNot(contains('brokerage')), reason: '${c.name}/${i.name}');
         }
       }
     });

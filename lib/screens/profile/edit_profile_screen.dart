@@ -8,6 +8,7 @@
 // headings, `AppActionButton`, `AppConstants` spacing, ordinary `InputDecoration`
 // so `AppTheme.inputDecorationTheme` applies unchanged.
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
 import '../../core/constants/app_constants.dart';
@@ -363,6 +364,9 @@ class _EditProfileViewState extends State<_EditProfileView> {
         controller: p.fullName,
         required: true,
         hint: 'Enter your full name',
+        // A name has no legitimate reason to contain digits — see
+        // ProfileValidators.fullName, the save-time check this mirrors.
+        inputFormatters: [FilteringTextInputFormatter.deny(RegExp(r'[0-9]'))],
       ),
       _PhoneField(provider: p),
       _ReadOnlyField(
@@ -995,6 +999,7 @@ class _Field extends StatelessWidget {
   final bool required;
   final int maxLines;
   final TextInputType? keyboardType;
+  final List<TextInputFormatter>? inputFormatters;
 
   const _Field({
     required this.label,
@@ -1003,6 +1008,7 @@ class _Field extends StatelessWidget {
     this.required = false,
     this.maxLines = 1,
     this.keyboardType,
+    this.inputFormatters,
   });
 
   @override
@@ -1016,6 +1022,7 @@ class _Field extends StatelessWidget {
           controller: controller,
           maxLines: maxLines,
           keyboardType: keyboardType,
+          inputFormatters: inputFormatters,
           style: AppTextStyles.body.copyWith(fontSize: 14),
           decoration: InputDecoration(hintText: hint),
         ),

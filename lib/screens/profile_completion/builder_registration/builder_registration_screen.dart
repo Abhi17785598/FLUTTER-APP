@@ -47,7 +47,6 @@ const List<Map<String, String>> _kCountryCodes = [
 final RegExp _emailPattern = RegExp(r'^[^\s@]+@[^\s@]+\.[^\s@]+$');
 final RegExp _mobilePattern = RegExp(r'^[6-9]\d{9}$');
 final RegExp _pincodePattern = RegExp(r'^\d{6}$');
-final RegExp _reraPattern = RegExp(r'^[A-Z]{2}\d{4}\d{4}$');
 final RegExp _websitePattern = RegExp(
   r'^https?:\/\/(www\.)?[-a-zA-Z0-9@:%._+~#=]{1,256}\.[a-zA-Z0-9()]{1,6}\b',
 );
@@ -123,7 +122,6 @@ class _BuilderRegistrationScreenState extends State<BuilderRegistrationScreen> {
 
   // ─── Step 2 – Company Details ─────────────────────────────────────────────
   String? _companyType;
-  final _reraNumberCtrl = TextEditingController();
   final _gstNumberCtrl = TextEditingController();
   final _panNumberCtrl = TextEditingController();
   final _yearsOfExpCtrl = TextEditingController();
@@ -243,7 +241,6 @@ class _BuilderRegistrationScreenState extends State<BuilderRegistrationScreen> {
       _mobileCtrl,
       _altMobileCtrl,
       _dobCtrl,
-      _reraNumberCtrl,
       _gstNumberCtrl,
       _panNumberCtrl,
       _yearsOfExpCtrl,
@@ -281,7 +278,6 @@ class _BuilderRegistrationScreenState extends State<BuilderRegistrationScreen> {
     'avatarUrl': _avatarUrl ?? '',
     'companyLogoUrl': _companyLogoUrl ?? '',
     'companyType': _companyType ?? '',
-    'reraNumber': _reraNumberCtrl.text,
     'gstNumber': _gstNumberCtrl.text,
     'panNumber': _panNumberCtrl.text,
     'yearsOfExperience': _yearsOfExpCtrl.text,
@@ -340,7 +336,6 @@ class _BuilderRegistrationScreenState extends State<BuilderRegistrationScreen> {
       if (s('companyLogoUrl').isNotEmpty) _companyLogoUrl = s('companyLogoUrl');
 
       if (s('companyType').isNotEmpty) _companyType = s('companyType');
-      if (s('reraNumber').isNotEmpty) _reraNumberCtrl.text = s('reraNumber');
       if (s('gstNumber').isNotEmpty) _gstNumberCtrl.text = s('gstNumber');
       if (s('panNumber').isNotEmpty) _panNumberCtrl.text = s('panNumber');
       if (s('yearsOfExperience').isNotEmpty) {
@@ -495,11 +490,6 @@ class _BuilderRegistrationScreenState extends State<BuilderRegistrationScreen> {
     final e = <String, String>{};
     if (_companyType == null || _companyType!.isEmpty) {
       e['companyType'] = 'Company type is required.';
-    }
-    if (_isBlank(_reraNumberCtrl.text)) {
-      e['reraNumber'] = 'RERA number is required.';
-    } else if (!_reraPattern.hasMatch(_reraNumberCtrl.text.trim())) {
-      e['reraNumber'] = 'RERA Number should match format (e.g. MH12345678)';
     }
     if (_isBlank(_gstNumberCtrl.text)) {
       e['gstNumber'] = 'GST number is required.';
@@ -881,7 +871,10 @@ class _BuilderRegistrationScreenState extends State<BuilderRegistrationScreen> {
         'avatarUrl': _avatarUrl ?? '',
         'companyLogoUrl': _companyLogoUrl ?? '',
         'companyType': _companyType ?? '',
-        'reraNumber': _reraNumberCtrl.text.trim(),
+        // RERA Number is no longer collected at registration — kept as an
+        // explicit blank so `ProfileService.saveBuilderProfile` (unchanged)
+        // still receives the key it expects, same as every optional field.
+        'reraNumber': '',
         'gstNumber': _gstNumberCtrl.text.trim(),
         'panNumber': _panNumberCtrl.text.trim(),
         'yearsOfExperience': _yearsOfExpCtrl.text.trim(),
@@ -1536,14 +1529,6 @@ class _BuilderRegistrationScreenState extends State<BuilderRegistrationScreen> {
           required: true,
         ),
         _field(
-          fieldKey: 'reraNumber',
-          controller: _reraNumberCtrl,
-          label: 'RERA Registration Number',
-          required: true,
-          hint: 'e.g. MH12345678',
-          inputFormatters: [const UpperCaseTextFormatter()],
-        ),
-        _field(
           fieldKey: 'gstNumber',
           controller: _gstNumberCtrl,
           label: 'GST Number',
@@ -1943,7 +1928,6 @@ class _BuilderRegistrationScreenState extends State<BuilderRegistrationScreen> {
           divider,
           _reviewSection('Company Details', [
             MapEntry('Company Type', _companyType ?? ''),
-            MapEntry('RERA Number', _reraNumberCtrl.text),
             MapEntry('Experience', '${_yearsOfExpCtrl.text} Years'),
           ]),
           divider,
@@ -2209,7 +2193,6 @@ class _BuilderRegistrationScreenState extends State<BuilderRegistrationScreen> {
     _mobileCtrl.dispose();
     _altMobileCtrl.dispose();
     _dobCtrl.dispose();
-    _reraNumberCtrl.dispose();
     _gstNumberCtrl.dispose();
     _panNumberCtrl.dispose();
     _yearsOfExpCtrl.dispose();

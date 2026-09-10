@@ -55,6 +55,8 @@ final RegExp _emailPattern = RegExp(r'^[^\s@]+@[^\s@]+\.[^\s@]+$');
 final RegExp _mobilePattern = RegExp(r'^[6-9]\d{9}$');
 final RegExp _pincodePattern = RegExp(r'^\d{6}$');
 final RegExp _reraPattern = RegExp(r'^[A-Z]{2}\d{4}\d{4}$');
+// Letters, spaces, hyphens and apostrophes only — no digits or other symbols.
+final RegExp _namePattern = RegExp(r"^[a-zA-Z\s'-]+$");
 final RegExp _websitePattern = RegExp(
   r'^https?:\/\/(www\.)?[-a-zA-Z0-9@:%._+~#=]{1,256}\.[a-zA-Z0-9()]{1,6}\b',
 );
@@ -440,7 +442,11 @@ class _BrokerRegistrationScreenState extends State<BrokerRegistrationScreen> {
     final e = <String, String>{};
     if ((_avatarUrl ?? '').isEmpty)
       e['avatarUrl'] = 'Profile photo is required.';
-    if (_isBlank(_fullNameCtrl.text)) e['fullName'] = 'Full name is required.';
+    if (_isBlank(_fullNameCtrl.text)) {
+      e['fullName'] = 'Full name is required.';
+    } else if (!_namePattern.hasMatch(_fullNameCtrl.text.trim())) {
+      e['fullName'] = 'Name can only contain letters, spaces and hyphens.';
+    }
     if (_isBlank(_emailCtrl.text)) {
       e['email'] = 'Email address is required.';
     } else if (!_emailPattern.hasMatch(_emailCtrl.text.trim())) {
@@ -488,9 +494,9 @@ class _BrokerRegistrationScreenState extends State<BrokerRegistrationScreen> {
     if (_brokerType == null || _brokerType!.isEmpty) {
       e['brokerType'] = 'Broker type is required.';
     }
-    if (_isBlank(_reraNumberCtrl.text)) {
-      e['reraNumber'] = 'RERA registration number is required.';
-    } else if (!_reraPattern.hasMatch(_reraNumberCtrl.text.trim())) {
+    // Optional: blank passes; only format-checked when something is entered.
+    if (_reraNumberCtrl.text.trim().isNotEmpty &&
+        !_reraPattern.hasMatch(_reraNumberCtrl.text.trim())) {
       e['reraNumber'] = 'RERA format is invalid. Matches e.g. MH12345678';
     }
     if (_isBlank(_yearsOfExpCtrl.text)) {
@@ -528,9 +534,7 @@ class _BrokerRegistrationScreenState extends State<BrokerRegistrationScreen> {
       e['aadhaarCardUrl'] = 'Aadhaar card copy is required.';
     if ((_panCardUrl ?? '').isEmpty)
       e['panCardUrl'] = 'PAN card copy is required.';
-    if ((_reraCertificateUrl ?? '').isEmpty) {
-      e['reraCertificateUrl'] = 'RERA certificate is required.';
-    }
+    // RERA certificate is optional.
     return e;
   }
 
@@ -1407,6 +1411,8 @@ class _BrokerRegistrationScreenState extends State<BrokerRegistrationScreen> {
           label: 'Full Name',
           required: true,
           hint: 'e.g. John Doe',
+          // A name has no legitimate reason to contain digits.
+          inputFormatters: [FilteringTextInputFormatter.deny(RegExp(r'[0-9]'))],
         ),
         _field(
           fieldKey: 'email',
@@ -1497,7 +1503,6 @@ class _BrokerRegistrationScreenState extends State<BrokerRegistrationScreen> {
           fieldKey: 'reraNumber',
           controller: _reraNumberCtrl,
           label: 'RERA Registration Number',
-          required: true,
           hint: 'e.g. MH12345678',
           inputFormatters: [const UpperCaseTextFormatter()],
         ),
@@ -1673,7 +1678,6 @@ class _BrokerRegistrationScreenState extends State<BrokerRegistrationScreen> {
             'reraCertificateUrl',
             ProfileDocumentKind.rera,
           ),
-          required: true,
         ),
       ],
     );

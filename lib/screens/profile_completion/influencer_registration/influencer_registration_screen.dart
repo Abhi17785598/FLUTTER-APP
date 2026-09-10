@@ -50,6 +50,8 @@ const List<Map<String, String>> _kCountryCodes = [
 
 final RegExp _emailPattern = RegExp(r'^[^\s@]+@[^\s@]+\.[^\s@]+$');
 final RegExp _mobilePattern = RegExp(r'^[6-9]\d{9}$');
+// Letters, spaces, hyphens and apostrophes only — no digits or other symbols.
+final RegExp _namePattern = RegExp(r"^[a-zA-Z\s'-]+$");
 final RegExp _websitePattern = RegExp(
   r'^https?:\/\/(www\.)?[-a-zA-Z0-9@:%._+~#=]{1,256}\.[a-zA-Z0-9()]{1,6}\b',
 );
@@ -516,7 +518,11 @@ class _InfluencerRegistrationScreenState
     final e = <String, String>{};
     if ((_avatarUrl ?? '').isEmpty)
       e['avatarUrl'] = 'Profile photo is required.';
-    if (_isBlank(_fullNameCtrl.text)) e['fullName'] = 'Full name is required.';
+    if (_isBlank(_fullNameCtrl.text)) {
+      e['fullName'] = 'Full name is required.';
+    } else if (!_namePattern.hasMatch(_fullNameCtrl.text.trim())) {
+      e['fullName'] = 'Name can only contain letters, spaces and hyphens.';
+    }
     if (_isBlank(_emailCtrl.text)) {
       e['email'] = 'Email address is required.';
     } else if (!_emailPattern.hasMatch(_emailCtrl.text.trim())) {
@@ -1534,6 +1540,8 @@ class _InfluencerRegistrationScreenState
           label: 'Full Name',
           required: true,
           hint: 'e.g. Shubham Gosaii',
+          // A name has no legitimate reason to contain digits.
+          inputFormatters: [FilteringTextInputFormatter.deny(RegExp(r'[0-9]'))],
         ),
         _field(
           fieldKey: 'email',

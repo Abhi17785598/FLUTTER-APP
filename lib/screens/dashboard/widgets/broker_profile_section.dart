@@ -21,6 +21,7 @@
 // This section is NOT the profile-completion registration screen, which is under a
 // standing instruction not to be modified and is untouched.
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import '../../../core/constants/app_constants.dart';
 import '../../../core/constants/broker_section_options.dart';
@@ -331,6 +332,9 @@ class _ProfileSheet extends StatefulWidget {
 }
 
 class _ProfileSheetState extends State<_ProfileSheet> {
+  // Letters, spaces, hyphens and apostrophes only — no digits or other symbols.
+  static final RegExp _namePattern = RegExp(r"^[a-zA-Z\s'-]+$");
+
   late final _fullName = _controller(widget.profile?.fullName);
   late final _rera = _controller(widget.profile?.reraNumber);
   late final _licence = _controller(widget.profile?.licenseNumber);
@@ -386,6 +390,12 @@ class _ProfileSheetState extends State<_ProfileSheet> {
   void _submit() {
     if (_fullName.text.trim().isEmpty) {
       setState(() => _error = 'A full name is required.');
+      return;
+    }
+    if (!_namePattern.hasMatch(_fullName.text.trim())) {
+      setState(
+        () => _error = 'Name can only contain letters, spaces and hyphens.',
+      );
       return;
     }
 
@@ -477,6 +487,10 @@ class _ProfileSheetState extends State<_ProfileSheet> {
                 label: 'Full Name',
                 controller: _fullName,
                 required: true,
+                // A name has no legitimate reason to contain digits.
+                inputFormatters: [
+                  FilteringTextInputFormatter.deny(RegExp(r'[0-9]')),
+                ],
                 onChanged: () {
                   if (_error != null) setState(() => _error = null);
                 },
@@ -602,6 +616,7 @@ class _Input extends StatelessWidget {
     this.maxLines = 1,
     this.keyboardType,
     this.onChanged,
+    this.inputFormatters,
   });
 
   final String label;
@@ -610,6 +625,7 @@ class _Input extends StatelessWidget {
   final int maxLines;
   final TextInputType? keyboardType;
   final VoidCallback? onChanged;
+  final List<TextInputFormatter>? inputFormatters;
 
   @override
   Widget build(BuildContext context) {
@@ -641,6 +657,7 @@ class _Input extends StatelessWidget {
             controller: controller,
             maxLines: maxLines,
             keyboardType: keyboardType,
+            inputFormatters: inputFormatters,
             onChanged: onChanged == null ? null : (_) => onChanged!(),
             decoration: InputDecoration(
               isDense: true,

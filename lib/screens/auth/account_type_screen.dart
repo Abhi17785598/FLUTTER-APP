@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
 import '../../core/widgets/premium_button.dart';
@@ -25,6 +26,9 @@ class AccountTypeScreen extends StatefulWidget {
 }
 
 class _AccountTypeScreenState extends State<AccountTypeScreen> {
+  // Letters, spaces, hyphens and apostrophes only — no digits or other symbols.
+  static final RegExp _namePattern = RegExp(r"^[a-zA-Z\s'-]+$");
+
   static const List<_TypeOption> _options = [
     _TypeOption(
       type: 'individual',
@@ -82,7 +86,11 @@ class _AccountTypeScreenState extends State<AccountTypeScreen> {
   Future<void> _submit() async {
     final name = _nameCtrl.text.trim();
     setState(() {
-      _nameError = name.isEmpty ? 'Please enter your name.' : null;
+      _nameError = name.isEmpty
+          ? 'Please enter your name.'
+          : !_namePattern.hasMatch(name)
+          ? 'Name can only contain letters, spaces and hyphens.'
+          : null;
       _typeError = _selectedType == null
           ? 'Please select an account type.'
           : null;
@@ -151,6 +159,10 @@ class _AccountTypeScreenState extends State<AccountTypeScreen> {
                   controller: _nameCtrl,
                   enabled: !_isSaving,
                   textCapitalization: TextCapitalization.words,
+                  // A name has no legitimate reason to contain digits.
+                  inputFormatters: [
+                    FilteringTextInputFormatter.deny(RegExp(r'[0-9]')),
+                  ],
                   decoration: InputDecoration(
                     hintText: 'Your full name',
                     errorText: _nameError,

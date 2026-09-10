@@ -612,7 +612,8 @@ final List<ListingRule> _pricingRules = [
     applies: (d) => _isPg(d) && d.listingType == 'rent',
   ),
 
-  const ListingRule(field: 'brokerage', label: 'Brokerage'),
+  // Optional for every user/category — no `ListingRule` entry, since a rule
+  // in this table is a required-field declaration (see `collectIssues`).
 ];
 
 final List<ListingRule> _mediaRules = [

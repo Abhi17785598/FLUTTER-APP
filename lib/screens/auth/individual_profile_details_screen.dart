@@ -49,6 +49,8 @@ class IndividualProfileDetailsScreen extends StatefulWidget {
 class _IndividualProfileDetailsScreenState
     extends State<IndividualProfileDetailsScreen> {
   static final RegExp _mobilePattern = RegExp(r'^[6-9]\d{9}$');
+  // Letters, spaces, hyphens and apostrophes only — no digits or other symbols.
+  static final RegExp _namePattern = RegExp(r"^[a-zA-Z\s'-]+$");
 
   final ProfileMediaService _mediaService = ProfileMediaService();
 
@@ -140,7 +142,11 @@ class _IndividualProfileDetailsScreenState
     final city = _cityCtrl.text.trim();
 
     setState(() {
-      _nameError = name.isEmpty ? 'Please enter your name.' : null;
+      _nameError = name.isEmpty
+          ? 'Please enter your name.'
+          : !_namePattern.hasMatch(name)
+          ? 'Name can only contain letters, spaces and hyphens.'
+          : null;
       _phoneError = _mobilePattern.hasMatch(phoneDigits)
           ? null
           : 'Please enter a valid 10-digit mobile number.';
@@ -210,6 +216,10 @@ class _IndividualProfileDetailsScreenState
               TextField(
                 controller: _nameCtrl,
                 textCapitalization: TextCapitalization.words,
+                // A name has no legitimate reason to contain digits.
+                inputFormatters: [
+                  FilteringTextInputFormatter.deny(RegExp(r'[0-9]')),
+                ],
                 decoration: InputDecoration(
                   hintText: 'Your full name',
                   errorText: _nameError,

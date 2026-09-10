@@ -12,12 +12,15 @@ class BottomNavBar extends StatelessWidget {
 
   const BottomNavBar({super.key, required this.currentIndex, this.onTap});
 
-  // How far the "+" button visually floats above the nav bar center line.
-  // Derived from the original design: a 56 dp button with a 20 dp bottom
-  // margin centered inside a 64 dp row shifts the visual center from 32 to 22,
-  // a 10 dp upward offset — preserved here via Transform.translate so no layout
-  // overflow occurs.
-  static const double _kButtonLift = 10.0;
+  // How far the "+" button is nudged above the nav bar's own vertical
+  // center. `Transform.translate` only affects painting, not layout, so the
+  // Row still reserves the button's full 56 dp slot centered in the 64 dp
+  // bar (a 4 dp margin above and below) — this offset must stay within that
+  // 4 dp margin, or the button gets painted above the bar's own top edge
+  // (outside its rounded background, over the screen behind it) instead of
+  // sitting inside the bar. 2 dp keeps a small raised emphasis with a 2 dp
+  // safety margin to spare.
+  static const double _kButtonLift = 2.0;
 
   // Maximum width of the nav content before it stops growing. Prevents items
   // from becoming absurdly wide on tablets and large-screen foldables.

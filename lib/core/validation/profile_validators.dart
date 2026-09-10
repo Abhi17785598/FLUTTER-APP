@@ -100,7 +100,19 @@ abstract final class ProfileValidators {
   /// that, so it is deliberately not used here.
   static String? website(String? value) => null;
 
-  /// Convenience: the required-name rule, delegating to the existing validator so
-  /// the message matches every other form in the app.
-  static String? fullName(String? value) => Validators.required(value);
+  /// Letters, spaces, hyphens and apostrophes only — covers names like
+  /// "Mary-Jane" or "D'Souza" while rejecting digits and other symbols.
+  static final RegExp _namePattern = RegExp(r"^[a-zA-Z\s'-]+$");
+
+  /// The required-name rule: non-blank, delegating to the existing validator so
+  /// the message matches every other form in the app, plus a character-class
+  /// check — a full name has no legitimate reason to contain digits.
+  static String? fullName(String? value) {
+    final requiredError = Validators.required(value);
+    if (requiredError != null) return requiredError;
+    if (!_namePattern.hasMatch(value!.trim())) {
+      return 'Name can only contain letters, spaces and hyphens.';
+    }
+    return null;
+  }
 }
