@@ -107,6 +107,22 @@ final List<TextInputFormatter> _kTotalFloorsFormatters = [
   LengthLimitingTextInputFormatter(3),
 ];
 
+/// A floor's own "Floor Number" field (`buildingInventory.floors[].floorName`
+/// — same storage key as before this was relabelled, only the visible label
+/// and input rules changed): digits only, and rejects any edit whose
+/// resulting value would exceed 50, the same "block it at the keyboard"
+/// approach as [_kTotalFloorsFormatters] above rather than a length cap
+/// alone (a length cap would still let "99" through).
+final List<TextInputFormatter> _kFloorNumberFieldFormatters = [
+  FilteringTextInputFormatter.digitsOnly,
+  TextInputFormatter.withFunction((oldValue, newValue) {
+    if (newValue.text.isEmpty) return newValue;
+    final parsed = int.tryParse(newValue.text);
+    if (parsed == null || parsed > 50) return oldValue;
+    return newValue;
+  }),
+];
+
 class _PropertyDimensionsStepState extends State<PropertyDimensionsStep> {
   // Named provider fields.
   late final TextEditingController _area;
@@ -1145,13 +1161,21 @@ const List<String> _kBuildingFloorFacing = ['North', 'South', 'East', 'West'];
 ///
 /// The office detail form covers its five identifying/contact/financial
 /// fields (Office Name, Office Number, Contact Person, Phone Number, Monthly
-/// Rent); the portal's further ~30 optional facility-inventory fields per
-/// office (workstations, washrooms, pantry, power, security, IT, furniture,
-/// parking) are not collected here. Nothing is lost for web-created listings:
-/// [PostPropertyProvider.setBuildingOfficeField] only ever touches the one
-/// field it is passed, so every other key already on a company object
-/// (created on the web, or by [PostPropertyProvider._blankOffice] for a new
-/// one) survives untouched through edits.
+/// Rent) plus the portal's 8 facility-inventory sub-sections per office —
+/// Space Inventory, Washroom Details, Pantry & Food Facilities, Power &
+/// Utilities, Security Inventory, IT Inventory, Furniture Inventory, Parking
+/// Allocation (`_officeSectionHeading`/`_officeFieldRows` below) — with the
+/// exact field names, labels and order the portal itself renders for them
+/// (PropertyDimensionsStep.tsx:1234-1553; the portal's own UI already
+/// exposes only a subset of its own TypeScript type per section, so this
+/// matches what a web user can actually fill in, not the larger unused type
+/// surface). [PostPropertyProvider.setBuildingOfficeField] only ever
+/// touches the one field it is passed, so every other key already on a
+/// company object (created on the web, or by
+/// [PostPropertyProvider._blankOffice] for a new one) survives untouched
+/// through edits — including any of the portal's further type-only fields
+/// this form still doesn't expose (e.g. Director/Manager Cabin counts,
+/// Board Room, dedicated DG backup — dead in the portal's own UI too).
 class _BuildingFloorInventory extends StatefulWidget {
   const _BuildingFloorInventory();
 
@@ -1279,16 +1303,15 @@ class _BuildingFloorInventoryState extends State<_BuildingFloorInventory> {
             children: [
               Expanded(
                 child: PortalLabelledField(
-                  label: 'Floor Name',
+                  label: 'Floor Number',
                   child: PortalTextField(
                     controller: _ctrl(
                       '$floorNumber:floorName',
                       text('floorName'),
                     ),
-                    hint: 'e.g. Ground Floor',
-                    inputFormatters: [
-                      FilteringTextInputFormatter.allow(RegExp(r'[a-zA-Z\s]')),
-                    ],
+                    hint: 'e.g. 5',
+                    keyboardType: TextInputType.number,
+                    inputFormatters: _kFloorNumberFieldFormatters,
                     onChanged: (v) =>
                         p.setBuildingFloorField(floorNumber, 'floorName', v),
                   ),
@@ -1455,6 +1478,71 @@ class _BuildingFloorInventoryState extends State<_BuildingFloorInventory> {
     );
   }
 
+  /// One `<h6 className="text-xs font-semibold mb-2">` sub-section heading
+  /// from the portal's office detail form (e.g. "Space Inventory", "Washroom
+  /// Details", ...), each opening its own `mt-4 pt-3 border-t` block —
+  /// reproduced here as a small top-bordered header rather than reusing
+  /// [PortalBlockHeading]/[PortalSectionDivider], which are the *step-level*
+  /// heading widgets (`text-lg`/icon-tile scale) used for "Building Level
+  /// Details" etc., not this nested per-office scale.
+  Widget _officeSectionHeading(String title) {
+    return Container(
+      margin: const EdgeInsets.only(top: 14),
+      padding: const EdgeInsets.only(top: 10, bottom: 8),
+      decoration: BoxDecoration(
+        border: Border(top: BorderSide(color: PortalTheme.cardBorder)),
+      ),
+      child: Text(
+        title,
+        style: PortalTheme.inputLabel.copyWith(
+          fontSize: 12,
+          fontWeight: FontWeight.w600,
+        ),
+      ),
+    );
+  }
+
+  /// Lays out a sub-section's count/text fields two-per-row (this file's own
+  /// mobile adaptation of the portal's 3-column desktop grid — same fields,
+  /// same relative order, narrower rows), with a trailing odd field taking
+  /// the full row. Checkboxes never go through here — see
+  /// [_officeCheckboxWrap].
+  Widget _officeFieldRows(List<Widget> fields) {
+    if (fields.isEmpty) return const SizedBox.shrink();
+    final rows = <Widget>[];
+    for (var i = 0; i < fields.length; i += 2) {
+      rows.add(
+        Padding(
+          padding: EdgeInsets.only(top: i == 0 ? 0 : 10),
+          child: i + 1 < fields.length
+              ? Row(
+                  crossAxisAlignment: CrossAxisAlignment.center,
+                  children: [
+                    Expanded(child: fields[i]),
+                    const SizedBox(width: 10),
+                    Expanded(child: fields[i + 1]),
+                  ],
+                )
+              : fields[i],
+        ),
+      );
+    }
+    return Column(crossAxisAlignment: CrossAxisAlignment.start, children: rows);
+  }
+
+  /// Checkboxes get their own `Wrap` rather than a half-width `Expanded`
+  /// slot in [_officeFieldRows] — same fix `_floorCard` already needed for
+  /// its own "Common Reception/Washroom/Pantry" trio: [PortalCheckbox]
+  /// sizes its Row to its label's natural width, so a longer label (e.g.
+  /// "Video Conferencing") overflows a fixed half-row instead of wrapping.
+  Widget _officeCheckboxWrap(List<Widget> checkboxes) {
+    if (checkboxes.isEmpty) return const SizedBox.shrink();
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 10),
+      child: Wrap(spacing: 16, runSpacing: 8, children: checkboxes),
+    );
+  }
+
   Widget _officeCard(
     PostPropertyProvider p,
     int floorNumber,
@@ -1465,6 +1553,28 @@ class _BuildingFloorInventoryState extends State<_BuildingFloorInventory> {
     final key = '$floorNumber:$companyIndex';
     final expanded = _expandedOffices.contains(key);
     final name = text('companyName');
+
+    // One field name -> a `Count`-hinted, digits-only PortalTextField,
+    // matching the portal's own `value.replace(/\D/g, '')` on every one of
+    // these inputs (PropertyDimensionsStep.tsx:1234-1553).
+    Widget countField(String field, String label) => PortalLabelledField(
+      label: label,
+      child: PortalTextField(
+        controller: _ctrl('$key:$field', text(field)),
+        hint: 'Count',
+        keyboardType: TextInputType.number,
+        inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+        onChanged: (v) =>
+            p.setBuildingOfficeField(floorNumber, companyIndex, field, v),
+      ),
+    );
+
+    Widget checkboxField(String field, String label) => PortalCheckbox(
+      value: office[field] == true,
+      label: label,
+      onChanged: (v) =>
+          p.setBuildingOfficeField(floorNumber, companyIndex, field, v),
+    );
 
     return Container(
       margin: const EdgeInsets.only(top: 10),
@@ -1619,6 +1729,82 @@ class _BuildingFloorInventoryState extends State<_BuildingFloorInventory> {
                 ),
               ],
             ),
+
+            // The portal's 8 facility-inventory sub-sections
+            // (PropertyDimensionsStep.tsx:1234-1553) — field names and
+            // labels verbatim. Checkboxes are grouped into their own Wrap
+            // ahead of the count fields (see [_officeCheckboxWrap]) rather
+            // than kept in the portal's exact interleaved order, which is
+            // a 3-column desktop grid a longer checkbox label cannot be
+            // squeezed into on a phone-width half-row.
+            _officeSectionHeading('Space Inventory'),
+            _officeCheckboxWrap([
+              checkboxField('receptionAvailable', 'Reception'),
+            ]),
+            _officeFieldRows([
+              countField('totalWorkstations', 'Total Workstations'),
+              countField('ceoCabinCount', 'Cabin Count'),
+              countField('conferenceHallCount', 'Conference Room'),
+            ]),
+
+            _officeSectionHeading('Washroom Details'),
+            _officeFieldRows([
+              countField('maleToiletCount', 'Male Washroom Count'),
+              countField('femaleToiletCount', 'Female Washroom Count'),
+              countField('commonWashroomCount', 'Common Washroom Count'),
+            ]),
+
+            _officeSectionHeading('Pantry & Food Facilities'),
+            _officeCheckboxWrap([
+              checkboxField('pantryAvailable', 'Pantry Available'),
+              checkboxField('cafeteriaAvailable', 'Cafeteria'),
+            ]),
+            _officeFieldRows([
+              countField('coffeeMachineCount', 'Coffee Machines'),
+              countField('waterDispenserCount', 'Water Dispensers'),
+              countField('diningSeatingCapacity', 'Dining Seating'),
+            ]),
+
+            _officeSectionHeading('Power & Utilities'),
+            _officeCheckboxWrap([
+              checkboxField('powerBackupAvailable', 'Power Backup'),
+            ]),
+
+            _officeSectionHeading('Security Inventory'),
+            _officeCheckboxWrap([
+              checkboxField('biometricAccess', 'Biometric Access'),
+              checkboxField('rfidAccess', 'RFID Access'),
+            ]),
+            _officeFieldRows([countField('cctvCameraCount', 'CCTV Cameras')]),
+
+            _officeSectionHeading('IT Inventory'),
+            _officeCheckboxWrap([
+              checkboxField('videoConferencingSystem', 'Video Conferencing'),
+            ]),
+            _officeFieldRows([
+              countField('desktopCount', 'Desktops'),
+              countField('laptopCount', 'Laptops'),
+              countField('monitorCount', 'Monitors'),
+              countField('printerCount', 'Printers'),
+              countField('serverCount', 'Servers'),
+            ]),
+
+            _officeSectionHeading('Furniture Inventory'),
+            _officeFieldRows([
+              countField('executiveChairs', 'Executive Chairs'),
+              countField('staffChairs', 'Staff Chairs'),
+              countField('visitorChairs', 'Visitor Chairs'),
+              countField('workTables', 'Work Tables'),
+              countField('conferenceTables', 'Conference Tables'),
+              countField('storageCabinets', 'Storage Cabinets'),
+            ]),
+
+            _officeSectionHeading('Parking Allocation'),
+            _officeFieldRows([
+              countField('reservedCarParking', 'Reserved Car Parking'),
+              countField('reservedBikeParking', 'Reserved Bike Parking'),
+              countField('evParkingSlots', 'EV Parking Slots'),
+            ]),
           ],
         ],
       ),
