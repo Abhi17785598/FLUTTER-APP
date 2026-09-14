@@ -16,6 +16,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:propcid_app/models/project_model.dart';
 import 'package:propcid_app/models/user_profile.dart';
 import 'package:propcid_app/providers/auth_provider.dart';
+import 'package:propcid_app/providers/projects_provider.dart';
 import 'package:propcid_app/screens/dashboard/widgets/my_projects_section.dart';
 import 'package:propcid_app/screens/project/project_detail_screen.dart';
 import 'package:propcid_app/services/project_service.dart';
@@ -62,8 +63,7 @@ class _FakeProfileService extends UserProfileService {
   Future<UserProfile?> fetchPublic(
     String userId, {
     required bool viewerSignedIn,
-  }) async =>
-      profile;
+  }) async => profile;
 }
 
 ProjectModel _project({
@@ -111,8 +111,13 @@ Future<void> _pumpDetail(
   addTearDown(tester.view.reset);
 
   await tester.pumpWidget(
-    ChangeNotifierProvider<AuthProvider>.value(
-      value: auth,
+    MultiProvider(
+      providers: [
+        ChangeNotifierProvider<AuthProvider>.value(value: auth),
+        ChangeNotifierProvider<ProjectsProvider>(
+          create: (_) => ProjectsProvider(),
+        ),
+      ],
       child: MaterialApp(
         home: ProjectDetailScreen(
           projectId: 'p-1',
@@ -177,8 +182,9 @@ void main() {
       expect(find.text('Edit Project'), findsNothing);
     });
 
-    testWidgets('pending verification is shown to the owner only',
-        (tester) async {
+    testWidgets('pending verification is shown to the owner only', (
+      tester,
+    ) async {
       // The public read policy checks `status = 'active'` alone, so an unapproved
       // project is publicly visible. Telling a visitor it is unreviewed would
       // advertise exactly that.
@@ -201,7 +207,9 @@ void main() {
       expect(find.text('Pending verification'), findsNothing);
     });
 
-    testWidgets('an approved project shows no badge for anyone', (tester) async {
+    testWidgets('an approved project shows no badge for anyone', (
+      tester,
+    ) async {
       await _pumpDetail(
         tester,
         service: _FakeProjectService(project: _project()),
@@ -210,8 +218,9 @@ void main() {
       expect(find.text('Pending verification'), findsNothing);
     });
 
-    testWidgets('a missing project is "not available", with no retry',
-        (tester) async {
+    testWidgets('a missing project is "not available", with no retry', (
+      tester,
+    ) async {
       await _pumpDetail(
         tester,
         service: _FakeProjectService(project: null),
@@ -219,8 +228,11 @@ void main() {
       );
 
       expect(find.text('Project not available'), findsOneWidget);
-      expect(find.text('Retry'), findsNothing,
-          reason: 'nothing to retry — the row is not visible');
+      expect(
+        find.text('Retry'),
+        findsNothing,
+        reason: 'nothing to retry — the row is not visible',
+      );
     });
 
     testWidgets('a failed load offers a retry instead', (tester) async {
@@ -253,8 +265,9 @@ void main() {
       expect(find.text('Prestige Estates'), findsOneWidget);
     });
 
-    testWidgets('the page still works without a builder profile',
-        (tester) async {
+    testWidgets('the page still works without a builder profile', (
+      tester,
+    ) async {
       // The byline read is best-effort; losing it must not break the page.
       await _pumpDetail(
         tester,
@@ -297,12 +310,20 @@ void main() {
       addTearDown(tester.view.reset);
 
       await tester.pumpWidget(
-        ChangeNotifierProvider<AuthProvider>.value(
-          value: _FakeAuth(id: 'b-1'),
+        MultiProvider(
+          providers: [
+            ChangeNotifierProvider<AuthProvider>.value(
+              value: _FakeAuth(id: 'b-1'),
+            ),
+            ChangeNotifierProvider<ProjectsProvider>(
+              create: (_) => ProjectsProvider(),
+            ),
+          ],
           child: MaterialApp(
             builder: (context, child) => MediaQuery(
-              data: MediaQuery.of(context)
-                  .copyWith(textScaler: const TextScaler.linear(1.3)),
+              data: MediaQuery.of(
+                context,
+              ).copyWith(textScaler: const TextScaler.linear(1.3)),
               child: child!,
             ),
             home: ProjectDetailScreen(
@@ -371,8 +392,11 @@ void main() {
         dropped: 300,
         hasNetwork: true,
       );
-      expect(capped.dropped, 300,
-          reason: 'a builder must not be told 800 were notified');
+      expect(
+        capped.dropped,
+        300,
+        reason: 'a builder must not be told 800 were notified',
+      );
     });
 
     test('the cap is 500', () {

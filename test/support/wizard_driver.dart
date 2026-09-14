@@ -17,6 +17,7 @@ import 'package:propcid_app/screens/post_property/steps/pricing_step.dart';
 import 'package:propcid_app/screens/post_property/steps/property_dimensions_step.dart';
 import 'package:propcid_app/screens/post_property/steps/review_step.dart';
 import 'package:propcid_app/screens/post_property/steps/type_selection_step.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 
 /// BasicInfoStep builds ProjectTagSelector, which constructs a PropertyService
 /// and reads `Supabase.instance` eagerly — without this the whole subtree fails
@@ -25,6 +26,9 @@ import 'package:propcid_app/screens/post_property/steps/type_selection_step.dart
 Future<void> initWizardTestEnv() async {
   TestWidgetsFlutterBinding.ensureInitialized();
   SharedPreferences.setMockInitialValues({});
+
+  dotenv.loadFromString(envString: 'GOOGLE_MAPS_API_KEY=');
+
   await Supabase.initialize(
     url: 'http://localhost:54321',
     anonKey: 'test',
@@ -33,31 +37,34 @@ Future<void> initWizardTestEnv() async {
 }
 
 Widget stepWidget(WizardStep step) => switch (step) {
-      WizardStep.category => const TypeSelectionStep(),
-      WizardStep.basicInfo => const BasicInfoStep(),
-      WizardStep.dimensions => const PropertyDimensionsStep(),
-      WizardStep.condition => const ConditionStep(),
-      WizardStep.amenities => const AmenitiesStep(),
-      WizardStep.legal => const LegalDetailsStep(),
-      WizardStep.pricing => const PricingStep(),
-      WizardStep.media => const MediaContactStep(),
-      WizardStep.review => const ReviewStep(),
-    };
+  WizardStep.category => const TypeSelectionStep(),
+  WizardStep.basicInfo => const BasicInfoStep(),
+  WizardStep.dimensions => const PropertyDimensionsStep(),
+  WizardStep.condition => const ConditionStep(),
+  WizardStep.amenities => const AmenitiesStep(),
+  WizardStep.legal => const LegalDetailsStep(),
+  WizardStep.pricing => const PricingStep(),
+  WizardStep.media => const MediaContactStep(),
+  WizardStep.review => const ReviewStep(),
+};
 
 /// Renders [step] against [p] in a tall viewport so nothing is off-screen.
 Future<void> pumpStep(
-    WidgetTester tester, PostPropertyProvider p, WizardStep step) async {
+  WidgetTester tester,
+  PostPropertyProvider p,
+  WizardStep step,
+) async {
   tester.view.physicalSize = const Size(420, 9000);
   tester.view.devicePixelRatio = 1.0;
   addTearDown(tester.view.reset);
-  await tester.pumpWidget(MaterialApp(
-    home: ChangeNotifierProvider.value(
-      value: p,
-      child: Scaffold(
-        body: SingleChildScrollView(child: stepWidget(step)),
+  await tester.pumpWidget(
+    MaterialApp(
+      home: ChangeNotifierProvider.value(
+        value: p,
+        child: Scaffold(body: SingleChildScrollView(child: stepWidget(step))),
       ),
     ),
-  ));
+  );
   await tester.pump();
 }
 
@@ -97,6 +104,34 @@ String _valueFor(Element e, TextField w) {
       w.keyboardType == TextInputType.phone) {
     return '9876543210';
   }
+  if (l.contains('pg / property name') || hint.contains('zolo stays')) {
+    return 'Test Property';
+  }
+  if (l.contains('floor no') || l.contains('floor number')) {
+    return '1';
+  }
+  if (l.contains('total floors')) {
+    return '2';
+  }
+  if (w.keyboardType == TextInputType.number) {
+    return '1';
+  }
+  if (l.contains('building name') ||
+      l.contains('contact name') ||
+      l.contains('owner name') ||
+      l.contains('owner / manager name') ||
+      hint.contains('enter building name') ||
+      hint.contains('your full name') ||
+      hint.contains('rahul sharma') ||
+      hint.contains('as recorded on the title')) {
+    return 'Test User';
+  }
+  if (l.contains('best time to call') || hint.contains('10 am - 6 pm')) {
+    return '10 AM - 6 PM';
+  }
+  if (l.contains('business type') || hint.contains('it services')) {
+    return 'Test Business';
+  }
   return '123456';
 }
 
@@ -109,17 +144,38 @@ void seedMedia(PostPropertyProvider p) {
 }
 
 Future<void> fillVisibleControls(
-    WidgetTester tester, PostPropertyProvider p, WizardStep step) async {
+  WidgetTester tester,
+  PostPropertyProvider p,
+  WizardStep step,
+) async {
   if (step == WizardStep.media) seedMedia(p);
+  if (step == WizardStep.basicInfo) {
+    if (p.latitude == null) {
+      p.setLatitude(28.7041);
+    }
+    if (p.longitude == null) {
+      p.setLongitude(77.1025);
+    }
+  }
   for (var round = 0; round < 4; round++) {
     // Text inputs.
     for (final e in find.byType(TextField).evaluate().toList()) {
-      final w = e.widget as TextField;
-      if (w.controller?.text.isNotEmpty ?? false) continue;
       try {
-        await tester.enterText(find.byWidget(w), _valueFor(e, w));
+        if (!e.mounted) continue;
+
+        final widget = e.widget;
+        if (widget is! TextField) continue;
+        if (widget.controller?.text.isNotEmpty ?? false) continue;
+
+        final fieldFinder = find.byWidget(widget);
+        if (fieldFinder.evaluate().isEmpty) continue;
+
+        await tester.enterText(fieldFinder, _valueFor(e, widget));
         await tester.pump();
-      } catch (_) {/* off-stage or detached mid-round */}
+      } catch (_) {
+        // Dynamic PG fields may be replaced after a provider rebuild.
+        // A later round will discover and fill the mounted replacements.
+      }
     }
 
     // Portal selects — tap the trigger, then the first option in the sheet.
@@ -145,7 +201,9 @@ Future<void> fillVisibleControls(
       final w = e.widget as WizardChipGroup;
       if ((w.selected ?? '').isNotEmpty) continue;
       final chips = find.descendant(
-          of: find.byWidget(w), matching: find.byType(WizardChoiceChip));
+        of: find.byWidget(w),
+        matching: find.byType(WizardChoiceChip),
+      );
       if (chips.evaluate().isEmpty) continue;
       try {
         await tester.tap(chips.first, warnIfMissed: false);
@@ -158,7 +216,9 @@ Future<void> fillVisibleControls(
       final w = e.widget as WizardMultiChipGroup;
       if (w.selected.isNotEmpty) continue;
       final chips = find.descendant(
-          of: find.byWidget(w), matching: find.byType(WizardChoiceChip));
+        of: find.byWidget(w),
+        matching: find.byType(WizardChoiceChip),
+      );
       if (chips.evaluate().isEmpty) continue;
       try {
         await tester.tap(chips.first, warnIfMissed: false);

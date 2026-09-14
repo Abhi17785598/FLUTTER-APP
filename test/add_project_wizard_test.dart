@@ -17,6 +17,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 
 import 'package:propcid_app/models/project_model.dart';
 import 'package:propcid_app/providers/add_project_provider.dart';
@@ -30,11 +31,16 @@ import 'support/overflow_detector.dart';
 
 const Size kSmall = Size(320, 720);
 
+const String kValidProjectDescription =
+    'Green Valley Heights is a thoughtfully planned gated residential community '
+    'in west Pune with modern homes, landscaped open spaces, reliable security, '
+    'parking, and convenient access to schools, hospitals, markets, and public transport.';
+
 /// Records every call instead of touching Supabase.
 class _FakeProjectService extends ProjectService {
   final List<ProjectDraft> created = [];
-  final List<({String projectId, String builderId, ProjectDraft draft})> updated =
-      [];
+  final List<({String projectId, String builderId, ProjectDraft draft})>
+  updated = [];
   bool shouldFail = false;
 
   @override
@@ -77,36 +83,31 @@ class _FakeMediaService extends ProjectMediaService {
   Future<String> uploadLogo({
     required Uint8List bytes,
     required String fileName,
-  }) =>
-      _fake('logos', fileName);
+  }) => _fake('logos', fileName);
 
   @override
   Future<String> uploadMasterLayout({
     required Uint8List bytes,
     required String fileName,
-  }) =>
-      _fake('master-layouts', fileName);
+  }) => _fake('master-layouts', fileName);
 
   @override
   Future<String> uploadImage({
     required Uint8List bytes,
     required String fileName,
-  }) =>
-      _fake('other-images', fileName);
+  }) => _fake('other-images', fileName);
 
   @override
   Future<String> uploadVideo({
     required Uint8List bytes,
     required String fileName,
-  }) =>
-      _fake('project-videos', fileName);
+  }) => _fake('project-videos', fileName);
 
   @override
   Future<String> uploadBrochure({
     required Uint8List bytes,
     required String fileName,
-  }) =>
-      _fake('brochures', fileName);
+  }) => _fake('brochures', fileName);
 }
 
 /// A provider with every field filled, parked on the review step.
@@ -121,7 +122,7 @@ Future<AddProjectProvider> _completeProvider({
 
   provider
     ..setTitle('Green Valley Heights')
-    ..setDescription('A gated community in west Pune.')
+    ..setDescription(kValidProjectDescription)
     ..setProjectType('group_housing')
     ..setLocation('Pune')
     ..setTotalUnits('120')
@@ -149,6 +150,9 @@ Future<AddProjectProvider> _completeProvider({
 void main() {
   setUpAll(() async {
     TestWidgetsFlutterBinding.ensureInitialized();
+
+    dotenv.loadFromString(envString: 'GOOGLE_MAPS_API_KEY=');
+
     // Installed here as well as in setUp: Supabase.initialize below reaches for
     // shared_preferences, and setUp has not run yet.
     SharedPreferences.setMockInitialValues(<String, Object>{});
@@ -170,18 +174,25 @@ void main() {
   // ── 1. Per-step required fields ────────────────────────────────────────
   group('step rules', () {
     test('basic requires title, type, city and description', () {
-      final issues = validateProjectStep(ProjectStep.basic, const ProjectDraft());
-      expect(
-        issues.map((i) => i.field).toSet(),
-        {kProjectTitle, kProjectType, kProjectLocation, kProjectDescription},
+      final issues = validateProjectStep(
+        ProjectStep.basic,
+        const ProjectDraft(),
       );
+      expect(issues.map((i) => i.field).toSet(), {
+        kProjectTitle,
+        kProjectType,
+        kProjectLocation,
+        kProjectDescription,
+      });
       // The reference labels `location` "City".
       expect(issues.map((i) => i.label), contains('City'));
     });
 
     test('details requires all nine fields', () {
-      final issues =
-          validateProjectStep(ProjectStep.details, const ProjectDraft());
+      final issues = validateProjectStep(
+        ProjectStep.details,
+        const ProjectDraft(),
+      );
       expect(issues.map((i) => i.field).toSet(), {
         kProjectTotalUnits,
         kProjectAvailableUnits,
@@ -207,7 +218,10 @@ void main() {
 
     test('media requires all seven fields, brochure and video included', () {
       // Decision D5: the reference's strictness is kept.
-      final issues = validateProjectStep(ProjectStep.media, const ProjectDraft());
+      final issues = validateProjectStep(
+        ProjectStep.media,
+        const ProjectDraft(),
+      );
       expect(issues.map((i) => i.field).toSet(), {
         kProjectWebsiteUrl,
         kProjectContactNumber,
@@ -222,16 +236,18 @@ void main() {
     test('a malformed contact number fails on format, not presence', () {
       const draft = ProjectDraft(contactNumber: '123');
       final issues = validateProjectStep(ProjectStep.media, draft);
-      final contact =
-          issues.firstWhere((i) => i.field == kProjectContactNumber);
+      final contact = issues.firstWhere(
+        (i) => i.field == kProjectContactNumber,
+      );
       expect(contact.message, isNot(contains('is required')));
     });
 
     test('amenities requires at least one', () {
       expect(
-        validateProjectStep(ProjectStep.amenities, const ProjectDraft())
-            .single
-            .field,
+        validateProjectStep(
+          ProjectStep.amenities,
+          const ProjectDraft(),
+        ).single.field,
         kProjectAmenities,
       );
       expect(
@@ -251,18 +267,20 @@ void main() {
     });
 
     test('the five steps are titled as the reference names them', () {
-      expect(
-        ProjectStep.values.map(projectStepTitle).toList(),
-        [
-          'Basic Info',
-          'Project Details',
-          'Contact & Media',
-          'Amenities',
-          'Review & Submit',
-        ],
-      );
-      expect(ProjectStep.values.map(projectStepKey).toList(),
-          ['basic', 'details', 'media', 'amenities', 'review']);
+      expect(ProjectStep.values.map(projectStepTitle).toList(), [
+        'Basic Info',
+        'Project Details',
+        'Contact & Media',
+        'Amenities',
+        'Review & Submit',
+      ]);
+      expect(ProjectStep.values.map(projectStepKey).toList(), [
+        'basic',
+        'details',
+        'media',
+        'amenities',
+        'review',
+      ]);
     });
   });
 
@@ -342,7 +360,7 @@ void main() {
         ..setTitle('T')
         ..setProjectType('group_housing')
         ..setLocation('Pune')
-        ..setDescription('D');
+        ..setDescription(kValidProjectDescription);
 
       expect(provider.nextStep(), isEmpty);
       expect(provider.currentStep, 1);
@@ -358,7 +376,7 @@ void main() {
         ..setTitle('T')
         ..setProjectType('group_housing')
         ..setLocation('Pune')
-        ..setDescription('D');
+        ..setDescription(kValidProjectDescription);
       provider.nextStep();
       provider.nextStep(); // blocked on details, issues published
       expect(provider.stepIssues, isNotEmpty);
@@ -411,8 +429,11 @@ void main() {
       final provider = await _completeProvider(service: service);
 
       final prefs = await SharedPreferences.getInstance();
-      expect(prefs.getString(kProjectDraftKey), isNotNull,
-          reason: 'typing saved a draft');
+      expect(
+        prefs.getString(kProjectDraftKey),
+        isNotNull,
+        reason: 'typing saved a draft',
+      );
 
       final result = await provider.submit(builderId: 'b-1');
 
@@ -420,26 +441,35 @@ void main() {
       expect(result.projectId, 'new-project');
       expect(service.created, hasLength(1));
       expect(service.updated, isEmpty);
-      expect(prefs.getString(kProjectDraftKey), isNull,
-          reason: 'a successful create clears the draft');
+      expect(
+        prefs.getString(kProjectDraftKey),
+        isNull,
+        reason: 'a successful create clears the draft',
+      );
     });
 
-    test('the payload reaching the service has no nulls in NOT NULL columns',
-        () async {
-      final service = _FakeProjectService();
-      final provider = await _completeProvider(service: service);
-      await provider.submit(builderId: 'b-1');
+    test(
+      'the payload reaching the service has no nulls in NOT NULL columns',
+      () async {
+        final service = _FakeProjectService();
+        final provider = await _completeProvider(service: service);
+        await provider.submit(builderId: 'b-1');
 
-      final payload = service.created.single.toPayload();
-      final nulls =
-          payload.entries.where((e) => e.value == null).map((e) => e.key);
-      expect(nulls, {'completion_date', 'possession_date'}.difference({
-        // Both are filled here, so nothing should be null at all.
-        'completion_date',
-        'possession_date',
-      }));
-      expect(nulls, isEmpty);
-    });
+        final payload = service.created.single.toPayload();
+        final nulls = payload.entries
+            .where((e) => e.value == null)
+            .map((e) => e.key);
+        expect(
+          nulls,
+          {'completion_date', 'possession_date'}.difference({
+            // Both are filled here, so nothing should be null at all.
+            'completion_date',
+            'possession_date',
+          }),
+        );
+        expect(nulls, isEmpty);
+      },
+    );
 
     test('a failed write rethrows and leaves the draft alone', () async {
       final service = _FakeProjectService()..shouldFail = true;
@@ -452,38 +482,41 @@ void main() {
       expect(provider.isSubmitting, isFalse, reason: 'the flag is released');
 
       final prefs = await SharedPreferences.getInstance();
-      expect(prefs.getString(kProjectDraftKey), isNotNull,
-          reason: 'the work must survive a failed submit');
+      expect(
+        prefs.getString(kProjectDraftKey),
+        isNotNull,
+        reason: 'the work must survive a failed submit',
+      );
     });
   });
 
   // ── 5. Edit mode ───────────────────────────────────────────────────────
   group('edit mode', () {
     ProjectModel existing() => ProjectModel.fromSupabase({
-          'id': 'p-9',
-          'builder_id': 'b-1',
-          'title': 'Existing Project',
-          'description': 'Desc',
-          'project_type': 'farm_houses',
-          'location': 'Nagpur',
-          'total_units': 20,
-          'available_units': 5,
-          'price_range_min': 100,
-          'price_range_max': 200,
-          'area_sqft_min': 300,
-          'area_sqft_max': 400,
-          'completion_date': '2027-01-31',
-          'possession_date': '2027-03-31',
-          'rera_number': 'R-1',
-          'website_url': 'https://x.example',
-          'contact_number': '9999999999',
-          'logo_url': 'logo.png',
-          'brochure_url': 'b.pdf',
-          'map_images': ['m.png'],
-          'other_images': ['o.jpg'],
-          'videos_urls': ['v.mp4'],
-          'amenities': ['Parking'],
-        });
+      'id': 'p-9',
+      'builder_id': 'b-1',
+      'title': 'Existing Project',
+      'description': kValidProjectDescription,
+      'project_type': 'farm_houses',
+      'location': 'Nagpur',
+      'total_units': 20,
+      'available_units': 5,
+      'price_range_min': 100,
+      'price_range_max': 200,
+      'area_sqft_min': 300,
+      'area_sqft_max': 400,
+      'completion_date': '2027-01-31',
+      'possession_date': '2027-03-31',
+      'rera_number': 'P52100012345',
+      'website_url': 'https://x.example',
+      'contact_number': '9999999999',
+      'logo_url': 'logo.png',
+      'brochure_url': 'b.pdf',
+      'map_images': ['m.png'],
+      'other_images': ['o.jpg'],
+      'videos_urls': ['v.mp4'],
+      'amenities': ['Parking'],
+    });
 
     test('opening on a project pre-fills it and updates on submit', () async {
       final service = _FakeProjectService();
@@ -530,8 +563,11 @@ void main() {
 
       await provider.checkForSavedDraft();
 
-      expect(provider.hasSavedDraft, isFalse,
-          reason: 'a new-project draft must not bleed into an edit');
+      expect(
+        provider.hasSavedDraft,
+        isFalse,
+        reason: 'a new-project draft must not bleed into an edit',
+      );
       expect(provider.draft.title, 'Existing Project');
     });
   });
@@ -555,8 +591,9 @@ void main() {
 
     test('a draft with meaningful data is offered back', () async {
       SharedPreferences.setMockInitialValues({
-        kProjectDraftKey:
-            jsonEncode(const ProjectDraft(title: 'Resume me').toJson()),
+        kProjectDraftKey: jsonEncode(
+          const ProjectDraft(title: 'Resume me').toJson(),
+        ),
       });
       final provider = AddProjectProvider(
         projectService: _FakeProjectService(),
@@ -569,21 +606,25 @@ void main() {
       expect(provider.savedDraft!.title, 'Resume me');
     });
 
-    test('a draft holding only a stray field is not worth interrupting for', () async {
-      // The reference's test is title / location / project_type / any image.
-      SharedPreferences.setMockInitialValues({
-        kProjectDraftKey:
-            jsonEncode(const ProjectDraft(reraNumber: 'R-1').toJson()),
-      });
-      final provider = AddProjectProvider(
-        projectService: _FakeProjectService(),
-        mediaService: _FakeMediaService(),
-      );
+    test(
+      'a draft holding only a stray field is not worth interrupting for',
+      () async {
+        // The reference's test is title / location / project_type / any image.
+        SharedPreferences.setMockInitialValues({
+          kProjectDraftKey: jsonEncode(
+            const ProjectDraft(reraNumber: 'R-1').toJson(),
+          ),
+        });
+        final provider = AddProjectProvider(
+          projectService: _FakeProjectService(),
+          mediaService: _FakeMediaService(),
+        );
 
-      await provider.checkForSavedDraft();
+        await provider.checkForSavedDraft();
 
-      expect(provider.hasSavedDraft, isFalse);
-    });
+        expect(provider.hasSavedDraft, isFalse);
+      },
+    );
 
     test('an image alone counts as meaningful', () async {
       SharedPreferences.setMockInitialValues({
@@ -603,8 +644,9 @@ void main() {
 
     test('restoring adopts the draft; discarding wipes it', () async {
       SharedPreferences.setMockInitialValues({
-        kProjectDraftKey:
-            jsonEncode(const ProjectDraft(title: 'Resume me').toJson()),
+        kProjectDraftKey: jsonEncode(
+          const ProjectDraft(title: 'Resume me').toJson(),
+        ),
       });
       final provider = AddProjectProvider(
         projectService: _FakeProjectService(),
@@ -621,42 +663,46 @@ void main() {
       expect(prefs.getString(kProjectDraftKey), isNull);
     });
 
-    test('corrupt stored JSON is discarded rather than blocking the wizard',
-        () async {
-      SharedPreferences.setMockInitialValues({
-        kProjectDraftKey: 'not json at all',
-      });
-      final provider = AddProjectProvider(
-        projectService: _FakeProjectService(),
-        mediaService: _FakeMediaService(),
-      );
+    test(
+      'corrupt stored JSON is discarded rather than blocking the wizard',
+      () async {
+        SharedPreferences.setMockInitialValues({
+          kProjectDraftKey: 'not json at all',
+        });
+        final provider = AddProjectProvider(
+          projectService: _FakeProjectService(),
+          mediaService: _FakeMediaService(),
+        );
 
-      await provider.checkForSavedDraft();
+        await provider.checkForSavedDraft();
 
-      expect(provider.hasSavedDraft, isFalse);
-      final prefs = await SharedPreferences.getInstance();
-      expect(prefs.getString(kProjectDraftKey), isNull);
-    });
+        expect(provider.hasSavedDraft, isFalse);
+        final prefs = await SharedPreferences.getInstance();
+        expect(prefs.getString(kProjectDraftKey), isNull);
+      },
+    );
   });
 
   // ── 7. Media and amenities ─────────────────────────────────────────────
   group('media and amenities', () {
-    test('a layout lands in map_images, and the first becomes the master plan',
-        () async {
-      final provider = AddProjectProvider(
-        projectService: _FakeProjectService(),
-        mediaService: _FakeMediaService(),
-      );
+    test(
+      'a layout lands in map_images, and the first becomes the master plan',
+      () async {
+        final provider = AddProjectProvider(
+          projectService: _FakeProjectService(),
+          mediaService: _FakeMediaService(),
+        );
 
-      await provider.uploadMasterLayout(Uint8List(4), 'first.png');
-      await provider.uploadMasterLayout(Uint8List(4), 'second.png');
+        await provider.uploadMasterLayout(Uint8List(4), 'first.png');
+        await provider.uploadMasterLayout(Uint8List(4), 'second.png');
 
-      expect(provider.draft.mapImages, hasLength(2));
-      expect(
-        provider.draft.toPayload()['master_layout_url'],
-        'https://cdn.test/master-layouts/first.png',
-      );
-    });
+        expect(provider.draft.mapImages, hasLength(2));
+        expect(
+          provider.draft.toPayload()['master_layout_url'],
+          'https://cdn.test/master-layouts/first.png',
+        );
+      },
+    );
 
     test('removing an asset by index leaves the rest intact', () async {
       final provider = AddProjectProvider(
@@ -669,11 +715,10 @@ void main() {
 
       provider.removeOtherImage(1);
 
-      expect(
-        provider.draft.otherImages,
-        ['https://cdn.test/other-images/a.jpg',
-         'https://cdn.test/other-images/c.jpg'],
-      );
+      expect(provider.draft.otherImages, [
+        'https://cdn.test/other-images/a.jpg',
+        'https://cdn.test/other-images/c.jpg',
+      ]);
       // An out-of-range index is a no-op, not a crash.
       provider.removeOtherImage(9);
       expect(provider.draft.otherImages, hasLength(2));
@@ -727,8 +772,10 @@ void main() {
       provider.setTotalUnits('');
       expect(provider.draft.totalUnits, isNull);
       expect(
-        validateProjectStep(ProjectStep.details, provider.draft)
-            .map((i) => i.field),
+        validateProjectStep(
+          ProjectStep.details,
+          provider.draft,
+        ).map((i) => i.field),
         contains(kProjectTotalUnits),
       );
     });
@@ -756,8 +803,9 @@ void main() {
       await tester.pumpAndSettle();
     }
 
-    testWidgets('opens on step 1 of 5 with the reference\'s titles',
-        (tester) async {
+    testWidgets('opens on step 1 of 5 with the reference\'s titles', (
+      tester,
+    ) async {
       final provider = AddProjectProvider(
         projectService: _FakeProjectService(),
         mediaService: _FakeMediaService(),
@@ -815,14 +863,18 @@ void main() {
       for (var i = 0; i < ProjectStep.values.length; i++) {
         provider.goToStep(i);
         await pump(tester, provider);
-        expect(overflowingBoxes(tester), isEmpty,
-            reason: 'step ${projectStepTitle(ProjectStep.values[i])} overflows');
+        expect(
+          overflowingBoxes(tester),
+          isEmpty,
+          reason: 'step ${projectStepTitle(ProjectStep.values[i])} overflows',
+        );
         expect(tester.takeException(), isNull);
       }
     });
 
-    testWidgets('the wide layout puts the stepper beside the form',
-        (tester) async {
+    testWidgets('the wide layout puts the stepper beside the form', (
+      tester,
+    ) async {
       final provider = AddProjectProvider(
         projectService: _FakeProjectService(),
         mediaService: _FakeMediaService(),

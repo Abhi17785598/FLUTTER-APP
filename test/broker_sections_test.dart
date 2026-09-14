@@ -476,8 +476,8 @@ void main() {
       expect(find.text('Email'), findsOneWidget);
       expect(find.text('Inquiry'), findsOneWidget);
       // The stats strip.
-      expect(find.text('Total'), findsOneWidget);
-      expect(find.text('Conversion'), findsOneWidget);
+      expect(find.text('Total Leads'), findsOneWidget);
+      expect(find.text('Conversion Rate'), findsOneWidget);
     });
 
     testWidgets(

@@ -13,7 +13,7 @@
 // -------------------------------------
 // Bucket `project-media`: public read, authenticated insert/update/delete with
 // **no path restriction** (`20260409000000_create_project_media_bucket.sql`).
-// The app's own client-side ceiling below is 500 MB per object.
+// The app's own client-side ceiling below is 50 MB per object.
 //
 //   logo            logos/{ts}-logo.{ext}                    BuilderProjectWizard.tsx:323-324
 //   master layout   master-layouts/{ts}-master-layout.{ext}  :347-348
@@ -57,12 +57,12 @@ class ProjectMediaService {
   /// The bucket every project asset lives in.
   static const String bucket = 'project-media';
 
-  /// This app's own per-object ceiling, in bytes (500 MB).
+  /// This app's own per-object ceiling, in bytes (50 MB).
   ///
   /// Checked client-side so an oversize file fails with a sentence the user can
   /// act on, rather than a storage `413` surfacing as a generic upload error.
   /// Applied to every asset type here, not just videos.
-  static const int maxBytes = 500 * 1024 * 1024;
+  static const int maxBytes = 50 * 1024 * 1024;
 
   // ── Path prefixes, one per asset type ───────────────────────────────────
   static const String logoPrefix = 'logos';
@@ -112,7 +112,7 @@ class ProjectMediaService {
     bytes: bytes,
     path: '$videoPrefix/${_stamp()}-${_suffix()}.${_ext(fileName)}',
     fileName: fileName,
-    oversizeMessage: 'Videos must be under 500 MB.',
+    oversizeMessage: 'Videos must be under 50 MB.',
   );
 
   /// Uploads the project brochure. Returns its public URL.
@@ -128,7 +128,7 @@ class ProjectMediaService {
     bytes: bytes,
     path: '$brochurePrefix/${_stamp()}-brochure.${_ext(fileName)}',
     fileName: fileName,
-    oversizeMessage: 'The brochure must be under 500 MB.',
+    oversizeMessage: 'The brochure must be under 50 MB.',
   );
 
   /// One upload, one public URL.
@@ -143,7 +143,7 @@ class ProjectMediaService {
     }
     if (bytes.length > maxBytes) {
       throw ProjectMediaException(
-        oversizeMessage ?? 'That file is larger than the 500 MB limit.',
+        oversizeMessage ?? 'That file is larger than the 50 MB limit.',
       );
     }
 

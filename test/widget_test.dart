@@ -22,8 +22,11 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:propcid_app/app.dart';
 import 'package:propcid_app/providers/auth_provider.dart';
 import 'package:propcid_app/providers/available_locations_provider.dart';
+import 'package:propcid_app/providers/compare_provider.dart';
 import 'package:propcid_app/providers/filter_provider.dart';
 import 'package:propcid_app/providers/navigation_provider.dart';
+import 'package:propcid_app/providers/notification_provider.dart';
+import 'package:propcid_app/providers/projects_provider.dart';
 import 'package:propcid_app/providers/property_provider.dart';
 import 'package:propcid_app/providers/recent_searches_provider.dart';
 import 'package:propcid_app/providers/reels_provider.dart';
@@ -60,7 +63,9 @@ void main() {
           ChangeNotifierProvider(create: (_) => PropertyProvider()),
           ChangeNotifierProvider(create: (_) => FilterProvider()),
           ChangeNotifierProvider(create: (_) => ShortlistProvider()),
+          ChangeNotifierProvider(create: (_) => CompareProvider()),
           ChangeNotifierProvider(create: (_) => ReelsProvider()),
+          ChangeNotifierProvider(create: (_) => ProjectsProvider()),
           ChangeNotifierProvider(create: (_) => AvailableLocationsProvider()),
           ChangeNotifierProxyProvider<AuthProvider, RecentSearchesProvider>(
             create: (ctx) => RecentSearchesProvider(ctx.read<AuthProvider>()),
@@ -69,6 +74,11 @@ void main() {
           ChangeNotifierProxyProvider<AuthProvider, VoiceAgentProvider>(
             create: (ctx) => VoiceAgentProvider(ctx.read<AuthProvider>()),
             update: (ctx, auth, prev) => prev!..updateAuth(auth),
+          ),
+          ChangeNotifierProxyProvider<AuthProvider, NotificationProvider>(
+            create: (_) => NotificationProvider(),
+            update: (ctx, auth, prev) =>
+                (prev ?? NotificationProvider())..load(auth.userId),
           ),
         ],
         child: const PropertyApp(),

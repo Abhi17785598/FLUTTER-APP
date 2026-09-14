@@ -16,6 +16,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 
 import 'package:propcid_app/core/navigation/post_property_route_gate.dart';
 import 'package:propcid_app/models/project_model.dart';
@@ -78,6 +79,9 @@ Future<void> _pump(
 void main() {
   setUpAll(() async {
     TestWidgetsFlutterBinding.ensureInitialized();
+
+    dotenv.loadFromString(envString: 'GOOGLE_MAPS_API_KEY=');
+
     SharedPreferences.setMockInitialValues(<String, Object>{});
     await Supabase.initialize(
       url: 'http://localhost:54321',
@@ -93,10 +97,18 @@ void main() {
   group('canCreate', () {
     test('only a builder is refused a property listing', () {
       expect(canCreate(CreatableContent.property, 'builder'), isFalse);
-      for (final role in ['broker', 'influencer', 'individual', 'seller',
-                          'dealer']) {
-        expect(canCreate(CreatableContent.property, role), isTrue,
-            reason: '$role may list a property');
+      for (final role in [
+        'broker',
+        'influencer',
+        'individual',
+        'seller',
+        'dealer',
+      ]) {
+        expect(
+          canCreate(CreatableContent.property, role),
+          isTrue,
+          reason: '$role may list a property',
+        );
       }
     });
 
@@ -125,8 +137,7 @@ void main() {
       expect(canCreate(CreatableContent.article, 'influencer'), isTrue);
     });
 
-    test('an unresolved role reads as allowed — which is why the gate waits',
-        () {
+    test('an unresolved role reads as allowed — which is why the gate waits', () {
       // `null != 'builder'` is true. If the gate decided on a null role, a
       // builder tapping "+" before their profile loaded would reach the listing
       // wizard.
@@ -159,8 +170,11 @@ void main() {
           const PostPropertyRouteGate(),
           _FakeAuth(type: role),
         );
-        expect(find.byType(PostPropertyScreen), findsOneWidget,
-            reason: '$role should reach the listing wizard');
+        expect(
+          find.byType(PostPropertyScreen),
+          findsOneWidget,
+          reason: '$role should reach the listing wizard',
+        );
         expect(find.byType(AddProjectScreen), findsNothing);
       }
     });
@@ -179,8 +193,9 @@ void main() {
       expect(find.byType(AddProjectScreen), findsNothing);
     });
 
-    testWidgets('a signed-out visitor is not held at the spinner',
-        (tester) async {
+    testWidgets('a signed-out visitor is not held at the spinner', (
+      tester,
+    ) async {
       // Nothing to wait for: there is no role coming.
       await _pump(
         tester,
@@ -191,8 +206,9 @@ void main() {
       expect(find.byType(PostPropertyScreen), findsOneWidget);
     });
 
-    testWidgets('edit mode opens the listing wizard even for a builder',
-        (tester) async {
+    testWidgets('edit mode opens the listing wizard even for a builder', (
+      tester,
+    ) async {
       // A builder with legacy `properties` rows must keep being able to edit
       // them. This is the only branch that skips the role read entirely.
       await _pump(
@@ -210,8 +226,9 @@ void main() {
       expect(find.byType(AddProjectScreen), findsNothing);
     });
 
-    testWidgets('an id without a bundle is not edit mode, so the gate applies',
-        (tester) async {
+    testWidgets('an id without a bundle is not edit mode, so the gate applies', (
+      tester,
+    ) async {
       // `PostPropertyScreen` only enters edit mode with both, so a half-supplied
       // argument must not be treated as an edit and slip past the role check.
       await _pump(
@@ -244,13 +261,12 @@ void main() {
       // `builder_projects` INSERT is WITH CHECK (builder_id = auth.uid()) — so a
       // broker inserting their own id would satisfy RLS.
       for (final role in ['broker', 'influencer', 'individual']) {
-        await _pump(
-          tester,
-          const AddProjectRouteGate(),
-          _FakeAuth(type: role),
+        await _pump(tester, const AddProjectRouteGate(), _FakeAuth(type: role));
+        expect(
+          find.byType(PostPropertyScreen),
+          findsOneWidget,
+          reason: '$role must not reach the project wizard',
         );
-        expect(find.byType(PostPropertyScreen), findsOneWidget,
-            reason: '$role must not reach the project wizard');
         expect(find.byType(AddProjectScreen), findsNothing);
       }
     });
@@ -287,7 +303,6 @@ void main() {
     });
   });
 
-
   // ── /influencer-video ──────────────────────────────────────────────────
   group('InfluencerVideoRouteGate', () {
     testWidgets('an influencer gets the video form', (tester) async {
@@ -313,8 +328,9 @@ void main() {
       expect(find.byType(InfluencerVideoFormScreen), findsNothing);
     });
 
-    testWidgets('a builder gets the project wizard, not the listing one',
-        (tester) async {
+    testWidgets('a builder gets the project wizard, not the listing one', (
+      tester,
+    ) async {
       // The fallback has to branch: canCreate(property, 'builder') is false, so
       // sending a builder to PostPropertyScreen would land them on a wizard they
       // are barred from.
@@ -328,7 +344,9 @@ void main() {
       expect(find.byType(PostPropertyScreen), findsNothing);
     });
 
-    testWidgets('an unresolved role waits rather than deciding', (tester) async {
+    testWidgets('an unresolved role waits rather than deciding', (
+      tester,
+    ) async {
       await _pump(
         tester,
         const InfluencerVideoRouteGate(),
@@ -341,8 +359,9 @@ void main() {
       expect(find.byType(PostPropertyScreen), findsNothing);
     });
 
-    testWidgets('a logged-out visitor is not held at the spinner',
-        (tester) async {
+    testWidgets('a logged-out visitor is not held at the spinner', (
+      tester,
+    ) async {
       // isLoggedIn false means userType will never arrive; waiting would hang.
       await _pump(
         tester,
@@ -368,7 +387,11 @@ void main() {
     test('"post property" still resolves to /post-property', () {
       // The new entry shares the words "add" and "create"; the existing one must
       // not lose its own phrases to it.
-      for (final phrase in ['post property', 'create listing', 'add property']) {
+      for (final phrase in [
+        'post property',
+        'create listing',
+        'add property',
+      ]) {
         final route = resolveConcept(phrase, 'authenticated');
         expect(route?.path, '/post-property', reason: 'for "$phrase"');
       }
@@ -385,25 +408,33 @@ void main() {
 
     test("the video entry does not steal the other two wizards' phrases", () {
       // All three share "create", "add", "new" and "post".
-      expect(resolveConcept('post property', 'authenticated')?.path,
-          '/post-property');
-      expect(resolveConcept('create project', 'authenticated')?.path,
-          '/add-project');
+      expect(
+        resolveConcept('post property', 'authenticated')?.path,
+        '/post-property',
+      );
+      expect(
+        resolveConcept('create project', 'authenticated')?.path,
+        '/add-project',
+      );
     });
 
     test('the video entry is not reachable by a logged-out visitor', () {
       // Same ladder trap as the project entry: an 'influencer' tier would give
       // indexOf == -1 and make the entry public.
-      expect(resolveConcept('upload video', 'public')?.path,
-          isNot('/influencer-video'));
+      expect(
+        resolveConcept('upload video', 'public')?.path,
+        isNot('/influencer-video'),
+      );
     });
 
     test('the project entry is not reachable by a logged-out visitor', () {
       // Why its tier is 'authenticated' and not 'builder': _canAccess compares
       // ladder positions, so an unrecognised tier gives indexOf == -1 and
       // `userIdx >= -1` is always true — 'builder' would make it PUBLIC.
-      expect(resolveConcept('create project', 'public')?.path,
-          isNot('/add-project'));
+      expect(
+        resolveConcept('create project', 'public')?.path,
+        isNot('/add-project'),
+      );
     });
   });
 }

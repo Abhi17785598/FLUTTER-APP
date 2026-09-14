@@ -15,10 +15,6 @@ class ProfileCompletionCoordinator {
   /// Check if user needs to complete profile
   /// Returns true if profile is incomplete and user should be redirected
   Future<bool> shouldCompleteProfile(BuildContext context) async {
-    debugPrint('ROLE: ${_authProvider.userRole}');
-
-    debugPrint('TYPE: ${_authProvider.userType}');
-
     final userType = _authProvider.userType;
 
     if (userType == null) {
@@ -58,7 +54,7 @@ class ProfileCompletionCoordinator {
   Future<void> navigateToCompletionScreen(BuildContext context) async {
     final userType = _authProvider.userType;
 
-    String? routeName;
+    late final String routeName;
 
     switch (userType) {
       case 'builder':
@@ -71,19 +67,18 @@ class ProfileCompletionCoordinator {
         routeName = '/influencer-profile';
         break;
       default:
-        // Unknown user type - don't redirect
+        // Unknown user type - don't redirect.
         return;
     }
 
-    if (routeName != null) {
-      await Navigator.of(context).pushNamed(routeName);
-    }
+    await Navigator.of(context).pushNamed(routeName);
   }
 
   /// Check and redirect if profile is incomplete
-  /// Call this after login or on app startup
   Future<void> checkAndRedirect(BuildContext context) async {
     final shouldComplete = await shouldCompleteProfile(context);
+
+    if (!context.mounted) return;
 
     if (shouldComplete) {
       await navigateToCompletionScreen(context);
@@ -153,6 +148,8 @@ class ProfileCompletionCoordinator {
   Future<bool> showCompletionPrompt(BuildContext context) async {
     final completeness = await getProfileCompleteness();
     final missingFields = await getMissingFields();
+
+    if (!context.mounted) return false;
 
     if (completeness >= 100 || missingFields.isEmpty) {
       return false;

@@ -1,20 +1,20 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
     <!-- Required for the "Near Me" property search (geolocator plugin) -->
+    <uses-permission android:name="android.permission.INTERNET"/>
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION"/>
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION"/>
     <!-- Required for Voice Search (speech_to_text plugin) -->
     <uses-permission android:name="android.permission.RECORD_AUDIO"/>
-    <!-- Required by the gal plugin (Download PNG on the Digital Visiting
-         Card) to save images on Android 10 and below; scoped storage on
-         Android 11+ needs no permission, hence maxSdkVersion. -->
-    <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE"
-                 android:maxSdkVersion="29" />
-
+    <uses-permission
+    android:name="android.permission.WRITE_EXTERNAL_STORAGE"
+    android:maxSdkVersion="29" />
+  
+  
    <application
-    android:label="propcid"
+    android:label="PropCID"
     android:name="${applicationName}"
-    android:icon="@mipmap/ic_launcher"
-    android:requestLegacyExternalStorage="true">
+    android:icon="@mipmap/ic_launcher">
+
 
     <!-- Use Skia because Impeller causes video texture corruption
          on some Vivo/MediaTek Android devices. -->

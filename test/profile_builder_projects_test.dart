@@ -17,8 +17,12 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'package:propcid_app/providers/auth_provider.dart';
+import 'package:propcid_app/providers/compare_provider.dart';
 import 'package:propcid_app/providers/navigation_provider.dart';
 import 'package:propcid_app/providers/profile_provider.dart';
+import 'package:propcid_app/providers/projects_provider.dart';
+import 'package:propcid_app/providers/property_provider.dart';
+import 'package:propcid_app/providers/reels_provider.dart';
 import 'package:propcid_app/screens/dashboard/widgets/my_projects_section.dart';
 import 'package:propcid_app/screens/profile/profile_screen.dart';
 import 'package:propcid_app/screens/profile/widgets/my_content_section.dart';
@@ -75,6 +79,16 @@ void main() {
           ChangeNotifierProvider<NavigationProvider>(
             create: (_) => NavigationProvider(),
           ),
+          ChangeNotifierProvider<PropertyProvider>(
+            create: (_) => PropertyProvider(),
+          ),
+          ChangeNotifierProvider<CompareProvider>(
+            create: (_) => CompareProvider(),
+          ),
+          ChangeNotifierProvider<ReelsProvider>(create: (_) => ReelsProvider()),
+          ChangeNotifierProvider<ProjectsProvider>(
+            create: (_) => ProjectsProvider(),
+          ),
         ],
         child: const MaterialApp(home: ProfileScreen()),
       ),
@@ -94,8 +108,9 @@ void main() {
     await tester.pump(const Duration(seconds: 2));
   }
 
-  testWidgets('a builder gets the projects list, not All/Properties/Articles',
-      (tester) async {
+  testWidgets('a builder gets the projects list, not All/Properties/Articles', (
+    tester,
+  ) async {
     await pumpProfile(tester, userType: 'builder');
 
     expect(find.byType(MyProjectsSection), findsOneWidget);
