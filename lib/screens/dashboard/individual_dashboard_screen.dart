@@ -20,9 +20,10 @@ import '../../widgets/shared/stat_kpi_card.dart';
 
 class _BrandGradient {
   // c1 and the hero gradient were removed in Phase 3 with the bespoke
-  // gradient header; DashboardHeaderBar replaced it.
-  static const Color c2 = Color(0xFF3424C8);
-  static const Color c4 = Color(0xFF6657FF);
+  // gradient header; DashboardHeaderBar replaced it. c2/c4 were the old
+  // indigo/violet brand pair — now PropCid's orange, matching AppColors.
+  static const Color c2 = AppColors.primary;
+  static const Color c4 = Color(0xFFC2410C);
 }
 
 /// The Individual dashboard's five sections.
@@ -457,7 +458,7 @@ class _StatsGrid extends StatelessWidget {
           label: 'Views',
           value: '$views',
           icon: Icons.visibility_rounded,
-          accent: Colors.indigo,
+          accent: Colors.blue,
         ),
         MetricCard(
           label: 'Inquiries',

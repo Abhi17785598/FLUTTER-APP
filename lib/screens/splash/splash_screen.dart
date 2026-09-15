@@ -77,7 +77,7 @@ class _SplashScreenState extends State<SplashScreen>
       startAngle: -math.pi / 2, // top
       orbitSpeed: 0.28,
       size: 46,
-      glowColor: Color(0xFF818CF8),
+      glowColor: Color(0xFFF97316), // PropCid orange
       entryDelay: Duration(milliseconds: 400),
     ),
     _OrbitalIcon(
@@ -86,7 +86,7 @@ class _SplashScreenState extends State<SplashScreen>
       startAngle: math.pi / 2, // bottom
       orbitSpeed: 0.28,
       size: 44,
-      glowColor: Color(0xFFA78BFA),
+      glowColor: Color(0xFFFB923C), // medium orange
       entryDelay: Duration(milliseconds: 550),
     ),
     _OrbitalIcon(
@@ -95,7 +95,7 @@ class _SplashScreenState extends State<SplashScreen>
       startAngle: 0, // right
       orbitSpeed: 0.28,
       size: 42,
-      glowColor: Color(0xFFC084FC),
+      glowColor: Color(0xFFC2410C), // deep rust orange
       entryDelay: Duration(milliseconds: 700),
     ),
     _OrbitalIcon(
@@ -104,7 +104,7 @@ class _SplashScreenState extends State<SplashScreen>
       startAngle: math.pi, // left
       orbitSpeed: 0.28,
       size: 42,
-      glowColor: Color(0xFF60A5FA),
+      glowColor: Color(0xFFFDBA74), // light warm orange
       entryDelay: Duration(milliseconds: 850),
     ),
   ];
@@ -300,7 +300,7 @@ class _SplashScreenState extends State<SplashScreen>
     final size = MediaQuery.of(context).size;
 
     return Scaffold(
-      backgroundColor: const Color(0xFF0D0B1E),
+      backgroundColor: const Color(0xFF17110A),
       body: AnimatedBuilder(
         animation: _exitController,
         builder: (context, child) {
@@ -343,10 +343,10 @@ class _SplashScreenState extends State<SplashScreen>
           end: Alignment.bottomRight,
           stops: [0.0, 0.45, 0.75, 1.0],
           colors: [
-            Color(0xFF0D0B1E), // near-black purple
-            Color(0xFF130E2E),
-            Color(0xFF1A1040),
-            Color(0xFF0A0818),
+            Color(0xFF17110A), // near-black warm charcoal
+            Color(0xFF241A0E),
+            Color(0xFF2E1F0F),
+            Color(0xFF120D07),
           ],
         ),
       ),
@@ -583,9 +583,9 @@ class _SplashScreenState extends State<SplashScreen>
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
               colors: [
-                Color(0xFF7C6FF7), // lighter indigo
-                Color(0xFF5B50E8), // brand primary
-                Color(0xFF4338CA), // deep indigo
+                Color(0xFFFDBA74), // lighter orange
+                Color(0xFFF97316), // brand primary
+                Color(0xFFC2410C), // deep orange
               ],
             ),
             shape: BoxShape.circle,
@@ -617,29 +617,33 @@ class _SplashScreenState extends State<SplashScreen>
     );
   }
 
+  // The real PropCid wordmark (862×203 px, transparent, already
+  // brand-orange) — reads clearly on the dark splash background as-is, so
+  // no recolouring shader is applied over it; that would just repaint the
+  // actual artwork rather than presenting it.
+  static const double _wordmarkAspectRatio = 862 / 203;
+
   Widget _buildAppNamePill() {
     return ClipRRect(
       borderRadius: BorderRadius.circular(22),
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 30, vertical: 13),
+        padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 16),
         decoration: BoxDecoration(
           color: Colors.white.withOpacity(0.07),
           borderRadius: BorderRadius.circular(22),
           border: Border.all(color: Colors.white.withOpacity(0.15), width: 1),
         ),
-        child: ShaderMask(
-          shaderCallback: (bounds) => const LinearGradient(
-            colors: [Color(0xFFE0DEFF), Color(0xFFFFFFFF), Color(0xFFC4BFFF)],
-            stops: [0.0, 0.5, 1.0],
-          ).createShader(bounds),
-          blendMode: BlendMode.srcIn,
-          child: Text(
-            'PropCID',
-            style: AppTextStyles.heading1.copyWith(
-              color: Colors.white,
-              fontSize: 38,
-              letterSpacing: 8,
-              fontWeight: FontWeight.w800,
+        child: Semantics(
+          label: 'PropCid',
+          image: true,
+          child: SizedBox(
+            height: 42,
+            child: AspectRatio(
+              aspectRatio: _wordmarkAspectRatio,
+              child: Image.asset(
+                'assets/branding/propcid_logo.png',
+                fit: BoxFit.contain,
+              ),
             ),
           ),
         ),

@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 
 import '../../core/constants/app_constants.dart';
+import '../../core/theme/app_colors.dart';
 import '../../models/social_models.dart';
 import '../../services/social_service.dart';
 
@@ -424,7 +425,7 @@ class _CreateCampaignDialogState extends State<CreateCampaignDialog> {
       title: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          const Icon(Icons.campaign, size: 20, color: Color(0xFF5B50E8)),
+          const Icon(Icons.campaign, size: 20, color: AppColors.primary),
           const SizedBox(width: 8),
           Flexible(
             child: Text(

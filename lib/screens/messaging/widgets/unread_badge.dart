@@ -4,7 +4,7 @@ import '../../../core/constants/app_constants.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_text_styles.dart';
 
-/// The purple unread pill used on conversation and channel rows.
+/// The brand-coloured unread pill used on conversation and channel rows.
 ///
 /// Prototype spec: minimum 18 dp wide, fully rounded, primary background,
 /// 10.5 dp bold white numerals.

@@ -101,7 +101,7 @@ class BuilderQuickActionsWidget extends StatelessWidget {
               context,
               Icons.people_rounded,
               "Network",
-              Colors.indigo,
+              Colors.brown,
               () {},
             ),
             const SizedBox(width: 12),

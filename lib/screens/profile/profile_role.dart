@@ -10,11 +10,13 @@ import 'package:flutter/material.dart';
 Color roleColor(String? userType) {
   switch (userType?.toLowerCase()) {
     case 'builder':
-      return Colors.indigo;
+      return const Color(0xFF3B82F6);
     case 'broker':
       return Colors.teal;
     case 'influencer':
-      return const Color(0xFF9333EA);
+      // Same pink already used for the "Influencers" category tile
+      // (category_icon_grid.dart), so the badge colour matches everywhere.
+      return const Color(0xFFDB2777);
     default:
       return Colors.grey;
   }

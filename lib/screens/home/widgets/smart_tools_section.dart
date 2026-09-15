@@ -59,8 +59,8 @@ class SmartToolsSection extends StatelessWidget {
       description: 'Convert area units instantly.',
       cta: 'Open Converter',
       icon: Icons.grid_view_rounded,
-      // The primary pair, same as QuickActionsSection's first card.
-      gradient: [Color(0xFF5B50E8), Color(0xFF7C72F0)],
+      // The brand primary pair (AppColors.primaryGradient's own stops).
+      gradient: [Color(0xFFF97316), Color(0xFFFDBA74)],
     ),
     _Tool(
       title: 'EMI Calculator',

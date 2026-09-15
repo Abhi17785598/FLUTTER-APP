@@ -39,19 +39,35 @@ android {
     }
 
     signingConfigs {
+        // Only populated when `key.properties` actually exists (a real
+        // release-signing setup). Without this guard, Gradle evaluates this
+        // block — and its unconditional `as String` casts — for every build,
+        // including a plain debug `flutter run`, which crashes on any
+        // machine that doesn't have the (deliberately gitignored)
+        // `key.properties` file with "null cannot be cast to non-null type
+        // kotlin.String".
         create("release") {
-            keyAlias = keystoreProperties["keyAlias"] as String
-            keyPassword = keystoreProperties["keyPassword"] as String
-            storeFile = keystoreProperties["storeFile"]?.let {
-                file(it as String)
+            if (keystorePropertiesFile.exists()) {
+                keyAlias = keystoreProperties["keyAlias"] as String
+                keyPassword = keystoreProperties["keyPassword"] as String
+                storeFile = keystoreProperties["storeFile"]?.let {
+                    file(it as String)
+                }
+                storePassword = keystoreProperties["storePassword"] as String
             }
-            storePassword = keystoreProperties["storePassword"] as String
         }
     }
 
     buildTypes {
         release {
-            signingConfig = signingConfigs.getByName("release")
+            // Falls back to the debug keystore when `key.properties` is
+            // absent, so a release build still compiles locally (just
+            // unsigned for real distribution) instead of failing outright.
+            signingConfig = if (keystorePropertiesFile.exists()) {
+                signingConfigs.getByName("release")
+            } else {
+                signingConfigs.getByName("debug")
+            }
             isMinifyEnabled = false
             isShrinkResources = false
         }

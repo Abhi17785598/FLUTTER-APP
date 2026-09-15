@@ -112,9 +112,15 @@ class _FloatingAiOrbState extends State<FloatingAiOrb>
   Widget build(BuildContext context) {
     final screenSize = MediaQuery.of(context).size;
     if (_position == null) {
+      // Default rest spot only — the drag/snap behaviour below is
+      // unchanged. Moved further up from the bottom nav bar (was -80) so it
+      // doesn't default to sitting directly over whatever content happens
+      // to be near the bottom of the initial viewport on a shorter screen
+      // (e.g. Home's Quick Actions row); it's still fully draggable to
+      // anywhere the user prefers, same as before.
       _position = Offset(
         screenSize.width - _size - 16,
-        screenSize.height - _size - 80,
+        screenSize.height - _size - 160,
       );
     } else {
       // Re-clamp into the *current* screen every build, not just once at
@@ -172,7 +178,7 @@ class _FloatingAiOrbState extends State<FloatingAiOrb>
                 bg = Theme.of(context).colorScheme.primary;
               } else if (isSpeaking) {
                 icon = const Icon(Icons.volume_up, color: Colors.white);
-                bg = Colors.deepPurple;
+                bg = const Color(0xFF3B82F6);
               } else {
                 icon = Icon(
                   Icons.support_agent_rounded,

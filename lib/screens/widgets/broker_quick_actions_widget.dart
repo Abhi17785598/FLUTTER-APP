@@ -53,7 +53,7 @@ class BrokerQuickActionsWidget extends StatelessWidget {
             _action(
               Icons.add_home_work_rounded,
               "Add Property",
-              Colors.deepPurple,
+              Colors.teal,
               () {},
             ),
 

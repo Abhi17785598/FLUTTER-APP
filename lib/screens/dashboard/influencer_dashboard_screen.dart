@@ -33,8 +33,8 @@ class _BrandGradient {
   // NOTE: the c1 anchor and the hero gradient were removed in Phase 3 with
   // the bespoke gradient header they existed for; DashboardHeaderBar replaced
   // it. c2/c3/c4 are still used by the FAB, cards and loading/error states.
-  static const Color c2 = Color(0xFF3424C8); // base brand purple
-  static const Color c4 = Color(0xFF6657FF); // accent only — icons/glows
+  static const Color c2 = AppColors.primary; // base brand orange
+  static const Color c4 = Color(0xFFC2410C); // accent only — icons/glows
 }
 
 /// The Influencer dashboard's six sections.

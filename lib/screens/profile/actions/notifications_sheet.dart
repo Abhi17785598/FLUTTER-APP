@@ -95,7 +95,7 @@ void showNotificationsSheet(BuildContext context) {
                   "Don't forget your scheduled visit for Villa tomorrow",
                   '2 days ago',
                   Icons.alarm,
-                  const Color(0xFF6366F1),
+                  const Color(0xFF3B82F6),
                 ),
               ],
             ),

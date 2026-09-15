@@ -2,14 +2,15 @@ import 'package:flutter/material.dart';
 
 import '../../core/constants/app_constants.dart';
 import '../../core/constants/property_status_options.dart';
+import '../../core/theme/app_colors.dart';
 import '../../models/property_model.dart';
 import '../../services/property_service.dart';
 import '../post_property/post_property_screen.dart';
 
 // ── Brand palette (mirrors every other dashboard screen) ──────────────────────
 class _Brand {
-  static const Color c2 = Color(0xFF3424C8);
-  static const Color c4 = Color(0xFF6657FF);
+  static const Color c2 = AppColors.primary;
+  static const Color c4 = Color(0xFFC2410C);
 }
 
 /// A self-contained "My Listings" section for use inside any dashboard screen.

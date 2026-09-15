@@ -42,7 +42,8 @@ class _AccountTypeScreenState extends State<AccountTypeScreen> {
       icon: Icons.business_rounded,
       label: 'Builder',
       subtitle: 'List and manage your projects',
-      color: Color(0xFF3F51B5),
+      // Matches the Builder badge colour used elsewhere (profile_role.dart).
+      color: Color(0xFF3B82F6),
     ),
     _TypeOption(
       type: 'broker',
@@ -56,7 +57,9 @@ class _AccountTypeScreenState extends State<AccountTypeScreen> {
       icon: Icons.play_circle_fill_rounded,
       label: 'Influencer',
       subtitle: 'Promote projects and earn',
-      color: Color(0xFF9C27B0),
+      // Matches the Influencer badge colour used elsewhere (profile_role.dart,
+      // the "Influencers" category tile).
+      color: Color(0xFFDB2777),
     ),
   ];
 

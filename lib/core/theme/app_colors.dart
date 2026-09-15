@@ -3,10 +3,15 @@ import 'package:flutter/material.dart';
 class AppColors {
   AppColors._();
 
-  static const Color primary = Color(0xFF5B50E8);
-  static const Color primaryLight = Color(0xFFEEEDFE);
-  static const Color accentPurple = Color(0xFF5B50E8);
-  static const Color priceColor = Color(0xFF5B50E8);
+  // PropCid brand accent — warm orange, matching the web portal's identity.
+  // Replaces the previous indigo/purple palette; token names are kept
+  // unchanged (only the underlying values moved) so every screen that
+  // already references AppColors.primary/etc. picks up the new brand
+  // automatically with no per-file changes required.
+  static const Color primary = Color(0xFFF97316);
+  static const Color primaryLight = Color(0xFFFFF1E6);
+  static const Color accentPurple = Color(0xFFF97316);
+  static const Color priceColor = Color(0xFFF97316);
 
   static const Color background = Color(0xFFF4F4F8);
   static const Color cardBackground = Color(0xFFFFFFFF);
@@ -27,7 +32,7 @@ class AppColors {
   static const Color hairlineStrong = Color(0xFFF0F0F4);
 
   /// Pressed/hover state for primary links and buttons.
-  static const Color primaryPressed = Color(0xFF3D35B8);
+  static const Color primaryPressed = Color(0xFFC2410C);
 
   /// Inset surface a shade below the card — the billing rows and the read-only
   /// billing-detail fields sit on this. Added in Phase 7.
@@ -48,31 +53,34 @@ class AppColors {
 
   // Additional Status Colors
   static const Color success = Color(0xFF22C55E);
-  static const Color warning = Color(0xFFF97316);
+  // Amber, not the brand orange — `warning` and `primary` need to read as
+  // two different things wherever a screen shows both (e.g. a "pending"
+  // badge next to a primary CTA).
+  static const Color warning = Color(0xFFEAB308);
   static const Color error = Color(0xFFEF4444);
-  static const Color statusTopBuilderText = Color(0xFF5B50E8);
-  static const Color statusGatedCommunityBg = Color(0xFFEEF2FF);
-  static const Color statusGatedCommunityText = Color(0xFF5B50E8);
-  static const Color statusPremiumBg = Color(0xFF5B50E8);
+  static const Color statusTopBuilderText = Color(0xFFF97316);
+  static const Color statusGatedCommunityBg = Color(0xFFFFF1E6);
+  static const Color statusGatedCommunityText = Color(0xFFF97316);
+  static const Color statusPremiumBg = Color(0xFFF97316);
   static const Color statusPremiumText = Color(0xFFFFFFFF);
   static const Color statusLoanAvailableText = Color(0xFF1ABC9C);
 
   // Gradient helpers
   static const LinearGradient primaryGradient = LinearGradient(
-    colors: [Color(0xFF5B50E8), Color(0xFF7C72F0)],
+    colors: [Color(0xFFF97316), Color(0xFFFDBA74)],
     begin: Alignment.topLeft,
     end: Alignment.bottomRight,
   );
 
   static const LinearGradient heroGradient = LinearGradient(
-    colors: [Color(0xFF3D35B8), Color(0xFF5B50E8), Color(0xFF7C72F0)],
+    colors: [Color(0xFFC2410C), Color(0xFFF97316), Color(0xFFFDBA74)],
     begin: Alignment.topLeft,
     end: Alignment.bottomRight,
   );
 
   // ── Prototype surface elevation ───────────────────────────────────────────
   // The redesign renders solid white cards on the #F4F4F8 canvas with a much
-  // softer, neutral shadow than `cardShadow`'s purple-tinted glow below.
+  // softer, neutral shadow than `cardShadow`'s orange-tinted glow below.
   // Kept as separate tokens (rather than changing `cardShadow`) so existing
   // screens that already use `cardShadow`/`GlassCard` are visually untouched.
 
@@ -87,15 +95,15 @@ class AppColors {
     BoxShadow(color: Color(0x1A1A1A2E), blurRadius: 6, offset: Offset(0, 2)),
   ];
 
-  /// `0 4px 12px rgba(91,80,232,0.28)` — solid primary CTA.
+  /// `0 4px 12px rgba(249,115,22,0.28)` — solid primary CTA.
   static const List<BoxShadow> primaryActionShadow = [
-    BoxShadow(color: Color(0x475B50E8), blurRadius: 12, offset: Offset(0, 4)),
+    BoxShadow(color: Color(0x47F97316), blurRadius: 12, offset: Offset(0, 4)),
   ];
 
   // Premium card shadow
   static List<BoxShadow> cardShadow = [
     BoxShadow(
-      color: Color(0xFF5B50E8).withOpacity(0.10),
+      color: Color(0xFFF97316).withOpacity(0.10),
       blurRadius: 20,
       offset: Offset(0, 6),
     ),
@@ -109,21 +117,25 @@ class AppColors {
   // Glow effect for interactive elements
   static List<BoxShadow> primaryGlow = [
     BoxShadow(
-      color: Color(0xFF5B50E8).withOpacity(0.35),
+      color: Color(0xFFF97316).withOpacity(0.35),
       blurRadius: 16,
       spreadRadius: -2,
     ),
   ];
 
   // Category icon backgrounds
-  static const Color categoryBuyBg = Color(0xFFEEEDFE);
+  static const Color categoryBuyBg = Color(0xFFFFF4D6);
   static const Color categoryRentBg = Color(0xFFE6F1FB);
   static const Color categoryPlotBg = Color(0xFFEAF3DE);
   static const Color categoryCommercialBg = Color(0xFFFFF3E0);
   static const Color categoryPgBg = Color(0xFFFCE4EC);
 
   // Amenity icon backgrounds
-  static const Color amenityIndigo = Color(0xFF6366F1);
+  // Despite the name, this is now a warm gold — the old indigo/purple hue
+  // this token held is gone. Kept as `amenityIndigo` (not renamed) so every
+  // existing call site (amenity chips, payment-method accents, lead-status
+  // colours, etc.) keeps working unchanged.
+  static const Color amenityIndigo = Color(0xFFCA8A04);
   static const Color amenityBlue = Color(0xFF3B82F6);
   static const Color amenityOrange = Color(0xFFF97316);
   static const Color amenityGreen = Color(0xFF22C55E);

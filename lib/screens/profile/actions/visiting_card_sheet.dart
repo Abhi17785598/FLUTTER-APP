@@ -10,6 +10,7 @@ import 'package:gal/gal.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:share_plus/share_plus.dart';
 
+import '../../../core/theme/app_colors.dart';
 import '../../../core/utils/profile_link.dart';
 import 'share_profile_sheet.dart' show copyProfileLink;
 
@@ -26,10 +27,11 @@ import 'share_profile_sheet.dart' show copyProfileLink;
 /// ported source of truth the existing Share/QR sheets already use — so
 /// nothing here invents a new URL scheme or QR value.
 ///
-/// Colours are the portal's own literal canvas values (`#C41230` etc, see
-/// `ProfileShareModal.tsx`'s `ctx.fillStyle` assignments), not the app's
-/// purple `AppColors.primary` — the visiting card is a distinct branded
-/// artifact in the portal too, independent of the site's own theme.
+/// Colours were originally the portal's own literal canvas crimson
+/// (`#C41230`), independent of the app's theme. Retinted to PropCid's real
+/// brand orange (and the header now shows the actual logo asset instead of
+/// a hand-styled wordmark) per an explicit request to bring this card in
+/// line with the rest of the app's branding.
 void showDigitalVisitingCard(
   BuildContext context, {
   required String? userId,
@@ -71,14 +73,16 @@ void showDigitalVisitingCard(
   );
 }
 
-/// The portal's literal canvas colours (`ProfileShareModal.tsx`), kept local
-/// to this feature rather than added to the app-wide [AppColors] palette.
+/// Originally the portal's literal canvas colours (`ProfileShareModal.tsx`).
+/// `red`/`redSoftBg`/`redSoftBorder` are kept under their original names —
+/// so the ~15 call sites below didn't need touching individually — but now
+/// hold PropCid's actual brand orange instead of the portal's crimson.
 class _CardPalette {
   _CardPalette._();
 
-  static const Color red = Color(0xFFC41230);
-  static const Color redSoftBg = Color(0xFFFDECEC);
-  static const Color redSoftBorder = Color(0xFFFBD8D8);
+  static const Color red = AppColors.primary;
+  static const Color redSoftBg = AppColors.primaryLight;
+  static const Color redSoftBorder = Color(0xFFFFD3A8);
   static const Color emerald = Color(0xFF10B981);
   static const Color emeraldSoftBg = Color(0xFFECFDF5);
   static const Color emeraldSoftBorder = Color(0xFFD1FAE5);
@@ -395,50 +399,74 @@ class _VisitingCardSheetState extends State<_VisitingCardSheet> {
                 ),
               ),
               const SizedBox(height: 20),
-              SizedBox(
-                width: double.infinity,
-                height: 50,
-                child: ElevatedButton(
-                  onPressed: (_isSharing || !_imagesReady)
-                      ? null
-                      : _handleShare,
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: _CardPalette.red,
-                    disabledBackgroundColor: _CardPalette.red.withOpacity(0.6),
-                    foregroundColor: Colors.white,
-                    elevation: 0,
-                    shape: RoundedRectangleBorder(
+              // A premium gradient CTA (matching the rest of the app's
+              // primary buttons) in place of the previous flat fill — same
+              // enabled/disabled condition, same `_handleShare` call, same
+              // loading-spinner swap.
+              Builder(
+                builder: (context) {
+                  final enabled = !_isSharing && _imagesReady;
+                  return SizedBox(
+                    width: double.infinity,
+                    height: 50,
+                    child: Material(
+                      color: Colors.transparent,
                       borderRadius: BorderRadius.circular(14),
-                    ),
-                  ),
-                  child: _isSharing
-                      ? const SizedBox(
-                          width: 20,
-                          height: 20,
-                          child: CircularProgressIndicator(
-                            strokeWidth: 2.2,
-                            color: Colors.white,
+                      child: InkWell(
+                        borderRadius: BorderRadius.circular(14),
+                        onTap: enabled ? _handleShare : null,
+                        child: Ink(
+                          decoration: BoxDecoration(
+                            gradient: enabled
+                                ? AppColors.primaryGradient
+                                : LinearGradient(
+                                    colors: [
+                                      AppColors.primary.withOpacity(0.55),
+                                      AppColors.primary.withOpacity(0.4),
+                                    ],
+                                  ),
+                            borderRadius: BorderRadius.circular(14),
+                            boxShadow: enabled ? AppColors.primaryGlow : null,
                           ),
-                        )
-                      : const Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Icon(Icons.ios_share_rounded, size: 19),
-                            SizedBox(width: 8),
-                            Flexible(
-                              child: Text(
-                                'Share Visiting Card + Link',
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                                style: TextStyle(
-                                  fontSize: 15,
-                                  fontWeight: FontWeight.w800,
-                                ),
-                              ),
-                            ),
-                          ],
+                          child: Center(
+                            child: _isSharing
+                                ? const SizedBox(
+                                    width: 20,
+                                    height: 20,
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 2.2,
+                                      color: Colors.white,
+                                    ),
+                                  )
+                                : const Row(
+                                    mainAxisAlignment: MainAxisAlignment.center,
+                                    children: [
+                                      Icon(
+                                        Icons.ios_share_rounded,
+                                        size: 19,
+                                        color: Colors.white,
+                                      ),
+                                      SizedBox(width: 8),
+                                      Flexible(
+                                        child: Text(
+                                          'Share Visiting Card + Link',
+                                          maxLines: 1,
+                                          overflow: TextOverflow.ellipsis,
+                                          style: TextStyle(
+                                            fontSize: 15,
+                                            fontWeight: FontWeight.w800,
+                                            color: Colors.white,
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                          ),
                         ),
-                ),
+                      ),
+                    ),
+                  );
+                },
               ),
               const SizedBox(height: 12),
               Row(
@@ -600,7 +628,10 @@ class _VisitingCardFace extends StatelessWidget {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Container(height: 6, color: _CardPalette.red),
+          Container(
+            height: 6,
+            decoration: const BoxDecoration(gradient: AppColors.primaryGradient),
+          ),
           Padding(
             padding: const EdgeInsets.fromLTRB(18, 16, 18, 16),
             child: Column(
@@ -613,16 +644,26 @@ class _VisitingCardFace extends StatelessWidget {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          const Text(
-                            'PropCID',
-                            style: TextStyle(
-                              fontSize: 21,
-                              fontWeight: FontWeight.w900,
-                              color: _CardPalette.red,
-                              letterSpacing: -0.3,
+                          // The actual PropCid wordmark asset — replaces the
+                          // previous hand-styled "PropCID" text, sized by
+                          // height only via its real aspect ratio (862×203)
+                          // so it can never stretch or distort.
+                          Semantics(
+                            label: 'PropCid',
+                            image: true,
+                            child: SizedBox(
+                              height: 22,
+                              child: AspectRatio(
+                                aspectRatio: 862 / 203,
+                                child: Image.asset(
+                                  'assets/branding/propcid_logo.png',
+                                  fit: BoxFit.contain,
+                                  filterQuality: FilterQuality.high,
+                                ),
+                              ),
                             ),
                           ),
-                          const SizedBox(height: 2),
+                          const SizedBox(height: 3),
                           Text(
                             'YOUR REAL ESTATE PARTNER',
                             style: TextStyle(

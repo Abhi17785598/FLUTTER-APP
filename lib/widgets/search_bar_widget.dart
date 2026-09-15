@@ -43,6 +43,13 @@ class SearchBarWidget extends StatelessWidget {
   /// up against the text.
   final double trailingGap;
 
+  /// When true, renders as a frosted/translucent glass surface (backdrop
+  /// blur + translucent white + a subtle border) instead of the default
+  /// opaque `cardBackground` fill — used by the Home Screen's glassmorphism
+  /// redesign. Defaults to false so every other existing caller (e.g. the
+  /// Search Entry screen) keeps its exact current opaque appearance.
+  final bool glass;
+
   const SearchBarWidget({
     super.key,
     required this.hint,
@@ -61,28 +68,14 @@ class SearchBarWidget extends StatelessWidget {
     this.trailingPadding = 12,
     this.iconGap = 8,
     this.trailingGap = 0,
+    this.glass = false,
   });
 
   @override
   Widget build(BuildContext context) {
     final bool isReadOnly = onTap != null;
 
-    return Container(
-      height: height,
-      decoration: BoxDecoration(
-        color: AppColors.cardBackground,
-        borderRadius: BorderRadius.circular(borderRadius),
-        boxShadow:
-            boxShadow ??
-            [
-              BoxShadow(
-                color: Colors.black.withOpacity(0.03),
-                blurRadius: 8,
-                offset: const Offset(0, 2),
-              ),
-            ],
-      ),
-      child: Row(
+    final Widget content = Row(
         children: [
           SizedBox(width: leadingPadding),
 
@@ -170,7 +163,70 @@ class SearchBarWidget extends StatelessWidget {
 
           SizedBox(width: trailingPadding),
         ],
+      );
+
+    if (!glass) {
+      return Container(
+        height: height,
+        decoration: BoxDecoration(
+          color: AppColors.cardBackground,
+          borderRadius: BorderRadius.circular(borderRadius),
+          boxShadow:
+              boxShadow ??
+              [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.03),
+                  blurRadius: 8,
+                  offset: const Offset(0, 2),
+                ),
+              ],
+        ),
+        child: content,
+      );
+    }
+
+    // Glass variant: translucent white + a subtle white border, so the
+    // page's background stays faintly visible behind the bar while every
+    // piece of actual content (icon/text/trailing action) stays fully
+    // opaque and just as readable as the default variant.
+    //
+    // No `BackdropFilter` here on purpose: this bar sits near the top of
+    // Home's scrolling content, full-width, and scrolls with the page — a
+    // live blur here was recomputed on every scroll frame purely for a
+    // "frosted" look most of it (0.78 opacity) was already hiding anyway.
+    // Opacity raised slightly (0.7→0.78) to compensate for dropping it.
+    return Container(
+      height: height,
+      decoration: BoxDecoration(
+        color: Colors.white.withOpacity(0.78),
+        borderRadius: BorderRadius.circular(borderRadius),
+        border: Border.all(color: Colors.white.withOpacity(0.6)),
+        boxShadow:
+            boxShadow ??
+            [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.06),
+                blurRadius: 16,
+                offset: const Offset(0, 6),
+              ),
+            ],
       ),
+      // Same thin fading top sheen `GlassCard(highlight: true)` uses
+      // elsewhere on the page, for a consistent "light catching the top
+      // of the glass" cue across every glass surface on Home.
+      foregroundDecoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(borderRadius),
+        gradient: LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          colors: [
+            Colors.white.withOpacity(0.35),
+            Colors.white.withOpacity(0.0),
+          ],
+          stops: const [0.0, 0.5],
+        ),
+      ),
+      child: content,
     );
   }
 }

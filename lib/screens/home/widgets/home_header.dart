@@ -5,6 +5,7 @@ import 'package:provider/provider.dart';
 import '../../../core/constants/app_constants.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_text_styles.dart';
+import '../../../core/widgets/glass_card.dart';
 import '../../../providers/notification_provider.dart';
 
 /// Home's top app bar: logo/brand dropdown + calendar/notifications/avatar
@@ -13,64 +14,72 @@ import '../../../providers/notification_provider.dart';
 class HomeHeader extends StatelessWidget {
   const HomeHeader({super.key});
 
+  /// The real PropCid wordmark — 862×203 px, transparent background,
+  /// already brand-orange. Same file the rest of the app's branding
+  /// declares in `pubspec.yaml`; sized here by height only (via
+  /// `AspectRatio`) so it can never stretch or distort.
+  static const String _logoAssetPath = 'assets/branding/propcid_logo.png';
+  static const double _logoAspectRatio = 862 / 203;
+
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-      child: Row(
+      padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
+      child: GlassCard(
+        borderRadius: 20,
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+        opacity: 0.68,
+        blurSigma: 22,
+        borderColor: Colors.white.withOpacity(0.55),
+        highlight: true,
+        child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
           GestureDetector(
             onTap: () => _showLogoDropdown(context),
-            child: Row(
+            behavior: HitTestBehavior.opaque,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
               children: [
-                Container(
-                  width: 42,
-                  height: 42,
-                  decoration: BoxDecoration(
-                    gradient: AppColors.primaryGradient,
-                    borderRadius: BorderRadius.circular(13),
-                    boxShadow: AppColors.primaryGlow,
-                  ),
-                  child: const Center(
-                    child: Text(
-                      'PC',
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontWeight: FontWeight.w800,
-                        fontSize: 15,
-                      ),
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 10),
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+                Row(
+                  mainAxisSize: MainAxisSize.min,
                   children: [
-                    Row(
-                      children: [
-                        const Text(
-                          'PropCID',
-                          style: TextStyle(
-                            fontSize: 18,
-                            fontWeight: FontWeight.w800,
-                            color: AppColors.textPrimary,
-                            letterSpacing: 0.1,
+                    Semantics(
+                      label: 'PropCid',
+                      image: true,
+                      child: SizedBox(
+                        height: 27,
+                        child: AspectRatio(
+                          aspectRatio: _logoAspectRatio,
+                          child: Image.asset(
+                            _logoAssetPath,
+                            fit: BoxFit.contain,
+                            filterQuality: FilterQuality.high,
                           ),
                         ),
-                        const SizedBox(width: 2),
-                        const Icon(
-                          Icons.keyboard_arrow_down_rounded,
-                          size: 20,
-                          color: AppColors.textSecondary,
-                        ),
-                      ],
+                      ),
                     ),
-                    Text(
-                      'Find. Compare. Own.',
-                      style: AppTextStyles.caption.copyWith(fontSize: 10.5),
+                    const SizedBox(width: 5),
+                    const Padding(
+                      // The wordmark's own glyphs sit slightly above its
+                      // bounding box's vertical centre (no descenders), so
+                      // the arrow is nudged down a touch to optically (not
+                      // just numerically) align with it, rather than with
+                      // the wordmark's full — partly empty — box.
+                      padding: EdgeInsets.only(top: 3),
+                      child: Icon(
+                        Icons.keyboard_arrow_down_rounded,
+                        size: 19,
+                        color: AppColors.textSecondary,
+                      ),
                     ),
                   ],
+                ),
+                const SizedBox(height: 5),
+                Text(
+                  'Find. Compare. Own.',
+                  style: AppTextStyles.caption.copyWith(fontSize: 10.5),
                 ),
               ],
             ),
@@ -109,6 +118,7 @@ class HomeHeader extends StatelessWidget {
             ],
           ),
         ],
+        ),
       ),
     );
   }

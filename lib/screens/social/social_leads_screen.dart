@@ -27,7 +27,7 @@ const List<String> kLeadStatuses = ['new', 'contacted', 'qualified', 'closed'];
 const Map<String, Color> _leadStatusColor = {
   'new': Color(0xFF2563EB),
   'contacted': Color(0xFFB45309),
-  'qualified': Color(0xFF7C3AED),
+  'qualified': Color(0xFF0D9488),
   'closed': Color(0xFF16A34A),
 };
 
