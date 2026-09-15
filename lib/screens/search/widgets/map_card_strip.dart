@@ -85,7 +85,7 @@ class _MapStripCard extends StatelessWidget {
             color: AppColors.cardBackground,
             borderRadius: BorderRadius.circular(AppConstants.cardRadius),
             // The redesign gives the strip the quieter chrome shadow, not the
-            // purple-tinted one the list and grid cards carry.
+            // orange-tinted one the list and grid cards carry.
             boxShadow: AppColors.surfaceCardShadow,
           ),
           clipBehavior: Clip.antiAlias,

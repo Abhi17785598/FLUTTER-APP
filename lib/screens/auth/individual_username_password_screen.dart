@@ -425,12 +425,8 @@ class _IndividualUsernamePasswordScreenState
                     DecoratedBox(
                       decoration: BoxDecoration(
                         borderRadius: BorderRadius.circular(12),
-                        gradient: const LinearGradient(
-                          colors: [
-                            Color(0xFF3B82F6),
-                            Color(0xFFF97316),
-                            Color(0xFF7C3AED),
-                          ],
+                        gradient: LinearGradient(
+                          colors: AppColors.heroGradient.colors,
                           begin: Alignment.centerLeft,
                           end: Alignment.centerRight,
                         ),

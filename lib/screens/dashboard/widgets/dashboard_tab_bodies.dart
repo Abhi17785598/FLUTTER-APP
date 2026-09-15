@@ -295,7 +295,7 @@ class DashboardAudienceBody extends StatelessWidget {
                 points: audience.followerGrowth,
                 height: 100,
                 // The prototype fills this one with the lighter accent.
-                areaColor: Color(0xFF7C72F0),
+                areaColor: Color(0xFFFDBA74),
                 emptyMessage: 'No follower data yet',
               ),
             ],

@@ -26,8 +26,8 @@ import 'widgets/dashboard_tab_bodies.dart';
 
 // Retained accents used by the loading and error states.
 class _BrandGradient {
-  static const Color c2 = Color(0xFF3424C8);
-  static const Color c4 = Color(0xFF6657FF);
+  static const Color c2 = AppColors.primary;
+  static const Color c4 = Color(0xFFC2410C);
 }
 
 /// Broker Manage Dashboard.

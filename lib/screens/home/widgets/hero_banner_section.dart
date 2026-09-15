@@ -1,3 +1,5 @@
+import 'dart:ui';
+
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 
@@ -273,19 +275,14 @@ class _BannerCard extends StatelessWidget {
                   ),
                 ),
               ),
-              // FEATURED pill.
-              Positioned(
+              // FEATURED pill — frosted glass, matching the rest of Home's
+              // glass system, while staying opaque enough to read clearly
+              // over any part of the photo.
+              const Positioned(
                 top: 14,
                 left: 14,
-                child: Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 12,
-                    vertical: 6,
-                  ),
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(20),
-                  ),
+                child: _GlassChip(
+                  padding: EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                   child: Text(
                     'FEATURED',
                     style: TextStyle(
@@ -297,18 +294,18 @@ class _BannerCard extends StatelessWidget {
                   ),
                 ),
               ),
-              // Page counter.
+              // Page counter — dark frosted glass, same treatment, tuned
+              // dark so it still reads over light parts of the photo.
               Positioned(
                 top: 14,
                 right: 14,
-                child: Container(
+                child: _GlassChip(
+                  tint: Colors.black,
+                  tintOpacity: 0.4,
+                  borderOpacity: 0.22,
                   padding: const EdgeInsets.symmetric(
                     horizontal: 10,
                     vertical: 5,
-                  ),
-                  decoration: BoxDecoration(
-                    color: Colors.black.withOpacity(0.35),
-                    borderRadius: BorderRadius.circular(20),
                   ),
                   child: Text(
                     '${index + 1} / $total',
@@ -351,7 +348,7 @@ class _BannerCard extends StatelessWidget {
                           TextSpan(text: '${data.headline} '),
                           TextSpan(
                             text: data.accentWord,
-                            style: const TextStyle(color: Color(0xFFC9BBFF)),
+                            style: const TextStyle(color: Color(0xFFFFC98A)),
                           ),
                         ],
                       ),
@@ -367,14 +364,12 @@ class _BannerCard extends StatelessWidget {
                       ),
                     ),
                     const SizedBox(height: 14),
-                    Container(
+                    _GlassChip(
+                      tintOpacity: 0.82,
+                      radius: 24,
                       padding: const EdgeInsets.symmetric(
                         horizontal: 16,
                         vertical: 9,
-                      ),
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        borderRadius: BorderRadius.circular(24),
                       ),
                       child: Row(
                         mainAxisSize: MainAxisSize.min,
@@ -401,6 +396,48 @@ class _BannerCard extends StatelessWidget {
               ),
             ],
           ),
+        ),
+      ),
+    );
+  }
+}
+
+/// A small frosted-glass chip — used for the banner's FEATURED tag, page
+/// counter, and "Explore Properties" CTA, so every overlay on the hero photo
+/// reads as part of the same glass system as the rest of Home, without ever
+/// blurring the photo itself (only what's behind each small chip is
+/// blurred — the photo stays 100% sharp everywhere else).
+class _GlassChip extends StatelessWidget {
+  const _GlassChip({
+    required this.child,
+    required this.padding,
+    this.tint = Colors.white,
+    this.tintOpacity = 0.78,
+    this.borderOpacity = 0.55,
+    this.radius = 20,
+  });
+
+  final Widget child;
+  final EdgeInsetsGeometry padding;
+  final Color tint;
+  final double tintOpacity;
+  final double borderOpacity;
+  final double radius;
+
+  @override
+  Widget build(BuildContext context) {
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(radius),
+      child: BackdropFilter(
+        filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
+        child: Container(
+          padding: padding,
+          decoration: BoxDecoration(
+            color: tint.withOpacity(tintOpacity),
+            borderRadius: BorderRadius.circular(radius),
+            border: Border.all(color: Colors.white.withOpacity(borderOpacity)),
+          ),
+          child: child,
         ),
       ),
     );

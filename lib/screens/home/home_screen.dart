@@ -39,29 +39,6 @@ class HomeScreen extends StatefulWidget {
 }
 
 class _HomeScreenState extends State<HomeScreen> {
-  /// Ambient backdrop source — the same featured-property photo shown in the
-  /// hero carousel's "Your Dream Home" slide (`HeroBannerSection`'s 3rd
-  /// `_BannerData`), reused here as a fixed, non-rotating wallpaper rather
-  /// than syncing to whichever of the 5 carousel slides happens to be
-  /// active. Heavily blurred and washed with the theme's own background
-  /// tint below it — a soft, neutral texture behind the scroll content, not
-  /// a vivid photo.
-  static const String _kAmbientBackdropUrl =
-      'https://images.unsplash.com/photo-1613490493576-7fde63acd811?w=800&q=80';
-
-  /// How strongly the backdrop wash covers the blurred photo — lower makes
-  /// the photo read through more; higher keeps it closer to flat
-  /// `AppColors.background`. Tune this one number to adjust.
-  ///
-  /// 0.88 (the original value) turned out to be imperceptible: this photo's
-  /// tones (white walls, pale sky, pool water) sit within a few RGB units of
-  /// `AppColors.background` (`#F4F4F8`) to begin with, so blending it at 88%
-  /// opacity landed within 1-2 units of flat background — indistinguishable
-  /// on a real screen. Lowered enough that the blurred color patches are
-  /// actually visible, while the blur (sigma 40) keeps it a soft wash, not a
-  /// recognizable photo.
-  static const double _kBackdropWashOpacity = 0.55;
-
   @override
   void initState() {
     super.initState();
@@ -87,7 +64,7 @@ class _HomeScreenState extends State<HomeScreen> {
   Widget build(BuildContext context) {
     final sections = <Widget>[
       const SizedBox(height: 6),
-      const PremiumSearchSection(),
+      const ScrollReveal(child: PremiumSearchSection()),
       const SizedBox(height: 18),
 
       // Hero Banner bleeds its own gradient tail into the page, so it needs
@@ -95,29 +72,29 @@ class _HomeScreenState extends State<HomeScreen> {
       const ScrollReveal(child: HeroBannerSection()),
       const SizedBox(height: 6),
 
-      const QuickActionsSection(),
+      const ScrollReveal(child: QuickActionsSection()),
       const SizedBox(height: 18),
 
-      const CategoryIconGrid(),
+      const ScrollReveal(child: CategoryIconGrid()),
       const SizedBox(height: 18),
 
       // Trending Cities — mirrors the web home page's position for this rail,
       // right after the category tiles. Renders nothing (no trailing gap
       // left behind either) when the admin table has no active cities; see
       // TrendingCitiesSection's own bottom padding.
-      const TrendingCitiesSection(),
+      const ScrollReveal(child: TrendingCitiesSection()),
 
       // Property Verification — one of the first "do something" moments on the
       // page, mirroring its high position on the web home page.
       const ScrollReveal(child: PropertyVerificationSection()),
       const SizedBox(height: 24),
 
-      const PropertyReelsSection(),
+      const ScrollReveal(child: PropertyReelsSection()),
       const SizedBox(height: 4),
 
       // Latest Articles. Same "renders nothing, owns its own trailing gap"
       // convention as Latest News below — see LatestArticlesSection.
-      const LatestArticlesSection(),
+      const ScrollReveal(child: LatestArticlesSection()),
 
       const SizedBox(height: 24),
 
@@ -129,8 +106,8 @@ class _HomeScreenState extends State<HomeScreen> {
       // properties are different entities ([ProjectModel] vs
       // [PropertyModel]) and must never be shown as if they were the same
       // list.
-      const FeaturedProjectsSection(),
-      const FeaturedPropertiesSection(),
+      const ScrollReveal(child: FeaturedProjectsSection()),
+      const ScrollReveal(child: FeaturedPropertiesSection()),
       const SizedBox(height: 24),
 
       // Latest News. Renders nothing at all — not even its header — when the
@@ -141,42 +118,44 @@ class _HomeScreenState extends State<HomeScreen> {
 
       // Top Builders — mirrors the web home page's sidebar position, right
       // after Latest News.
-      const TopBuildersSection(),
+      const ScrollReveal(child: TopBuildersSection()),
 
       // "New Listings" — individual property listings, newest first. This is
       // deliberately titled differently from the section below: it renders
       // `properties` rows, not `builder_projects` rows, and the two used to
       // share the title "Latest Projects" while showing entirely different
       // data — exactly the property/project conflation this pass fixes.
-      PropertyRailSection(
-        title: 'New Listings',
-        showWhenEmpty: true,
-        emptyMessage: 'No properties listed yet',
-        selector: (all) {
-          final newest = List.of(all)
-            ..sort(
-              (a, b) => (b.createdAt ?? DateTime(0)).compareTo(
-                a.createdAt ?? DateTime(0),
-              ),
-            );
-          return newest.take(8).toList();
-        },
+      ScrollReveal(
+        child: PropertyRailSection(
+          title: 'New Listings',
+          showWhenEmpty: true,
+          emptyMessage: 'No properties listed yet',
+          selector: (all) {
+            final newest = List.of(all)
+              ..sort(
+                (a, b) => (b.createdAt ?? DateTime(0)).compareTo(
+                  a.createdAt ?? DateTime(0),
+                ),
+              );
+            return newest.take(8).toList();
+          },
+        ),
       ),
       const SizedBox(height: 24),
 
       // The genuine "Latest Projects" rail — `builder_projects`, not
       // `properties`. Sits right after New Listings, mirroring the web home
       // page's Latest-Projects-in-city → Top Brokers → Top Influencers order.
-      const LatestProjectsSection(),
+      const ScrollReveal(child: LatestProjectsSection()),
 
       // Popular Brokers / Popular Influencers — mirrors the web home page's
       // "Top Brokers" / "Top Influencers" position, right after the latest
       // listings. Each renders nothing (and owns its own trailing gap) when
       // there are no matching approved profiles.
-      const PopularBrokersSection(),
-      const PopularInfluencersSection(),
+      const ScrollReveal(child: PopularBrokersSection()),
+      const ScrollReveal(child: PopularInfluencersSection()),
 
-      const TrendingSection(),
+      const ScrollReveal(child: TrendingSection()),
       const SizedBox(height: 24),
 
       // Tell Your Needs — mid-page, after the main listings content, mirroring
@@ -190,46 +169,35 @@ class _HomeScreenState extends State<HomeScreen> {
       // Investor's Corner, then City ROI Index — mirrors the web home
       // page's order right after its "Useful Tools" block. Each renders
       // nothing when the admin table has no active rows.
-      const InvestorsCornerSection(),
-      const CityRoiSection(),
+      const ScrollReveal(child: InvestorsCornerSection()),
+      const ScrollReveal(child: CityRoiSection()),
 
-      const BudgetSection(),
+      const ScrollReveal(child: BudgetSection()),
       const SizedBox(height: 100),
     ];
 
     return Scaffold(
       backgroundColor: AppColors.background,
-      body: SafeArea(
-        child: Column(
-          children: [
-            const HomeHeader(),
-            Expanded(
-              child: Stack(
-                children: [
-                  // Ambient blurred backdrop, behind the scroll content only
-                  // — the header above keeps its existing plain background
-                  // untouched. Two layers: the blurred photo, then a wash in
-                  // the theme's own background color on top of it (see
-                  // `_kBackdropWashOpacity`).
-                  Positioned.fill(
-                    child: ImageFiltered(
-                      imageFilter: ImageFilter.blur(sigmaX: 40, sigmaY: 40),
-                      child: CachedNetworkImage(
-                        imageUrl: _kAmbientBackdropUrl,
-                        fit: BoxFit.cover,
-                        placeholder: (_, _) => const SizedBox.shrink(),
-                        errorWidget: (_, _, _) => const SizedBox.shrink(),
-                      ),
-                    ),
-                  ),
-                  Positioned.fill(
-                    child: ColoredBox(
-                      color: AppColors.background.withValues(
-                        alpha: _kBackdropWashOpacity,
-                      ),
-                    ),
-                  ),
-                  CustomScrollView(
+      extendBody: true,
+      body: Stack(
+        fit: StackFit.expand,
+        children: [
+          // Full-screen, fixed (non-scrolling) backdrop behind the whole
+          // page — the glassmorphism header/search/quick-actions above sit
+          // on top of it, and it also shows faintly through the gaps
+          // between the ordinary opaque section cards further down the
+          // scroll, without any of those ~20 other sections needing to
+          // change. (The header needs this: its `GlassCard` is a real
+          // translucent blur, which reads as flat, pointless glass with
+          // nothing but plain background behind it — this backdrop is what
+          // that glass is actually showing through.)
+          const _HomeBackground(),
+          SafeArea(
+            child: Column(
+              children: [
+                const HomeHeader(),
+                Expanded(
+                  child: CustomScrollView(
                     slivers: [
                       SliverList(
                         delegate: SliverChildBuilderDelegate(
@@ -239,13 +207,66 @@ class _HomeScreenState extends State<HomeScreen> {
                       ),
                     ],
                   ),
-                ],
-              ),
+                ),
+              ],
             ),
-          ],
-        ),
+          ),
+        ],
       ),
       bottomNavigationBar: const BottomNavBar(currentIndex: 0),
+    );
+  }
+}
+
+/// The Home Screen's premium real-estate backdrop: a softly blurred property
+/// photo under a warm wash — subtle enough that it never competes with the
+/// glass surfaces and ordinary opaque cards painted on top of it, but still
+/// visible enough that the header/search/quick-actions' glass has something
+/// real to show through. Fixed and non-scrolling, sitting behind the whole
+/// page (see the `Scaffold` in `build()`), so it also shows faintly through
+/// the gaps between the ordinary opaque section cards further down the
+/// scroll without any of those ~20 other sections needing to change.
+class _HomeBackground extends StatelessWidget {
+  const _HomeBackground();
+
+  /// The same featured-property photo shown in the hero carousel's "Your
+  /// Dream Home" slide (`HeroBannerSection`'s 3rd `_BannerData`), reused
+  /// here as a fixed, non-rotating wallpaper rather than syncing to
+  /// whichever of the 5 carousel slides happens to be active.
+  static const String _imageUrl =
+      'https://images.unsplash.com/photo-1613490493576-7fde63acd811?w=800&q=80';
+
+  /// How strongly the wash covers the blurred photo — lower makes the photo
+  /// read through more; higher keeps it closer to flat `AppColors.background`.
+  ///
+  /// 0.88 (an earlier value) turned out to be imperceptible: this photo's
+  /// tones sit within a few RGB units of `AppColors.background` (`#F4F4F8`)
+  /// to begin with, so blending it at 88% opacity landed within 1-2 units of
+  /// flat background — indistinguishable on a real screen. 0.55 is low
+  /// enough that the blurred colour patches are actually visible, while the
+  /// blur itself (sigma 40) keeps it a soft wash, not a recognisable photo.
+  static const double _washOpacity = 0.55;
+
+  @override
+  Widget build(BuildContext context) {
+    return Stack(
+      fit: StackFit.expand,
+      children: [
+        ImageFiltered(
+          imageFilter: ImageFilter.blur(sigmaX: 40, sigmaY: 40),
+          child: CachedNetworkImage(
+            imageUrl: _imageUrl,
+            fit: BoxFit.cover,
+            placeholder: (context, url) =>
+                const ColoredBox(color: AppColors.primaryLight),
+            errorWidget: (context, url, error) =>
+                const ColoredBox(color: AppColors.background),
+          ),
+        ),
+        ColoredBox(
+          color: AppColors.background.withOpacity(_washOpacity),
+        ),
+      ],
     );
   }
 }

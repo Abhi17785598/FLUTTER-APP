@@ -6,6 +6,8 @@ import '../core/constants/app_constants.dart';
 import '../core/navigation/banner_destination_resolver.dart';
 import '../core/theme/app_colors.dart';
 import '../core/theme/app_text_styles.dart';
+import '../core/widgets/glass_card.dart';
+import '../core/widgets/scale_tap.dart';
 import '../models/banner_destination.dart';
 import '../providers/filter_provider.dart';
 import '../services/property_service.dart';
@@ -104,7 +106,7 @@ class CategoryIconGrid extends StatefulWidget {
     CategoryItem(
       label: 'Commercial',
       imageAsset: '$_assetBase/commercial.webp',
-      accentColor: Color(0xFF9333EA),
+      accentColor: Color(0xFF475569),
       destination: BannerDestination.collection(category: 'commercial'),
       countKey: 'commercial',
     ),
@@ -280,22 +282,31 @@ class _CategoryIconGridState extends State<CategoryIconGrid> {
   ) {
     return Padding(
       padding: const EdgeInsets.only(right: _kTileGap),
-      child: GestureDetector(
+      child: ScaleTap(
         onTap: () => _open(context, category),
-        child: Container(
-          width: tileWidth,
-          clipBehavior: Clip.antiAlias,
-          decoration: BoxDecoration(
-            // A plain, elevated white card — no colour wash behind the
-            // illustration. Each source image already sits on its own
-            // plain white canvas, so painting the card the exact same
-            // white makes that canvas disappear entirely instead of
-            // reading as a separate box.
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(AppConstants.cardRadius),
-            boxShadow: AppColors.surfaceCardShadow,
-          ),
-          child: Column(
+        scaleDown: 0.97,
+        child: GlassCard(
+        width: tileWidth,
+        borderRadius: AppConstants.cardRadius,
+        padding: EdgeInsets.zero,
+        // Kept close to opaque (rather than the ~0.7 used by the header/
+        // action cards): each illustration already sits on its own baked-in
+        // white canvas, so a high opacity here keeps that canvas and the
+        // surrounding glass tile reading as one consistent surface instead
+        // of a mismatched seam — while `highlight`/`borderColor` still give
+        // it the same glass rim/sheen as the rest of the page.
+        //
+        // `blurSigma: 0` deliberately — this rail scrolls both with the
+        // page (vertically) and itself (horizontally), and at 0.88 opacity
+        // a live backdrop blur was never visibly doing anything useful
+        // behind these already-near-opaque tiles anyway. Nine of them
+        // running `BackdropFilter` while moving was a real, measurable
+        // scroll-jank cost for zero visual benefit.
+        opacity: 0.88,
+        blurSigma: 0,
+        borderColor: Colors.white.withOpacity(0.6),
+        highlight: true,
+        child: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -351,13 +362,19 @@ class _CategoryIconGridState extends State<CategoryIconGrid> {
                     fontWeight: FontWeight.w600,
                     color: AppColors.textPrimary,
                   ),
-                  maxLines: 2,
+                  // Was `maxLines: 2` — a label that happened to wrap (e.g.
+                  // "Commercial" on a narrow tile) made that one card taller
+                  // than its single-line siblings, which is exactly the
+                  // "cards aren't visually consistent" symptom. Capped to one
+                  // line so every tile's height is identical regardless of
+                  // label length.
+                  maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                 ),
               ),
             ],
           ),
-        ),
+      ),
       ),
     );
   }

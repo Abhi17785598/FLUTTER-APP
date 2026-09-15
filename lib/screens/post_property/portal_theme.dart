@@ -31,8 +31,10 @@ class PortalTheme {
   /// has one primary, so both map to it.
   static const Color accentBright = AppColors.primary;
 
-  /// Gradient partner for [accent], from [AppColors.primaryGradient].
-  static const Color accentGradientEnd = Color(0xFF7C72F0);
+  /// Gradient partner for [accent] — the same end stop as
+  /// [AppColors.primaryGradient] (kept as a literal here since a `const`
+  /// can't read `.colors.last` off that gradient at compile time).
+  static const Color accentGradientEnd = Color(0xFFFDBA74);
 
   /// Tinted surface behind a selected card / step header.
   static const Color accentSurface = AppColors.primaryLight;

@@ -17,6 +17,7 @@ import 'package:cached_network_image/cached_network_image.dart';
 import '../core/constants/app_constants.dart';
 import '../core/theme/app_colors.dart';
 import '../core/theme/app_text_styles.dart';
+import '../core/widgets/scale_tap.dart';
 import '../models/project_model.dart';
 import '../screens/dashboard/widgets/my_projects_section.dart'
     show ProjectStatusPill, projectPriceRangeLabel;
@@ -38,8 +39,9 @@ class ProjectCardVertical extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
+    return ScaleTap(
       onTap: onTap,
+      scaleDown: 0.97,
       child: Container(
         width: width,
         margin: const EdgeInsets.only(right: 16),

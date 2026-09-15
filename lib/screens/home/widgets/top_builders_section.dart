@@ -14,7 +14,8 @@ import '../../../core/widgets/scale_tap.dart';
 import '../../../models/user_profile.dart';
 import '../../../services/top_builders_service.dart';
 import '../../../widgets/section_header.dart';
-import 'popular_agents_section.dart' show AgentCard, kAgentRailHeight;
+import 'popular_agents_section.dart'
+    show AgentCard, AgentRailShimmer, kAgentRailHeight;
 
 class TopBuildersSection extends StatefulWidget {
   const TopBuildersSection({super.key, this.service});
@@ -35,6 +36,13 @@ class _TopBuildersSectionState extends State<TopBuildersSection> {
     return FutureBuilder<List<UserProfile>>(
       future: _future,
       builder: (context, snapshot) {
+        // Same "shimmer only while genuinely waiting" treatment as the
+        // Popular Brokers/Influencers rails just above this one on Home —
+        // see `AgentRailShimmer`'s doc comment.
+        if (snapshot.connectionState != ConnectionState.done) {
+          return const AgentRailShimmer(title: 'Top Builders');
+        }
+
         final builders = snapshot.data;
         if (builders == null || builders.isEmpty)
           return const SizedBox.shrink();

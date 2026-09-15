@@ -10,7 +10,7 @@
 // animated pills driven by the `PageController`.
 //
 // Colour: the portal's orange is not carried over. Each card gets its own tint —
-// primary purple, `AppColors.success` green, `AppColors.warning` amber — so the
+// primary orange, `AppColors.success` green, `AppColors.warning` amber — so the
 // three read as distinct without inventing a palette.
 import 'package:flutter/material.dart';
 

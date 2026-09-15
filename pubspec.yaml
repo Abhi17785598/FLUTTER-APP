@@ -133,7 +133,7 @@ flutter:
     - assets/lucide/
     - assets/categoriesicons/
     - assets/branding/propcid_logo.png
-    - assets/branding/propcid_logo_trimmed.png
+    - assets/Onboarding/
 
   # To add assets to your application, add an assets section, like this:
   # assets:

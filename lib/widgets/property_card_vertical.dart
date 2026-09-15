@@ -3,6 +3,7 @@ import 'package:cached_network_image/cached_network_image.dart';
 import '../core/constants/app_constants.dart';
 import '../core/theme/app_colors.dart';
 import '../core/theme/app_text_styles.dart';
+import '../core/widgets/scale_tap.dart';
 import '../models/property_model.dart';
 import 'round_icon_button.dart';
 import 'verified_badge.dart';
@@ -42,8 +43,9 @@ class PropertyCardVertical extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
+    return ScaleTap(
       onTap: onTap,
+      scaleDown: 0.97,
       child: Container(
         width: width,
         margin: const EdgeInsets.only(right: 16),
@@ -217,7 +219,12 @@ class PropertyCardVertical extends StatelessWidget {
                     overflow: TextOverflow.ellipsis,
                   ),
                   const SizedBox(height: 4),
-                  Text(property.builderName, style: AppTextStyles.caption),
+                  Text(
+                    property.builderName,
+                    style: AppTextStyles.caption,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
                   const SizedBox(height: 8),
                   Row(
                     children: [

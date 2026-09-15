@@ -37,35 +37,30 @@ class PremiumSearchSection extends StatelessWidget {
                 ],
               ),
               const SizedBox(height: 16),
-              Container(
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(18),
-                  boxShadow: AppColors.cardShadow,
-                ),
-                child: SearchBarWidget(
-                  hint: 'Search properties, locations...',
-                  onTap: () =>
-                      Navigator.pushNamed(context, AppConstants.searchScreen),
-                  trailing: GestureDetector(
-                    onTap: () => Navigator.pushNamed(
-                      context,
-                      AppConstants.searchScreen,
-                      arguments: {'autoStartVoice': true},
+              SearchBarWidget(
+                hint: 'Search properties, locations...',
+                glass: true,
+                height: 54,
+                onTap: () =>
+                    Navigator.pushNamed(context, AppConstants.searchScreen),
+                trailing: GestureDetector(
+                  onTap: () => Navigator.pushNamed(
+                    context,
+                    AppConstants.searchScreen,
+                    arguments: {'autoStartVoice': true},
+                  ),
+                  child: Container(
+                    width: 38,
+                    height: 38,
+                    decoration: BoxDecoration(
+                      gradient: AppColors.primaryGradient,
+                      borderRadius: BorderRadius.circular(13),
+                      boxShadow: AppColors.primaryGlow,
                     ),
-                    child: Container(
-                      width: 38,
-                      height: 38,
-                      decoration: BoxDecoration(
-                        gradient: AppColors.primaryGradient,
-                        borderRadius: BorderRadius.circular(13),
-                        boxShadow: AppColors.primaryGlow,
-                      ),
-                      child: const Icon(
-                        Icons.mic,
-                        color: Colors.white,
-                        size: 19,
-                      ),
+                    child: const Icon(
+                      Icons.mic,
+                      color: Colors.white,
+                      size: 19,
                     ),
                   ),
                 ),

@@ -420,9 +420,54 @@ class _AuthScreenState extends State<AuthScreen> with TickerProviderStateMixin {
                   ),
                 ),
               ),
+              // Fills the leftover grey space below the form card on
+              // taller viewports (where hero + card together are shorter
+              // than the screen) with a small branded trust footer instead
+              // of leaving it visibly bare. Purely decorative — no new
+              // interaction, no layout change to the card/hero above.
+              const SizedBox(height: 28),
+              _buildBottomBrandFooter(),
             ],
           ),
         ),
+      ),
+    );
+  }
+
+  // ─── Bottom brand footer ──────────────────────────────────
+
+  Widget _buildBottomBrandFooter() {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 24),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Wrap(
+            alignment: WrapAlignment.center,
+            spacing: 18,
+            runSpacing: 8,
+            children: const [
+              _TrustBadge(
+                icon: Icons.verified_outlined,
+                label: 'Verified Listings',
+              ),
+              _TrustBadge(icon: Icons.lock_outline, label: 'Secure & Private'),
+              _TrustBadge(
+                icon: Icons.support_agent_rounded,
+                label: '24/7 Support',
+              ),
+            ],
+          ),
+          const SizedBox(height: 14),
+          Text(
+            '© ${DateTime.now().year} PropCid · All rights reserved',
+            textAlign: TextAlign.center,
+            style: AppTextStyles.caption.copyWith(
+              fontSize: 11.5,
+              color: AppColors.textHint,
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -436,12 +481,15 @@ class _AuthScreenState extends State<AuthScreen> with TickerProviderStateMixin {
   // height that scales gently with the viewport instead of the previous
   // 230–340px range.
 
-  static const String _logoAssetPath =
-      'assets/branding/propcid_logo_trimmed.png';
-  // Fixed aspect ratio of the trimmed asset (1998×495 px) — used to size the
-  // logo by width alone via `AspectRatio`, so both call sites below stay
+  // `propcid_logo_trimmed.png` (referenced here previously) does not exist
+  // in this checkout — only `propcid_logo.png` does, and it's the one the
+  // rest of the app's branding (Home header, splash) already uses. Pointed
+  // at that file instead so this screen actually builds.
+  static const String _logoAssetPath = 'assets/branding/propcid_logo.png';
+  // Real pixel size of that asset (862×203 px) — used to size the logo by
+  // width alone via `AspectRatio`, so both call sites below stay
   // pixel-faithful to the source file without hand-tuned height numbers.
-  static const double _logoAspectRatio = 1998 / 495;
+  static const double _logoAspectRatio = 862 / 203;
 
   /// `Image.asset` with a real accessible label, matching the "PropCid"
   /// name a screen-reader user would expect — a bare decorative image would
@@ -1195,6 +1243,32 @@ class _AuthPrimaryButton extends StatelessWidget {
                 ],
               ),
       ),
+    );
+  }
+}
+
+/// One small icon+label pair used in the bottom brand footer's trust row.
+class _TrustBadge extends StatelessWidget {
+  const _TrustBadge({required this.icon, required this.label});
+
+  final IconData icon;
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Icon(icon, size: 13, color: AppColors.textHint),
+        const SizedBox(width: 5),
+        Text(
+          label,
+          style: AppTextStyles.caption.copyWith(
+            fontSize: 11.5,
+            color: AppColors.textHint,
+          ),
+        ),
+      ],
     );
   }
 }

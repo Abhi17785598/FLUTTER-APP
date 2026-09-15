@@ -22,6 +22,7 @@ import '../../../core/constants/app_constants.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_text_styles.dart';
 import '../../../core/widgets/scale_tap.dart';
+import '../../../core/widgets/shimmer_loader.dart';
 import '../../../models/user_profile.dart';
 import '../../../services/people_search_service.dart';
 import '../../../widgets/section_header.dart';
@@ -89,6 +90,16 @@ class _PopularAgentsRailState extends State<_PopularAgentsRail> {
     return FutureBuilder<List<UserProfile>>(
       future: _future,
       builder: (context, snapshot) {
+        // Was `return const SizedBox.shrink()` while waiting, same as the
+        // empty/error case below — meaning this rail's real content simply
+        // popped into existence with no transition once the query resolved.
+        // A shimmer placeholder here (shown only for the actual in-flight
+        // wait, never for a genuinely empty/failed result) removes that
+        // pop-in without changing what's ultimately shown once loaded.
+        if (snapshot.connectionState != ConnectionState.done) {
+          return AgentRailShimmer(title: widget.title);
+        }
+
         final all = snapshot.data;
         if (all == null) return const SizedBox.shrink();
         final agents = all.where(widget.roleSelector).toList();
@@ -127,6 +138,42 @@ class _PopularAgentsRailState extends State<_PopularAgentsRail> {
           ),
         );
       },
+    );
+  }
+}
+
+/// Loading placeholder for [_PopularAgentsRail] and [TopBuildersSection] —
+/// same header + same rail height + the same [AgentCard] shape, shimmering.
+class AgentRailShimmer extends StatelessWidget {
+  const AgentRailShimmer({super.key, required this.title});
+
+  final String title;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 24),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SectionHeader(title: title),
+          SizedBox(
+            height: kAgentRailHeight,
+            child: ListView.builder(
+              scrollDirection: Axis.horizontal,
+              physics: const NeverScrollableScrollPhysics(),
+              padding: const EdgeInsets.symmetric(
+                horizontal: AppConstants.spacingL,
+              ),
+              itemCount: 4,
+              itemBuilder: (context, i) => Padding(
+                padding: const EdgeInsets.only(right: AppConstants.spacingM),
+                child: AgentCardShimmer(width: kAgentCardWidth),
+              ),
+            ),
+          ),
+        ],
+      ),
     );
   }
 }

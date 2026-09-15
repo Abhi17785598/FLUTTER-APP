@@ -2,8 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 
 import '../../../core/constants/app_constants.dart';
-import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_text_styles.dart';
+import '../../../core/widgets/glass_card.dart';
 import '../../../core/widgets/scale_tap.dart';
 
 class _QuickAction {
@@ -40,7 +40,7 @@ class QuickActionsSection extends StatelessWidget {
       label: 'Compare',
       subtitle: 'Find better deals',
       icon: Icons.compare_arrows_rounded,
-      gradient: [Color(0xFF8B5CF6), Color(0xFFA78BFA)],
+      gradient: [Color(0xFF0EA5E9), Color(0xFF38BDF8)],
       route: AppConstants.comparePropertiesScreen,
       args: {'propertyIds': <String>[]},
     ),
@@ -91,14 +91,20 @@ class _QuickActionCard extends StatelessWidget {
         action.route,
         arguments: action.args,
       ),
-      child: Container(
+      child: GlassCard(
         height: 108,
+        borderRadius: 18,
         padding: const EdgeInsets.all(14),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(18),
-          boxShadow: AppColors.cardShadow,
-        ),
+        // `blurSigma: 0` — these 3 cards scroll with the page, so a live
+        // `BackdropFilter` here was recomputed on every scroll frame for as
+        // long as any of them were on screen. Opacity raised a little
+        // (0.7→0.82) to compensate: without the blur softening whatever is
+        // behind them, a higher fill keeps the surface reading clean
+        // instead of showing the raw (unblurred) background through it.
+        opacity: 0.82,
+        blurSigma: 0,
+        borderColor: Colors.white.withOpacity(0.55),
+        highlight: true,
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [

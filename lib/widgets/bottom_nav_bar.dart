@@ -1,3 +1,5 @@
+import 'dart:ui';
+
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../core/constants/app_constants.dart';
@@ -162,12 +164,31 @@ class BottomNavBar extends StatelessWidget {
             // compact, usable column centred on the screen — consistent with
             // how Material NavigationBar handles wide viewports.
             constraints: const BoxConstraints(maxWidth: _kMaxContentWidth),
-            child: Container(
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(AppConstants.pillRadius),
+              child: BackdropFilter(
+                filter: ImageFilter.blur(sigmaX: 18, sigmaY: 18),
+                child: Container(
               height: AppConstants.bottomNavHeight,
               decoration: BoxDecoration(
-                color: AppColors.surface,
+                color: AppColors.surface.withOpacity(0.7),
                 borderRadius: BorderRadius.circular(AppConstants.pillRadius),
+                border: Border.all(color: Colors.white.withOpacity(0.6)),
                 boxShadow: AppColors.cardShadow,
+              ),
+              // Same top sheen used by every other glass surface on Home,
+              // for a consistent "light catching the top of the glass" cue.
+              foregroundDecoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(AppConstants.pillRadius),
+                gradient: LinearGradient(
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                  colors: [
+                    Colors.white.withOpacity(0.3),
+                    Colors.white.withOpacity(0.0),
+                  ],
+                  stops: const [0.0, 0.45],
+                ),
               ),
               child: Row(
                 // Expanded children replace spaceAround so each nav item gets
@@ -213,6 +234,8 @@ class BottomNavBar extends StatelessWidget {
                     ),
                   ),
                 ],
+              ),
+            ),
               ),
             ),
           ),

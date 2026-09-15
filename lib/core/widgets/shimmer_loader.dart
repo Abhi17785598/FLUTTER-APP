@@ -166,6 +166,62 @@ class PropertyListShimmer extends StatelessWidget {
   }
 }
 
+/// Matches [AgentCard]'s shape (`popular_agents_section.dart`) — the shared
+/// card used by every profile rail on Home (Top Builders, Popular Brokers,
+/// Popular Influencers): a circular avatar, a name bar, a city bar.
+class AgentCardShimmer extends StatelessWidget {
+  const AgentCardShimmer({super.key, this.width = 138});
+
+  final double width;
+
+  @override
+  Widget build(BuildContext context) {
+    return Shimmer.fromColors(
+      baseColor: Colors.grey[300]!,
+      highlightColor: Colors.grey[100]!,
+      child: Container(
+        width: width,
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 12),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(16),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 64,
+              height: 64,
+              decoration: const BoxDecoration(
+                color: Colors.white,
+                shape: BoxShape.circle,
+              ),
+            ),
+            const SizedBox(height: 10),
+            Container(
+              width: width * 0.7,
+              height: 12,
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(4),
+              ),
+            ),
+            const SizedBox(height: 6),
+            Container(
+              width: width * 0.45,
+              height: 10,
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(4),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
 class SectionShimmer extends StatelessWidget {
   const SectionShimmer({super.key});
 
