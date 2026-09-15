@@ -66,12 +66,20 @@ class _FloatingAiOrbState extends State<FloatingAiOrb>
   void _openPanel() {
     final overlayContext = appNavigatorKey.currentState?.overlay?.context;
     if (overlayContext == null) return;
+    // Hides the orb for as long as the panel is open, restoring it once the
+    // panel is dismissed (back gesture, barrier tap, or otherwise) — without
+    // this, the orb stayed visible and tappable behind its own panel, so
+    // tapping it again opened a second panel on top, and again, and again.
+    // Reuses the same process-wide flag AuthScreen already sets while
+    // mounted (`floatingAiOrbVisible`); the two never overlap; a hidden orb
+    // cannot be tapped to open a panel in the first place.
+    floatingAiOrbVisible.value = false;
     showModalBottomSheet(
       context: overlayContext,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
       builder: (_) => const VoiceAgentPanel(),
-    );
+    ).whenComplete(() => floatingAiOrbVisible.value = true);
   }
 
   void _onLongPress(VoiceAgentProvider provider) {

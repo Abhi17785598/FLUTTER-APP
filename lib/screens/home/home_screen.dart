@@ -1,3 +1,6 @@
+import 'dart:ui';
+
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../core/theme/app_colors.dart';
@@ -36,6 +39,29 @@ class HomeScreen extends StatefulWidget {
 }
 
 class _HomeScreenState extends State<HomeScreen> {
+  /// Ambient backdrop source — the same featured-property photo shown in the
+  /// hero carousel's "Your Dream Home" slide (`HeroBannerSection`'s 3rd
+  /// `_BannerData`), reused here as a fixed, non-rotating wallpaper rather
+  /// than syncing to whichever of the 5 carousel slides happens to be
+  /// active. Heavily blurred and washed with the theme's own background
+  /// tint below it — a soft, neutral texture behind the scroll content, not
+  /// a vivid photo.
+  static const String _kAmbientBackdropUrl =
+      'https://images.unsplash.com/photo-1613490493576-7fde63acd811?w=800&q=80';
+
+  /// How strongly the backdrop wash covers the blurred photo — lower makes
+  /// the photo read through more; higher keeps it closer to flat
+  /// `AppColors.background`. Tune this one number to adjust.
+  ///
+  /// 0.88 (the original value) turned out to be imperceptible: this photo's
+  /// tones (white walls, pale sky, pool water) sit within a few RGB units of
+  /// `AppColors.background` (`#F4F4F8`) to begin with, so blending it at 88%
+  /// opacity landed within 1-2 units of flat background — indistinguishable
+  /// on a real screen. Lowered enough that the blurred color patches are
+  /// actually visible, while the blur (sigma 40) keeps it a soft wash, not a
+  /// recognizable photo.
+  static const double _kBackdropWashOpacity = 0.55;
+
   @override
   void initState() {
     super.initState();
@@ -178,13 +204,40 @@ class _HomeScreenState extends State<HomeScreen> {
           children: [
             const HomeHeader(),
             Expanded(
-              child: CustomScrollView(
-                slivers: [
-                  SliverList(
-                    delegate: SliverChildBuilderDelegate(
-                      (context, index) => sections[index],
-                      childCount: sections.length,
+              child: Stack(
+                children: [
+                  // Ambient blurred backdrop, behind the scroll content only
+                  // — the header above keeps its existing plain background
+                  // untouched. Two layers: the blurred photo, then a wash in
+                  // the theme's own background color on top of it (see
+                  // `_kBackdropWashOpacity`).
+                  Positioned.fill(
+                    child: ImageFiltered(
+                      imageFilter: ImageFilter.blur(sigmaX: 40, sigmaY: 40),
+                      child: CachedNetworkImage(
+                        imageUrl: _kAmbientBackdropUrl,
+                        fit: BoxFit.cover,
+                        placeholder: (_, _) => const SizedBox.shrink(),
+                        errorWidget: (_, _, _) => const SizedBox.shrink(),
+                      ),
                     ),
+                  ),
+                  Positioned.fill(
+                    child: ColoredBox(
+                      color: AppColors.background.withValues(
+                        alpha: _kBackdropWashOpacity,
+                      ),
+                    ),
+                  ),
+                  CustomScrollView(
+                    slivers: [
+                      SliverList(
+                        delegate: SliverChildBuilderDelegate(
+                          (context, index) => sections[index],
+                          childCount: sections.length,
+                        ),
+                      ),
+                    ],
                   ),
                 ],
               ),

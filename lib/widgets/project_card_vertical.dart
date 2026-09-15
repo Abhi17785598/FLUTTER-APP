@@ -164,7 +164,12 @@ class ProjectCardVertical extends StatelessWidget {
                     overflow: TextOverflow.ellipsis,
                   ),
                   const SizedBox(height: 4),
-                  Text(project.typeLabel, style: AppTextStyles.caption),
+                  Text(
+                    project.typeLabel,
+                    style: AppTextStyles.caption,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
                   const SizedBox(height: 8),
                   if (project.totalUnits > 0)
                     Row(
