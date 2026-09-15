@@ -188,6 +188,46 @@ void main() {
       expect(issues.map((i) => i.label), contains('City'));
     });
 
+    test('description is validated on letter count, not word count '
+        '(projectRules.ts:82 minAlphaChars, not a word check)', () {
+      const filledExceptDescription = ProjectDraft(
+        title: 'Some Project',
+        projectType: 'Apartment',
+        location: 'Pune',
+      );
+
+      // Few words, plenty of letters (44) — must PASS. A word-count rule
+      // would have blocked this at "2 words".
+      final longWord = validateProjectStep(
+        ProjectStep.basic,
+        filledExceptDescription.copyWith(
+          description: 'Supercalifragilisticexpialidocious residence',
+        ),
+      );
+      expect(
+        longWord.map((i) => i.field),
+        isNot(contains(kProjectDescription)),
+      );
+
+      // 20 "words" (single-digit numbers), no letters at all — must FAIL. A
+      // word-count rule would have passed this at "20 words" exactly;
+      // `countAlphaChars` strips the digits but keeps the 19 separator
+      // spaces between them, landing one short of the 20 required.
+      final manyNumbers = validateProjectStep(
+        ProjectStep.basic,
+        filledExceptDescription.copyWith(
+          description: List.generate(20, (i) => '$i').join(' '),
+        ),
+      );
+      final issue = manyNumbers.firstWhere(
+        (i) => i.field == kProjectDescription,
+      );
+      expect(
+        issue.message,
+        'Description must be at least 20 letters (currently 19).',
+      );
+    });
+
     test('details requires all nine fields', () {
       final issues = validateProjectStep(
         ProjectStep.details,

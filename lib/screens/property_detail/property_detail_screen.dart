@@ -720,6 +720,7 @@ class _PropertyDetailScreenState extends State<PropertyDetailScreen>
       title: (property.title as String?) ?? '',
       location: property.location as String?,
       priceDisplay: property.priceDisplay as String?,
+      currentUserId: Provider.of<AuthProvider>(context, listen: false).userId,
     );
   }
 
@@ -2370,9 +2371,7 @@ class _PropertyDetailScreenState extends State<PropertyDetailScreen>
                   ? 12
                   : time.hourOfPeriod;
               final String minute = time.minute.toString().padLeft(2, '0');
-              final String period = time.period == DayPeriod.am
-                  ? 'AM'
-                  : 'PM';
+              final String period = time.period == DayPeriod.am ? 'AM' : 'PM';
               return '$hour12:$minute $period';
             }
 
@@ -2609,9 +2608,7 @@ class _PropertyDetailScreenState extends State<PropertyDetailScreen>
                             side: isSelected
                                 ? BorderSide.none
                                 : BorderSide(
-                                    color: AppColors.textHint.withOpacity(
-                                      0.4,
-                                    ),
+                                    color: AppColors.textHint.withOpacity(0.4),
                                   ),
                             labelStyle: AppTextStyles.chip.copyWith(
                               color: isSelected
@@ -2644,7 +2641,9 @@ class _PropertyDetailScreenState extends State<PropertyDetailScreen>
                                 ? Colors.white
                                 : AppColors.textSecondary,
                           ),
-                          label: Text(customTime != null ? selectedTime! : 'Custom'),
+                          label: Text(
+                            customTime != null ? selectedTime! : 'Custom',
+                          ),
                           selected: customTime != null,
                           selectedColor: AppColors.primary,
                           backgroundColor: AppColors.cardBackground,

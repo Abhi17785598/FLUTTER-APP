@@ -121,6 +121,13 @@ String propertyShareUrl(String id, {String? title}) =>
     ? '$kProfileOrigin/property/$id'
     : '$kProfileOrigin/property/$id/${seoSlug(title)}';
 
+/// Absolute URL for a builder project's public page — `projectPath` in
+/// `seoSlug.ts`, same id+slug shape as [propertyShareUrl].
+String projectShareUrl(String id, {String? title}) =>
+    title == null || title.isEmpty
+    ? '$kProfileOrigin/project/$id'
+    : '$kProfileOrigin/project/$id/${seoSlug(title)}';
+
 /// Where the portal points the reels feed. `App.tsx:208`.
 const String kReelsFeedPath = '/property-reels';
 

@@ -166,15 +166,22 @@ String? Function(Object?) minLength(int n, String label) {
       : null;
 }
 
-/// Enforces a minimum word count on long-form text (project/property
-/// descriptions) — not part of the React port, added on explicit request so a
-/// description can't be a single word.
-String? Function(Object?) minWordCount(int n, String label) {
+/// Counts only letters and spaces (digits/punctuation ignored), after
+/// collapsing repeat spaces. `countAlphaChars` (requiredFields.ts:224).
+int countAlphaChars(Object? value) {
+  final collapsed = value.toString().replaceAll(RegExp(r' {2,}'), ' ').trim();
+  return collapsed.replaceAll(RegExp(r'[^a-zA-Z ]'), '').length;
+}
+
+/// Enforces a minimum letters+spaces count on long-form text fields
+/// (descriptions, bios, testimonials). `minAlphaChars` (requiredFields.ts:230)
+/// — used for both the project and property description fields
+/// (projectRules.ts:82, propertyListingRules.ts:59).
+String? Function(Object?) minAlphaChars(int n, String label) {
   return (Object? value) {
-    final words = value.toString().trim().split(RegExp(r'\s+'));
-    final count = words.where((w) => w.isNotEmpty).length;
+    final count = countAlphaChars(value);
     return count < n
-        ? '$label must be at least $n words (currently $count).'
+        ? '$label must be at least $n letters (currently $count).'
         : null;
   };
 }

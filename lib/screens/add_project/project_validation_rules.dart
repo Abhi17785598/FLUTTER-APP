@@ -87,9 +87,13 @@ final List<ProjectRule> _basicRules = [
     field: kProjectDescription,
     label: 'Description',
     get: _readDescription,
-    // Not part of the React port — added on explicit request so a listing
-    // can't ship with a single-word description.
-    validate: minWordCount(20, 'Description'),
+    // `minAlphaChars(20, 'Description')` — projectRules.ts:82. This WAS
+    // ported as a word-count check (`minWordCount`), which isn't in the
+    // reference at all; the reference's real rule counts letters, so an
+    // existing web-created project with a short-but-plenty-of-characters
+    // description could fail this in the app when it validates fine on
+    // the portal. Fixed to match projectRules.ts exactly.
+    validate: minAlphaChars(20, 'Description'),
   ),
 ];
 

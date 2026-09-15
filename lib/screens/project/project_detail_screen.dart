@@ -40,6 +40,7 @@ import '../../services/project_service.dart';
 import '../../services/user_profile_service.dart';
 import '../dashboard/widgets/my_projects_section.dart'
     show ProjectStatusPill, projectPriceRangeLabel;
+import 'widgets/share_project_sheet.dart';
 
 /// Height of the media header.
 const double _kGalleryHeight = 260;
@@ -240,6 +241,14 @@ class _ProjectDetailScreenState extends State<ProjectDetailScreen> {
                 projectsProvider.toggleLike(project.id, project: project),
             onToggleSave: () =>
                 projectsProvider.toggleSave(project.id, project: project),
+            onShare: () => showShareProjectSheet(
+              context,
+              projectId: project.id,
+              title: project.title,
+              description: project.description,
+              location: project.location,
+              priceRangeMin: project.priceRangeMin,
+            ),
           ),
           SliverToBoxAdapter(
             child: Padding(
@@ -383,6 +392,7 @@ class _GalleryHeader extends StatefulWidget {
     required this.isSaved,
     required this.onToggleLike,
     required this.onToggleSave,
+    required this.onShare,
   });
 
   final List<String> images;
@@ -399,6 +409,10 @@ class _GalleryHeader extends StatefulWidget {
 
   final VoidCallback onToggleLike;
   final VoidCallback onToggleSave;
+
+  /// Opens [showShareProjectSheet] — the page previously had no share
+  /// affordance at all.
+  final VoidCallback onShare;
 
   @override
   State<_GalleryHeader> createState() => _GalleryHeaderState();
@@ -440,6 +454,10 @@ class _GalleryHeaderState extends State<_GalleryHeader> {
             color: Colors.white,
           ),
           onPressed: widget.onToggleSave,
+        ),
+        IconButton(
+          icon: const Icon(Icons.share, color: Colors.white),
+          onPressed: widget.onShare,
         ),
         const SizedBox(width: 4),
       ],

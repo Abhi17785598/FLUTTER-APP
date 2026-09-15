@@ -29,13 +29,17 @@ class ChatMessage {
   final String senderId;
   final String content;
 
-  /// `text`, `property_share`, `image`, `audio`, `video` — the schema is
-  /// open-ended, so this is kept as a raw string rather than an enum that
-  /// could reject a value the backend already stores.
+  /// `text`, `property_share`, `reel_share`, `image`, `audio`, `video` — the
+  /// schema is open-ended, so this is kept as a raw string rather than an
+  /// enum that could reject a value the backend already stores.
   final String messageType;
 
   /// Set on `property_share` messages.
   final String? propertyId;
+
+  /// Set on `reel_share` messages — `messages.reel_id`
+  /// (`20270424000000_reel_share_messages.sql`).
+  final String? reelId;
 
   final List<String> mediaUrls;
   final MediaStatus mediaStatus;
@@ -69,6 +73,7 @@ class ChatMessage {
     required this.content,
     required this.messageType,
     this.propertyId,
+    this.reelId,
     this.mediaUrls = const [],
     this.mediaStatus = MediaStatus.text,
     this.isRead = false,
@@ -93,6 +98,7 @@ class ChatMessage {
       content: (json['content'] as String?) ?? '',
       messageType: (json['message_type'] as String?) ?? 'text',
       propertyId: json['property_id']?.toString(),
+      reelId: json['reel_id']?.toString(),
       mediaUrls: media is List
           ? media.map((e) => e.toString()).toList()
           : const <String>[],
@@ -110,6 +116,7 @@ class ChatMessage {
   }
 
   bool get isPropertyShare => messageType == 'property_share';
+  bool get isReelShare => messageType == 'reel_share';
   bool get isImage => messageType == 'image';
   bool get isAudio => messageType == 'audio';
   bool get isVideo => messageType == 'video';
@@ -146,15 +153,16 @@ class ChatMessage {
 
   /// What to render in a bubble when the type is not plain text.
   ///
-  /// `property_share` and `image` are already stored with a human-readable
-  /// `content` string by the web app (e.g. "Shared property: <title>"), so the
-  /// fallback is only reached for a type that arrives with an empty body —
-  /// blueprint §16.7 requires those degrade gracefully rather than rendering
-  /// a blank bubble.
+  /// `property_share`, `reel_share` and `image` are already stored with a
+  /// human-readable `content` string by the web app (e.g. "Shared property:
+  /// <title>"/"Shared reel: <title>"), so the fallback is only reached for a
+  /// type that arrives with an empty body — blueprint §16.7 requires those
+  /// degrade gracefully rather than rendering a blank bubble.
   String get displayContent {
     if (isDeleted) return 'This message was deleted';
     if (content.trim().isNotEmpty) return content;
     if (isPropertyShare) return 'Shared a property';
+    if (isReelShare) return 'Shared a reel';
     if (isImage) return 'Sent an image';
     if (isVideo) return 'Sent a video';
     if (isAudio) return 'Voice message';

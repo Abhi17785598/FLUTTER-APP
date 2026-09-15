@@ -185,6 +185,50 @@ void main() {
     });
   });
 
+  group('Office Name and Office Number keep the portal\'s character rules', () {
+    // `find.textContaining`, not `find.text`: "Office Name" renders with a
+    // trailing " *" (it's `required: true`), which an exact match misses.
+    Finder fieldFor(String label) => find.descendant(
+      of: find.ancestor(
+        of: find.textContaining(label),
+        matching: find.byType(PortalLabelledField),
+      ),
+      matching: find.byType(TextField),
+    );
+
+    testWidgets('Office Name strips digits, keeping only letters/spaces', (
+      tester,
+    ) async {
+      final p = await pumpExpandedOffice(tester);
+
+      final field = fieldFor('Office Name');
+      await tester.ensureVisible(field);
+      await tester.pumpAndSettle();
+      await tester.enterText(field, 'Acme 123 Corp');
+      await tester.pump();
+
+      final companies =
+          (p.buildingInventory['floors'] as List).first['companies'] as List;
+      expect(companies.first['companyName'], 'Acme  Corp');
+    });
+
+    testWidgets('Office Number strips letters, keeping only digits', (
+      tester,
+    ) async {
+      final p = await pumpExpandedOffice(tester);
+
+      final field = fieldFor('Office Number');
+      await tester.ensureVisible(field);
+      await tester.pumpAndSettle();
+      await tester.enterText(field, 'A10B1');
+      await tester.pump();
+
+      final companies =
+          (p.buildingInventory['floors'] as List).first['companies'] as List;
+      expect(companies.first['officeNumber'], '101');
+    });
+  });
+
   group('new fields write through setBuildingOfficeField correctly', () {
     testWidgets('typing a count field writes the exact portal field name', (
       tester,

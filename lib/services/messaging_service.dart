@@ -382,6 +382,34 @@ class MessagingService {
     }
   }
 
+  /// Shares a reel into a DM. Verbatim shape of `sendReelShare` in
+  /// useDmMessaging.ts — a raw insert, `reel_id` + `message_type:
+  /// 'reel_share'` (the schema/trigger already support this: `messages.reel_id`
+  /// and the widened `messages_message_type_check` both come from
+  /// `20270424000000_reel_share_messages.sql`). DM only — unlike
+  /// `sendPropertyShare`, the portal has no channel equivalent for reels
+  /// (`ShareToChannelModal.tsx` only ever shares a property), so no
+  /// [surface] parameter here.
+  Future<void> sendReelShare({
+    required String conversationId,
+    required String senderId,
+    required String reelId,
+    required String content,
+  }) async {
+    try {
+      await _supabase.from('messages').insert({
+        'conversation_id': conversationId,
+        'sender_id': senderId,
+        'content': content,
+        'message_type': 'reel_share',
+        'reel_id': reelId,
+      });
+    } catch (e) {
+      debugPrint('MessagingService.sendReelShare failed: $e');
+      throw mapSendError(e);
+    }
+  }
+
   /// Properties matching [term], sourced from `properties_public` — the
   /// exact same view+shape the portal's `SharePropertyModal.tsx` queries
   /// (`select id, title, price, location, media_urls`, `ilike title`,

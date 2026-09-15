@@ -6,83 +6,75 @@ import '../../../core/constants/app_constants.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_text_styles.dart';
 import '../../../core/utils/profile_link.dart';
-import '../../../services/messaging_service.dart';
-import '../../messaging/widgets/send_to_user_flow.dart';
 import '../../profile/actions/share_profile_sheet.dart'
     show ProfileLinkBox, ShareActionButton, copyProfileLink;
 
-/// Share a property — mirrors the portal's PropertyShareModal
-/// (`src/components/ShareToSocial.tsx`): a visible, copyable link, the
-/// system share sheet, "Send to a user" (property is one of the two content
-/// types the portal actually allows that for — `canSendToUser` in
-/// ShareToSocial.tsx), and the SAME 4 social buttons the reference actually
-/// has (WhatsApp/Facebook/Twitter/LinkedIn — it has no Instagram/Telegram/
-/// Email button, so none is added here). Reuses [ProfileLinkBox]/
-/// [ShareActionButton]/[copyProfileLink] from the profile share sheet rather
-/// than duplicating that already-working link-box/copy/share pattern.
-void showSharePropertySheet(
+/// Share a project — mirrors the portal's PropertyShareModal
+/// (`src/components/ShareToSocial.tsx`, `data.type: 'project'`, rendered from
+/// `pages/ProjectDetails.tsx:1631-1642`): a visible, copyable link, the
+/// system share sheet, and the same 4 social buttons. Deliberately has no
+/// "Send to a user" button — `canSendToUser` in ShareToSocial.tsx is `data.type
+/// === 'property' || data.type === 'video'` only, so the portal itself never
+/// shows that option here either; see the property/reel share sheets for the
+/// two content types that do get it. The project detail screen previously had
+/// no share affordance of any kind.
+void showShareProjectSheet(
   BuildContext context, {
-  required String propertyId,
+  required String projectId,
   required String title,
+  String? description,
   String? location,
-  String? priceDisplay,
-  required String? currentUserId,
+  double? priceRangeMin,
 }) {
   final String displayTitle = title.trim().isNotEmpty
       ? title
-      : 'Check out this property';
-  final String shareUrl = propertyShareUrl(propertyId, title: displayTitle);
+      : 'Check out this project';
+  final String shareUrl = projectShareUrl(projectId, title: displayTitle);
 
-  final buffer = StringBuffer()..writeln('🏡 $displayTitle');
-  if (priceDisplay != null && priceDisplay.trim().isNotEmpty) {
-    buffer.writeln('💰 $priceDisplay');
-  }
+  // Same wording split as ShareToSocial.tsx's generateFullShareText for
+  // data.type === 'project': "Starting from" instead of "Price", "About
+  // Project" instead of "Description".
+  final buffer = StringBuffer()..writeln('🏗️ $displayTitle');
   if (location != null && location.trim().isNotEmpty) {
     buffer.writeln('📍 $location');
   }
+  if (priceRangeMin != null && priceRangeMin > 0) {
+    buffer.writeln('💰 Starting from: ₹${priceRangeMin.toStringAsFixed(0)}');
+  }
+  if (description != null && description.trim().isNotEmpty) {
+    buffer.writeln('📝 About Project: ${description.trim()}');
+  }
   buffer
     ..writeln()
-    ..writeln('Discover more premium properties on PropCID.')
+    ..writeln('Discover more premium projects on PropCID.')
     ..write(shareUrl);
 
   showModalBottomSheet(
     context: context,
     backgroundColor: Colors.transparent,
-    // The "Send to a user" button (added alongside the native Share button)
-    // pushed this sheet's content past the default (non-scroll-controlled)
-    // modal bottom sheet's height cap on shorter screens — scrollable
-    // rather than overflowing, matching `new_chat_sheet.dart`'s own
-    // `isScrollControlled: true`.
+    // Scrollable rather than overflowing on shorter screens — see the same
+    // note in share_property_sheet.dart.
     isScrollControlled: true,
-    builder: (_) => _SharePropertyBody(
-      propertyId: propertyId,
+    builder: (_) => _ShareProjectBody(
       title: displayTitle,
       location: location,
-      priceDisplay: priceDisplay,
       shareUrl: shareUrl,
       message: buffer.toString().trim(),
-      currentUserId: currentUserId,
     ),
   );
 }
 
-class _SharePropertyBody extends StatelessWidget {
-  final String propertyId;
+class _ShareProjectBody extends StatelessWidget {
   final String title;
   final String? location;
-  final String? priceDisplay;
   final String shareUrl;
   final String message;
-  final String? currentUserId;
 
-  const _SharePropertyBody({
-    required this.propertyId,
+  const _ShareProjectBody({
     required this.title,
     required this.location,
-    required this.priceDisplay,
     required this.shareUrl,
     required this.message,
-    required this.currentUserId,
   });
 
   @override
@@ -117,7 +109,7 @@ class _SharePropertyBody extends StatelessWidget {
               ),
               const SizedBox(height: 16),
               Text(
-                'Share Property',
+                'Share Project',
                 style: AppTextStyles.heading3.copyWith(
                   fontSize: 14.5,
                   fontWeight: FontWeight.w700,
@@ -130,14 +122,10 @@ class _SharePropertyBody extends StatelessWidget {
                 overflow: TextOverflow.ellipsis,
                 style: AppTextStyles.body.copyWith(fontWeight: FontWeight.w600),
               ),
-              if ((location?.trim().isNotEmpty ?? false) ||
-                  (priceDisplay?.trim().isNotEmpty ?? false)) ...[
+              if (location?.trim().isNotEmpty ?? false) ...[
                 const SizedBox(height: 2),
                 Text(
-                  [
-                    if (priceDisplay?.trim().isNotEmpty ?? false) priceDisplay,
-                    if (location?.trim().isNotEmpty ?? false) location,
-                  ].join(' · '),
+                  location!,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: AppTextStyles.caption.copyWith(
@@ -146,8 +134,6 @@ class _SharePropertyBody extends StatelessWidget {
                 ),
               ],
               const SizedBox(height: 14),
-              // Native "Share Now" — reference's PropertyShareModal shows
-              // this as a full-width prominent button above the social grid.
               ShareActionButton(
                 icon: Icons.ios_share_rounded,
                 label: 'Share',
@@ -157,31 +143,7 @@ class _SharePropertyBody extends StatelessWidget {
                   Share.share(message, subject: title);
                 },
               ),
-              if (currentUserId != null) ...[
-                const SizedBox(height: 10),
-                // "Send directly to another user on the site, via chat" —
-                // ShareToSocial.tsx:219-229. Only shown when signed in, same
-                // as the portal's own `canSendToUser && user` gate.
-                ShareActionButton(
-                  icon: Icons.send_rounded,
-                  label: 'Send to a user',
-                  filled: false,
-                  onTap: () => runSendToUserFlow(
-                    context,
-                    currentUserId: currentUserId!,
-                    onSend: (conversationId) =>
-                        MessagingService().sendPropertyShare(
-                          threadId: conversationId,
-                          senderId: currentUserId!,
-                          propertyId: propertyId,
-                          content: 'Shared property: $title',
-                        ),
-                  ),
-                ),
-              ],
               const SizedBox(height: 14),
-              // The same 4 social buttons the reference actually has, each
-              // opening the SAME URL template ShareToSocial.tsx uses.
               Row(
                 children: [
                   Expanded(
@@ -234,9 +196,6 @@ class _SharePropertyBody extends StatelessWidget {
                 ],
               ),
               const SizedBox(height: 14),
-              // Visible, copyable link — the specific gap this sheet exists
-              // to close (the old flow went straight to the OS share sheet
-              // with no on-screen link at all).
               ProfileLinkBox(shareUrl: shareUrl),
               const SizedBox(height: 10),
               ShareActionButton(
@@ -257,7 +216,7 @@ class _SharePropertyBody extends StatelessWidget {
       await launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication);
       if (context.mounted) Navigator.of(context).pop();
     } catch (e) {
-      debugPrint('[SharePropertySheet] Failed to open $url: $e');
+      debugPrint('[ShareProjectSheet] Failed to open $url: $e');
     }
   }
 }

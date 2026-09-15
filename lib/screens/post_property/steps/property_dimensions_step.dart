@@ -1629,6 +1629,13 @@ class _BuildingFloorInventoryState extends State<_BuildingFloorInventory> {
               required: true,
               child: PortalTextField(
                 controller: _ctrl('$key:companyName', text('companyName')),
+                // `e.target.value.replace(/[^a-zA-Z\s]/g, '')` — same
+                // letters-only rule the portal applies to this field
+                // (PropertyDimensionsStep.tsx:1182), same formatter
+                // `contactPerson` below already uses.
+                inputFormatters: [
+                  FilteringTextInputFormatter.allow(RegExp(r'[a-zA-Z\s]')),
+                ],
                 onChanged: (v) => p.setBuildingOfficeField(
                   floorNumber,
                   companyIndex,
@@ -1648,6 +1655,10 @@ class _BuildingFloorInventoryState extends State<_BuildingFloorInventory> {
                         '$key:officeNumber',
                         text('officeNumber'),
                       ),
+                      // `e.target.value.replace(/\D/g, '')` — digits only,
+                      // matching the portal (PropertyDimensionsStep.tsx:1194).
+                      keyboardType: TextInputType.number,
+                      inputFormatters: [FilteringTextInputFormatter.digitsOnly],
                       onChanged: (v) => p.setBuildingOfficeField(
                         floorNumber,
                         companyIndex,

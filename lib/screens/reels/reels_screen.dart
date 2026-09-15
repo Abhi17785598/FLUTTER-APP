@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
-import 'package:share_plus/share_plus.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:url_launcher/url_launcher.dart';
 
@@ -17,6 +16,7 @@ import 'widgets/reel_action_button.dart';
 import 'widgets/reel_controller_manager.dart';
 import 'widgets/reel_info_panel.dart';
 import 'widgets/reel_property_card.dart';
+import 'widgets/share_reel_sheet.dart';
 import 'package:video_player/video_player.dart'
     show VideoPlayerController, VideoViewType;
 
@@ -167,16 +167,12 @@ class _ReelsScreenState extends State<ReelsScreen> {
     _isPaused ? _manager.pauseActive() : _manager.playActive();
   }
 
-  Future<void> _shareReel(ReelModel reel) async {
-    try {
-      await Share.share(reel.shareMessage, subject: reel.title);
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Could not open share sheet')),
-        );
-      }
-    }
+  void _shareReel(ReelModel reel) {
+    showShareReelSheet(
+      context,
+      reel: reel,
+      currentUserId: Supabase.instance.client.auth.currentUser?.id,
+    );
   }
 
   void _onViewDetails(ReelModel reel) {
@@ -409,10 +405,7 @@ class _ReelsScreenState extends State<ReelsScreen> {
                 },
               ),
               ListTile(
-                leading: const Icon(
-                  Icons.flag_outlined,
-                  color: Colors.white,
-                ),
+                leading: const Icon(Icons.flag_outlined, color: Colors.white),
                 title: const Text(
                   'Report',
                   style: TextStyle(color: Colors.white),
@@ -420,7 +413,9 @@ class _ReelsScreenState extends State<ReelsScreen> {
                 onTap: () {
                   Navigator.pop(sheetContext);
                   ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Thanks — we\'ll take a look')),
+                    const SnackBar(
+                      content: Text('Thanks — we\'ll take a look'),
+                    ),
                   );
                 },
               ),
@@ -567,8 +562,7 @@ class _ReelsScreenState extends State<ReelsScreen> {
                           onFollow: () => provider.toggleFollow(reel.id),
                           onTapProfile: reel.builderUserId == null
                               ? null
-                              : () =>
-                                    _openUploaderProfile(reel.builderUserId!),
+                              : () => _openUploaderProfile(reel.builderUserId!),
                         ),
                         const SizedBox(height: 10),
                         Text(
