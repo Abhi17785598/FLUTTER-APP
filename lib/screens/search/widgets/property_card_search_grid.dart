@@ -5,7 +5,6 @@ import '../../../core/constants/app_constants.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_text_styles.dart';
 import '../../../models/property_model.dart';
-import '../../../widgets/status_tag.dart';
 import 'property_card_facts.dart';
 
 /// Image height for the grid tile, per the redesign.
@@ -73,12 +72,6 @@ class PropertyCardSearchGrid extends StatelessWidget {
             child: const Icon(Icons.broken_image, size: 20),
           ),
         ),
-        if (property.statusTags.isNotEmpty)
-          Positioned(
-            top: 7,
-            left: 7,
-            child: StatusTag(label: property.statusTags.first),
-          ),
       ],
     );
   }

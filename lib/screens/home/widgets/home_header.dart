@@ -28,9 +28,13 @@ class HomeHeader extends StatelessWidget {
       child: GlassCard(
         borderRadius: 20,
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-        opacity: 0.82,
-        blurSigma: 22,
-        borderColor: Colors.white.withOpacity(0.55),
+        // Flat, solid white — no blurred backdrop bleeding through. `opacity`
+        // near 1 and `blurSigma: 0` (which also skips the BackdropFilter
+        // entirely, see GlassCard) turn this into a plain white bar, matching
+        // the clean, non-glassy header the reference design shows.
+        opacity: 0.98,
+        blurSigma: 0,
+        borderColor: Colors.white.withOpacity(0.9),
         highlight: true,
         child: Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,

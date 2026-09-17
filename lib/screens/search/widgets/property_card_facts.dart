@@ -26,3 +26,23 @@ String propertyFactsLine(PropertyModel property) {
   ];
   return parts.join(' · ');
 }
+
+/// "2 days ago" / "Yesterday" / "Just now" — the same relative-age ladder
+/// `AppNotification.relativeTime` already uses (app_notification.dart),
+/// reproduced here rather than imported since that model lives in an
+/// unrelated feature (notifications) and this only needs the formatting.
+String propertyPostedAgo(DateTime? createdAt) {
+  if (createdAt == null) return '';
+  final delta = DateTime.now().difference(createdAt);
+  if (delta.isNegative || delta.inMinutes < 1) return 'Just now';
+  if (delta.inMinutes < 60) return '${delta.inMinutes} min ago';
+  if (delta.inHours < 24) {
+    return '${delta.inHours} hr${delta.inHours == 1 ? '' : 's'} ago';
+  }
+  if (delta.inDays == 1) return 'Yesterday';
+  if (delta.inDays < 30) return '${delta.inDays} days ago';
+  final months = (delta.inDays / 30).floor();
+  if (months < 12) return '$months mo${months == 1 ? '' : 's'} ago';
+  final years = (delta.inDays / 365).floor();
+  return '$years yr${years == 1 ? '' : 's'} ago';
+}

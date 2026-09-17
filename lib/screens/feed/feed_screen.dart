@@ -22,6 +22,7 @@ import '../../providers/feed_provider.dart';
 import '../../providers/property_provider.dart';
 import '../../services/comment_service.dart';
 import '../reels/widgets/reel_action_button.dart';
+import '../search/widgets/property_card_facts.dart' show propertyPostedAgo;
 import 'feed_video_player_screen.dart';
 
 /// `post_comments.post_type` for a Feed property card's comment thread —
@@ -270,6 +271,16 @@ class _FeedItemCard extends StatelessWidget {
     return type[0].toUpperCase() + type.substring(1);
   }
 
+  /// "2 days ago" etc. — same relative-age formatting the Search results
+  /// property card already uses ([propertyPostedAgo]), reused here rather
+  /// than duplicated so both never drift.
+  String get _postedAgo => propertyPostedAgo(item.createdAt);
+
+  String get _metaLine => [
+    if (_roleLabel.isNotEmpty) _roleLabel,
+    if (_postedAgo.isNotEmpty) _postedAgo,
+  ].join(' · ');
+
   String get _typeBadge => switch (item.type) {
     FeedItemType.property => 'Property',
     FeedItemType.project => 'Project',
@@ -334,9 +345,9 @@ class _FeedItemCard extends StatelessWidget {
                                     fontSize: 13.5,
                                   ),
                                 ),
-                                if (_roleLabel.isNotEmpty)
+                                if (_metaLine.isNotEmpty)
                                   Text(
-                                    _roleLabel,
+                                    _metaLine,
                                     style: AppTextStyles.caption.copyWith(
                                       fontSize: 11,
                                     ),
@@ -394,6 +405,12 @@ class _FeedItemCard extends StatelessWidget {
                           color: Colors.white,
                         ),
                       ),
+                    if (item.photoCount > 0)
+                      Positioned(
+                        left: AppConstants.spacingS,
+                        bottom: AppConstants.spacingS,
+                        child: _PhotoCountBadge(count: item.photoCount),
+                      ),
                   ],
                 ),
               ),
@@ -408,13 +425,21 @@ class _FeedItemCard extends StatelessWidget {
                     overflow: TextOverflow.ellipsis,
                     style: AppTextStyles.heading3.copyWith(fontSize: 14.5),
                   ),
-                  const SizedBox(height: 4),
-                  Text(
-                    item.subtitle,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: AppTextStyles.caption,
-                  ),
+                  const SizedBox(height: 6),
+                  // Category + listing-type chips beside the price — the same
+                  // details/style as the Search results property card
+                  // (`PropertyCardSearchRow`). Property items only: project
+                  // and video items have no category/listing-type concept,
+                  // so they keep the plain price/location subtitle below.
+                  if (item.type == FeedItemType.property)
+                    _FeedPropertyTagsRow(item: item)
+                  else
+                    Text(
+                      item.subtitle,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: AppTextStyles.caption,
+                    ),
                   if (item.location.isNotEmpty) ...[
                     const SizedBox(height: 4),
                     Row(
@@ -468,6 +493,155 @@ class _FeedItemCard extends StatelessWidget {
             ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+/// The image's photo-count badge — same look as the Search results property
+/// card's (`PropertyCardSearchRow._buildPhotoCountBadge`), reproduced here
+/// rather than imported since that one is private to its own file.
+class _PhotoCountBadge extends StatelessWidget {
+  const _PhotoCountBadge({required this.count});
+
+  final int count;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+      decoration: BoxDecoration(
+        color: Colors.black.withValues(alpha: 0.55),
+        borderRadius: BorderRadius.circular(AppConstants.chipRadius),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const Icon(Icons.camera_alt_rounded, size: 11, color: Colors.white),
+          const SizedBox(width: 3),
+          Text(
+            '$count',
+            style: const TextStyle(
+              fontSize: 10.5,
+              fontWeight: FontWeight.w600,
+              color: Colors.white,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Category + listing-type chips beside the price — a property feed item's
+/// version of the Search results property card's tags/price row
+/// (`PropertyCardSearchRow._buildTagsAndPriceRow`), same categories, same
+/// labels, same "/month" rent suffix.
+class _FeedPropertyTagsRow extends StatelessWidget {
+  const _FeedPropertyTagsRow({required this.item});
+
+  final FeedItem item;
+
+  String _priceWithSuffix() =>
+      item.propertyType == 'rent' ? '${item.subtitle} /month' : item.subtitle;
+
+  (IconData, String)? _categoryChip() {
+    switch (item.category) {
+      case 'residential':
+        return (Icons.home_rounded, 'Residential');
+      case 'commercial':
+        return (Icons.store_mall_directory_rounded, 'Commercial');
+      case 'land':
+        return (Icons.landscape_rounded, 'Land');
+      case 'pg_coliving':
+        return (Icons.groups_rounded, 'PG/Co-living');
+      case 'others':
+        return (Icons.category_rounded, 'Others');
+      default:
+        return null;
+    }
+  }
+
+  String? _listingLabel() {
+    switch (item.propertyType) {
+      case 'sell':
+        return 'For Sale';
+      case 'rent':
+        return 'For Rent';
+      case 'lease':
+        return 'For Lease';
+      default:
+        return null;
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final category = _categoryChip();
+    final listingLabel = _listingLabel();
+
+    return Row(
+      children: [
+        Flexible(
+          child: Wrap(
+            spacing: 6,
+            runSpacing: 4,
+            crossAxisAlignment: WrapCrossAlignment.center,
+            children: [
+              if (category != null) _chip(icon: category.$1, label: category.$2),
+              if (listingLabel != null)
+                _chip(
+                  icon: Icons.sell_rounded,
+                  label: listingLabel,
+                  isListingType: true,
+                ),
+            ],
+          ),
+        ),
+        const SizedBox(width: 6),
+        Expanded(
+          child: Text(
+            _priceWithSuffix(),
+            style: AppTextStyles.price.copyWith(fontSize: 15),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            textAlign: TextAlign.right,
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _chip({
+    required IconData icon,
+    required String label,
+    bool isListingType = false,
+  }) {
+    final Color bg = isListingType ? const Color(0xFFFCE4EC) : AppColors.primaryLight;
+    final Color fg = isListingType ? const Color(0xFFD6336C) : AppColors.primary;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+      decoration: BoxDecoration(
+        color: bg,
+        borderRadius: BorderRadius.circular(AppConstants.chipRadius),
+        border: isListingType
+            ? null
+            : Border.all(color: AppColors.primary.withValues(alpha: 0.3)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 10.5, color: fg),
+          const SizedBox(width: 3),
+          Text(
+            label,
+            style: AppTextStyles.chip.copyWith(
+              fontSize: 10,
+              color: fg,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ],
       ),
     );
   }

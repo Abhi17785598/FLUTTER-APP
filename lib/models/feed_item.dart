@@ -59,6 +59,17 @@ class FeedItem {
   /// filter predicate below.
   final String? posterUserType;
 
+  /// `properties.category` / `properties.property_type` — only populated for
+  /// property items (`fromProject`/`fromVideo` don't select these columns),
+  /// so the Feed's property cards can show the same category/listing-type
+  /// chips the Search results property card already shows.
+  final String? category;
+  final String? propertyType;
+
+  /// `properties.media_urls.length` — only populated for property items, for
+  /// the same photo-count badge the Search results property card shows.
+  final int photoCount;
+
   const FeedItem({
     required this.type,
     required this.id,
@@ -75,6 +86,9 @@ class FeedItem {
     this.posterUserId,
     this.posterAvatarUrl,
     this.posterUserType,
+    this.category,
+    this.propertyType,
+    this.photoCount = 0,
   });
 
   /// Mirrors `CombinedFeed.tsx`'s per-filter predicate exactly (including its
@@ -118,6 +132,9 @@ class FeedItem {
       posterName: profile?['display_name']?.toString() ?? 'User',
       posterAvatarUrl: profile?['avatar_url']?.toString(),
       posterUserType: profile?['user_type']?.toString(),
+      category: json['category']?.toString(),
+      propertyType: json['property_type']?.toString(),
+      photoCount: images.length,
     );
   }
 

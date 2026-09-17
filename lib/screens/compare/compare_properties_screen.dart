@@ -40,6 +40,21 @@ class _ComparePropertiesScreenState extends State<ComparePropertiesScreen>
   bool _showDiffsOnly = false;
   List<PropertyModel> _properties = [];
 
+  /// Collapsed section titles — purely local presentation state (which rows
+  /// are currently visible), mirroring the reference design's expandable
+  /// section headers. Never affects what's compared or fetched.
+  final Set<String> _collapsedSections = {};
+
+  void _toggleSection(String title) {
+    setState(() {
+      if (_collapsedSections.contains(title)) {
+        _collapsedSections.remove(title);
+      } else {
+        _collapsedSections.add(title);
+      }
+    });
+  }
+
   /// Two separate scrollables — the property header strip has no reserved
   /// left column (so Property A starts at normal screen padding), while the
   /// comparison matrix below it keeps a fixed attribute-label column to its
@@ -306,6 +321,8 @@ class _ComparePropertiesScreenState extends State<ComparePropertiesScreen>
           _buildHeaderStrip(canAddMore: canAddMore),
           const SizedBox(height: 16),
           _buildComparisonMatrix(),
+          const SizedBox(height: 20),
+          _buildFindBestPropertyButton(),
           // Clears the app's persistent floating assistant orb, which can
           // rest anywhere near the bottom of the screen — the last row must
           // never end up hidden underneath it.
@@ -613,6 +630,55 @@ class _ComparePropertiesScreenState extends State<ComparePropertiesScreen>
     );
   }
 
+  /// Closing CTA, matching the reference design. Points at the existing
+  /// Search Entry screen (`AppConstants.searchScreen`) — a safe, already-
+  /// registered destination — rather than inventing a new "best property"
+  /// flow that doesn't exist anywhere else in the app.
+  Widget _buildFindBestPropertyButton() {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16),
+      child: SizedBox(
+        width: double.infinity,
+        height: 52,
+        child: Material(
+          color: Colors.transparent,
+          child: InkWell(
+            borderRadius: BorderRadius.circular(AppConstants.buttonRadius),
+            onTap: () => Navigator.pushNamed(context, AppConstants.searchScreen),
+            child: Ink(
+              decoration: BoxDecoration(
+                gradient: AppColors.primaryGradient,
+                borderRadius: BorderRadius.circular(AppConstants.buttonRadius),
+                boxShadow: AppColors.primaryGlow,
+              ),
+              child: const Center(
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Text(
+                      'Find Your Best Property',
+                      style: TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w700,
+                        color: Colors.white,
+                      ),
+                    ),
+                    SizedBox(width: 8),
+                    Icon(
+                      Icons.arrow_forward_rounded,
+                      size: 18,
+                      color: Colors.white,
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
   // ─── Property header strip ──────────────────────────────────
   //
   // Deliberately its OWN horizontally-scrolling row, with nothing to its
@@ -716,20 +782,7 @@ class _ComparePropertiesScreenState extends State<ComparePropertiesScreen>
               top: banner.top,
               left: 0,
               right: 0,
-              child: Container(
-                height: _kSectionCellHeight,
-                color: AppColors.background,
-                alignment: Alignment.centerLeft,
-                child: Text(
-                  banner.title,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: AppTextStyles.caption.copyWith(
-                    fontWeight: FontWeight.w700,
-                    color: AppColors.primary,
-                  ),
-                ),
-              ),
+              child: _buildSectionBanner(banner.title),
             ),
         ],
       ),
@@ -745,6 +798,7 @@ class _ComparePropertiesScreenState extends State<ComparePropertiesScreen>
     for (final section in sections) {
       if (!_sectionHasVisibleRows(section)) continue;
       slots.add(_MatrixSlot.section(section.title));
+      if (_collapsedSections.contains(section.title)) continue;
       for (final row in section.rows) {
         if (!_showDiffsOnly || row.valuesDiffer(_properties)) {
           slots.add(_MatrixSlot.row(row));
@@ -752,6 +806,73 @@ class _ComparePropertiesScreenState extends State<ComparePropertiesScreen>
       }
     }
     return slots;
+  }
+
+  /// A section title bar — small colored icon badge, bold title, and a
+  /// chevron that collapses/expands the section's rows. Purely visual state
+  /// (see [_collapsedSections]); the comparison data itself never changes.
+  Widget _buildSectionBanner(String title) {
+    final bool collapsed = _collapsedSections.contains(title);
+    return GestureDetector(
+      onTap: () => _toggleSection(title),
+      behavior: HitTestBehavior.opaque,
+      child: Container(
+        height: _kSectionCellHeight,
+        color: AppColors.background,
+        alignment: Alignment.centerLeft,
+        child: Row(
+          children: [
+            Container(
+              width: 20,
+              height: 20,
+              decoration: const BoxDecoration(
+                color: AppColors.primaryLight,
+                shape: BoxShape.circle,
+              ),
+              child: Icon(_sectionIcon(title), size: 11, color: AppColors.primary),
+            ),
+            const SizedBox(width: 6),
+            Expanded(
+              child: Text(
+                title,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: AppTextStyles.caption.copyWith(
+                  fontWeight: FontWeight.w700,
+                  color: AppColors.primary,
+                ),
+              ),
+            ),
+            Icon(
+              collapsed
+                  ? Icons.keyboard_arrow_down_rounded
+                  : Icons.keyboard_arrow_up_rounded,
+              size: 18,
+              color: AppColors.primary,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  IconData _sectionIcon(String title) {
+    switch (title) {
+      case 'Basic Info':
+        return Icons.info_outline;
+      case 'Pricing':
+        return Icons.currency_rupee_rounded;
+      case 'Property Details':
+        return Icons.home_work_outlined;
+      case 'Amenities':
+        return Icons.pool_outlined;
+      case 'Trust & Verification':
+        return Icons.verified_outlined;
+      case 'Posted By':
+        return Icons.person_outline_rounded;
+      default:
+        return Icons.info_outline;
+    }
   }
 
   bool _sectionHasVisibleRows(_CompareSection section) {
@@ -938,6 +1059,36 @@ class _ComparePropertiesScreenState extends State<ComparePropertiesScreen>
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
+                    if (_headerStatusLabel(property) != null)
+                      ConstrainedBox(
+                        constraints: const BoxConstraints(maxWidth: 100),
+                        child: Container(
+                          margin: const EdgeInsets.only(bottom: 4),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 6,
+                            vertical: 2,
+                          ),
+                          decoration: BoxDecoration(
+                            color: AppColors.getStatusChipBg(
+                              _headerStatusLabel(property)!,
+                            ),
+                            borderRadius: BorderRadius.circular(6),
+                          ),
+                          child: Text(
+                            _headerStatusLabel(property)!,
+                            maxLines: 1,
+                            softWrap: false,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                              fontSize: 8,
+                              fontWeight: FontWeight.w700,
+                              color: AppColors.getStatusChipText(
+                                _headerStatusLabel(property)!,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
                     if (property.isVerified)
                       Container(
                         padding: const EdgeInsets.symmetric(
@@ -1404,6 +1555,17 @@ class _ComparePropertiesScreenState extends State<ComparePropertiesScreen>
           ),
       ],
     );
+  }
+
+  /// Same source the matrix's own "Status" row reads
+  /// (`possessionStatus` first, then the first raw hashtag), reused here so
+  /// the header card's badge can never disagree with the row below it.
+  String? _headerStatusLabel(PropertyModel property) {
+    final value =
+        property.possessionStatus ??
+        (property.statusTags.isNotEmpty ? property.statusTags.first : null);
+    if (value == null || value.trim().isEmpty) return null;
+    return value;
   }
 
   String _categoryLabel(String? category) {

@@ -121,27 +121,57 @@ class _PropertyTypeOption {
   final String label;
   final String category;
   final String? subtype;
+  final IconData icon;
 
   const _PropertyTypeOption({
     required this.label,
     required this.category,
     this.subtype,
+    required this.icon,
   });
 }
 
 const List<_PropertyTypeOption> _kPropertyTypes = [
   _PropertyTypeOption(
-    label: 'Apartment',
+    label: 'Residential',
     category: 'residential',
     subtype: 'Flat',
+    icon: Icons.apartment_rounded,
   ),
   _PropertyTypeOption(
     label: 'Villa',
     category: 'residential',
     subtype: 'Villa',
+    icon: Icons.villa_rounded,
   ),
-  _PropertyTypeOption(label: 'Plot', category: 'land'),
-  _PropertyTypeOption(label: 'Commercial', category: 'commercial'),
+  _PropertyTypeOption(
+    label: 'Plot',
+    category: 'land',
+    icon: Icons.landscape_rounded,
+  ),
+  _PropertyTypeOption(
+    label: 'Commercial',
+    category: 'commercial',
+    icon: Icons.store_mall_directory_rounded,
+  ),
+];
+
+/// The three listing-type options shown as a segmented row on this screen —
+/// `FilterProvider.setListingType`/`validListingTypes` already exist and are
+/// already exercised elsewhere (AI search parsing, the Home category tiles);
+/// this just gives this screen a direct, visible entry point to the same
+/// existing facet instead of only reaching it via `/filters`.
+class _ListingTypeOption {
+  final String label;
+  final String value;
+
+  const _ListingTypeOption({required this.label, required this.value});
+}
+
+const List<_ListingTypeOption> _kListingTypes = [
+  _ListingTypeOption(label: 'Rent', value: 'rent'),
+  _ListingTypeOption(label: 'Buy', value: 'sell'),
+  _ListingTypeOption(label: 'Lease', value: 'lease'),
 ];
 
 class SearchScreen extends StatefulWidget {
@@ -557,11 +587,10 @@ class _SearchScreenState extends State<SearchScreen>
 
     filterProvider.setCategory(option.category);
     filterProvider.setSubtype(option.subtype);
-    // Selecting IS a committed search, so it ends the same way every other
-    // committed search on this screen does — by pushing the results route.
-    // SearchResultsScreen.initState stays the single place runSearch is called
-    // from; this deliberately does not run the query itself.
-    Navigator.pushNamed(context, AppConstants.searchResultsScreen);
+    // Selecting only sets the facet — it no longer navigates or runs a
+    // search by itself. The user can keep changing filters afterward; the
+    // search only ever runs when they tap the explicit Search button
+    // (`_buildSearchButton` -> `_submitSearch`) or submit the text field.
   }
 
   @override
@@ -584,6 +613,10 @@ class _SearchScreenState extends State<SearchScreen>
                               children: [
                                 const SizedBox(height: AppConstants.spacingL),
                                 _buildHeading(),
+                                const SizedBox(height: 20),
+                                _buildPropertyTypeSection(),
+                                const SizedBox(height: 18),
+                                _buildListingTypeToggle(),
                                 const SizedBox(height: 18),
                                 _buildSearchBar(),
                                 if (_isParsingSmartQuery) ...[
@@ -600,8 +633,10 @@ class _SearchScreenState extends State<SearchScreen>
                                 if (isQueryNotEmpty)
                                   _buildSuggestions()
                                 else ...[
-                                  const SizedBox(height: 22),
-                                  _buildPropertyTypeSection(),
+                                  const SizedBox(height: 14),
+                                  _buildCityFilterRow(),
+                                  const SizedBox(height: 14),
+                                  _buildSearchButton(),
                                   const SizedBox(height: 26),
                                   _buildRecentSearches(),
                                 ],
@@ -806,16 +841,24 @@ class _SearchScreenState extends State<SearchScreen>
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            'Search Properties',
-            style: AppTextStyles.heading2.copyWith(
-              fontSize: 19,
-              fontWeight: FontWeight.w700,
+          Text.rich(
+            TextSpan(
+              style: AppTextStyles.heading2.copyWith(
+                fontSize: 21,
+                fontWeight: FontWeight.w700,
+              ),
+              children: const [
+                TextSpan(text: "Let's find your "),
+                TextSpan(
+                  text: 'Next Property',
+                  style: TextStyle(color: AppColors.primary),
+                ),
+              ],
             ),
           ),
           const SizedBox(height: 3),
           Text(
-            'Find your perfect home with AI-powered search',
+            'Search across thousands of properties.',
             style: AppTextStyles.caption.copyWith(fontSize: 12.5),
           ),
         ],
@@ -918,47 +961,30 @@ class _SearchScreenState extends State<SearchScreen>
     );
   }
 
+  /// A row of icon-over-label category cards — same 4 options, same
+  /// `FilterProvider.category`/`subtype` selection and the same
+  /// `_onPropertyTypeTap` handler as before; only the visual presentation
+  /// (a compact chip row) changed to an icon-led card row.
   Widget _buildPropertyTypeSection() {
     return Consumer<FilterProvider>(
       builder: (context, filterProvider, child) {
-        return Padding(
-          padding: const EdgeInsets.symmetric(
-            horizontal: AppConstants.spacingXL,
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
+        return SizedBox(
+          height: 84,
+          child: ListView(
+            scrollDirection: Axis.horizontal,
+            padding: const EdgeInsets.symmetric(
+              horizontal: AppConstants.spacingXL,
+            ),
             children: [
-              Row(
-                children: [
-                  const Icon(
-                    Icons.auto_awesome,
-                    size: 14,
-                    color: AppColors.primary,
+              for (final option in _kPropertyTypes)
+                Padding(
+                  padding: const EdgeInsets.only(right: AppConstants.spacingM),
+                  child: _buildPropertyTypeCard(
+                    option,
+                    filterProvider.category == option.category &&
+                        filterProvider.subtype == option.subtype,
                   ),
-                  const SizedBox(width: 7),
-                  Text(
-                    'Search by property type',
-                    style: AppTextStyles.caption.copyWith(
-                      fontSize: 12.5,
-                      fontWeight: FontWeight.w600,
-                      color: AppColors.textPrimary,
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 10),
-              Wrap(
-                spacing: AppConstants.spacingS,
-                runSpacing: AppConstants.spacingS,
-                children: [
-                  for (final option in _kPropertyTypes)
-                    _buildPropertyTypePill(
-                      option,
-                      filterProvider.category == option.category &&
-                          filterProvider.subtype == option.subtype,
-                    ),
-                ],
-              ),
+                ),
             ],
           ),
         );
@@ -966,7 +992,7 @@ class _SearchScreenState extends State<SearchScreen>
     );
   }
 
-  Widget _buildPropertyTypePill(_PropertyTypeOption option, bool isSelected) {
+  Widget _buildPropertyTypeCard(_PropertyTypeOption option, bool isSelected) {
     return Semantics(
       label: option.label,
       button: true,
@@ -975,19 +1001,214 @@ class _SearchScreenState extends State<SearchScreen>
         onTap: () => _onPropertyTypeTap(option, isSelected),
         behavior: HitTestBehavior.opaque,
         child: Container(
-          height: AppConstants.filterChipHeight,
-          padding: const EdgeInsets.symmetric(
-            horizontal: AppConstants.spacingL,
-          ),
+          width: 76,
+          padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 6),
           decoration: BoxDecoration(
-            color: isSelected ? AppColors.primary : AppColors.background,
-            borderRadius: BorderRadius.circular(AppConstants.pillRadius),
+            color: isSelected ? AppColors.primary : AppColors.cardBackground,
+            borderRadius: BorderRadius.circular(AppConstants.cardRadius),
+            boxShadow: isSelected ? AppColors.primaryGlow : AppColors.surfaceCardShadow,
+          ),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(
+                option.icon,
+                size: 22,
+                color: isSelected ? Colors.white : AppColors.primary,
+              ),
+              const SizedBox(height: 6),
+              Text(
+                option.label,
+                textAlign: TextAlign.center,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: AppTextStyles.chip.copyWith(
+                  fontSize: 11,
+                  color: isSelected ? Colors.white : AppColors.textSecondary,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  /// Rent / Buy / Lease — a direct entry point to
+  /// `FilterProvider.listingType`, the same facet AI search parsing and the
+  /// Home category tiles already set. Purely a new visual entry point to an
+  /// existing filter, not a new one.
+  Widget _buildListingTypeToggle() {
+    return Consumer<FilterProvider>(
+      builder: (context, filterProvider, child) {
+        return Padding(
+          padding: const EdgeInsets.symmetric(
+            horizontal: AppConstants.spacingXL,
+          ),
+          child: Container(
+            padding: const EdgeInsets.all(4),
+            decoration: BoxDecoration(
+              color: AppColors.cardBackground,
+              borderRadius: BorderRadius.circular(AppConstants.pillRadius),
+              boxShadow: AppColors.surfaceCardShadow,
+            ),
+            child: Row(
+              children: [
+                for (final option in _kListingTypes)
+                  Expanded(
+                    child: _buildListingTypeSegment(
+                      option,
+                      filterProvider.listingType == option.value,
+                    ),
+                  ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildListingTypeSegment(_ListingTypeOption option, bool isSelected) {
+    return Semantics(
+      label: option.label,
+      button: true,
+      selected: isSelected,
+      child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        // Tapping the already-selected segment clears the facet — the same
+        // toggle-off convention the property-type cards above use.
+        onTap: () => Provider.of<FilterProvider>(
+          context,
+          listen: false,
+        ).setListingType(isSelected ? null : option.value),
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 200),
+          height: 40,
+          decoration: BoxDecoration(
+            color: isSelected ? AppColors.primary : Colors.transparent,
+            borderRadius: BorderRadius.circular(AppConstants.buttonRadius),
           ),
           child: Center(
             child: Text(
               option.label,
               style: AppTextStyles.chip.copyWith(
+                fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
                 color: isSelected ? Colors.white : AppColors.textSecondary,
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  /// "All Cities" / "More Filters" — both open the existing full Filters
+  /// screen (`AppConstants.filtersScreen`); neither introduces a new picker
+  /// or a new filter dimension.
+  Widget _buildCityFilterRow() {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: AppConstants.spacingXL),
+      child: Row(
+        children: [
+          Expanded(
+            child: _buildDropdownAffordance(
+              icon: Icons.location_on_outlined,
+              label: 'All Cities',
+            ),
+          ),
+          const SizedBox(width: AppConstants.spacingM),
+          Expanded(
+            child: _buildDropdownAffordance(
+              icon: Icons.tune_rounded,
+              label: 'More Filters',
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildDropdownAffordance({
+    required IconData icon,
+    required String label,
+  }) {
+    return Semantics(
+      label: label,
+      button: true,
+      child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTap: () => Navigator.pushNamed(context, AppConstants.filtersScreen),
+        child: Container(
+          height: 46,
+          padding: const EdgeInsets.symmetric(horizontal: AppConstants.spacingM),
+          decoration: BoxDecoration(
+            color: AppColors.cardBackground,
+            borderRadius: BorderRadius.circular(AppConstants.buttonRadius),
+            boxShadow: AppColors.surfaceCardShadow,
+          ),
+          child: Row(
+            children: [
+              Icon(icon, size: 17, color: AppColors.primary),
+              const SizedBox(width: 7),
+              Expanded(
+                child: Text(
+                  label,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: AppTextStyles.body.copyWith(
+                    fontSize: 12.5,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+              const Icon(
+                Icons.keyboard_arrow_down_rounded,
+                size: 16,
+                color: AppColors.textSecondary,
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  /// A prominent second entry point to the exact same submit path the
+  /// keyboard's search action already uses.
+  Widget _buildSearchButton() {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: AppConstants.spacingXL),
+      child: SizedBox(
+        width: double.infinity,
+        height: AppConstants.searchBarHeight,
+        child: Material(
+          color: Colors.transparent,
+          child: InkWell(
+            borderRadius: BorderRadius.circular(_kEntryBarRadius),
+            onTap: () => _submitSearch(_searchController.text),
+            child: Ink(
+              decoration: BoxDecoration(
+                gradient: AppColors.primaryGradient,
+                borderRadius: BorderRadius.circular(_kEntryBarRadius),
+                boxShadow: AppColors.primaryGlow,
+              ),
+              child: const Center(
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(Icons.search_rounded, color: Colors.white, size: 20),
+                    SizedBox(width: 8),
+                    Text(
+                      'Search',
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w700,
+                        color: Colors.white,
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ),
           ),
@@ -1011,7 +1232,29 @@ class _SearchScreenState extends State<SearchScreen>
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              _buildSectionLabel('RECENT SEARCHES'),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  _buildSectionLabel('RECENT SEARCHES'),
+                  if (queries.isNotEmpty)
+                    Semantics(
+                      label: 'Clear all recent searches',
+                      button: true,
+                      child: GestureDetector(
+                        behavior: HitTestBehavior.opaque,
+                        onTap: recentSearches.clear,
+                        child: Text(
+                          'Clear All',
+                          style: AppTextStyles.caption.copyWith(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600,
+                            color: AppColors.primary,
+                          ),
+                        ),
+                      ),
+                    ),
+                ],
+              ),
               const SizedBox(height: 10),
               // Animates the collapse when a row is removed, so the rows below
               // slide up instead of jumping.

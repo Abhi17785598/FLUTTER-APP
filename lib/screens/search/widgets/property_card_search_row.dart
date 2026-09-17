@@ -1,30 +1,26 @@
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 
 import '../../../core/constants/app_constants.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_text_styles.dart';
 import '../../../models/property_model.dart';
-import '../../../widgets/status_tag.dart';
+import '../../../providers/auth_provider.dart';
+import '../../property_detail/widgets/share_property_sheet.dart';
+import 'people_result_card.dart' show PeopleAvatar;
 import 'property_card_facts.dart';
 
 /// Width of the leading image. The redesign's list card is a row with a fixed
 /// 112 dp image column and a flexible content column.
 const double _kImageWidth = 112;
 
-/// Height of the image column — and therefore the card's natural height.
-///
-/// This has to be an explicit number. The redesign's card is CSS flexbox, where
-/// the row's height falls out of the content and the image then stretches to
-/// match. Flutter's `RenderFlex` cannot do that in a single layout pass: inside
-/// a vertical `ListView` a row's incoming `maxHeight` is `infinity`, so asking
-/// it to stretch its children hands them a tight infinite height and layout
-/// throws. Pinning the image instead gives the row a finite height to size
-/// itself from. See the class doc for the full constraint chain.
-///
-/// 120 clears the content block (price 19 + title 13 + locality 11 + facts 10.5
-/// plus their gaps and 12 dp of padding) at default text scale.
-const double _kImageHeight = 120;
+/// The listing-type chip's colours. No existing token pairs a background with
+/// a matching foreground here, so — like the other `_k`-prefixed prototype
+/// values in this feature — they're declared locally rather than guessed from
+/// an unrelated palette entry.
+const Color _kListingChipBg = Color(0xFFFCE4EC);
+const Color _kListingChipFg = Color(0xFFD6336C);
 
 /// The Search results List-surface card.
 ///
@@ -37,20 +33,11 @@ const double _kImageHeight = 120;
 /// Home rails). Duplicating the card here keeps every one of those screens
 /// untouched.
 ///
-/// Constraint chain, which is load-bearing — a vertical `ListView` hands each
-/// item `height: 0..infinity`, so nothing in here may depend on the incoming
-/// `maxHeight`:
-///
-///   ListView item   height 0..infinity
-///     -> Container  no height, so the infinity passes straight through
-///       -> Row      crossAxisAlignment.start, so children get LOOSE height
-///         -> SizedBox   overrides with its own tight 112 x 120  (finite)
-///           -> Stack    StackFit.expand, now tight 112 x 120    (finite)
-///         -> Expanded   tight width, loose height
-///           -> Column   mainAxisSize.min, sizes to its children (finite)
-///
-/// The row's height is then `max(120, contentHeight)` and the container adopts
-/// it. No infinite value is ever forced on a child.
+/// The image column now stretches to match the content column's height
+/// (`IntrinsicHeight` + `CrossAxisAlignment.stretch`) instead of a fixed 120 dp
+/// — the richer content block below (poster row, title, tags/price, location)
+/// is usually taller than that, and a stretched photo is what the reference
+/// design shows rather than a short image over blank card background.
 class PropertyCardSearchRow extends StatelessWidget {
   final PropertyModel property;
   final VoidCallback? onTap;
@@ -79,27 +66,17 @@ class PropertyCardSearchRow extends StatelessWidget {
         decoration: BoxDecoration(
           color: AppColors.cardBackground,
           borderRadius: BorderRadius.circular(AppConstants.cardRadius),
-          // Already an exact match for the redesign's card shadow
-          // (`0 6px 20px rgba(91,80,232,.10), 0 2px 8px rgba(0,0,0,.05)`).
           boxShadow: AppColors.cardShadow,
         ),
         clipBehavior: Clip.antiAlias,
-        child: Row(
-          // `start`, never `stretch`. Every non-stretch alignment passes the
-          // cross axis down LOOSE, so the image keeps its own tight 120 and the
-          // content column sizes to its own content — no infinity reaches
-          // either child. The row then takes the taller of the two, so if a
-          // large text scale grows the content past 120 the card simply gets
-          // taller instead of overflowing.
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            SizedBox(
-              width: _kImageWidth,
-              height: _kImageHeight,
-              child: _buildImage(),
-            ),
-            Expanded(child: _buildContent()),
-          ],
+        child: IntrinsicHeight(
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              SizedBox(width: _kImageWidth, child: _buildImage()),
+              Expanded(child: _buildContent(context)),
+            ],
+          ),
         ),
       ),
     );
@@ -119,28 +96,51 @@ class PropertyCardSearchRow extends StatelessWidget {
             child: const Icon(Icons.broken_image, size: 20),
           ),
         ),
-        if (property.statusTags.isNotEmpty)
-          Positioned(
-            top: AppConstants.spacingS,
-            left: AppConstants.spacingS,
-            // Only the first tag: the redesign's card carries a single badge,
-            // and `statusTags` is the listing's raw hashtag list, so showing
-            // several would quickly overrun a 112 dp column.
-            child: StatusTag(label: property.statusTags.first),
-          ),
-        if (onFavoriteToggle != null)
-          Positioned(
-            top: AppConstants.spacingS,
-            right: AppConstants.spacingS,
-            child: _buildFavouriteButton(),
-          ),
+        // The favourite toggle moved into the content column (next to the
+        // poster row, matching the reference), freeing this corner for the
+        // compare button that used to sit beneath it.
         if (onCompareToggle != null)
           Positioned(
-            top: onFavoriteToggle != null ? 40 : AppConstants.spacingS,
+            top: AppConstants.spacingS,
             right: AppConstants.spacingS,
             child: _buildCompareButton(),
           ),
+        if (property.photoCount > 0)
+          Positioned(
+            left: AppConstants.spacingS,
+            bottom: AppConstants.spacingS,
+            child: _buildPhotoCountBadge(),
+          ),
       ],
+    );
+  }
+
+  Widget _buildPhotoCountBadge() {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+      decoration: BoxDecoration(
+        color: Colors.black.withValues(alpha: 0.55),
+        borderRadius: BorderRadius.circular(AppConstants.chipRadius),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const Icon(
+            Icons.camera_alt_rounded,
+            size: 11,
+            color: Colors.white,
+          ),
+          const SizedBox(width: 3),
+          Text(
+            '${property.photoCount}',
+            style: const TextStyle(
+              fontSize: 10.5,
+              fontWeight: FontWeight.w600,
+              color: Colors.white,
+            ),
+          ),
+        ],
+      ),
     );
   }
 
@@ -168,6 +168,106 @@ class PropertyCardSearchRow extends StatelessWidget {
     );
   }
 
+  Widget _buildContent(BuildContext context) {
+    final String factsLine = propertyFactsLine(property);
+
+    return Padding(
+      padding: const EdgeInsets.all(AppConstants.spacingM),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          _buildPosterRow(context),
+          const SizedBox(height: 8),
+          Text(
+            property.title,
+            style: AppTextStyles.body.copyWith(
+              fontSize: 13.5,
+              fontWeight: FontWeight.w700,
+            ),
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+          ),
+          const SizedBox(height: 7),
+          _buildTagsAndPriceRow(),
+          const SizedBox(height: 6),
+          _buildLocationRow(),
+          if (factsLine.isNotEmpty) ...[
+            const SizedBox(height: 4),
+            Text(
+              factsLine,
+              style: AppTextStyles.caption.copyWith(fontSize: 10.5),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  /// Avatar + poster name + "posted X ago", with the favourite/share actions
+  /// trailing on the same row — mirrors the reference card's top line.
+  Widget _buildPosterRow(BuildContext context) {
+    final String? name = property.postedByName;
+    final String initials = _initialsFor(name);
+    final String postedAgo = propertyPostedAgo(property.createdAt);
+
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.center,
+      children: [
+        PeopleAvatar(avatarUrl: property.postedByAvatarUrl, initials: initials, size: 26),
+        const SizedBox(width: 7),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Row(
+                children: [
+                  Flexible(
+                    child: Text(
+                      name?.trim().isNotEmpty == true ? name!.trim() : 'PropCid',
+                      style: AppTextStyles.caption.copyWith(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w700,
+                        color: AppColors.textPrimary,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                  if (property.isVerified) ...[
+                    const SizedBox(width: 3),
+                    const Icon(
+                      Icons.verified_rounded,
+                      size: 12,
+                      color: AppColors.primary,
+                    ),
+                  ],
+                ],
+              ),
+              if (postedAgo.isNotEmpty)
+                Text(
+                  postedAgo,
+                  style: AppTextStyles.caption.copyWith(
+                    fontSize: 10,
+                    color: AppColors.textHint,
+                  ),
+                ),
+            ],
+          ),
+        ),
+        if (onFavoriteToggle != null) ...[
+          const SizedBox(width: 4),
+          _buildFavouriteButton(),
+        ],
+        const SizedBox(width: 4),
+        _buildShareButton(context),
+      ],
+    );
+  }
+
   Widget _buildFavouriteButton() {
     return Semantics(
       label: property.isShortlisted ? 'Remove from saved' : 'Save property',
@@ -175,16 +275,12 @@ class PropertyCardSearchRow extends StatelessWidget {
       child: GestureDetector(
         onTap: onFavoriteToggle,
         behavior: HitTestBehavior.opaque,
-        child: Container(
+        child: SizedBox(
           width: 26,
           height: 26,
-          decoration: BoxDecoration(
-            color: Colors.white.withValues(alpha: 0.9),
-            borderRadius: BorderRadius.circular(AppConstants.pillRadius),
-          ),
           child: Icon(
             property.isShortlisted ? Icons.favorite : Icons.favorite_border,
-            size: 15,
+            size: 17,
             color: property.isShortlisted
                 ? AppColors.error
                 : AppColors.textSecondary,
@@ -194,45 +290,201 @@ class PropertyCardSearchRow extends StatelessWidget {
     );
   }
 
-  Widget _buildContent() {
-    return Padding(
-      padding: const EdgeInsets.all(AppConstants.spacingM),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+  /// Opens the existing property share sheet (`share_property_sheet.dart`) —
+  /// the same one the Property Detail screen already uses — rather than
+  /// inventing a second share flow for this card.
+  Widget _buildShareButton(BuildContext context) {
+    return Semantics(
+      label: 'Share property',
+      button: true,
+      child: GestureDetector(
+        onTap: () => showSharePropertySheet(
+          context,
+          propertyId: property.id,
+          title: property.title,
+          location: property.location,
+          priceDisplay: property.priceDisplay,
+          currentUserId: Provider.of<AuthProvider>(
+            context,
+            listen: false,
+          ).userId,
+        ),
+        behavior: HitTestBehavior.opaque,
+        child: const SizedBox(
+          width: 26,
+          height: 26,
+          child: Icon(
+            Icons.share_outlined,
+            size: 16,
+            color: AppColors.textSecondary,
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildTagsAndPriceRow() {
+    final String? category = property.category;
+    final String? listingType = property.propertyType;
+
+    return Row(
+      children: [
+        // Flexible (not a fixed-size Row child): the chips shrink-to-fit
+        // instead of competing with the price for a 50/50 flex split, which is
+        // what was clipping the amount down to "₹40…" before.
+        Flexible(
+          child: Wrap(
+            spacing: 6,
+            runSpacing: 4,
+            crossAxisAlignment: WrapCrossAlignment.center,
+            children: [
+              if (category != null) _buildCategoryChip(category),
+              if (listingType != null) _buildListingChip(listingType),
+            ],
+          ),
+        ),
+        const SizedBox(width: 6),
+        // Expanded, not Flexible: this claims every pixel left over after the
+        // chips instead of splitting it with them, so the full amount always
+        // has room to render.
+        Expanded(
+          child: Text(
+            _priceWithSuffix(listingType),
+            style: AppTextStyles.price.copyWith(fontSize: 15),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            textAlign: TextAlign.right,
+          ),
+        ),
+      ],
+    );
+  }
+
+  /// Appends "/month" to a rent listing's price, matching the reference —
+  /// `priceDisplay` itself is a plain currency format with no listing-type
+  /// awareness, so this only adjusts what's shown, not the underlying value.
+  String _priceWithSuffix(String? listingType) {
+    if (listingType == 'rent') return '${property.priceDisplay} /month';
+    return property.priceDisplay;
+  }
+
+  Widget _buildCategoryChip(String category) {
+    final (icon, label) = _categoryIconAndLabel(category);
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+      decoration: BoxDecoration(
+        color: AppColors.primaryLight,
+        borderRadius: BorderRadius.circular(AppConstants.chipRadius),
+        border: Border.all(color: AppColors.primary.withValues(alpha: 0.3)),
+      ),
+      child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
+          Icon(icon, size: 10.5, color: AppColors.primary),
+          const SizedBox(width: 3),
           Text(
-            property.priceDisplay,
-            style: AppTextStyles.price.copyWith(fontSize: 19),
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-          ),
-          const SizedBox(height: AppConstants.spacingXS),
-          Text(
-            property.title,
-            style: AppTextStyles.body.copyWith(
-              fontSize: 13,
+            label,
+            style: AppTextStyles.chip.copyWith(
+              fontSize: 10,
+              color: AppColors.primary,
               fontWeight: FontWeight.w600,
             ),
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
           ),
-          const SizedBox(height: 2),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildListingChip(String listingType) {
+    final String label = _listingTypeLabel(listingType);
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+      decoration: BoxDecoration(
+        color: _kListingChipBg,
+        borderRadius: BorderRadius.circular(AppConstants.chipRadius),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const Icon(Icons.sell_rounded, size: 10.5, color: _kListingChipFg),
+          const SizedBox(width: 3),
           Text(
+            label,
+            style: AppTextStyles.chip.copyWith(
+              fontSize: 10,
+              color: _kListingChipFg,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildLocationRow() {
+    return Row(
+      children: [
+        const Icon(
+          Icons.location_on_outlined,
+          size: 12,
+          color: AppColors.textHint,
+        ),
+        const SizedBox(width: 3),
+        Expanded(
+          child: Text(
             property.location,
             style: AppTextStyles.caption.copyWith(fontSize: 11),
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
           ),
-          const SizedBox(height: 6),
-          Text(
-            propertyFactsLine(property),
-            style: AppTextStyles.caption.copyWith(fontSize: 10.5),
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-          ),
-        ],
-      ),
+        ),
+      ],
     );
+  }
+
+  /// Same 4 categories `FiltersScreen`/`search_screen.dart` already filter by,
+  /// plus the 2 the results screen's own `_categoryDisplayName` also handles
+  /// (`pg_coliving`, `others`) — mirrored here rather than imported, since
+  /// that method is private to `_SearchResultsScreenState`.
+  (IconData, String) _categoryIconAndLabel(String category) {
+    switch (category) {
+      case 'residential':
+        return (Icons.home_rounded, 'Residential');
+      case 'commercial':
+        return (Icons.store_mall_directory_rounded, 'Commercial');
+      case 'land':
+        return (Icons.landscape_rounded, 'Land');
+      case 'pg_coliving':
+        return (Icons.groups_rounded, 'PG/Co-living');
+      case 'others':
+        return (Icons.category_rounded, 'Others');
+      default:
+        return (Icons.home_work_outlined, category);
+    }
+  }
+
+  String _listingTypeLabel(String listingType) {
+    switch (listingType) {
+      case 'sell':
+        return 'For Sale';
+      case 'rent':
+        return 'For Rent';
+      case 'lease':
+        return 'For Lease';
+      default:
+        return listingType;
+    }
+  }
+
+  /// Same 2-letter rule `UserProfile.initials` uses, falling back to "PC"
+  /// (PropCid) rather than "U" when there is no poster name at all — this
+  /// card's fallback identity is the platform, not a generic user.
+  String _initialsFor(String? name) {
+    final trimmed = name?.trim() ?? '';
+    if (trimmed.isEmpty) return 'PC';
+    final words = trimmed.split(RegExp(r'\s+')).where((w) => w.isNotEmpty).toList();
+    if (words.isEmpty) return 'PC';
+    final letters = words.take(2).map((w) => w[0].toUpperCase()).join();
+    return letters.isEmpty ? 'PC' : letters;
   }
 }

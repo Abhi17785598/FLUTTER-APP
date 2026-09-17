@@ -57,6 +57,14 @@ class PropertyModel {
   final int? views;
   final DateTime? createdAt;
 
+  // NEW: the poster's display name/avatar. `searchProperties` already embeds
+  // `user_profile:user_id(display_name,user_type,company_name,avatar_url)` on
+  // every row it fetches (property_service.dart) — this only adds client-side
+  // exposure of a join that already arrives over the wire and was previously
+  // discarded. No new query.
+  final String? postedByName;
+  final String? postedByAvatarUrl;
+
   // NEW: the raw `properties.metadata` JSON blob, already fetched over the
   // wire via select('*') today — this only adds client-side exposure of it.
   // Carries the long-tail fields the wizard writes (RERA, facing, legal
@@ -140,6 +148,8 @@ class PropertyModel {
     this.status,
     this.views,
     this.createdAt,
+    this.postedByName,
+    this.postedByAvatarUrl,
     this.metadata = const {},
     this.floorNumber,
     this.totalFloors,
@@ -250,6 +260,7 @@ class PropertyModel {
         json['residentialDetails'] as Map<String, dynamic>?;
     final commercial = json['properties_commercial'] as Map<String, dynamic>?;
     final land = json['properties_land'] as Map<String, dynamic>?;
+    final userProfile = json['user_profile'] as Map<String, dynamic>?;
 
     // Media lives in properties.media_urls (text[]). This is now the
     // single source of truth for both the gallery and the legacy
@@ -402,6 +413,13 @@ class PropertyModel {
       createdAt: json['created_at'] != null
           ? DateTime.tryParse(json['created_at'].toString())
           : null,
+      // `display_name` first, `company_name` second — same precedence the
+      // People search suggestions already use (search_screen.dart's
+      // `_peopleSubtitle`/title fallback) for a joined profile with no name set.
+      postedByName:
+          userProfile?['display_name']?.toString() ??
+          userProfile?['company_name']?.toString(),
+      postedByAvatarUrl: userProfile?['avatar_url']?.toString(),
       metadata: metadata,
       floorNumber: floorNumber,
       totalFloors: totalFloors,
@@ -569,6 +587,8 @@ class PropertyModel {
     String? status,
     int? views,
     DateTime? createdAt,
+    String? postedByName,
+    String? postedByAvatarUrl,
     Map<String, dynamic>? metadata,
     int? floorNumber,
     int? totalFloors,
@@ -635,6 +655,8 @@ class PropertyModel {
       status: status ?? this.status,
       views: views ?? this.views,
       createdAt: createdAt ?? this.createdAt,
+      postedByName: postedByName ?? this.postedByName,
+      postedByAvatarUrl: postedByAvatarUrl ?? this.postedByAvatarUrl,
       metadata: metadata ?? this.metadata,
       floorNumber: floorNumber ?? this.floorNumber,
       totalFloors: totalFloors ?? this.totalFloors,
