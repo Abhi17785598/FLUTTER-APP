@@ -3,6 +3,7 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 
+import '../config/launch_features.dart';
 import '../core/constants/app_constants.dart';
 import '../core/theme/app_text_styles.dart';
 import '../core/widgets/gradient_text.dart';
@@ -20,7 +21,15 @@ import '../models/launch_offer_content.dart';
 /// still comes from [LaunchOfferContent] so this surface and the launch bottom
 /// sheet cannot drift apart.
 class PremiumLaunchBanner extends StatefulWidget {
-  const PremiumLaunchBanner({super.key});
+  const PremiumLaunchBanner({super.key, @visibleForTesting bool? enabled})
+    : _enabled = enabled;
+
+  /// Overrides [LaunchFeatures.subscriptions] for this instance. Null in
+  /// every production call site. The rendering/overflow regression suite
+  /// (`premium_launch_banner_layout_test.dart`) passes `true` explicitly to
+  /// keep validating this card's own layout, since the compiled-in flag
+  /// default is false for every `flutter test` run.
+  final bool? _enabled;
 
   @override
   State<PremiumLaunchBanner> createState() => _PremiumLaunchBannerState();
@@ -90,6 +99,13 @@ class _PremiumLaunchBannerState extends State<PremiumLaunchBanner>
 
   @override
   Widget build(BuildContext context) {
+    // Defensive: this banner isn't mounted anywhere in the live Home layout
+    // today, but if it ever is, it must never render while subscriptions are
+    // disabled for this build.
+    if (!(widget._enabled ?? LaunchFeatures.subscriptions)) {
+      return const SizedBox.shrink();
+    }
+
     final (String lead, String accent) = _headlineParts;
 
     return Padding(

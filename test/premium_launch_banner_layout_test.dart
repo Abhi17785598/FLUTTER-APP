@@ -11,8 +11,9 @@ import 'package:propcid_app/widgets/premium_launch_banner.dart';
 void main() {
   // Narrowest common Android, iPhone SE, iPhone 12/13/14, Pixel 7 Pro.
   for (final double width in <double>[320, 360, 375, 390, 412, 430]) {
-    testWidgets('PremiumLaunchBanner lays out cleanly at ${width}px',
-        (tester) async {
+    testWidgets('PremiumLaunchBanner lays out cleanly at ${width}px', (
+      tester,
+    ) async {
       tester.view.physicalSize = Size(width, 1400);
       tester.view.devicePixelRatio = 1.0;
       addTearDown(tester.view.reset);
@@ -24,7 +25,12 @@ void main() {
       await tester.pumpWidget(
         const MaterialApp(
           home: Scaffold(
-            body: SingleChildScrollView(child: PremiumLaunchBanner()),
+            // `enabled: true` — the launch-flags pass defaults this card
+            // off (see LaunchFeatures.subscriptions); this suite is
+            // exercising the card's own layout, unaffected by that pass.
+            body: SingleChildScrollView(
+              child: PremiumLaunchBanner(enabled: true),
+            ),
           ),
         ),
       );
@@ -47,4 +53,3 @@ void main() {
     });
   }
 }
-

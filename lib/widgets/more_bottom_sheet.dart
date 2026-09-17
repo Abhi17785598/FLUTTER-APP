@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../config/launch_features.dart';
 import '../core/constants/app_constants.dart';
 import '../core/navigation/workspace_destinations.dart';
 import '../core/theme/app_colors.dart';
@@ -114,18 +115,20 @@ class _MoreSheetBody extends StatelessWidget {
               'Network',
               onNavigate: WorkspaceDestinations.network,
             ),
-            _row(
-              context,
-              Icons.credit_card_outlined,
-              'Subscription & Billing',
-              onNavigate: WorkspaceDestinations.subscriptionBilling,
-            ),
-            _row(
-              context,
-              Icons.share_outlined,
-              'Social',
-              onNavigate: WorkspaceDestinations.social,
-            ),
+            if (LaunchFeatures.subscriptions)
+              _row(
+                context,
+                Icons.credit_card_outlined,
+                'Subscription & Billing',
+                onNavigate: WorkspaceDestinations.subscriptionBilling,
+              ),
+            if (LaunchFeatures.metaPublishing)
+              _row(
+                context,
+                Icons.share_outlined,
+                'Social',
+                onNavigate: WorkspaceDestinations.social,
+              ),
             _row(
               context,
               Icons.settings_outlined,

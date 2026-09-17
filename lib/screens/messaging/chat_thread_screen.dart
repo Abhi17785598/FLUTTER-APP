@@ -8,6 +8,7 @@ import 'package:path_provider/path_provider.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:provider/provider.dart';
 
+import '../../config/launch_features.dart';
 import '../../core/constants/app_constants.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_text_styles.dart';
@@ -113,6 +114,12 @@ class ChatThreadScreen extends StatelessWidget {
         ? null
         : participantUserId;
 
+    // Treated as `null` outright while paid collaborations are disabled —
+    // `CollaborationThreadController` never loads, `CollabActionPanel` never
+    // mounts (see `_ChatThreadViewState.build`), and the header's
+    // collaboration marker doesn't show.
+    final collabId = LaunchFeatures.paidCollaborations ? collaborationId : null;
+
     final threadView = _ChatThreadView(
       title: title,
       subtitle: subtitle,
@@ -123,11 +130,10 @@ class ChatThreadScreen extends StatelessWidget {
       initialRequestStatus: requestStatus,
       initialIsMuted: isMuted,
       isChannelAdmin: isChannelAdmin,
-      isCollaboration: collaborationId != null,
+      isCollaboration: collabId != null,
       service: service,
     );
 
-    final collabId = collaborationId;
     return MultiProvider(
       providers: [
         ChangeNotifierProvider(

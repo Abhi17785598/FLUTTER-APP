@@ -34,6 +34,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../../config/launch_features.dart';
 import '../../core/animations/page_transitions.dart';
 import '../../core/constants/app_constants.dart';
 import '../../core/navigation/notification_route_resolver.dart';
@@ -89,6 +90,9 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
     if (!mounted) return;
 
     if (NotificationTypes.collabTypes.contains(notification.type)) {
+      // Marked read above already; a disabled build just stops here rather
+      // than navigating into a hidden collaboration screen.
+      if (!LaunchFeatures.paidCollaborations) return;
       await _openCollab(notification);
       return;
     }

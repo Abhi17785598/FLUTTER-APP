@@ -22,6 +22,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../config/launch_features.dart';
 import '../models/app_notification.dart';
 import '../services/notification_alert_preference.dart';
 import '../services/notification_service.dart';
@@ -40,8 +41,17 @@ class NotificationProvider extends ChangeNotifier {
   String? _userId;
   RealtimeChannel? _channel;
 
-  /// Newest first, as fetched.
-  List<AppNotification> get items => _items;
+  /// Newest first, as fetched. Excludes collaboration notifications while
+  /// [LaunchFeatures.paidCollaborations] is off — `_items` itself still
+  /// holds them (untouched, so re-enabling the feature needs no re-fetch),
+  /// only what's shown/counted is filtered.
+  List<AppNotification> get items => _visibleItems;
+
+  List<AppNotification> get _visibleItems => LaunchFeatures.paidCollaborations
+      ? _items
+      : _items
+            .where((n) => !NotificationTypes.collabTypes.contains(n.type))
+            .toList();
 
   bool get loading => _loading;
   bool get failed => _failed;
@@ -53,7 +63,7 @@ class NotificationProvider extends ChangeNotifier {
   /// (`useNotifications.ts:57`, `:76`), which is how a count drifts out of step with
   /// the rows it is meant to describe — its own UPDATE listener has to recalculate
   /// from scratch to correct for exactly that (`:156`). Deriving cannot drift.
-  int get unreadCount => _items.where((n) => !n.isRead).length;
+  int get unreadCount => _visibleItems.where((n) => !n.isRead).length;
 
   bool get hasUnread => unreadCount > 0;
 

@@ -126,17 +126,19 @@ void main() {
       expect(stats.networkRatingDisplay, '—');
     });
 
-    test('formats real performance figures, not the portal\'s hardcoded ones',
-        () {
-      const stats = NetworkStats(
-        successRatePercent: 84.6,
-        avgResponseTimeHours: 2.34,
-        networkRating: 4.8,
-      );
-      expect(stats.successRateDisplay, '85%'); // rounds, does not truncate
-      expect(stats.avgResponseTimeDisplay, '2.3 hrs');
-      expect(stats.networkRatingDisplay, '4.8/5');
-    });
+    test(
+      'formats real performance figures, not the portal\'s hardcoded ones',
+      () {
+        const stats = NetworkStats(
+          successRatePercent: 84.6,
+          avgResponseTimeHours: 2.34,
+          networkRating: 4.8,
+        );
+        expect(stats.successRateDisplay, '85%'); // rounds, does not truncate
+        expect(stats.avgResponseTimeDisplay, '2.3 hrs');
+        expect(stats.networkRatingDisplay, '4.8/5');
+      },
+    );
   });
 
   group('NetworkService.computePerformanceMetrics', () {
@@ -830,14 +832,22 @@ void main() {
       WorkspaceDestinations.upgrade(navigator);
       await tester.pumpAndSettle();
 
+      // Network and Social are unaffected by the subscriptions launch flag —
+      // both still push their real hub routes, not a placeholder.
       expect(
         pushed,
         containsAll(<String>[
           AppConstants.networkScreen,
           AppConstants.socialScreen,
-          AppConstants.upgradeScreen,
         ]),
       );
+      // Upgrade is the one hub gated by `LaunchFeatures.subscriptions`
+      // (defaulted off, as every `flutter test` run compiles it) — its own
+      // defensive guard means this call is a no-op rather than pushing
+      // `/upgrade`. Covered as its own behaviour, not a "placeholder" bug,
+      // by `test/route_protection_test.dart` and
+      // `test/workspace_navigation_gates_test.dart`.
+      expect(pushed, isNot(contains(AppConstants.upgradeScreen)));
     });
   });
 }

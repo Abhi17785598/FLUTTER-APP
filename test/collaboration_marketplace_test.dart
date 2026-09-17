@@ -388,6 +388,10 @@ void main() {
         final provider = MessagingProvider(
           service: _NoopMessagingService(),
           collabService: fake,
+          // The launch-flags pass defaults collaboration loading off; this
+          // test is exercising that loading logic itself, unaffected by
+          // that pass's own scope.
+          loadCollabs: true,
         );
 
         // load() also awaits conversations/channels via the noop messaging
@@ -431,6 +435,7 @@ void main() {
       final provider = MessagingProvider(
         service: _NoopMessagingService(),
         collabService: fake,
+        loadCollabs: true,
       );
       await provider.load('me');
 
@@ -486,6 +491,7 @@ void main() {
       final provider = MessagingProvider(
         service: fakeMessaging,
         collabService: fakeCollab,
+        loadCollabs: true,
       );
 
       await provider.load('me');

@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../config/launch_features.dart';
 import '../models/channel_summary.dart';
 import '../models/collaboration.dart';
 import '../models/conversation_summary.dart';
@@ -54,11 +55,21 @@ class MessagingProvider extends ChangeNotifier {
   MessagingProvider({
     MessagingService? service,
     CollaborationService? collabService,
+    @visibleForTesting bool? loadCollabs,
   }) : _service = service ?? MessagingService(),
-       _collabService = collabService ?? CollaborationService();
+       _collabService = collabService ?? CollaborationService(),
+       _collabsEnabled = loadCollabs ?? LaunchFeatures.paidCollaborations;
 
   final MessagingService _service;
   final CollaborationService _collabService;
+
+  /// Whether collaboration loading runs at all. Defaults to
+  /// [LaunchFeatures.paidCollaborations] — every production call site
+  /// leaves this null. Tests exercising the collaboration-marketplace
+  /// loading logic itself (unaffected by this launch-flags pass, per its
+  /// own scope) pass `true` explicitly, since the compiled-in flag default
+  /// is false for every `flutter test` run.
+  final bool _collabsEnabled;
   final SupabaseClient _supabase = Supabase.instance.client;
   final PresenceService _presence = PresenceService();
 
@@ -202,6 +213,14 @@ class MessagingProvider extends ChangeNotifier {
   }
 
   Future<void> _loadCollabs(String userId) async {
+    if (!_collabsEnabled) {
+      _collabs = const [];
+      _collabsLoading = false;
+      _collabsFailed = false;
+      _safeNotify();
+      return;
+    }
+
     final requestId = ++_collabsRequestId;
     final hadData = _collabs.isNotEmpty;
     _collabsLoading = true;

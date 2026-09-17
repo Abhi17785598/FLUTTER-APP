@@ -6,6 +6,7 @@ import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:url_launcher/url_launcher.dart';
 
+import '../config/launch_features.dart';
 import '../models/social_models.dart';
 
 /// Mobile port of `src/services/social/metaOAuthService.ts`'s connect/select/
@@ -35,10 +36,10 @@ import '../models/social_models.dart';
 /// will reject the redirect_uri outright; nothing in this file can detect or
 /// route around that ahead of time.
 class MetaOAuthService {
- static const String oauthRedirectUri =
-    'https://viboxyvkzntuealqcvze.supabase.co/functions/v1/meta-mobile-oauth-callback';
+  static const String oauthRedirectUri =
+      'https://viboxyvkzntuealqcvze.supabase.co/functions/v1/meta-mobile-oauth-callback';
 
-static const String deepLinkRedirectUri = 'propcid://meta-callback';
+  static const String deepLinkRedirectUri = 'propcid://meta-callback';
 
   /// Same scope list as `metaOAuthService.ts`'s `META_SCOPES` — Pages +
   /// Instagram + Ads/Leads. Advanced-access scopes (ads_management,
@@ -77,7 +78,7 @@ static const String deepLinkRedirectUri = 'propcid://meta-callback';
   String _buildOAuthUrl(String state) {
     final params = {
       'client_id': _appId!,
-     'redirect_uri': oauthRedirectUri,
+      'redirect_uri': oauthRedirectUri,
       'response_type': 'code',
       'scope': _scopes.join(','),
       'state': state,
@@ -124,6 +125,9 @@ static const String deepLinkRedirectUri = 'propcid://meta-callback';
   /// callers show it directly, matching this app's other Edge Function
   /// wrappers.
   Future<List<AvailablePage>> connect() async {
+    if (!LaunchFeatures.metaPublishing) {
+      throw 'Social connections are not available in this build.';
+    }
     if (!isConfigured) {
       throw 'Social connections are not set up on this build yet.';
     }
@@ -168,13 +172,10 @@ static const String deepLinkRedirectUri = 'propcid://meta-callback';
         throw 'Facebook did not return a login code.';
       }
 
-    final result = await _invoke(
-  'meta-oauth-exchange',
-  body: {
-    'code': code,
-    'redirect_uri': oauthRedirectUri,
-  },
-);
+      final result = await _invoke(
+        'meta-oauth-exchange',
+        body: {'code': code, 'redirect_uri': oauthRedirectUri},
+      );
       final pages = (result['pages'] as List? ?? const [])
           .whereType<Map>()
           .map((p) => AvailablePage.fromJson(Map<String, dynamic>.from(p)))

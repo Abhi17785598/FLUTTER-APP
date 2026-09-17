@@ -23,6 +23,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:provider/provider.dart';
 
+import '../../config/launch_features.dart';
 import '../../core/constants/app_constants.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_text_styles.dart';
@@ -151,6 +152,7 @@ class _PublicProfileViewState extends State<_PublicProfileView> {
   /// viewer's own `user_type` is already cached on `AuthProvider` — no extra
   /// query needed the way the portal's separate `viewerUserType` fetch is.
   bool _canCollaborate(UserProfile profile) {
+    if (!LaunchFeatures.paidCollaborations) return false;
     final auth = context.read<AuthProvider>();
     return isCollabEligible(
       viewerId: auth.userId,
@@ -225,7 +227,9 @@ class _PublicProfileViewState extends State<_PublicProfileView> {
       provider.load(userId: widget.userId, viewerId: viewerId);
     });
 
-    if (viewerId != null && viewerId != widget.userId) {
+    if (LaunchFeatures.paidCollaborations &&
+        viewerId != null &&
+        viewerId != widget.userId) {
       _checkExistingCollabRequest(viewerId);
     }
   }

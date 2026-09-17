@@ -14,6 +14,7 @@ import 'package:image_picker/image_picker.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:video_player/video_player.dart';
 
+import '../../../config/launch_features.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_text_styles.dart';
 import '../../../models/collaboration.dart';
@@ -286,6 +287,10 @@ class _CollabActionPanelState extends State<CollabActionPanel> {
   }
 
   Future<void> _pay(String milestone) async {
+    // Defence-in-depth: this panel is never mounted at all while paid
+    // collaborations are disabled (see `ChatThreadScreen.build`), but a
+    // checkout must never proceed here either way.
+    if (!LaunchFeatures.paidCollaborations) return;
     await _guard(() async {
       Map<String, dynamic> order;
       try {

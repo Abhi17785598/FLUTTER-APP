@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../config/launch_features.dart';
 import '../../core/constants/app_constants.dart';
 import '../../models/social_models.dart';
 import '../../services/social_service.dart';
@@ -19,7 +20,8 @@ Future<void> showPublishEverywhereDialog(
   required String contentId,
   required List<String> mediaUrls,
   String? title,
-}) {
+}) async {
+  if (!LaunchFeatures.metaPublishing) return;
   return showDialog<void>(
     context: context,
     builder: (_) => PublishEverywhereDialog(

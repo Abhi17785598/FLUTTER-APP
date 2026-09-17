@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 
+import '../../config/launch_features.dart';
 import '../../core/constants/app_constants.dart';
 import '../../core/theme/app_colors.dart';
 import '../../models/social_models.dart';
@@ -78,7 +79,8 @@ Future<void> showCreateCampaignDialog(
   List<String> mediaUrls = const [],
   String? title,
   ValueChanged<AdCampaign>? onCreated,
-}) {
+}) async {
+  if (!LaunchFeatures.metaPublishing) return;
   return showDialog<void>(
     context: context,
     builder: (_) => CreateCampaignDialog(
@@ -110,6 +112,7 @@ Future<void> offerBoostDialog(
   List<String> mediaUrls = const [],
   String? title,
 }) async {
+  if (!LaunchFeatures.metaPublishing) return;
   final wantsBoost = await showDialog<bool>(
     context: context,
     builder: (dialogContext) => AlertDialog(

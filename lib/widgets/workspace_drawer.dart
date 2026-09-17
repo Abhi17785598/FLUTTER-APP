@@ -2,6 +2,7 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../config/launch_features.dart';
 import '../core/navigation/workspace_destinations.dart';
 import '../core/theme/app_colors.dart';
 import '../core/theme/app_text_styles.dart';
@@ -119,24 +120,27 @@ class WorkspaceDrawer extends StatelessWidget {
                     'Network',
                     onNavigate: WorkspaceDestinations.network,
                   ),
-                  _row(
-                    context,
-                    Icons.trending_up_rounded,
-                    'Upgrade',
-                    onNavigate: WorkspaceDestinations.upgrade,
-                  ),
-                  _row(
-                    context,
-                    Icons.credit_card_outlined,
-                    'Subscription & Billing',
-                    onNavigate: WorkspaceDestinations.subscriptionBilling,
-                  ),
-                  _row(
-                    context,
-                    Icons.share_outlined,
-                    'Social',
-                    onNavigate: WorkspaceDestinations.social,
-                  ),
+                  if (LaunchFeatures.subscriptions) ...[
+                    _row(
+                      context,
+                      Icons.trending_up_rounded,
+                      'Upgrade',
+                      onNavigate: WorkspaceDestinations.upgrade,
+                    ),
+                    _row(
+                      context,
+                      Icons.credit_card_outlined,
+                      'Subscription & Billing',
+                      onNavigate: WorkspaceDestinations.subscriptionBilling,
+                    ),
+                  ],
+                  if (LaunchFeatures.metaPublishing)
+                    _row(
+                      context,
+                      Icons.share_outlined,
+                      'Social',
+                      onNavigate: WorkspaceDestinations.social,
+                    ),
                   _row(
                     context,
                     Icons.settings_outlined,

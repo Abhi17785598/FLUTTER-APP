@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'app_navigator.dart';
+import 'config/launch_features.dart';
 import 'core/constants/app_constants.dart';
 import 'core/navigation/current_route_notifier.dart';
 import 'core/navigation/manage_dashboard_dispatcher.dart';
@@ -93,6 +94,14 @@ class PropertyApp extends StatelessWidget {
         );
       },
       onGenerateRoute: (settings) {
+        // A disabled feature's screen must never be instantiated, even via
+        // direct named-route navigation (a deep link, a stale saved route,
+        // a notification payload) — not just hidden from menus. Redirect
+        // straight to the app's own home, silently; no "Coming Soon".
+        if (!LaunchFeatures.routeEnabled(settings.name)) {
+          return PremiumPageRoute(builder: (context) => const RoleHomeRouter());
+        }
+
         switch (settings.name) {
           case '/':
             return PremiumPageRoute(

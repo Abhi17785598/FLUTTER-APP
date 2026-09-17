@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../config/launch_features.dart';
 import '../core/constants/app_constants.dart';
 import '../core/theme/app_colors.dart';
 import '../core/theme/app_text_styles.dart';
@@ -34,6 +35,11 @@ class PremiumLaunchBottomSheet extends StatefulWidget {
   /// unconditionally from `initState`/post-frame callbacks.
   static Future<void> showOnce(BuildContext context) async {
     if (!LaunchOfferSessionGate.canShow) return;
+    // Checked after the session-gate check but before it is burned: a
+    // disabled build must never show this sheet, and must not spend the
+    // one-time gate doing so — re-enabling the feature later must still get
+    // the sheet its first real showing.
+    if (!LaunchFeatures.subscriptions) return;
     LaunchOfferSessionGate.markShown();
 
     await showModalBottomSheet(

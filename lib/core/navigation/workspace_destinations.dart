@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../config/launch_features.dart';
 import '../../screens/profile/actions/logout_dialog.dart';
 import '../../screens/profile/actions/settings_sheet.dart';
 import '../../screens/reels/reels_screen.dart';
@@ -86,12 +87,21 @@ class WorkspaceDestinations {
   ///
   /// Distinct from "Subscription & Billing", which reviews an existing
   /// subscription across its own tabbed surface — see [subscriptionBilling].
+  ///
+  /// Defensive guard: every visible caller already hides this destination
+  /// when [LaunchFeatures.subscriptions] is off (see `WorkspaceDrawer`/
+  /// `MoreBottomSheet`); this no-op is a second line of defence in case
+  /// something else ever calls it directly.
   static void upgrade(NavigatorState navigator) {
+    if (!LaunchFeatures.subscriptions) return;
     navigator.pushNamed(AppConstants.upgradeScreen);
   }
 
   /// Subscription & Billing — the read-only billing surface (Phase 7).
+  ///
+  /// Same defensive guard as [upgrade].
   static void subscriptionBilling(NavigatorState navigator) {
+    if (!LaunchFeatures.subscriptions) return;
     navigator.pushNamed(AppConstants.subscriptionBillingScreen);
   }
 

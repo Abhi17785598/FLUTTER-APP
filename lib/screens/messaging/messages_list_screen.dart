@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:shimmer/shimmer.dart';
 
+import '../../config/launch_features.dart';
 import '../../core/animations/page_transitions.dart';
 import '../../core/constants/app_constants.dart';
 import '../../core/theme/app_colors.dart';
@@ -13,6 +14,7 @@ import '../../models/conversation_summary.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/chat_thread_provider.dart';
 import '../../providers/messaging_provider.dart';
+import '../../services/collaboration_service.dart';
 import '../../services/messaging_service.dart';
 import 'blocked_users_screen.dart';
 import 'chat_thread_screen.dart';
@@ -30,12 +32,27 @@ class MessagesListScreen extends StatelessWidget {
   /// with no conversation yet routes here.
   final int initialTab;
 
-  const MessagesListScreen({super.key, this.initialTab = 0});
+  /// Overrides the real services [MessagingProvider] uses. Null in every
+  /// production call site; tests inject fakes here instead of hitting
+  /// Supabase.
+  @visibleForTesting
+  final MessagingService? service;
+
+  @visibleForTesting
+  final CollaborationService? collabService;
+
+  const MessagesListScreen({
+    super.key,
+    this.initialTab = 0,
+    this.service,
+    this.collabService,
+  });
 
   @override
   Widget build(BuildContext context) {
     return ChangeNotifierProvider(
-      create: (_) => MessagingProvider(),
+      create: (_) =>
+          MessagingProvider(service: service, collabService: collabService),
       child: _MessagesListView(initialTab: initialTab),
     );
   }
@@ -50,7 +67,14 @@ class _MessagesListView extends StatefulWidget {
 }
 
 class _MessagesListViewState extends State<_MessagesListView> {
-  late int _tab = widget.initialTab.clamp(0, 2);
+  /// Clamped to (0, 1) — Chats/Channels only — when paid collaborations are
+  /// disabled, so an `initialTab: 2` deep-link (e.g. from a stale
+  /// notification) safely lands on Channels instead of a tab that no longer
+  /// exists.
+  late int _tab = widget.initialTab.clamp(
+    0,
+    LaunchFeatures.paidCollaborations ? 2 : 1,
+  );
   String? _loadedUserId;
   final Set<String> _collabActionBusy = {};
 
@@ -300,12 +324,14 @@ class _MessagesListViewState extends State<_MessagesListView> {
                     labels: [
                       'Chats',
                       'Channels',
-                      // Total unread across every active collaboration's own
-                      // conversation, plus the existing incoming-request dot
-                      // — both signals, not one replacing the other.
-                      'Collabs'
-                          '${messaging.totalCollabUnread > 0 ? ' (${messaging.totalCollabUnread})' : ''}'
-                          '${messaging.hasIncomingCollabRequest ? ' •' : ''}',
+                      if (LaunchFeatures.paidCollaborations)
+                        // Total unread across every active collaboration's
+                        // own conversation, plus the existing
+                        // incoming-request dot — both signals, not one
+                        // replacing the other.
+                        'Collabs'
+                            '${messaging.totalCollabUnread > 0 ? ' (${messaging.totalCollabUnread})' : ''}'
+                            '${messaging.hasIncomingCollabRequest ? ' •' : ''}',
                     ],
                     selectedIndex: _tab,
                     onChanged: (i) => setState(() => _tab = i),
