@@ -2,22 +2,65 @@ import 'package:flutter/material.dart';
 
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_text_styles.dart';
+import '../../../services/notification_alert_preference.dart';
 import 'logout_dialog.dart';
 
 /// Settings bottom sheet.
 ///
-/// Extracted verbatim from `_ProfileScreenState._showSettingsScreen` (and its
-/// `_buildSettingItem` helper) so the Profile screen, the Workspace Drawer and
-/// the More bottom sheet can all invoke one implementation — see blueprint
-/// §1.2.4 and §6. The body is unchanged, including the fact that the toggles
-/// are currently non-persisting no-ops; wiring them up is out of scope for
-/// this workstream.
+/// Started as five toggles extracted verbatim from
+/// `_ProfileScreenState._showSettingsScreen` — Dark Mode, Push Notifications,
+/// Location Services, Language and Email Updates — every one a hard-coded
+/// value with an empty `(value) {}` callback. None of them changed anything;
+/// picking a switch just visually flipped it and forgot the choice on the
+/// next open.
+///
+/// Checked against what this app actually has (no `ThemeMode`/dark palette,
+/// no `flutter_localizations`/ARB files, no `profiles` email-preference
+/// column or digest sender, and `geolocator`'s own `LocationService` wrapper
+/// with nothing in the app calling it for a "nearby properties" feature) —
+/// four of the five had nothing real to connect to and were removed rather
+/// than kept as decoration. Only "Push Notifications" had a genuine, already
+/// -running behavior underneath it — the Notification Centre's arrival sound
+/// and vibration (`NotificationProvider._onInserted`) — so it stays,
+/// retitled to describe that honestly and wired to
+/// [NotificationAlertPreference] instead of a switch that reset itself.
 void showSettingsSheet(BuildContext context) {
   showModalBottomSheet(
     context: context,
     isScrollControlled: true,
     backgroundColor: Colors.transparent,
-    builder: (context) => Container(
+    builder: (context) => const _SettingsSheetBody(),
+  );
+}
+
+class _SettingsSheetBody extends StatefulWidget {
+  const _SettingsSheetBody();
+
+  @override
+  State<_SettingsSheetBody> createState() => _SettingsSheetBodyState();
+}
+
+class _SettingsSheetBodyState extends State<_SettingsSheetBody> {
+  /// Null while the persisted value is still loading — [_buildSettingItem]
+  /// renders that as a plain chevron rather than guessing a switch position.
+  bool? _alertsEnabled;
+
+  @override
+  void initState() {
+    super.initState();
+    NotificationAlertPreference.isEnabled().then((value) {
+      if (mounted) setState(() => _alertsEnabled = value);
+    });
+  }
+
+  Future<void> _setAlertsEnabled(bool value) async {
+    setState(() => _alertsEnabled = value);
+    await NotificationAlertPreference.setEnabled(value);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
       height: MediaQuery.of(context).size.height * 0.6,
       decoration: const BoxDecoration(
         color: Colors.white,
@@ -65,43 +108,11 @@ void showSettingsSheet(BuildContext context) {
               padding: const EdgeInsets.all(16),
               children: [
                 _buildSettingItem(
-                  Icons.dark_mode_outlined,
-                  'Dark Mode',
-                  'Enable dark theme',
-                  false,
-                  (value) {},
-                ),
-                const SizedBox(height: 8),
-                _buildSettingItem(
                   Icons.notifications_outlined,
-                  'Push Notifications',
-                  'Receive visit alerts',
-                  true,
-                  (value) {},
-                ),
-                const SizedBox(height: 8),
-                _buildSettingItem(
-                  Icons.location_on_outlined,
-                  'Location Services',
-                  'Show nearby properties',
-                  true,
-                  (value) {},
-                ),
-                const SizedBox(height: 8),
-                _buildSettingItem(
-                  Icons.language_outlined,
-                  'Language',
-                  'English',
-                  null,
-                  (value) {},
-                ),
-                const SizedBox(height: 8),
-                _buildSettingItem(
-                  Icons.email_outlined,
-                  'Email Updates',
-                  'Weekly property digest',
-                  true,
-                  (value) {},
+                  'Notification Alerts',
+                  'Sound and vibration for new activity',
+                  _alertsEnabled,
+                  (value) => _setAlertsEnabled(value),
                 ),
                 const SizedBox(height: 24),
                 Container(
@@ -146,8 +157,8 @@ void showSettingsSheet(BuildContext context) {
           ),
         ],
       ),
-    ),
-  );
+    );
+  }
 }
 
 Widget _buildSettingItem(

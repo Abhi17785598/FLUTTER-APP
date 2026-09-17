@@ -23,6 +23,7 @@ import 'package:flutter/services.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../models/app_notification.dart';
+import '../services/notification_alert_preference.dart';
 import '../services/notification_service.dart';
 
 class NotificationProvider extends ChangeNotifier {
@@ -138,16 +139,28 @@ class NotificationProvider extends ChangeNotifier {
   void _onInserted(AppNotification notification) {
     if (_items.any((n) => n.id == notification.id)) return;
     _items = [notification, ..._items];
-    // A new notification had no alert at all — no sound, no vibration —
-    // so an in-app arrival was easy to miss. This is a real device cue,
-    // not just a badge-count bump; both calls are Flutter SDK built-ins
-    // (no new dependency, no platform config), and each is independently
-    // best-effort so one failing (e.g. vibration unsupported/disabled on
-    // this device) never blocks the other or the notification itself from
-    // landing in the list.
+    unawaited(_playArrivalCue());
+    _safeNotify();
+  }
+
+  /// A new notification had no alert at all — no sound, no vibration — so an
+  /// in-app arrival was easy to miss. This is a real device cue, not just a
+  /// badge-count bump; both calls are Flutter SDK built-ins (no new
+  /// dependency, no platform config), and each is independently best-effort
+  /// so one failing (e.g. vibration unsupported/disabled on this device)
+  /// never blocks the other or the notification itself from landing in the
+  /// list. Gated by [NotificationAlertPreference] — the Settings sheet's
+  /// "Notification Alerts" switch — so muting it stops both together.
+  Future<void> _playArrivalCue() async {
+    var enabled = true;
+    try {
+      enabled = await NotificationAlertPreference.isEnabled();
+    } catch (e) {
+      debugPrint('NotificationProvider: reading alert preference failed: $e');
+    }
+    if (!enabled) return;
     unawaited(SystemSound.play(SystemSoundType.alert).catchError((_) {}));
     unawaited(HapticFeedback.mediumImpact().catchError((_) {}));
-    _safeNotify();
   }
 
   /// An existing notification changed — usually `is_read`, possibly from another

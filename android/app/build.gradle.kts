@@ -9,11 +9,38 @@ plugins {
 
 val keystoreProperties = Properties()
 val keystorePropertiesFile = rootProject.file("key.properties")
+val keystorePropertiesExist = keystorePropertiesFile.exists()
 
-if (keystorePropertiesFile.exists()) {
+if (keystorePropertiesExist) {
     FileInputStream(keystorePropertiesFile).use {
         keystoreProperties.load(it)
     }
+}
+
+// The four fields a real release signing config needs. Checked by name only
+// below — never logged, and never used to reconstruct a value in an error
+// message.
+val requiredSigningKeys = listOf("storePassword", "keyPassword", "keyAlias", "storeFile")
+
+fun missingSigningKeys(): List<String> =
+    requiredSigningKeys.filter { keystoreProperties.getProperty(it).isNullOrBlank() }
+
+fun releaseKeystoreFile(): File? =
+    keystoreProperties.getProperty("storeFile")?.let { rootProject.file(it) }
+
+/**
+ * Fails a release build with a clear, secret-free reason — no password, no
+ * alias, no filesystem path, never the file's own contents. Debug builds
+ * never call this; see the `gradle.taskGraph.whenReady` gate below.
+ */
+fun failReleaseSigning(reason: String): Nothing {
+    throw GradleException(
+        "Release signing is not configured ($reason). Release builds never " +
+            "fall back to the debug certificate. Create android/key.properties " +
+            "(see android/key.properties.example) with storePassword, " +
+            "keyPassword, keyAlias and storeFile all set, pointing at a real " +
+            "upload keystore, then retry."
+    )
 }
 
 android {
@@ -39,38 +66,56 @@ android {
     }
 
     signingConfigs {
-        // Only populated when `key.properties` actually exists (a real
-        // release-signing setup). Without this guard, Gradle evaluates this
-        // block — and its unconditional `as String` casts — for every build,
-        // including a plain debug `flutter run`, which crashes on any
-        // machine that doesn't have the (deliberately gitignored)
-        // `key.properties` file with "null cannot be cast to non-null type
-        // kotlin.String".
+        // Populated whenever `key.properties` has a value for a given key,
+        // and left null otherwise — `Properties.getProperty` returns null
+        // rather than throwing, so this block is safe to evaluate on every
+        // build (including a plain debug `flutter run` with no
+        // `key.properties` at all). Nothing here can silently produce a
+        // *usable* signing config out of missing data: the
+        // `gradle.taskGraph.whenReady` check below is what stops a release
+        // build from proceeding when these are incomplete.
         create("release") {
-            if (keystorePropertiesFile.exists()) {
-                keyAlias = keystoreProperties["keyAlias"] as String
-                keyPassword = keystoreProperties["keyPassword"] as String
-                storeFile = keystoreProperties["storeFile"]?.let {
-                    file(it as String)
-                }
-                storePassword = keystoreProperties["storePassword"] as String
-            }
+            keyAlias = keystoreProperties.getProperty("keyAlias")
+            keyPassword = keystoreProperties.getProperty("keyPassword")
+            storeFile = releaseKeystoreFile()
+            storePassword = keystoreProperties.getProperty("storePassword")
         }
     }
 
     buildTypes {
         release {
-            // Falls back to the debug keystore when `key.properties` is
-            // absent, so a release build still compiles locally (just
-            // unsigned for real distribution) instead of failing outright.
-            signingConfig = if (keystorePropertiesFile.exists()) {
-                signingConfigs.getByName("release")
-            } else {
-                signingConfigs.getByName("debug")
-            }
+            // Always the real release config, never the debug one. A
+            // release artifact must never carry the debug certificate —
+            // if the config above is incomplete, the task-graph check
+            // below fails the build before this signing config is ever
+            // asked to actually sign anything.
+            signingConfig = signingConfigs.getByName("release")
             isMinifyEnabled = false
             isShrinkResources = false
         }
+    }
+}
+
+// Enforced only when a release task is actually going to run: `flutter run`
+// and `flutter build apk --debug` invoke `assembleDebug`/`installDebug`,
+// whose task graph never contains a "Release" task, so neither ever reaches
+// this block or needs `key.properties` to exist.
+gradle.taskGraph.whenReady {
+    val runningRelease = allTasks.any { it.name.contains("Release") }
+    if (!runningRelease) return@whenReady
+
+    if (!keystorePropertiesExist) {
+        failReleaseSigning("android/key.properties is missing")
+    }
+
+    val missing = missingSigningKeys()
+    if (missing.isNotEmpty()) {
+        failReleaseSigning("android/key.properties is missing: ${missing.joinToString(", ")}")
+    }
+
+    val keystoreFile = releaseKeystoreFile()
+    if (keystoreFile == null || !keystoreFile.exists()) {
+        failReleaseSigning("the configured keystore file does not exist on disk")
     }
 }
 
