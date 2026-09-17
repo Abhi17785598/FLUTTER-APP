@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_animate/flutter_animate.dart';
 
 import '../../../core/constants/app_constants.dart';
 import '../../../core/theme/app_colors.dart';
@@ -16,60 +15,51 @@ class PremiumSearchSection extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
+      padding: const EdgeInsets.symmetric(horizontal: 16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Welcome back,',
+            style: AppTextStyles.body.copyWith(color: AppColors.textSecondary),
+          ),
+          Row(
             children: [
-              Text(
-                'Welcome back,',
-                style: AppTextStyles.body.copyWith(
-                  color: AppColors.textSecondary,
-                ),
+              Text('Find your perfect ', style: AppTextStyles.heading1),
+              const GradientText(
+                text: 'property',
+                style: TextStyle(fontSize: 28, fontWeight: FontWeight.bold),
               ),
-              Row(
-                children: [
-                  Text('Find your perfect ', style: AppTextStyles.heading1),
-                  const GradientText(
-                    text: 'property',
-                    style: TextStyle(fontSize: 28, fontWeight: FontWeight.bold),
-                  ),
-                  const Text(' 🏡', style: TextStyle(fontSize: 22)),
-                ],
-              ),
-              const SizedBox(height: 16),
-              SearchBarWidget(
-                hint: 'Search properties, locations...',
-                glass: true,
-                height: 54,
-                onTap: () =>
-                    Navigator.pushNamed(context, AppConstants.searchScreen),
-                trailing: GestureDetector(
-                  onTap: () => Navigator.pushNamed(
-                    context,
-                    AppConstants.searchScreen,
-                    arguments: {'autoStartVoice': true},
-                  ),
-                  child: Container(
-                    width: 38,
-                    height: 38,
-                    decoration: BoxDecoration(
-                      gradient: AppColors.primaryGradient,
-                      borderRadius: BorderRadius.circular(13),
-                      boxShadow: AppColors.primaryGlow,
-                    ),
-                    child: const Icon(
-                      Icons.mic,
-                      color: Colors.white,
-                      size: 19,
-                    ),
-                  ),
-                ),
-              ),
+              const Text(' 🏡', style: TextStyle(fontSize: 22)),
             ],
           ),
-        )
-        .animate()
-        .fadeIn(duration: 400.ms)
-        .slideY(begin: 0.08, end: 0, duration: 400.ms, curve: Curves.easeOut);
+          const SizedBox(height: 16),
+          SearchBarWidget(
+            hint: 'Search properties, locations...',
+            glass: true,
+            height: 54,
+            onTap: () =>
+                Navigator.pushNamed(context, AppConstants.searchScreen),
+            trailing: GestureDetector(
+              onTap: () => Navigator.pushNamed(
+                context,
+                AppConstants.searchScreen,
+                arguments: {'autoStartVoice': true},
+              ),
+              child: Container(
+                width: 38,
+                height: 38,
+                decoration: BoxDecoration(
+                  gradient: AppColors.primaryGradient,
+                  borderRadius: BorderRadius.circular(13),
+                  boxShadow: AppColors.primaryGlow,
+                ),
+                child: const Icon(Icons.mic, color: Colors.white, size: 19),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
   }
 }

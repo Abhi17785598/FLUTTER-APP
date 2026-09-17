@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:ui';
 
 import 'package:cached_network_image/cached_network_image.dart';
@@ -42,6 +43,23 @@ class _HeroBannerSectionState extends State<HeroBannerSection>
     with AutomaticKeepAliveClientMixin {
   final PageController _pageController = PageController();
   int _currentPage = 0;
+  int _bannerCount = 5;
+
+  /// A one-shot `Timer`, rescheduled after every advance — properly
+  /// cancellable (`_autoAdvanceTimer?.cancel()` takes effect immediately),
+  /// unlike the previous `Future.doWhile` + `Future.delayed` loop, which had
+  /// no handle to cancel at all: it could only stop *after* its next 5s
+  /// delay elapsed and re-checked `mounted`, so it kept firing (and
+  /// animating the PageView) for up to 5s after the Hero had already
+  /// scrolled off screen or Home had started scrolling.
+  Timer? _autoAdvanceTimer;
+
+  /// The enclosing Home feed's scroll position, mirroring
+  /// `PropertyReelsSection`'s own pattern: pause automatic advancement while
+  /// Home is scrolling, and only ever recompute whether the Hero is still on
+  /// screen once scrolling actually stops — never on every scroll pixel.
+  ScrollPosition? _outerPosition;
+  bool _onScreen = true;
 
   @override
   bool get wantKeepAlive => true;
@@ -49,33 +67,85 @@ class _HeroBannerSectionState extends State<HeroBannerSection>
   @override
   void initState() {
     super.initState();
-    _startAutoScroll();
+    _scheduleAutoAdvance();
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final outer = Scrollable.maybeOf(context)?.position;
+    if (outer != _outerPosition) {
+      _outerPosition?.isScrollingNotifier.removeListener(
+        _onOuterScrollingChanged,
+      );
+      _outerPosition = outer;
+      _outerPosition?.isScrollingNotifier.addListener(_onOuterScrollingChanged);
+    }
   }
 
   @override
   void dispose() {
+    _autoAdvanceTimer?.cancel();
+    _outerPosition?.isScrollingNotifier.removeListener(
+      _onOuterScrollingChanged,
+    );
     _pageController.dispose();
     super.dispose();
   }
 
-  void _startAutoScroll() {
-    Future.doWhile(() async {
-      await Future.delayed(const Duration(seconds: 5));
-      if (!mounted) return false;
-      final total = _bannerCount;
-      if (total > 1 && _pageController.hasClients) {
-        final next = (_currentPage + 1) % total;
-        await _pageController.animateToPage(
-          next,
-          duration: const Duration(milliseconds: 600),
-          curve: Curves.easeInOutCubic,
-        );
-      }
-      return mounted;
-    });
+  /// Fires only when the outer Home feed's `isScrollingNotifier` flips —
+  /// twice per scroll gesture (start, then settle), not once per pixel.
+  void _onOuterScrollingChanged() {
+    final isScrolling = _outerPosition?.isScrollingNotifier.value ?? false;
+    if (isScrolling) {
+      _autoAdvanceTimer?.cancel();
+      return;
+    }
+
+    // Scrolling just settled — the one point visibility is (re)computed.
+    final visible = _isOnScreen();
+    _onScreen = visible;
+    if (visible) {
+      _scheduleAutoAdvance();
+    } else {
+      _autoAdvanceTimer?.cancel();
+    }
   }
 
-  int _bannerCount = 5;
+  /// True while any part of the Hero is within the screen's vertical bounds.
+  /// Only ever called from [_onOuterScrollingChanged], once scrolling has
+  /// actually stopped — never per scroll pixel/frame.
+  bool _isOnScreen() {
+    final box = context.findRenderObject() as RenderBox?;
+    if (box == null || !box.attached || !box.hasSize) return false;
+    final top = box.localToGlobal(Offset.zero).dy;
+    final screenHeight = MediaQuery.of(context).size.height;
+    return top < screenHeight && top + box.size.height > 0;
+  }
+
+  void _scheduleAutoAdvance() {
+    _autoAdvanceTimer?.cancel();
+    if (!_onScreen) return;
+    _autoAdvanceTimer = Timer(const Duration(seconds: 5), _advance);
+  }
+
+  void _advance() {
+    if (!mounted || !_onScreen) return;
+    if (_bannerCount > 1 && _pageController.hasClients) {
+      final next = (_currentPage + 1) % _bannerCount;
+      _pageController
+          .animateToPage(
+            next,
+            duration: const Duration(milliseconds: 600),
+            curve: Curves.easeInOutCubic,
+          )
+          .then((_) {
+            if (mounted) _scheduleAutoAdvance();
+          });
+    } else {
+      _scheduleAutoAdvance();
+    }
+  }
 
   List<_BannerData> _buildBanners(BuildContext context) {
     return [
@@ -105,7 +175,7 @@ class _HeroBannerSectionState extends State<HeroBannerSection>
       ),
       const _BannerData(
         imageUrl:
-            'https://images.unsplash.com/photo-1613490493576-7fde63acd811?w=800&q=80',
+            'https://images.unsplash.com/photo-1778159396492-b9a89e6d99f2?w=1600&q=85',
         eyebrow: 'New Launches',
         headline: 'Your Dream',
         accentWord: 'Home.',

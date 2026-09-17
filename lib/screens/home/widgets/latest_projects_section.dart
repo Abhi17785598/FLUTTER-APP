@@ -28,7 +28,14 @@ class LatestProjectsSection extends StatefulWidget {
   State<LatestProjectsSection> createState() => _LatestProjectsSectionState();
 }
 
-class _LatestProjectsSectionState extends State<LatestProjectsSection> {
+class _LatestProjectsSectionState extends State<LatestProjectsSection>
+    with AutomaticKeepAliveClientMixin {
+  // Preserves `_future` across Home's own scroll — without this, scrolling
+  // this rail far enough off/on screen disposes and rebuilds it from
+  // scratch, re-querying `builder_projects` every time.
+  @override
+  bool get wantKeepAlive => true;
+
   late final Future<List<ProjectModel>> _future =
       (widget.service ?? ProjectService()).listLatestActive();
 
@@ -42,6 +49,10 @@ class _LatestProjectsSectionState extends State<LatestProjectsSection> {
 
   @override
   Widget build(BuildContext context) {
+    super.build(context);
+    final dpr = MediaQuery.of(context).devicePixelRatio;
+    final cacheWidth = (AppConstants.propertyCardWidth * dpr).round();
+    final cacheHeight = (AppConstants.propertyCardImageHeight * dpr).round();
     return FutureBuilder<List<ProjectModel>>(
       future: _future,
       builder: (context, snapshot) {
@@ -72,6 +83,8 @@ class _LatestProjectsSectionState extends State<LatestProjectsSection> {
                         itemCount: projects.length,
                         itemBuilder: (context, index) => ProjectCardVertical(
                           project: projects[index],
+                          imageCacheWidth: cacheWidth,
+                          imageCacheHeight: cacheHeight,
                           onTap: () => _openProject(context, projects[index]),
                         ),
                       ),

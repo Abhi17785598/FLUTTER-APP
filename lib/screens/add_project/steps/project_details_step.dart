@@ -11,6 +11,7 @@ import 'package:provider/provider.dart';
 
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_text_styles.dart';
+import '../../../core/utils/amount_in_words.dart';
 import '../../../providers/add_project_provider.dart';
 import '../../post_property/portal_kit.dart';
 import '../project_field_keys.dart';
@@ -69,6 +70,20 @@ class _ProjectDetailsStepState extends State<ProjectDetailsStep> {
     super.dispose();
   }
 
+  /// Mirrors `<AmountInWords value={...}/>` (BuilderProjectWizard.tsx:1089,
+  /// 1113), rendered under both price-range fields.
+  Widget _amountWords(String value) {
+    final words = amountToWordsIndian(value);
+    if (words.isEmpty) return const SizedBox.shrink();
+    return Padding(
+      padding: const EdgeInsets.only(top: 4),
+      child: Text(
+        '₹${groupIndianDigits(value)} · $words Rupees',
+        style: AppTextStyles.caption,
+      ),
+    );
+  }
+
   Future<void> _pickDate({
     required String currentIso,
     required ValueChanged<String> onPicked,
@@ -77,9 +92,7 @@ class _ProjectDetailsStepState extends State<ProjectDetailsStep> {
     DateTime? minDate,
   }) async {
     final now = DateTime.now();
-    final earliest = (minDate != null && minDate.isAfter(now))
-        ? minDate
-        : now;
+    final earliest = (minDate != null && minDate.isAfter(now)) ? minDate : now;
     final initial = DateTime.tryParse(currentIso) ?? earliest;
 
     final picked = await showDatePicker(
@@ -160,31 +173,47 @@ class _ProjectDetailsStepState extends State<ProjectDetailsStep> {
               ),
               const SizedBox(height: 14),
               _pair(
-                left: PortalLabelledField(
-                  label: 'Minimum Price',
-                  required: true,
-                  child: PortalTextField(
-                    controller: _priceMin,
-                    hint: '0',
-                    prefix: const Text('₹'),
-                    keyboardType: TextInputType.number,
-                    inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-                    hasError: provider.hasIssue(kProjectPriceMin),
-                    onChanged: provider.setPriceMin,
-                  ),
+                left: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    PortalLabelledField(
+                      label: 'Minimum Price',
+                      required: true,
+                      child: PortalTextField(
+                        controller: _priceMin,
+                        hint: '0',
+                        prefix: const Text('₹'),
+                        keyboardType: TextInputType.number,
+                        inputFormatters: [
+                          FilteringTextInputFormatter.digitsOnly,
+                        ],
+                        hasError: provider.hasIssue(kProjectPriceMin),
+                        onChanged: provider.setPriceMin,
+                      ),
+                    ),
+                    _amountWords(_priceMin.text),
+                  ],
                 ),
-                right: PortalLabelledField(
-                  label: 'Maximum Price',
-                  required: true,
-                  child: PortalTextField(
-                    controller: _priceMax,
-                    hint: '0',
-                    prefix: const Text('₹'),
-                    keyboardType: TextInputType.number,
-                    inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-                    hasError: provider.hasIssue(kProjectPriceMax),
-                    onChanged: provider.setPriceMax,
-                  ),
+                right: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    PortalLabelledField(
+                      label: 'Maximum Price',
+                      required: true,
+                      child: PortalTextField(
+                        controller: _priceMax,
+                        hint: '0',
+                        prefix: const Text('₹'),
+                        keyboardType: TextInputType.number,
+                        inputFormatters: [
+                          FilteringTextInputFormatter.digitsOnly,
+                        ],
+                        hasError: provider.hasIssue(kProjectPriceMax),
+                        onChanged: provider.setPriceMax,
+                      ),
+                    ),
+                    _amountWords(_priceMax.text),
+                  ],
                 ),
               ),
               const SizedBox(height: 20),

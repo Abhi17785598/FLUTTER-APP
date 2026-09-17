@@ -241,6 +241,12 @@ class ProjectDraft {
     this.description = '',
     this.projectType = '',
     this.location = '',
+    this.addressLine1 = '',
+    this.state = '',
+    this.pincode = '',
+    this.landmark = '',
+    this.latitude,
+    this.longitude,
     this.totalUnits,
     this.availableUnits,
     this.priceRangeMin,
@@ -264,6 +270,21 @@ class ProjectDraft {
   final String description;
   final String projectType;
   final String location;
+
+  /// Street address, state, pincode and a nearby landmark — added by
+  /// `20270416000000_add_builder_project_location_fields.sql`. Populated by
+  /// [ProjectBasicInfoStep]'s map picker / address search, same as
+  /// `location` (city) already was.
+  final String addressLine1;
+  final String state;
+  final String pincode;
+  final String landmark;
+
+  /// Set together, from the same map pin or address search that fills the
+  /// four fields above. Null until a location is resolved, matching
+  /// [priceRangeMin]'s "no value entered yet" convention.
+  final double? latitude;
+  final double? longitude;
 
   final int? totalUnits;
   final int? availableUnits;
@@ -301,6 +322,12 @@ class ProjectDraft {
       description: project.description,
       projectType: project.projectType,
       location: project.location,
+      addressLine1: project.addressLine1,
+      state: project.state,
+      pincode: project.pincode,
+      landmark: project.landmark,
+      latitude: project.latitude,
+      longitude: project.longitude,
       totalUnits: project.totalUnits,
       availableUnits: project.availableUnits,
       priceRangeMin: project.priceRangeMin,
@@ -328,11 +355,16 @@ class ProjectDraft {
   /// receives a null**. That is not defensive styling — a null there is a `23502`
   /// and the save fails outright.
   ///
-  /// Three things are derived rather than entered:
+  /// Two things are derived rather than entered:
   ///   * `master_layout_url` mirrors `map_images.first` (`:518`);
-  ///   * `media_urls` is the flattened gallery (`:520-524`);
-  ///   * `latitude` / `longitude` are omitted entirely, so the column defaults of
-  ///     0 apply — the portal's wizard collects neither (decision D4, PD1).
+  ///   * `media_urls` is the flattened gallery (`:520-524`).
+  ///
+  /// `latitude` / `longitude` default to 0 (via [dbNum]) until the map picker
+  /// on the Basic Info step resolves a location — the portal's own
+  /// `GoogleLocationPicker` (`BuilderProjectWizard.tsx:877-906`) fills both the
+  /// same way, so this is no longer the "never collected" case decision D4/PD1
+  /// once described; that note predates `addressLine1`/`state`/`pincode`/
+  /// `landmark`/lat-long being added to the wizard.
   ///
   /// `status` and `approval_status` are also omitted: their column defaults are
   /// `'active'` and `'pending'`, which is what the portal's insert relies on, and
@@ -346,6 +378,12 @@ class ProjectDraft {
       'description': dbText(description),
       'project_type': dbText(projectType),
       'location': dbText(location),
+      'address_line1': dbText(addressLine1),
+      'state': dbText(state),
+      'pincode': dbText(pincode),
+      'landmark': dbText(landmark),
+      'latitude': dbNum(latitude),
+      'longitude': dbNum(longitude),
       'total_units': dbInt(totalUnits),
       'available_units': dbInt(availableUnits),
       'price_range_min': dbNum(priceRangeMin),
@@ -384,6 +422,12 @@ class ProjectDraft {
     String? description,
     String? projectType,
     String? location,
+    String? addressLine1,
+    String? state,
+    String? pincode,
+    String? landmark,
+    double? latitude,
+    double? longitude,
     Object? totalUnits = unchangedNumber,
     Object? availableUnits = unchangedNumber,
     Object? priceRangeMin = unchangedNumber,
@@ -407,6 +451,12 @@ class ProjectDraft {
       description: description ?? this.description,
       projectType: projectType ?? this.projectType,
       location: location ?? this.location,
+      addressLine1: addressLine1 ?? this.addressLine1,
+      state: state ?? this.state,
+      pincode: pincode ?? this.pincode,
+      landmark: landmark ?? this.landmark,
+      latitude: latitude ?? this.latitude,
+      longitude: longitude ?? this.longitude,
       totalUnits: _pickInt(totalUnits, this.totalUnits),
       availableUnits: _pickInt(availableUnits, this.availableUnits),
       priceRangeMin: _pickNum(priceRangeMin, this.priceRangeMin),
@@ -433,6 +483,12 @@ class ProjectDraft {
     'description': description,
     'project_type': projectType,
     'location': location,
+    'address_line1': addressLine1,
+    'state': state,
+    'pincode': pincode,
+    'landmark': landmark,
+    'latitude': latitude,
+    'longitude': longitude,
     'total_units': totalUnits,
     'available_units': availableUnits,
     'price_range_min': priceRangeMin,
@@ -464,6 +520,12 @@ class ProjectDraft {
       description: json['description']?.toString() ?? '',
       projectType: json['project_type']?.toString() ?? '',
       location: json['location']?.toString() ?? '',
+      addressLine1: json['address_line1']?.toString() ?? '',
+      state: json['state']?.toString() ?? '',
+      pincode: json['pincode']?.toString() ?? '',
+      landmark: json['landmark']?.toString() ?? '',
+      latitude: numOrNull(json['latitude']),
+      longitude: numOrNull(json['longitude']),
       totalUnits: intOrNull(json['total_units']),
       availableUnits: intOrNull(json['available_units']),
       priceRangeMin: numOrNull(json['price_range_min']),
@@ -491,6 +553,12 @@ class ProjectDraft {
       description.trim().isEmpty &&
       projectType.isEmpty &&
       location.trim().isEmpty &&
+      addressLine1.trim().isEmpty &&
+      state.trim().isEmpty &&
+      pincode.trim().isEmpty &&
+      landmark.trim().isEmpty &&
+      latitude == null &&
+      longitude == null &&
       totalUnits == null &&
       availableUnits == null &&
       priceRangeMin == null &&

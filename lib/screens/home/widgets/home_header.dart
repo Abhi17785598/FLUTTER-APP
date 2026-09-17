@@ -28,96 +28,96 @@ class HomeHeader extends StatelessWidget {
       child: GlassCard(
         borderRadius: 20,
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-        opacity: 0.68,
+        opacity: 0.82,
         blurSigma: 22,
         borderColor: Colors.white.withOpacity(0.55),
         highlight: true,
         child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          GestureDetector(
-            onTap: () => _showLogoDropdown(context),
-            behavior: HitTestBehavior.opaque,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Semantics(
-                      label: 'PropCid',
-                      image: true,
-                      child: SizedBox(
-                        height: 27,
-                        child: AspectRatio(
-                          aspectRatio: _logoAspectRatio,
-                          child: Image.asset(
-                            _logoAssetPath,
-                            fit: BoxFit.contain,
-                            filterQuality: FilterQuality.high,
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            GestureDetector(
+              onTap: () => _showLogoDropdown(context),
+              behavior: HitTestBehavior.opaque,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Semantics(
+                        label: 'PropCid',
+                        image: true,
+                        child: SizedBox(
+                          height: 25,
+                          child: AspectRatio(
+                            aspectRatio: _logoAspectRatio,
+                            child: Image.asset(
+                              _logoAssetPath,
+                              fit: BoxFit.contain,
+                              filterQuality: FilterQuality.high,
+                            ),
                           ),
                         ),
                       ),
-                    ),
-                    const SizedBox(width: 5),
-                    const Padding(
-                      // The wordmark's own glyphs sit slightly above its
-                      // bounding box's vertical centre (no descenders), so
-                      // the arrow is nudged down a touch to optically (not
-                      // just numerically) align with it, rather than with
-                      // the wordmark's full — partly empty — box.
-                      padding: EdgeInsets.only(top: 3),
-                      child: Icon(
-                        Icons.keyboard_arrow_down_rounded,
-                        size: 19,
-                        color: AppColors.textSecondary,
+                      const SizedBox(width: 5),
+                      const Padding(
+                        // The wordmark's own glyphs sit slightly above its
+                        // bounding box's vertical centre (no descenders), so
+                        // the arrow is nudged down a touch to optically (not
+                        // just numerically) align with it, rather than with
+                        // the wordmark's full — partly empty — box.
+                        padding: EdgeInsets.only(top: 3),
+                        child: Icon(
+                          Icons.keyboard_arrow_down_rounded,
+                          size: 19,
+                          color: AppColors.textSecondary,
+                        ),
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
+                  const SizedBox(height: 5),
+                  Text(
+                    'Find. Compare. Own.',
+                    style: AppTextStyles.caption.copyWith(fontSize: 10.5),
+                  ),
+                ],
+              ),
+            ),
+            Row(
+              children: [
+                _CircleIconButton(
+                  icon: Icons.calendar_today_outlined,
+                  onTap: () =>
+                      Navigator.pushNamed(context, AppConstants.visitsScreen),
                 ),
-                const SizedBox(height: 5),
-                Text(
-                  'Find. Compare. Own.',
-                  style: AppTextStyles.caption.copyWith(fontSize: 10.5),
+                const SizedBox(width: 10),
+                // G-3: the badge was hard-coded `true`, so it showed a dot forever
+                // whether or not anything was unread. It now watches the app-level
+                // provider, which the realtime channel keeps current — a notification
+                // arriving while this screen is open lights the dot without a refresh.
+                _CircleIconButton(
+                  icon: Icons.notifications_outlined,
+                  onTap: () => Navigator.pushNamed(
+                    context,
+                    AppConstants.notificationsScreen,
+                  ),
+                  badge: context.watch<NotificationProvider>().hasUnread,
+                ),
+                const SizedBox(width: 10),
+                // Was the profile avatar (already one tap away via the bottom
+                // nav's own Profile tab), which meant reaching Messages was
+                // Profile -> Dashboard -> Messages. This is the direct
+                // shortcut instead — same tap-target style as the calendar/
+                // notifications icons beside it.
+                _CircleIconButton(
+                  icon: Icons.chat_bubble_outline_rounded,
+                  onTap: () =>
+                      Navigator.pushNamed(context, AppConstants.messagesScreen),
                 ),
               ],
             ),
-          ),
-          Row(
-            children: [
-              _CircleIconButton(
-                icon: Icons.calendar_today_outlined,
-                onTap: () =>
-                    Navigator.pushNamed(context, AppConstants.visitsScreen),
-              ),
-              const SizedBox(width: 10),
-              // G-3: the badge was hard-coded `true`, so it showed a dot forever
-              // whether or not anything was unread. It now watches the app-level
-              // provider, which the realtime channel keeps current — a notification
-              // arriving while this screen is open lights the dot without a refresh.
-              _CircleIconButton(
-                icon: Icons.notifications_outlined,
-                onTap: () => Navigator.pushNamed(
-                  context,
-                  AppConstants.notificationsScreen,
-                ),
-                badge: context.watch<NotificationProvider>().hasUnread,
-              ),
-              const SizedBox(width: 10),
-              // Was the profile avatar (already one tap away via the bottom
-              // nav's own Profile tab), which meant reaching Messages was
-              // Profile -> Dashboard -> Messages. This is the direct
-              // shortcut instead — same tap-target style as the calendar/
-              // notifications icons beside it.
-              _CircleIconButton(
-                icon: Icons.chat_bubble_outline_rounded,
-                onTap: () =>
-                    Navigator.pushNamed(context, AppConstants.messagesScreen),
-              ),
-            ],
-          ),
-        ],
+          ],
         ),
       ),
     );

@@ -81,12 +81,20 @@ class _PopularAgentsRail extends StatefulWidget {
   State<_PopularAgentsRail> createState() => _PopularAgentsRailState();
 }
 
-class _PopularAgentsRailState extends State<_PopularAgentsRail> {
+class _PopularAgentsRailState extends State<_PopularAgentsRail>
+    with AutomaticKeepAliveClientMixin {
+  // Preserves `_future` across Home's own scroll — without this, scrolling
+  // this rail far enough off/on screen disposes and rebuilds it from
+  // scratch, re-querying popular agents every time.
+  @override
+  bool get wantKeepAlive => true;
+
   late final Future<List<UserProfile>> _future =
       (widget.service ?? PeopleSearchService()).listPopularAgents();
 
   @override
   Widget build(BuildContext context) {
+    super.build(context);
     return FutureBuilder<List<UserProfile>>(
       future: _future,
       builder: (context, snapshot) {
@@ -189,6 +197,10 @@ class AgentCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final experience = agent.effectiveExperience;
+    // Bounds decoding to the avatar's actual rendered pixels (64×64
+    // logical) rather than the source's native resolution.
+    final dpr = MediaQuery.of(context).devicePixelRatio;
+    final avatarCachePx = (64 * dpr).round();
 
     return Container(
       width: kAgentCardWidth,
@@ -211,6 +223,8 @@ class AgentCard extends StatelessWidget {
                     width: 64,
                     height: 64,
                     fit: BoxFit.cover,
+                    memCacheWidth: avatarCachePx,
+                    memCacheHeight: avatarCachePx,
                     placeholder: (_, _) => _avatarFallback(agent),
                     errorWidget: (_, _, _) => _avatarFallback(agent),
                   )

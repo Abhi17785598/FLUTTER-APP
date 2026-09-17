@@ -44,12 +44,20 @@ class LatestArticlesSection extends StatefulWidget {
   State<LatestArticlesSection> createState() => _LatestArticlesSectionState();
 }
 
-class _LatestArticlesSectionState extends State<LatestArticlesSection> {
+class _LatestArticlesSectionState extends State<LatestArticlesSection>
+    with AutomaticKeepAliveClientMixin {
+  // Preserves `_future` across Home's own scroll — without this, scrolling
+  // this rail far enough off/on screen disposes and rebuilds it from
+  // scratch, re-querying published articles every time.
+  @override
+  bool get wantKeepAlive => true;
+
   late final Future<List<ArticleModel>> _future =
       (widget.service ?? ArticleService()).listPublished();
 
   @override
   Widget build(BuildContext context) {
+    super.build(context);
     return FutureBuilder<List<ArticleModel>>(
       future: _future,
       builder: (context, snapshot) {
@@ -183,11 +191,18 @@ class _ArticleThumbnail extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     if (imageUrl == null) return _placeholder();
+    // Bounds decoding to this thumbnail's actual rendered pixels rather
+    // than the source's native resolution.
+    final dpr = MediaQuery.of(context).devicePixelRatio;
     return CachedNetworkImage(
       imageUrl: imageUrl!,
       height: height,
       width: width,
       fit: BoxFit.cover,
+      memCacheWidth: width == null || width == double.infinity
+          ? null
+          : (width! * dpr).round(),
+      memCacheHeight: (height * dpr).round(),
       placeholder: (_, _) => _placeholder(),
       errorWidget: (_, _, _) => _placeholder(),
     );

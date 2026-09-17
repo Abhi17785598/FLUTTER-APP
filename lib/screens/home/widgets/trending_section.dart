@@ -33,6 +33,11 @@ class TrendingSection extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final compareProvider = context.watch<CompareProvider>();
+    // Bounds each card's decoded image to its actual on-screen pixels
+    // rather than the source's native resolution.
+    final dpr = MediaQuery.of(context).devicePixelRatio;
+    final cacheWidth = (AppConstants.propertyCardWidth * dpr).round();
+    final cacheHeight = (AppConstants.propertyCardImageHeight * dpr).round();
     return Consumer<PropertyProvider>(
       builder: (context, propertyProvider, child) {
         final trendingProperties = topTrending(propertyProvider.properties);
@@ -59,6 +64,8 @@ class TrendingSection extends StatelessWidget {
                 itemBuilder: (context, index) {
                   return PropertyCardVertical(
                     property: trendingProperties[index],
+                    imageCacheWidth: cacheWidth,
+                    imageCacheHeight: cacheHeight,
                     onTap: () => Navigator.pushNamed(
                       context,
                       AppConstants.propertyDetailScreen,

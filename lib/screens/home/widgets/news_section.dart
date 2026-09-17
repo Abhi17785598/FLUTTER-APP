@@ -58,12 +58,20 @@ class NewsSection extends StatefulWidget {
   State<NewsSection> createState() => _NewsSectionState();
 }
 
-class _NewsSectionState extends State<NewsSection> {
+class _NewsSectionState extends State<NewsSection>
+    with AutomaticKeepAliveClientMixin {
+  // Preserves `_future` across Home's own scroll — without this, scrolling
+  // this rail far enough off/on screen disposes and rebuilds it from
+  // scratch, re-querying `news` every time.
+  @override
+  bool get wantKeepAlive => true;
+
   late final Future<List<NewsItemModel>> _future =
       (widget.service ?? NewsService()).listActive();
 
   @override
   Widget build(BuildContext context) {
+    super.build(context);
     return FutureBuilder<List<NewsItemModel>>(
       future: _future,
       builder: (context, snapshot) {
@@ -214,6 +222,10 @@ class NewsThumbnail extends StatelessWidget {
   Widget build(BuildContext context) {
     final url = item.imageUrl;
 
+    // Bounds decoding to this thumbnail's actual rendered pixels rather
+    // than the source's native resolution — both the rail card (fixed
+    // width) and the detail sheet (height only) benefit.
+    final dpr = MediaQuery.of(context).devicePixelRatio;
     final Widget base = url == null
         ? _placeholder()
         : CachedNetworkImage(
@@ -221,6 +233,8 @@ class NewsThumbnail extends StatelessWidget {
             height: height,
             width: width,
             fit: BoxFit.cover,
+            memCacheWidth: width == null ? null : (width! * dpr).round(),
+            memCacheHeight: (height * dpr).round(),
             placeholder: (_, _) => _placeholder(),
             errorWidget: (_, _, _) => _placeholder(),
           );

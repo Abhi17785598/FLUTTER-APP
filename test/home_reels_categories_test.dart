@@ -44,21 +44,20 @@ Map<String, dynamic> _row({
   String? thumbnailUrl,
   List<String>? mediaUrls,
   bool withProperty = true,
-}) =>
-    {
-      'id': 'v-1',
-      'title': 'Sea-facing 3BHK',
-      'description': '',
-      'video_url': 'https://cdn.test/v-1.mp4',
-      'thumbnail_url': thumbnailUrl,
-      'property_id': withProperty ? 'p-1' : null,
-      if (withProperty)
-        '_property': <String, dynamic>{
-          'price': '2.4 Cr',
-          'location': 'Bandra West',
-          'media_urls': mediaUrls,
-        },
-    };
+}) => {
+  'id': 'v-1',
+  'title': 'Sea-facing 3BHK',
+  'description': '',
+  'video_url': 'https://cdn.test/v-1.mp4',
+  'thumbnail_url': thumbnailUrl,
+  'property_id': withProperty ? 'p-1' : null,
+  if (withProperty)
+    '_property': <String, dynamic>{
+      'price': '2.4 Cr',
+      'location': 'Bandra West',
+      'media_urls': mediaUrls,
+    },
+};
 
 class _FakeReels extends ReelsProvider {
   _FakeReels(this._rows);
@@ -111,7 +110,9 @@ void main() {
       // The common case: `thumbnail_url` is optional at upload, so most rows
       // have none — and this is the whole reason the rail rendered blank.
       final reel = ReelModel.fromSupabase(
-        _row(mediaUrls: const ['https://cdn/property.jpg', 'https://cdn/b.jpg']),
+        _row(
+          mediaUrls: const ['https://cdn/property.jpg', 'https://cdn/b.jpg'],
+        ),
       );
       expect(reel.propertyImageUrl, 'https://cdn/property.jpg');
       expect(reel.previewImageUrl, 'https://cdn/property.jpg');
@@ -150,12 +151,12 @@ void main() {
       await tester.pumpWidget(
         ChangeNotifierProvider<ReelsProvider>.value(
           value: _FakeReels(reels),
-          child: const MaterialApp(home: Scaffold(body: PropertyReelsSection())),
+          child: const MaterialApp(
+            home: Scaffold(body: PropertyReelsSection()),
+          ),
         ),
       );
       await tester.pump();
-      // The rail auto-scrolls on a periodic Timer; disposing it cancels the
-      // timer so the test can end.
       addTearDown(() => tester.pumpWidget(const SizedBox.shrink()));
     }
 
@@ -172,8 +173,9 @@ void main() {
       expect(image.imageUrl, 'https://cdn/property.jpg');
     });
 
-    testWidgets('renders no image widget at all when there is no cover',
-        (tester) async {
+    testWidgets('renders no image widget at all when there is no cover', (
+      tester,
+    ) async {
       await pumpRail(tester, [
         ReelModel.fromSupabase(_row(withProperty: false)),
       ]);
@@ -230,8 +232,9 @@ void main() {
       );
     });
 
-    testWidgets('a card still opens the reels screen when tapped',
-        (tester) async {
+    testWidgets('a card still opens the reels screen when tapped', (
+      tester,
+    ) async {
       final pushed = <String?>[];
       await tester.pumpWidget(
         ChangeNotifierProvider<ReelsProvider>.value(
@@ -345,8 +348,9 @@ void main() {
       expect(pushed, contains(AppConstants.searchResultsScreen));
     });
 
-    testWidgets('For Sale filters by listing type, not category',
-        (tester) async {
+    testWidgets('For Sale filters by listing type, not category', (
+      tester,
+    ) async {
       // `PropertyCategories.tsx:55-59` — For Sale sets `property_type=sell`
       // and no category, so a plot listed for sale belongs under it too.
       final (filters, pushed) = await tapShortcut(tester, 'For Sale');
@@ -355,8 +359,9 @@ void main() {
       expect(pushed, contains(AppConstants.searchResultsScreen));
     });
 
-    testWidgets('a shortcut clears whatever was filtered before it',
-        (tester) async {
+    testWidgets('a shortcut clears whatever was filtered before it', (
+      tester,
+    ) async {
       // Commercial, then For Sale. Without the reset the leftover category
       // would survive and "For Sale" would show commercial-only results.
       final (filters, _) = await tapShortcut(
@@ -382,8 +387,9 @@ void main() {
       'Influencers': AppConstants.influencersDirectoryScreen,
       'Premium Projects': AppConstants.latestProjectsScreen,
     }.entries) {
-      testWidgets('${entry.key} opens its directory screen, not a snackbar',
-          (tester) async {
+      testWidgets('${entry.key} opens its directory screen, not a snackbar', (
+        tester,
+      ) async {
         final (_, pushed) = await tapShortcut(tester, entry.key);
         expect(pushed, contains(entry.value));
         expect(find.textContaining('coming soon'), findsNothing);

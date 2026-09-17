@@ -15,7 +15,6 @@
 // implementation here — the other two tools have no screen of their own, so they
 // open as sheets.
 import 'package:flutter/material.dart';
-import 'package:flutter_animate/flutter_animate.dart';
 
 import '../../../core/constants/app_constants.dart';
 import '../../../core/theme/app_colors.dart';
@@ -121,7 +120,7 @@ class SmartToolsSection extends StatelessWidget {
           ),
         ),
       ],
-    ).animate().fadeIn(duration: 400.ms, delay: 80.ms);
+    );
   }
 }
 

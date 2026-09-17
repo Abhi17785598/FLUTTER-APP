@@ -39,12 +39,26 @@ class FeaturedPropertiesSection extends StatefulWidget {
       _FeaturedPropertiesSectionState();
 }
 
-class _FeaturedPropertiesSectionState extends State<FeaturedPropertiesSection> {
+class _FeaturedPropertiesSectionState extends State<FeaturedPropertiesSection>
+    with AutomaticKeepAliveClientMixin {
+  // Preserves `_future` (and its resolved data) across Home's own scroll —
+  // without this, scrolling this rail far enough off/on screen disposes and
+  // rebuilds it from scratch, re-querying `hot_properties` every time.
+  @override
+  bool get wantKeepAlive => true;
+
   late final Future<List<PropertyModel>> _future =
       (widget.service ?? HotPropertiesService()).listActive();
 
   @override
   Widget build(BuildContext context) {
+    super.build(context);
+    // Bounds each card's decoded image to its actual on-screen pixels
+    // rather than the source's native resolution — same physical size,
+    // far less decode work per card.
+    final dpr = MediaQuery.of(context).devicePixelRatio;
+    final cacheWidth = (AppConstants.propertyCardWidth * dpr).round();
+    final cacheHeight = (AppConstants.propertyCardImageHeight * dpr).round();
     final compareProvider = context.watch<CompareProvider>();
     return Consumer<PropertyProvider>(
       builder: (context, propertyProvider, child) {
@@ -94,6 +108,8 @@ class _FeaturedPropertiesSectionState extends State<FeaturedPropertiesSection> {
                       itemBuilder: (context, index) {
                         return PropertyCardVertical(
                           property: featuredProperties[index],
+                          imageCacheWidth: cacheWidth,
+                          imageCacheHeight: cacheHeight,
                           onTap: () => Navigator.pushNamed(
                             context,
                             AppConstants.propertyDetailScreen,

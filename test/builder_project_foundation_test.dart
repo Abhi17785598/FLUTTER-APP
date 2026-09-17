@@ -32,31 +32,31 @@ import 'package:propcid_app/services/project_service.dart';
 
 /// A draft with every required field filled, as the wizard would hand it over.
 ProjectDraft _fullDraft() => const ProjectDraft(
-      title: 'Green Valley Heights',
-      description: 'A gated community in west Pune.',
-      projectType: 'group_housing',
-      location: 'Pune',
-      totalUnits: 120,
-      availableUnits: 45,
-      priceRangeMin: 4500000,
-      priceRangeMax: 9500000,
-      areaSqftMin: 850,
-      areaSqftMax: 1850,
-      completionDate: '2027-06-30',
-      possessionDate: '2027-09-30',
-      reraNumber: 'P52100012345',
-      websiteUrl: 'https://greenvalley.example',
-      contactNumber: '9876543210',
-      logoUrl: 'https://cdn.example/logos/1-logo.png',
-      brochureUrl: 'https://cdn.example/brochures/1-brochure.pdf',
-      mapImages: ['https://cdn.example/master-layouts/1.png'],
-      otherImages: [
-        'https://cdn.example/other-images/a.jpg',
-        'https://cdn.example/other-images/b.jpg',
-      ],
-      videosUrls: ['https://cdn.example/project-videos/v.mp4'],
-      amenities: ['Swimming Pool', 'Gymnasium'],
-    );
+  title: 'Green Valley Heights',
+  description: 'A gated community in west Pune.',
+  projectType: 'group_housing',
+  location: 'Pune',
+  totalUnits: 120,
+  availableUnits: 45,
+  priceRangeMin: 4500000,
+  priceRangeMax: 9500000,
+  areaSqftMin: 850,
+  areaSqftMax: 1850,
+  completionDate: '2027-06-30',
+  possessionDate: '2027-09-30',
+  reraNumber: 'P52100012345',
+  websiteUrl: 'https://greenvalley.example',
+  contactNumber: '9876543210',
+  logoUrl: 'https://cdn.example/logos/1-logo.png',
+  brochureUrl: 'https://cdn.example/brochures/1-brochure.pdf',
+  mapImages: ['https://cdn.example/master-layouts/1.png'],
+  otherImages: [
+    'https://cdn.example/other-images/a.jpg',
+    'https://cdn.example/other-images/b.jpg',
+  ],
+  videosUrls: ['https://cdn.example/project-videos/v.mp4'],
+  amenities: ['Swimming Pool', 'Gymnasium'],
+);
 
 void main() {
   setUpAll(() async {
@@ -78,9 +78,9 @@ void main() {
   //
   // 20270315000000_no_null_listing_and_project_columns.sql:251-275.
   group('NOT NULL columns', () {
-    /// The 22 NOT NULL columns this payload actually writes. `status`,
-    /// `approval_status`, `likes`, `views`, `latitude` and `longitude` are also
-    /// NOT NULL but are deliberately omitted so their column defaults apply.
+    /// The 24 NOT NULL columns this payload actually writes. `status`,
+    /// `approval_status`, `likes` and `views` are also NOT NULL but are
+    /// deliberately omitted so their column defaults apply.
     const notNullKeys = {
       'title',
       'description',
@@ -103,18 +103,22 @@ void main() {
       'logo_url',
       'master_layout_url',
       'media_urls',
+      'latitude',
+      'longitude',
     };
 
-    test('an entirely empty draft still sends no nulls to a NOT NULL column',
-        () {
+    test('an entirely empty draft still sends no nulls to a NOT NULL column', () {
       // The worst case: nothing entered. Every one of these columns would reject
       // a null with a 23502, so blanks have to arrive as '' / 0 / [].
       final payload = const ProjectDraft().toPayload();
 
       for (final key in notNullKeys) {
         expect(payload.containsKey(key), isTrue, reason: '$key is missing');
-        expect(payload[key], isNotNull,
-            reason: '$key is NOT NULL and would fail with 23502');
+        expect(
+          payload[key],
+          isNotNull,
+          reason: '$key is NOT NULL and would fail with 23502',
+        );
       }
     });
 
@@ -168,14 +172,19 @@ void main() {
     test('master_layout_url mirrors the first master-plan image', () {
       // BuilderProjectWizard.tsx:518.
       final payload = _fullDraft().toPayload();
-      expect(payload['master_layout_url'],
-          'https://cdn.example/master-layouts/1.png');
+      expect(
+        payload['master_layout_url'],
+        'https://cdn.example/master-layouts/1.png',
+      );
     });
 
-    test('master_layout_url is an empty string when no layout was uploaded', () {
-      final payload = _fullDraft().copyWith(mapImages: const []).toPayload();
-      expect(payload['master_layout_url'], '');
-    });
+    test(
+      'master_layout_url is an empty string when no layout was uploaded',
+      () {
+        final payload = _fullDraft().copyWith(mapImages: const []).toPayload();
+        expect(payload['master_layout_url'], '');
+      },
+    );
 
     test('media_urls is the flattened gallery', () {
       // BuilderProjectWizard.tsx:520-524 — other images then master plans.
@@ -187,12 +196,22 @@ void main() {
       ]);
     });
 
-    test('latitude and longitude are never sent', () {
-      // Decision D4 / PD1: the portal's wizard collects neither, both columns are
-      // NOT NULL default 0, so omitting them matches every existing row.
-      final payload = _fullDraft().toPayload();
-      expect(payload.containsKey('latitude'), isFalse);
-      expect(payload.containsKey('longitude'), isFalse);
+    test('latitude and longitude are sent, defaulting to 0 until a location '
+        'is picked', () {
+      // Supersedes decision D4/PD1: BuilderProjectWizard.tsx:877-906's
+      // GoogleLocationPicker does collect both, and ProjectBasicInfoStep's map
+      // picker now mirrors it — so these are no longer omitted from the
+      // payload. A draft with no pin dropped still writes 0 rather than null,
+      // same as every other NOT NULL numeric column.
+      final empty = const ProjectDraft().toPayload();
+      expect(empty['latitude'], 0);
+      expect(empty['longitude'], 0);
+
+      final located = _fullDraft()
+          .copyWith(latitude: 18.5204, longitude: 73.8567)
+          .toPayload();
+      expect(located['latitude'], 18.5204);
+      expect(located['longitude'], 73.8567);
     });
 
     test('status and approval_status are never sent', () {
@@ -236,8 +255,11 @@ void main() {
       final payload = ProjectDraft.fromProject(created).toPayload();
 
       expect(payload['media_urls'], ['o1.jpg', 'o2.jpg', 'm1.png']);
-      expect((payload['media_urls'] as List).length, 3,
-          reason: 'a second save must not double the gallery');
+      expect(
+        (payload['media_urls'] as List).length,
+        3,
+        reason: 'a second save must not double the gallery',
+      );
     });
 
     test('a draft seeded from a project keeps every editable field', () {
@@ -376,14 +398,17 @@ void main() {
       expect(dbDate('2027-06-30'), '2027-06-30');
     });
 
-    test('sanitizeText strips event handlers, javascript: and control chars', () {
-      expect(sanitizeText('<div onclick="x()">Hi</div>'), '<div >Hi</div>');
-      expect(sanitizeText("<div onclick='x()'>Hi</div>"), '<div >Hi</div>');
-      expect(sanitizeText('javascript:alert(1)'), 'alert(1)');
-      expect(sanitizeText('a b'), 'ab');
-      expect(sanitizeText(null), '');
-      expect(sanitizeText(''), '');
-    });
+    test(
+      'sanitizeText strips event handlers, javascript: and control chars',
+      () {
+        expect(sanitizeText('<div onclick="x()">Hi</div>'), '<div >Hi</div>');
+        expect(sanitizeText("<div onclick='x()'>Hi</div>"), '<div >Hi</div>');
+        expect(sanitizeText('javascript:alert(1)'), 'alert(1)');
+        expect(sanitizeText('a b'), 'ab');
+        expect(sanitizeText(null), '');
+        expect(sanitizeText(''), '');
+      },
+    );
 
     test('PD8 — script CONTENT survives, exactly as on the website', () {
       // sanitize.ts:24 strips `</script>` first, which leaves the paired matcher
@@ -418,7 +443,10 @@ void main() {
       final payload = const ProjectDraft(
         description: 'Phase 1 is ready.\nPhase 2 completes in 2027.',
       ).toPayload();
-      expect(payload['description'], 'Phase 1 is ready. Phase 2 completes in 2027.');
+      expect(
+        payload['description'],
+        'Phase 1 is ready. Phase 2 completes in 2027.',
+      );
     });
 
     test('sanitizeNullable turns a blank into null', () {
@@ -451,27 +479,32 @@ void main() {
       expect(project.coverImage, isNull);
     });
 
-    test('coverImage falls through the three gallery sources then the logo', () {
-      ProjectModel withMedia({
-        List<String> media = const [],
-        List<String> others = const [],
-        List<String> maps = const [],
-        String logo = '',
-      }) =>
-          ProjectModel.fromSupabase({
-            'id': 'p',
-            'media_urls': media,
-            'other_images': others,
-            'map_images': maps,
-            'logo_url': logo,
-          });
+    test(
+      'coverImage falls through the three gallery sources then the logo',
+      () {
+        ProjectModel withMedia({
+          List<String> media = const [],
+          List<String> others = const [],
+          List<String> maps = const [],
+          String logo = '',
+        }) => ProjectModel.fromSupabase({
+          'id': 'p',
+          'media_urls': media,
+          'other_images': others,
+          'map_images': maps,
+          'logo_url': logo,
+        });
 
-      expect(withMedia(media: ['m.jpg'], others: ['o.jpg']).coverImage, 'm.jpg');
-      // A row written before the flattening existed has no media_urls.
-      expect(withMedia(others: ['o.jpg']).coverImage, 'o.jpg');
-      expect(withMedia(maps: ['x.png']).coverImage, 'x.png');
-      expect(withMedia(logo: 'l.png').coverImage, 'l.png');
-    });
+        expect(
+          withMedia(media: ['m.jpg'], others: ['o.jpg']).coverImage,
+          'm.jpg',
+        );
+        // A row written before the flattening existed has no media_urls.
+        expect(withMedia(others: ['o.jpg']).coverImage, 'o.jpg');
+        expect(withMedia(maps: ['x.png']).coverImage, 'x.png');
+        expect(withMedia(logo: 'l.png').coverImage, 'l.png');
+      },
+    );
 
     test('galleryImages deduplicates across the three sources', () {
       final project = ProjectModel.fromSupabase({
@@ -591,8 +624,10 @@ void main() {
       expect(ProjectMediaService.mimeFromName('x.pdf'), 'application/pdf');
       expect(ProjectMediaService.mimeFromName('x.jpg'), 'image/jpeg');
       expect(ProjectMediaService.mimeFromName('x.mp4'), 'video/mp4');
-      expect(ProjectMediaService.mimeFromName('x.zzz'),
-          'application/octet-stream');
+      expect(
+        ProjectMediaService.mimeFromName('x.zzz'),
+        'application/octet-stream',
+      );
     });
 
     test('an empty file is refused before any network call', () async {

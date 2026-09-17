@@ -17,7 +17,6 @@ import 'widgets/featured_properties_section.dart';
 import 'widgets/trending_section.dart';
 import 'widgets/budget_section.dart';
 import 'widgets/property_rail_section.dart';
-import 'widgets/scroll_reveal.dart';
 import 'widgets/property_verification_section.dart';
 import 'widgets/news_section.dart';
 import 'widgets/tell_your_needs_section.dart';
@@ -64,37 +63,37 @@ class _HomeScreenState extends State<HomeScreen> {
   Widget build(BuildContext context) {
     final sections = <Widget>[
       const SizedBox(height: 6),
-      const ScrollReveal(child: PremiumSearchSection()),
+      const PremiumSearchSection(),
       const SizedBox(height: 18),
 
       // Hero Banner bleeds its own gradient tail into the page, so it needs
       // almost no gap after it.
-      const ScrollReveal(child: HeroBannerSection()),
+      const HeroBannerSection(),
       const SizedBox(height: 6),
 
-      const ScrollReveal(child: QuickActionsSection()),
+      const QuickActionsSection(),
       const SizedBox(height: 18),
 
-      const ScrollReveal(child: CategoryIconGrid()),
+      const CategoryIconGrid(),
       const SizedBox(height: 18),
 
       // Trending Cities — mirrors the web home page's position for this rail,
       // right after the category tiles. Renders nothing (no trailing gap
       // left behind either) when the admin table has no active cities; see
       // TrendingCitiesSection's own bottom padding.
-      const ScrollReveal(child: TrendingCitiesSection()),
+      const TrendingCitiesSection(),
 
       // Property Verification — one of the first "do something" moments on the
       // page, mirroring its high position on the web home page.
-      const ScrollReveal(child: PropertyVerificationSection()),
+      const PropertyVerificationSection(),
       const SizedBox(height: 24),
 
-      const ScrollReveal(child: PropertyReelsSection()),
+      const PropertyReelsSection(),
       const SizedBox(height: 4),
 
       // Latest Articles. Same "renders nothing, owns its own trailing gap"
       // convention as Latest News below — see LatestArticlesSection.
-      const ScrollReveal(child: LatestArticlesSection()),
+      const LatestArticlesSection(),
 
       const SizedBox(height: 24),
 
@@ -106,73 +105,71 @@ class _HomeScreenState extends State<HomeScreen> {
       // properties are different entities ([ProjectModel] vs
       // [PropertyModel]) and must never be shown as if they were the same
       // list.
-      const ScrollReveal(child: FeaturedProjectsSection()),
-      const ScrollReveal(child: FeaturedPropertiesSection()),
+      const FeaturedProjectsSection(),
+      const FeaturedPropertiesSection(),
       const SizedBox(height: 24),
 
       // Latest News. Renders nothing at all — not even its header — when the
       // `news` table has no active rows, so it carries its own trailing 24 dp
       // internally; a spacer entry here would outlive the section and leave a
       // hole in the feed. See `_kNewsBottomGap`.
-      const ScrollReveal(child: NewsSection()),
+      const NewsSection(),
 
       // Top Builders — mirrors the web home page's sidebar position, right
       // after Latest News.
-      const ScrollReveal(child: TopBuildersSection()),
+      const TopBuildersSection(),
 
       // "New Listings" — individual property listings, newest first. This is
       // deliberately titled differently from the section below: it renders
       // `properties` rows, not `builder_projects` rows, and the two used to
       // share the title "Latest Projects" while showing entirely different
       // data — exactly the property/project conflation this pass fixes.
-      ScrollReveal(
-        child: PropertyRailSection(
-          title: 'New Listings',
-          showWhenEmpty: true,
-          emptyMessage: 'No properties listed yet',
-          selector: (all) {
-            final newest = List.of(all)
-              ..sort(
-                (a, b) => (b.createdAt ?? DateTime(0)).compareTo(
-                  a.createdAt ?? DateTime(0),
-                ),
-              );
-            return newest.take(8).toList();
-          },
-        ),
+      PropertyRailSection(
+        title: 'New Listings',
+        showWhenEmpty: true,
+        emptyMessage: 'No properties listed yet',
+        selector: (all) {
+          final newest = List.of(all)
+            ..sort(
+              (a, b) => (b.createdAt ?? DateTime(0)).compareTo(
+                a.createdAt ?? DateTime(0),
+              ),
+            );
+          return newest.take(8).toList();
+        },
       ),
       const SizedBox(height: 24),
 
       // The genuine "Latest Projects" rail — `builder_projects`, not
       // `properties`. Sits right after New Listings, mirroring the web home
       // page's Latest-Projects-in-city → Top Brokers → Top Influencers order.
-      const ScrollReveal(child: LatestProjectsSection()),
+      const LatestProjectsSection(),
 
       // Popular Brokers / Popular Influencers — mirrors the web home page's
       // "Top Brokers" / "Top Influencers" position, right after the latest
       // listings. Each renders nothing (and owns its own trailing gap) when
       // there are no matching approved profiles.
-      const ScrollReveal(child: PopularBrokersSection()),
-      const ScrollReveal(child: PopularInfluencersSection()),
+      const PopularBrokersSection(),
+      const PopularInfluencersSection(),
 
-      const ScrollReveal(child: TrendingSection()),
+      const TrendingSection(),
       const SizedBox(height: 24),
 
       // Tell Your Needs — mid-page, after the main listings content, mirroring
       // where the web home page sits its lead form.
-      const ScrollReveal(child: TellYourNeedsSection()),
+      const TellYourNeedsSection(),
       const SizedBox(height: 28),
 
-      const ScrollReveal(child: SmartToolsSection()),
+      const SmartToolsSection(),
       const SizedBox(height: 28),
 
       // Investor's Corner, then City ROI Index — mirrors the web home
       // page's order right after its "Useful Tools" block. Each renders
       // nothing when the admin table has no active rows.
-      const ScrollReveal(child: InvestorsCornerSection()),
-      const ScrollReveal(child: CityRoiSection()),
+      const InvestorsCornerSection(),
+      const CityRoiSection(),
 
-      const ScrollReveal(child: BudgetSection()),
+      const BudgetSection(),
       const SizedBox(height: 100),
     ];
 
@@ -234,7 +231,7 @@ class _HomeBackground extends StatelessWidget {
   /// here as a fixed, non-rotating wallpaper rather than syncing to
   /// whichever of the 5 carousel slides happens to be active.
   static const String _imageUrl =
-      'https://images.unsplash.com/photo-1613490493576-7fde63acd811?w=800&q=80';
+      'https://images.unsplash.com/photo-1778159396492-b9a89e6d99f2?w=800&q=80';
 
   /// How strongly the wash covers the blurred photo — lower makes the photo
   /// read through more; higher keeps it closer to flat `AppColors.background`.
@@ -249,24 +246,34 @@ class _HomeBackground extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Stack(
-      fit: StackFit.expand,
-      children: [
-        ImageFiltered(
-          imageFilter: ImageFilter.blur(sigmaX: 40, sigmaY: 40),
-          child: CachedNetworkImage(
-            imageUrl: _imageUrl,
-            fit: BoxFit.cover,
-            placeholder: (context, url) =>
-                const ColoredBox(color: AppColors.primaryLight),
-            errorWidget: (context, url, error) =>
-                const ColoredBox(color: AppColors.background),
+    // Bounds decoding to the screen's actual physical pixels rather than
+    // the source's native resolution — this backdrop always fills the
+    // device screen (`StackFit.expand` + `BoxFit.cover`), so that is its
+    // true rendered size.
+    final mq = MediaQuery.of(context);
+    final dpr = mq.devicePixelRatio;
+    final cacheWidth = (mq.size.width * dpr).round();
+    final cacheHeight = (mq.size.height * dpr).round();
+    return RepaintBoundary(
+      child: Stack(
+        fit: StackFit.expand,
+        children: [
+          ImageFiltered(
+            imageFilter: ImageFilter.blur(sigmaX: 40, sigmaY: 40),
+            child: CachedNetworkImage(
+              imageUrl: _imageUrl,
+              fit: BoxFit.cover,
+              memCacheWidth: cacheWidth,
+              memCacheHeight: cacheHeight,
+              placeholder: (context, url) =>
+                  const ColoredBox(color: AppColors.primaryLight),
+              errorWidget: (context, url, error) =>
+                  const ColoredBox(color: AppColors.background),
+            ),
           ),
-        ),
-        ColoredBox(
-          color: AppColors.background.withOpacity(_washOpacity),
-        ),
-      ],
+          ColoredBox(color: AppColors.background.withOpacity(_washOpacity)),
+        ],
+      ),
     );
   }
 }

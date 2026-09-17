@@ -46,7 +46,14 @@ class PropertyVerificationSection extends StatefulWidget {
 }
 
 class _PropertyVerificationSectionState
-    extends State<PropertyVerificationSection> {
+    extends State<PropertyVerificationSection>
+    with AutomaticKeepAliveClientMixin {
+  // Preserves `_controller`/`_page` across Home's own scroll — without
+  // this, scrolling this section far enough off/on screen disposes and
+  // rebuilds it from scratch, snapping the carousel back to its first page.
+  @override
+  bool get wantKeepAlive => true;
+
   final PageController _controller = PageController(viewportFraction: 0.86);
   int _page = 0;
 
@@ -96,6 +103,7 @@ class _PropertyVerificationSectionState
 
   @override
   Widget build(BuildContext context) {
+    super.build(context);
     // One extra page for the CTA card at the end of the carousel.
     final int pageCount = _cards.length + 1;
 

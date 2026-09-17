@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_animate/flutter_animate.dart';
 
 import '../../../core/constants/app_constants.dart';
 import '../../../core/theme/app_text_styles.dart';
@@ -74,7 +73,7 @@ class QuickActionsSection extends StatelessWidget {
           ],
         ],
       ),
-    ).animate().fadeIn(duration: 400.ms, delay: 80.ms);
+    );
   }
 }
 
@@ -86,11 +85,8 @@ class _QuickActionCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return ScaleTap(
-      onTap: () => Navigator.pushNamed(
-        context,
-        action.route,
-        arguments: action.args,
-      ),
+      onTap: () =>
+          Navigator.pushNamed(context, action.route, arguments: action.args),
       child: GlassCard(
         height: 108,
         borderRadius: 18,

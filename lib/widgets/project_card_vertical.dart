@@ -29,6 +29,8 @@ class ProjectCardVertical extends StatelessWidget {
     this.onTap,
     double? width,
     double? imageHeight,
+    this.imageCacheWidth,
+    this.imageCacheHeight,
   }) : width = width ?? AppConstants.propertyCardWidth,
        imageHeight = imageHeight ?? AppConstants.propertyCardImageHeight;
 
@@ -36,6 +38,15 @@ class ProjectCardVertical extends StatelessWidget {
   final VoidCallback? onTap;
   final double width;
   final double imageHeight;
+
+  /// Bounds the decoded cover image to roughly this many physical pixels
+  /// (`memCacheWidth`/`memCacheHeight` on the underlying
+  /// `CachedNetworkImage`) instead of the source's native resolution. Null
+  /// by default so the one non-Home caller
+  /// (`screens/project/latest_projects_screen.dart`) keeps its exact
+  /// current behaviour untouched; only the Home rails pass a value.
+  final int? imageCacheWidth;
+  final int? imageCacheHeight;
 
   @override
   Widget build(BuildContext context) {
@@ -66,6 +77,8 @@ class ProjectCardVertical extends StatelessWidget {
                           width: width,
                           height: imageHeight,
                           fit: BoxFit.cover,
+                          memCacheWidth: imageCacheWidth,
+                          memCacheHeight: imageCacheHeight,
                           placeholder: (_, _) => _placeholder(),
                           errorWidget: (_, _, _) => _placeholder(),
                         )

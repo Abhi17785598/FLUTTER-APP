@@ -34,6 +34,17 @@ class ProjectModel {
   final String projectType;
   final String location;
 
+  /// Street address, state, pincode and a nearby landmark — added by
+  /// `20270416000000_add_builder_project_location_fields.sql` so this wizard
+  /// can capture the same location detail the Property Listing form already
+  /// does. All four are nullable `text` columns; a default of '' is used
+  /// rather than modelling them nullable, matching how every other plain-text
+  /// column here (e.g. [location]) is handled.
+  final String addressLine1;
+  final String state;
+  final String pincode;
+  final String landmark;
+
   // ── Lifecycle ────────────────────────────────────────────────────────────
   /// `active | under_construction | completed | inactive`. Only `active` is
   /// exposed by the public read policy.
@@ -102,6 +113,10 @@ class ProjectModel {
     required this.description,
     required this.projectType,
     required this.location,
+    this.addressLine1 = '',
+    this.state = '',
+    this.pincode = '',
+    this.landmark = '',
     required this.status,
     required this.approvalStatus,
     required this.totalUnits,
@@ -145,6 +160,10 @@ class ProjectModel {
     description: description,
     projectType: projectType,
     location: location,
+    addressLine1: addressLine1,
+    state: state,
+    pincode: pincode,
+    landmark: landmark,
     status: status,
     approvalStatus: approvalStatus,
     totalUnits: totalUnits,
@@ -177,7 +196,8 @@ class ProjectModel {
   /// The column list. Requested explicitly rather than `select('*')` so a column
   /// added by a future migration cannot silently change what this parses.
   static const String columns =
-      'id, builder_id, title, description, project_type, location, status, '
+      'id, builder_id, title, description, project_type, location, '
+      'address_line1, state, pincode, landmark, status, '
       'approval_status, total_units, available_units, price_range_min, '
       'price_range_max, area_sqft_min, area_sqft_max, completion_date, '
       'possession_date, rera_number, website_url, contact_number, logo_url, '
@@ -193,6 +213,10 @@ class ProjectModel {
       description: _text(row['description']),
       projectType: _text(row['project_type']),
       location: _text(row['location']),
+      addressLine1: _text(row['address_line1']),
+      state: _text(row['state']),
+      pincode: _text(row['pincode']),
+      landmark: _text(row['landmark']),
       status: _text(row['status'], fallback: 'active'),
       approvalStatus: _text(row['approval_status'], fallback: 'pending'),
       totalUnits: _int(row['total_units']),

@@ -32,12 +32,20 @@ class InvestorsCornerSection extends StatefulWidget {
   State<InvestorsCornerSection> createState() => _InvestorsCornerSectionState();
 }
 
-class _InvestorsCornerSectionState extends State<InvestorsCornerSection> {
+class _InvestorsCornerSectionState extends State<InvestorsCornerSection>
+    with AutomaticKeepAliveClientMixin {
+  // Preserves `_future` across Home's own scroll — without this, scrolling
+  // this rail far enough off/on screen disposes and rebuilds it from
+  // scratch, re-querying investor opportunities every time.
+  @override
+  bool get wantKeepAlive => true;
+
   late final Future<List<InvestorOpportunity>> _future =
       (widget.service ?? InvestorsCornerService()).listActive();
 
   @override
   Widget build(BuildContext context) {
+    super.build(context);
     return FutureBuilder<List<InvestorOpportunity>>(
       future: _future,
       builder: (context, snapshot) {
@@ -81,6 +89,9 @@ class _InvestorCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // Bounds decoding to the card's actual rendered pixels rather than the
+    // source's native resolution.
+    final dpr = MediaQuery.of(context).devicePixelRatio;
     return Container(
       width: _kInvestorCardWidth,
       decoration: BoxDecoration(
@@ -102,6 +113,8 @@ class _InvestorCard extends StatelessWidget {
                     height: _kInvestorImageHeight,
                     width: _kInvestorCardWidth,
                     fit: BoxFit.cover,
+                    memCacheWidth: (_kInvestorCardWidth * dpr).round(),
+                    memCacheHeight: (_kInvestorImageHeight * dpr).round(),
                     placeholder: (_, _) => _placeholder(),
                     errorWidget: (_, _, _) => _placeholder(),
                   ),

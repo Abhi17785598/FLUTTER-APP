@@ -66,7 +66,15 @@ class TellYourNeedsSection extends StatefulWidget {
   State<TellYourNeedsSection> createState() => _TellYourNeedsSectionState();
 }
 
-class _TellYourNeedsSectionState extends State<TellYourNeedsSection> {
+class _TellYourNeedsSectionState extends State<TellYourNeedsSection>
+    with AutomaticKeepAliveClientMixin {
+  // Preserves the four text controllers/dropdown selections across Home's
+  // own scroll — without this, scrolling this section far enough off/on
+  // screen disposes and rebuilds it from scratch, clearing whatever the
+  // user had already typed.
+  @override
+  bool get wantKeepAlive => true;
+
   final RequirementService _service = RequirementService();
 
   final TextEditingController _nameController = TextEditingController();
@@ -150,6 +158,7 @@ class _TellYourNeedsSectionState extends State<TellYourNeedsSection> {
 
   @override
   Widget build(BuildContext context) {
+    super.build(context);
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: AppConstants.spacingL),
       child: Container(

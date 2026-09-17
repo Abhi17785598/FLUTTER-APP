@@ -158,7 +158,16 @@ class CategoryIconGrid extends StatefulWidget {
   State<CategoryIconGrid> createState() => _CategoryIconGridState();
 }
 
-class _CategoryIconGridState extends State<CategoryIconGrid> {
+class _CategoryIconGridState extends State<CategoryIconGrid>
+    with AutomaticKeepAliveClientMixin {
+  // Preserves `_counts` (and the Future it's already resolved to) across
+  // Home's own scroll — without this, `CategoryIconGrid` is disposed and a
+  // fresh instance rebuilt (with a brand-new, re-fetching `_counts` Future)
+  // any time it scrolls far enough off/on screen, since it sits inside a
+  // `SliverList`.
+  @override
+  bool get wantKeepAlive => true;
+
   /// Height of the illustration zone inside each card.
   static const double _kTileImageHeight = 92.0;
 
@@ -286,27 +295,27 @@ class _CategoryIconGridState extends State<CategoryIconGrid> {
         onTap: () => _open(context, category),
         scaleDown: 0.97,
         child: GlassCard(
-        width: tileWidth,
-        borderRadius: AppConstants.cardRadius,
-        padding: EdgeInsets.zero,
-        // Kept close to opaque (rather than the ~0.7 used by the header/
-        // action cards): each illustration already sits on its own baked-in
-        // white canvas, so a high opacity here keeps that canvas and the
-        // surrounding glass tile reading as one consistent surface instead
-        // of a mismatched seam — while `highlight`/`borderColor` still give
-        // it the same glass rim/sheen as the rest of the page.
-        //
-        // `blurSigma: 0` deliberately — this rail scrolls both with the
-        // page (vertically) and itself (horizontally), and at 0.88 opacity
-        // a live backdrop blur was never visibly doing anything useful
-        // behind these already-near-opaque tiles anyway. Nine of them
-        // running `BackdropFilter` while moving was a real, measurable
-        // scroll-jank cost for zero visual benefit.
-        opacity: 0.88,
-        blurSigma: 0,
-        borderColor: Colors.white.withOpacity(0.6),
-        highlight: true,
-        child: Column(
+          width: tileWidth,
+          borderRadius: AppConstants.cardRadius,
+          padding: EdgeInsets.zero,
+          // Kept close to opaque (rather than the ~0.7 used by the header/
+          // action cards): each illustration already sits on its own baked-in
+          // white canvas, so a high opacity here keeps that canvas and the
+          // surrounding glass tile reading as one consistent surface instead
+          // of a mismatched seam — while `highlight`/`borderColor` still give
+          // it the same glass rim/sheen as the rest of the page.
+          //
+          // `blurSigma: 0` deliberately — this rail scrolls both with the
+          // page (vertically) and itself (horizontally), and at 0.88 opacity
+          // a live backdrop blur was never visibly doing anything useful
+          // behind these already-near-opaque tiles anyway. Nine of them
+          // running `BackdropFilter` while moving was a real, measurable
+          // scroll-jank cost for zero visual benefit.
+          opacity: 0.88,
+          blurSigma: 0,
+          borderColor: Colors.white.withOpacity(0.6),
+          highlight: true,
+          child: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -374,13 +383,14 @@ class _CategoryIconGridState extends State<CategoryIconGrid> {
               ),
             ],
           ),
-      ),
+        ),
       ),
     );
   }
 
   @override
   Widget build(BuildContext context) {
+    super.build(context);
     const categories = CategoryIconGrid.categories;
     final tileWidth = _tileWidth(context);
 

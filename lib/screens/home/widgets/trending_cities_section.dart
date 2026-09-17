@@ -37,7 +37,14 @@ class TrendingCitiesSection extends StatefulWidget {
   State<TrendingCitiesSection> createState() => _TrendingCitiesSectionState();
 }
 
-class _TrendingCitiesSectionState extends State<TrendingCitiesSection> {
+class _TrendingCitiesSectionState extends State<TrendingCitiesSection>
+    with AutomaticKeepAliveClientMixin {
+  // Preserves `_future` across Home's own scroll — without this, scrolling
+  // this rail far enough off/on screen disposes and rebuilds it from
+  // scratch, re-querying trending cities every time.
+  @override
+  bool get wantKeepAlive => true;
+
   late final Future<List<TrendingCity>> _future =
       (widget.service ?? TrendingCitiesService()).listActive();
 
@@ -48,6 +55,7 @@ class _TrendingCitiesSectionState extends State<TrendingCitiesSection> {
 
   @override
   Widget build(BuildContext context) {
+    super.build(context);
     return FutureBuilder<List<TrendingCity>>(
       future: _future,
       builder: (context, snapshot) {
@@ -108,12 +116,22 @@ class _TrendingCityCard extends StatelessWidget {
         fit: StackFit.expand,
         children: [
           if (city.featuredImageUrl != null)
-            CachedNetworkImage(
-              imageUrl: city.featuredImageUrl!,
-              fit: BoxFit.cover,
-              placeholder: (_, _) => Container(color: AppColors.primaryLight),
-              errorWidget: (_, _, _) =>
-                  Container(color: AppColors.primaryLight),
+            Builder(
+              builder: (context) {
+                // Bounds decoding to the card's actual rendered pixels
+                // rather than the source's native resolution.
+                final dpr = MediaQuery.of(context).devicePixelRatio;
+                return CachedNetworkImage(
+                  imageUrl: city.featuredImageUrl!,
+                  fit: BoxFit.cover,
+                  memCacheWidth: (_kCityCardWidth * dpr).round(),
+                  memCacheHeight: (_kCityRailHeight * dpr).round(),
+                  placeholder: (_, _) =>
+                      Container(color: AppColors.primaryLight),
+                  errorWidget: (_, _, _) =>
+                      Container(color: AppColors.primaryLight),
+                );
+              },
             )
           else
             Container(color: AppColors.primaryLight),

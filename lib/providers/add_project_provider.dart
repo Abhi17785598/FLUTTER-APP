@@ -104,6 +104,18 @@ class AddProjectProvider extends ChangeNotifier {
   void setProjectType(String v) => _update(_draft.copyWith(projectType: v));
   void setLocation(String v) => _update(_draft.copyWith(location: v));
 
+  /// Street address, state, pincode and landmark — the four fields the
+  /// migration `20270416000000_add_builder_project_location_fields.sql` added
+  /// so this wizard can capture the same location detail the Property
+  /// Listing wizard already does. All filled by [ProjectBasicInfoStep]'s map
+  /// picker / address search, same as [setLocation] already was.
+  void setAddressLine1(String v) => _update(_draft.copyWith(addressLine1: v));
+  void setState(String v) => _update(_draft.copyWith(state: v));
+  void setPincode(String v) => _update(_draft.copyWith(pincode: v));
+  void setLandmark(String v) => _update(_draft.copyWith(landmark: v));
+  void setLatitude(double v) => _update(_draft.copyWith(latitude: v));
+  void setLongitude(double v) => _update(_draft.copyWith(longitude: v));
+
   void setTotalUnits(String v) =>
       _update(_draft.copyWith(totalUnits: _intOrNull(v)));
   void setAvailableUnits(String v) =>

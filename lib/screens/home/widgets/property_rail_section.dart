@@ -46,6 +46,13 @@ class PropertyRailSection extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final compareProvider = context.watch<CompareProvider>();
+    // Bounds each card's decoded image to its actual on-screen pixels
+    // (this rail's own `cardWidth`/`cardImageHeight` — which may be an
+    // override, e.g. Luxury Collection's larger card — not the shared
+    // defaults) rather than the source's native resolution.
+    final dpr = MediaQuery.of(context).devicePixelRatio;
+    final cacheWidth = (cardWidth * dpr).round();
+    final cacheHeight = (cardImageHeight * dpr).round();
     return Consumer<PropertyProvider>(
       builder: (context, propertyProvider, child) {
         final items = selector(propertyProvider.properties);
@@ -83,6 +90,8 @@ class PropertyRailSection extends StatelessWidget {
                       property: items[index],
                       width: cardWidth,
                       imageHeight: cardImageHeight,
+                      imageCacheWidth: cacheWidth,
+                      imageCacheHeight: cacheHeight,
                       onTap: () => Navigator.pushNamed(
                         context,
                         AppConstants.propertyDetailScreen,

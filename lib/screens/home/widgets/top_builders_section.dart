@@ -27,12 +27,20 @@ class TopBuildersSection extends StatefulWidget {
   State<TopBuildersSection> createState() => _TopBuildersSectionState();
 }
 
-class _TopBuildersSectionState extends State<TopBuildersSection> {
+class _TopBuildersSectionState extends State<TopBuildersSection>
+    with AutomaticKeepAliveClientMixin {
+  // Preserves `_future` across Home's own scroll — without this, scrolling
+  // this rail far enough off/on screen disposes and rebuilds it from
+  // scratch, re-querying top builders every time.
+  @override
+  bool get wantKeepAlive => true;
+
   late final Future<List<UserProfile>> _future =
       (widget.service ?? TopBuildersService()).listActive();
 
   @override
   Widget build(BuildContext context) {
+    super.build(context);
     return FutureBuilder<List<UserProfile>>(
       future: _future,
       builder: (context, snapshot) {

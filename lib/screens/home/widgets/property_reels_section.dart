@@ -18,9 +18,13 @@ import '../../reels/widgets/reel_controller_manager.dart';
 /// fetch logic here. Tapping any card, or "See all", opens the existing
 /// `ReelsScreen` (same route the Home dropdown menu already uses).
 ///
-/// Auto-scrolls itself slowly for a premium "alive" feel, pausing the moment
-/// the user touches the list and resuming a short idle delay after they let
-/// go — manual drag/scroll is the same `ListView` underneath, untouched.
+/// Purely manual `ListView` scrolling — no auto-scroll. A previous pass had
+/// this rail nudge itself every 40ms via `Timer.periodic` + `jumpTo` for a
+/// premium "alive" feel; that timer ran continuously (even while the rail
+/// merely sat further down the Home feed, since a `wantKeepAlive` widget is
+/// never actually removed from the tree while Home is mounted) and was one of
+/// the biggest contributors to scroll jank on lower-powered devices. Removed
+/// outright rather than throttled, per the Home scroll-performance pass.
 ///
 /// WHY THE CARDS ARE VIDEO, NOT IMAGES
 /// -----------------------------------
@@ -68,25 +72,22 @@ class PropertyReelsSection extends StatefulWidget {
 
 class _PropertyReelsSectionState extends State<PropertyReelsSection>
     with AutomaticKeepAliveClientMixin, WidgetsBindingObserver {
-  static const _tick = Duration(milliseconds: 40);
-  static const _pxPerTick = 0.6;
-  static const _idleResumeDelay = Duration(seconds: 3);
-
   /// How long the rail must hold still before its playback window is rebuilt.
   ///
   /// Swapping the window allocates and frees hardware decoders, so doing it
-  /// mid-fling would be both wasted and janky. The auto-scroll crosses a card
-  /// only every few seconds, so in the steady state this fires once per card.
+  /// mid-fling would be both wasted and janky. Manual drags settle in well
+  /// under this, so in the steady state this fires once per genuine stop.
   static const _windowSettleDelay = Duration(milliseconds: 250);
 
   final ScrollController _scrollController = ScrollController();
-  Timer? _autoScrollTimer;
-  Timer? _idleTimer;
 
   /// Shared with the full-screen feed — same sliding window, same decoder
-  /// ordering, same disposal rules — in its muted rail mode.
+  /// ordering, same disposal rules — in its muted rail mode. `windowRadius:
+  /// 0`, not 1: a Home preview rail never needs a neighbour pre-decoding —
+  /// exactly one video (the centred card) ever holds a decoder here, unlike
+  /// the full-screen feed's own instance (untouched, still radius 1).
   final ReelControllerManager _videos = ReelControllerManager(
-    windowRadius: 1,
+    windowRadius: 0,
     previewMode: true,
   );
 
@@ -94,9 +95,13 @@ class _PropertyReelsSectionState extends State<PropertyReelsSection>
   int _centreIndex = 0;
   int _reelCount = 0;
 
-  /// The enclosing Home feed's scroll position, so the rail can tell when it has
-  /// been scrolled off screen. This widget is `wantKeepAlive`, so without this
-  /// the videos would keep decoding while the user reads the rest of the page.
+  /// The enclosing Home feed's scroll position, so the rail can tell when it
+  /// has been scrolled off screen. This widget is `wantKeepAlive`, so without
+  /// this the video would keep decoding while the user reads the rest of the
+  /// page. Visibility is only ever recomputed when the outer feed's
+  /// `isScrollingNotifier` flips — never per scroll pixel/frame, which the
+  /// previous `ScrollPosition.addListener` + `findRenderObject`/
+  /// `localToGlobal` combination did do, on every single scroll update.
   ScrollPosition? _outerPosition;
   bool _onScreen = true;
 
@@ -119,7 +124,6 @@ class _PropertyReelsSectionState extends State<PropertyReelsSection>
     super.initState();
     WidgetsBinding.instance.addObserver(this);
     _scrollController.addListener(_onRailScroll);
-    WidgetsBinding.instance.addPostFrameCallback((_) => _startAutoScroll());
   }
 
   @override
@@ -127,9 +131,11 @@ class _PropertyReelsSectionState extends State<PropertyReelsSection>
     super.didChangeDependencies();
     final outer = Scrollable.maybeOf(context)?.position;
     if (outer != _outerPosition) {
-      _outerPosition?.removeListener(_onOuterScroll);
+      _outerPosition?.isScrollingNotifier.removeListener(
+        _onOuterScrollingChanged,
+      );
       _outerPosition = outer;
-      _outerPosition?.addListener(_onOuterScroll);
+      _outerPosition?.isScrollingNotifier.addListener(_onOuterScrollingChanged);
     }
 
     // `secondaryAnimation` is this route's "something is covering me" signal —
@@ -149,23 +155,20 @@ class _PropertyReelsSectionState extends State<PropertyReelsSection>
     _covered = covered;
     if (covered) {
       // Give the surfaces up before the incoming screen asks for its own.
-      _autoScrollTimer?.cancel();
-      _idleTimer?.cancel();
       _windowTimer?.cancel();
       unawaited(_videos.releaseAll());
     } else {
       _syncWindow();
-      _startAutoScroll();
     }
   }
 
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
-    _outerPosition?.removeListener(_onOuterScroll);
+    _outerPosition?.isScrollingNotifier.removeListener(
+      _onOuterScrollingChanged,
+    );
     _coverAnimation?.removeListener(_onCoverChanged);
-    _autoScrollTimer?.cancel();
-    _idleTimer?.cancel();
     _windowTimer?.cancel();
     _scrollController.dispose();
     // Frees every decoder this rail allocated. Not awaited — `dispose` cannot be
@@ -195,8 +198,6 @@ class _PropertyReelsSectionState extends State<PropertyReelsSection>
     );
     if (next == _centreIndex) return;
     _centreIndex = next;
-    // Debounced on the index, not on the scroll offset: the auto-scroll nudges
-    // the offset every 40 ms, so a plain scroll debounce would never fire.
     _windowTimer?.cancel();
     _windowTimer = Timer(_windowSettleDelay, _syncWindow);
   }
@@ -207,6 +208,8 @@ class _PropertyReelsSectionState extends State<PropertyReelsSection>
   }
 
   /// True while any part of the rail is within the screen's vertical bounds.
+  /// Only ever called from [_onOuterScrollingChanged], once the outer Home
+  /// feed has actually stopped scrolling — never per scroll pixel/frame.
   bool _isOnScreen() {
     final box = context.findRenderObject() as RenderBox?;
     if (box == null || !box.attached || !box.hasSize) return false;
@@ -215,51 +218,27 @@ class _PropertyReelsSectionState extends State<PropertyReelsSection>
     return top < screenHeight && top + box.size.height > 0;
   }
 
-  void _onOuterScroll() {
-    final visible = _isOnScreen();
-    if (visible == _onScreen) return;
-    _onScreen = visible;
+  /// Fires only when the outer Home feed's `isScrollingNotifier` flips —
+  /// i.e. exactly twice per scroll gesture (start, then settle), not once per
+  /// pixel/frame the way the previous `ScrollPosition.addListener` did.
+  void _onOuterScrollingChanged() {
+    final isScrolling = _outerPosition?.isScrollingNotifier.value ?? false;
+    if (isScrolling) {
+      // Scrolling just started: give up the decoder immediately rather than
+      // waiting to learn where the rail ends up.
+      _videos.pauseAll();
+      return;
+    }
 
+    // Scrolling just settled — the one point visibility is (re)computed.
+    final visible = _isOnScreen();
+    _onScreen = visible;
     if (visible && !_covered) {
       _videos.resumeWindow();
       _syncWindow();
-      _startAutoScroll();
     } else {
-      // Off screen: nothing decodes, and the 40 ms timer stops too.
       _videos.pauseAll();
-      _autoScrollTimer?.cancel();
-      _idleTimer?.cancel();
     }
-  }
-
-  // ── Auto-scroll ───────────────────────────────────────────────────────────
-
-  void _startAutoScroll() {
-    _autoScrollTimer?.cancel();
-    if (!_onScreen || _covered) return;
-    _autoScrollTimer = Timer.periodic(_tick, (timer) {
-      if (!mounted || !_scrollController.hasClients) return;
-      final max = _scrollController.position.maxScrollExtent;
-      if (max <= 0) return;
-      final next = _scrollController.offset + _pxPerTick;
-      if (next >= max) {
-        _scrollController.jumpTo(0);
-      } else {
-        _scrollController.jumpTo(next);
-      }
-    });
-  }
-
-  void _pauseForUserInteraction() {
-    _autoScrollTimer?.cancel();
-    _idleTimer?.cancel();
-  }
-
-  void _scheduleResume() {
-    _idleTimer?.cancel();
-    _idleTimer = Timer(_idleResumeDelay, () {
-      if (mounted) _startAutoScroll();
-    });
   }
 
   // ── Build ─────────────────────────────────────────────────────────────────
@@ -293,26 +272,24 @@ class _PropertyReelsSectionState extends State<PropertyReelsSection>
             const SizedBox(height: 12),
             SizedBox(
               height: 200,
-              child: Listener(
-                onPointerDown: (_) => _pauseForUserInteraction(),
-                onPointerUp: (_) => _scheduleResume(),
-                onPointerCancel: (_) => _scheduleResume(),
-                // Rebuilds the visible cards the moment a controller reports
-                // itself ready, which is what swaps a poster for a first frame.
-                child: AnimatedBuilder(
-                  animation: _videos,
-                  builder: (context, _) => ListView.builder(
-                    controller: _scrollController,
-                    scrollDirection: Axis.horizontal,
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: PropertyReelsSection.listPadding,
-                    ),
-                    // Fixed extent: the list scrolls without measuring
-                    // children, and it makes the centre-card maths exact.
-                    itemExtent: PropertyReelsSection.itemExtent,
-                    itemCount: reels.length,
-                    itemBuilder: (context, index) => _card(reels[index], index),
+              // Rebuilds the visible cards the moment a controller reports
+              // itself ready, which is what swaps a poster for a first frame.
+              // No `Listener`/pointer wrapper here any more — that existed
+              // only to pause/resume the auto-scroll timer, which is gone;
+              // manual dragging is just this `ListView`'s own gestures.
+              child: AnimatedBuilder(
+                animation: _videos,
+                builder: (context, _) => ListView.builder(
+                  controller: _scrollController,
+                  scrollDirection: Axis.horizontal,
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: PropertyReelsSection.listPadding,
                   ),
+                  // Fixed extent: the list scrolls without measuring
+                  // children, and it makes the centre-card maths exact.
+                  itemExtent: PropertyReelsSection.itemExtent,
+                  itemCount: reels.length,
+                  itemBuilder: (context, index) => _card(reels[index], index),
                 ),
               ),
             ),
@@ -419,12 +396,25 @@ class _PropertyReelsSectionState extends State<PropertyReelsSection>
         // Guarded, because an empty URL never resolves and never reaches
         // `errorWidget` — it just sits on the placeholder forever.
         if (reel.previewImageUrl.isNotEmpty)
-          CachedNetworkImage(
-            imageUrl: reel.previewImageUrl,
-            fit: BoxFit.cover,
-            placeholder: (context, url) =>
-                Container(color: AppColors.primaryLight),
-            errorWidget: (context, url, error) => const _ReelCoverFallback(),
+          Builder(
+            builder: (context) {
+              // Bounds decoding to the card's actual rendered pixels
+              // (130×200 logical, per `PropertyReelsSection.cardWidth` and
+              // the outer `SizedBox(height: 200)`) rather than whatever
+              // resolution the source happens to be — same physical size on
+              // screen either way, far less decode work per poster.
+              final dpr = MediaQuery.of(context).devicePixelRatio;
+              return CachedNetworkImage(
+                imageUrl: reel.previewImageUrl,
+                fit: BoxFit.cover,
+                memCacheWidth: (PropertyReelsSection.cardWidth * dpr).round(),
+                memCacheHeight: (200 * dpr).round(),
+                placeholder: (context, url) =>
+                    Container(color: AppColors.primaryLight),
+                errorWidget: (context, url, error) =>
+                    const _ReelCoverFallback(),
+              );
+            },
           )
         else
           const _ReelCoverFallback(),

@@ -73,6 +73,13 @@ class ChatThreadScreen extends StatelessWidget {
   /// ordinary DM/channel.
   final String? collaborationId;
 
+  /// Overrides the real [MessagingService] this screen and its
+  /// [ChatThreadProvider] use. Null in every production call site (the
+  /// default `MessagingService()` is used); tests inject a fake here instead
+  /// of hitting Supabase.
+  @visibleForTesting
+  final MessagingService? service;
+
   const ChatThreadScreen({
     super.key,
     required this.kind,
@@ -86,6 +93,7 @@ class ChatThreadScreen extends StatelessWidget {
     this.isMuted = false,
     this.isChannelAdmin = false,
     this.collaborationId,
+    this.service,
   });
 
   @override
@@ -116,6 +124,7 @@ class ChatThreadScreen extends StatelessWidget {
       initialIsMuted: isMuted,
       isChannelAdmin: isChannelAdmin,
       isCollaboration: collaborationId != null,
+      service: service,
     );
 
     final collabId = collaborationId;
@@ -127,6 +136,7 @@ class ChatThreadScreen extends StatelessWidget {
             threadId: threadId,
             userId: userId,
             participantUserId: resolvedParticipantId,
+            service: service,
           )..load(),
         ),
         if (collabId != null)
@@ -153,6 +163,7 @@ class _ChatThreadView extends StatefulWidget {
   final bool initialIsMuted;
   final bool isChannelAdmin;
   final bool isCollaboration;
+  final MessagingService? service;
 
   const _ChatThreadView({
     required this.title,
@@ -165,6 +176,7 @@ class _ChatThreadView extends StatefulWidget {
     required this.isChannelAdmin,
     this.isCollaboration = false,
     this.participantUserId,
+    this.service,
   });
 
   @override
@@ -173,7 +185,7 @@ class _ChatThreadView extends StatefulWidget {
 
 class _ChatThreadViewState extends State<_ChatThreadView> {
   final ScrollController _scrollController = ScrollController();
-  final _service = MessagingService();
+  late final MessagingService _service = widget.service ?? MessagingService();
   final _imagePicker = ImagePicker();
   final _recorder = FlutterSoundRecorder();
 
@@ -754,7 +766,7 @@ class _ChatThreadViewState extends State<_ChatThreadView> {
         ),
       ),
     );
-    if (reason == null || widget.participantUserId == null) return;
+    if (reason == null) return;
     try {
       await _service.reportMessage(
         messageId: message.id,

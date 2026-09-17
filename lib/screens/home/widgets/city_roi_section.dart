@@ -36,7 +36,14 @@ class CityRoiSection extends StatefulWidget {
   State<CityRoiSection> createState() => _CityRoiSectionState();
 }
 
-class _CityRoiSectionState extends State<CityRoiSection> {
+class _CityRoiSectionState extends State<CityRoiSection>
+    with AutomaticKeepAliveClientMixin {
+  // Preserves `_future` across Home's own scroll — without this, scrolling
+  // this rail far enough off/on screen disposes and rebuilds it from
+  // scratch, re-querying city ROI data every time.
+  @override
+  bool get wantKeepAlive => true;
+
   late final Future<List<CityRoi>> _future =
       (widget.service ?? CityRoiService()).listActive();
 
@@ -47,6 +54,7 @@ class _CityRoiSectionState extends State<CityRoiSection> {
 
   @override
   Widget build(BuildContext context) {
+    super.build(context);
     return FutureBuilder<List<CityRoi>>(
       future: _future,
       builder: (context, snapshot) {
@@ -89,6 +97,10 @@ class _CityRoiRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // Bounds decoding to the thumbnail's actual rendered pixels (52×52
+    // logical) rather than the source's native resolution.
+    final dpr = MediaQuery.of(context).devicePixelRatio;
+    final thumbCachePx = (52 * dpr).round();
     return Container(
       padding: const EdgeInsets.all(AppConstants.spacingM),
       decoration: BoxDecoration(
@@ -108,6 +120,8 @@ class _CityRoiRow extends StatelessWidget {
                     width: 52,
                     height: 52,
                     fit: BoxFit.cover,
+                    memCacheWidth: thumbCachePx,
+                    memCacheHeight: thumbCachePx,
                     placeholder: (_, _) => _thumbPlaceholder(),
                     errorWidget: (_, _, _) => _thumbPlaceholder(),
                   )

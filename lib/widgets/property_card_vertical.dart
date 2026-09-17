@@ -29,6 +29,16 @@ class PropertyCardVertical extends StatelessWidget {
   final double width;
   final double imageHeight;
 
+  /// Bounds the decoded image to roughly this many physical pixels
+  /// (`memCacheWidth`/`memCacheHeight` on the underlying
+  /// `CachedNetworkImage`) instead of decoding at the source's native
+  /// resolution. Null by default — every existing caller (this card is used
+  /// outside Home too) keeps its exact current behaviour unless it opts in;
+  /// only the Home rails pass a value, sized from this card's own rendered
+  /// `width`/`imageHeight` × the device's pixel ratio.
+  final int? imageCacheWidth;
+  final int? imageCacheHeight;
+
   const PropertyCardVertical({
     super.key,
     required this.property,
@@ -38,6 +48,8 @@ class PropertyCardVertical extends StatelessWidget {
     this.isInCompare = false,
     double? width,
     double? imageHeight,
+    this.imageCacheWidth,
+    this.imageCacheHeight,
   }) : width = width ?? AppConstants.propertyCardWidth,
        imageHeight = imageHeight ?? AppConstants.propertyCardImageHeight;
 
@@ -69,6 +81,8 @@ class PropertyCardVertical extends StatelessWidget {
                     width: width,
                     height: imageHeight,
                     fit: BoxFit.cover,
+                    memCacheWidth: imageCacheWidth,
+                    memCacheHeight: imageCacheHeight,
                     placeholder: (context, url) => Container(
                       color: AppColors.textHint.withOpacity(0.1),
                       child: const Center(child: CircularProgressIndicator()),
