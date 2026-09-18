@@ -49,7 +49,7 @@ class _FeedView extends StatelessWidget {
     final feed = context.watch<FeedProvider>();
 
     return Scaffold(
-      backgroundColor: AppColors.background,
+      backgroundColor: Colors.transparent,
       appBar: AppBar(
         backgroundColor: AppColors.cardBackground,
         elevation: 0,

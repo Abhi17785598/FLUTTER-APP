@@ -11,7 +11,6 @@ import '../../../core/widgets/segmented_tab_pill.dart';
 import '../../../models/article_summary.dart';
 import '../../../models/influencer_video_model.dart';
 import '../../../models/property_model.dart';
-import '../../../widgets/property_card_compact.dart';
 import '../../dashboard/widgets/my_videos_section.dart'
     show InfluencerApprovalPill;
 
@@ -137,7 +136,7 @@ class _MyContentSectionState extends State<MyContentSection> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         for (final property in properties) ...[
-          PropertyCardCompact(
+          _MyPropertyCard(
             property: property,
             onTap: () => widget.onPropertyTap(property),
             onEdit: () => widget.onEditProperty(property),
@@ -237,6 +236,275 @@ class _ContentShimmer extends StatelessWidget {
   }
 }
 
+/// One property in the My Content list — a card local to this screen (not
+/// the shared `PropertyCardCompact`, which Shortlist and public profiles also
+/// render — changing that widget would have restyled those surfaces too).
+/// Category/listing-type chips mirror the Search results property card's
+/// exact styling (`PropertyCardSearchRow`) for visual consistency.
+class _MyPropertyCard extends StatelessWidget {
+  final PropertyModel property;
+  final VoidCallback onTap;
+  final VoidCallback onEdit;
+  final VoidCallback onDelete;
+
+  const _MyPropertyCard({
+    required this.property,
+    required this.onTap,
+    required this.onEdit,
+    required this.onDelete,
+  });
+
+  (IconData, String)? get _categoryChip => switch (property.category) {
+    'residential' => (Icons.home_rounded, 'Residential'),
+    'commercial' => (Icons.store_mall_directory_rounded, 'Commercial'),
+    'land' => (Icons.landscape_rounded, 'Land'),
+    'pg_coliving' => (Icons.groups_rounded, 'PG/Co-living'),
+    'others' => (Icons.category_rounded, 'Others'),
+    _ => null,
+  };
+
+  String? get _listingLabel => switch (property.propertyType) {
+    'sell' => 'For Sale',
+    'rent' => 'For Rent',
+    'lease' => 'For Lease',
+    _ => null,
+  };
+
+  @override
+  Widget build(BuildContext context) {
+    final category = _categoryChip;
+    final listingLabel = _listingLabel;
+
+    return Semantics(
+      label: property.title,
+      button: true,
+      child: ScaleTap(
+        onTap: onTap,
+        child: Container(
+          padding: const EdgeInsets.all(AppConstants.spacingM),
+          decoration: BoxDecoration(
+            color: AppColors.cardBackground,
+            borderRadius: BorderRadius.circular(AppConstants.cardRadius),
+            boxShadow: AppColors.surfaceCardShadow,
+          ),
+          child: IntrinsicHeight(
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Stack(
+                  children: [
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(
+                        AppConstants.imageThumbnailRadius,
+                      ),
+                      child: CachedNetworkImage(
+                        imageUrl: property.imageUrl,
+                        width: 76,
+                        height: 76,
+                        fit: BoxFit.cover,
+                        placeholder: (context, url) => Container(
+                          width: 76,
+                          height: 76,
+                          color: AppColors.textHint.withValues(alpha: 0.1),
+                        ),
+                        errorWidget: (context, url, error) => Container(
+                          width: 76,
+                          height: 76,
+                          color: AppColors.textHint.withValues(alpha: 0.1),
+                          child: const Icon(Icons.broken_image, size: 18),
+                        ),
+                      ),
+                    ),
+                    if (property.photoCount > 0)
+                      Positioned(
+                        left: 4,
+                        bottom: 4,
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 5,
+                            vertical: 2,
+                          ),
+                          decoration: BoxDecoration(
+                            color: Colors.black.withValues(alpha: 0.6),
+                            borderRadius: BorderRadius.circular(4),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              const Icon(
+                                Icons.camera_alt,
+                                size: 9,
+                                color: Colors.white,
+                              ),
+                              const SizedBox(width: 3),
+                              Text(
+                                '${property.photoCount}',
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 9,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                  ],
+                ),
+                const SizedBox(width: AppConstants.spacingM),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Row(
+                        children: [
+                          if (category != null)
+                            _chip(
+                              icon: category.$1,
+                              label: category.$2,
+                              bg: AppColors.primaryLight,
+                              fg: AppColors.primary,
+                              bordered: true,
+                            ),
+                          if (category != null && listingLabel != null)
+                            const SizedBox(width: 6),
+                          if (listingLabel != null)
+                            _chip(
+                              icon: Icons.sell_rounded,
+                              label: listingLabel,
+                              bg: const Color(0xFFFCE4EC),
+                              fg: const Color(0xFFD6336C),
+                            ),
+                        ],
+                      ),
+                      const SizedBox(height: 6),
+                      Text(
+                        property.title,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: AppTextStyles.body.copyWith(
+                          fontWeight: FontWeight.w700,
+                          fontSize: 13.5,
+                        ),
+                      ),
+                      const SizedBox(height: 3),
+                      Row(
+                        children: [
+                          const Icon(
+                            Icons.location_on,
+                            size: 12,
+                            color: AppColors.textSecondary,
+                          ),
+                          const SizedBox(width: 3),
+                          Expanded(
+                            child: Text(
+                              property.location,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: AppTextStyles.caption.copyWith(
+                                fontSize: 11,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        property.priceDisplay,
+                        style: AppTextStyles.price.copyWith(fontSize: 16),
+                      ),
+                      const SizedBox(height: 3),
+                      Row(
+                        children: [
+                          const Icon(
+                            Icons.straighten,
+                            size: 11,
+                            color: AppColors.textHint,
+                          ),
+                          const SizedBox(width: 3),
+                          Text(
+                            property.sqft > 0 ? '${property.sqft} sq.ft' : '—',
+                            style: AppTextStyles.caption.copyWith(
+                              fontSize: 10.5,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 6),
+                SizedBox(
+                  width: 22,
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    crossAxisAlignment: CrossAxisAlignment.center,
+                    children: [
+                      GestureDetector(
+                        onTap: onEdit,
+                        child: const Icon(
+                          Icons.edit_outlined,
+                          size: 19,
+                          color: AppColors.textSecondary,
+                        ),
+                      ),
+                      GestureDetector(
+                        onTap: onDelete,
+                        child: const Icon(
+                          Icons.delete_outline,
+                          size: 19,
+                          color: AppColors.textSecondary,
+                        ),
+                      ),
+                      const Icon(
+                        Icons.favorite_border,
+                        size: 19,
+                        color: AppColors.error,
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _chip({
+    required IconData icon,
+    required String label,
+    required Color bg,
+    required Color fg,
+    bool bordered = false,
+  }) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2.5),
+      decoration: BoxDecoration(
+        color: bg,
+        borderRadius: BorderRadius.circular(AppConstants.chipRadius),
+        border: bordered ? Border.all(color: fg.withValues(alpha: 0.3)) : null,
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 9.5, color: fg),
+          const SizedBox(width: 3),
+          Text(
+            label,
+            style: AppTextStyles.chip.copyWith(
+              fontSize: 9.5,
+              color: fg,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 /// One article in the My Content list.
 class _ArticleRow extends StatelessWidget {
   final ArticleSummary article;
@@ -251,31 +519,45 @@ class _ArticleRow extends StatelessWidget {
     required this.onDelete,
   });
 
+  /// "12 Sep 2026" — no `intl` dependency in this project, so spelled out the
+  /// same way `AppNotification.relativeTime`'s month fallback already does.
+  String? get _dateLabel {
+    final created = article.createdAt;
+    if (created == null) return null;
+    const months = [
+      'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+      'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
+    ];
+    return '${created.day} ${months[created.month - 1]} ${created.year}';
+  }
+
   @override
   Widget build(BuildContext context) {
+    final dateLabel = _dateLabel;
+
     return Semantics(
       label: '${article.title}, ${article.displayStatus}',
       button: true,
       child: ScaleTap(
         onTap: onTap,
-        child: ColoredBox(
-          color: AppColors.background,
-          child: Container(
-            padding: const EdgeInsets.all(AppConstants.spacingM),
-            decoration: BoxDecoration(
-              color: AppColors.cardBackground,
-              borderRadius: BorderRadius.circular(AppConstants.cardRadius),
-              boxShadow: AppColors.surfaceCardShadow,
-            ),
+        child: Container(
+          padding: const EdgeInsets.all(AppConstants.spacingM),
+          decoration: BoxDecoration(
+            color: AppColors.cardBackground,
+            borderRadius: BorderRadius.circular(AppConstants.cardRadius),
+            boxShadow: AppColors.surfaceCardShadow,
+          ),
+          child: IntrinsicHeight(
             child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 ClipRRect(
                   borderRadius: BorderRadius.circular(
                     AppConstants.imageThumbnailRadius,
                   ),
                   child: SizedBox(
-                    width: 52,
-                    height: 52,
+                    width: 76,
+                    height: 76,
                     child: article.imageUrl == null
                         ? const ColoredBox(
                             color: AppColors.primaryLight,
@@ -314,32 +596,53 @@ class _ArticleRow extends StatelessWidget {
                           fontWeight: FontWeight.w600,
                         ),
                       ),
+                      if (dateLabel != null) ...[
+                        const SizedBox(height: 5),
+                        Row(
+                          children: [
+                            const Icon(
+                              Icons.calendar_today_outlined,
+                              size: 11,
+                              color: AppColors.textHint,
+                            ),
+                            const SizedBox(width: 4),
+                            Text(
+                              dateLabel,
+                              style: AppTextStyles.caption.copyWith(
+                                fontSize: 10.5,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
                       const SizedBox(height: 6),
                       _ArticleStatusChip(status: article.displayStatus),
                     ],
                   ),
                 ),
-                const SizedBox(width: 8),
-                GestureDetector(
-                  onTap: onEdit,
-                  child: const Padding(
-                    padding: EdgeInsets.all(4),
-                    child: Icon(
-                      Icons.edit_outlined,
-                      color: AppColors.textSecondary,
-                      size: 20,
-                    ),
-                  ),
-                ),
-                GestureDetector(
-                  onTap: onDelete,
-                  child: const Padding(
-                    padding: EdgeInsets.all(4),
-                    child: Icon(
-                      Icons.delete_outline,
-                      color: AppColors.textSecondary,
-                      size: 20,
-                    ),
+                const SizedBox(width: 6),
+                SizedBox(
+                  width: 22,
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      GestureDetector(
+                        onTap: onEdit,
+                        child: const Icon(
+                          Icons.edit_outlined,
+                          color: AppColors.textSecondary,
+                          size: 19,
+                        ),
+                      ),
+                      GestureDetector(
+                        onTap: onDelete,
+                        child: const Icon(
+                          Icons.delete_outline,
+                          color: AppColors.textSecondary,
+                          size: 19,
+                        ),
+                      ),
+                    ],
                   ),
                 ),
               ],
@@ -367,53 +670,80 @@ class _VideoRow extends StatelessWidget {
     required this.onDelete,
   });
 
+  /// `video_type` has no dedicated display label anywhere else in the app —
+  /// spelled out here the same way the Post Video form's own copy reads.
+  String? get _categoryLabel => switch (video.videoType) {
+    'property_listing' => 'Property Listing',
+    'property_news' => 'Property News',
+    'property_education' => 'Property Education',
+    _ => null,
+  };
+
   @override
   Widget build(BuildContext context) {
+    final categoryLabel = _categoryLabel;
+
     return Semantics(
       label: '${video.title}, ${video.approvalStatus}',
       button: true,
       child: ScaleTap(
         onTap: onTap,
-        child: ColoredBox(
-          color: AppColors.background,
-          child: Container(
-            padding: const EdgeInsets.all(AppConstants.spacingM),
-            decoration: BoxDecoration(
-              color: AppColors.cardBackground,
-              borderRadius: BorderRadius.circular(AppConstants.cardRadius),
-              boxShadow: AppColors.surfaceCardShadow,
-            ),
+        child: Container(
+          padding: const EdgeInsets.all(AppConstants.spacingM),
+          decoration: BoxDecoration(
+            color: AppColors.cardBackground,
+            borderRadius: BorderRadius.circular(AppConstants.cardRadius),
+            boxShadow: AppColors.surfaceCardShadow,
+          ),
+          child: IntrinsicHeight(
             child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                ClipRRect(
-                  borderRadius: BorderRadius.circular(
-                    AppConstants.imageThumbnailRadius,
-                  ),
-                  child: SizedBox(
-                    width: 52,
-                    height: 52,
-                    child: video.thumbnailUrl == null
-                        ? const ColoredBox(
-                            color: AppColors.primaryLight,
-                            child: Icon(
-                              Icons.videocam_outlined,
-                              size: 22,
-                              color: AppColors.primary,
-                            ),
-                          )
-                        : CachedNetworkImage(
-                            imageUrl: video.thumbnailUrl!,
-                            fit: BoxFit.cover,
-                            errorWidget: (_, _, _) => const ColoredBox(
-                              color: AppColors.primaryLight,
-                              child: Icon(
-                                Icons.videocam_outlined,
-                                size: 22,
-                                color: AppColors.primary,
+                Stack(
+                  children: [
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(
+                        AppConstants.imageThumbnailRadius,
+                      ),
+                      child: SizedBox(
+                        width: 76,
+                        height: 76,
+                        child: video.thumbnailUrl == null
+                            ? const ColoredBox(
+                                color: AppColors.primaryLight,
+                                child: Icon(
+                                  Icons.videocam_outlined,
+                                  size: 22,
+                                  color: AppColors.primary,
+                                ),
+                              )
+                            : CachedNetworkImage(
+                                imageUrl: video.thumbnailUrl!,
+                                fit: BoxFit.cover,
+                                errorWidget: (_, _, _) => const ColoredBox(
+                                  color: AppColors.primaryLight,
+                                  child: Icon(
+                                    Icons.videocam_outlined,
+                                    size: 22,
+                                    color: AppColors.primary,
+                                  ),
+                                ),
                               ),
-                            ),
-                          ),
-                  ),
+                      ),
+                    ),
+                    // Play-button overlay — same reason the Feed screen's
+                    // video cards show one (Icons.play_circle_fill), just
+                    // sized for this smaller 76 dp thumbnail.
+                    Positioned.fill(
+                      child: Center(
+                        child: Icon(
+                          Icons.play_circle_fill,
+                          size: 26,
+                          color: Colors.white.withValues(alpha: 0.9),
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
                 const SizedBox(width: AppConstants.spacingM),
                 Expanded(
@@ -431,33 +761,85 @@ class _VideoRow extends StatelessWidget {
                         ),
                       ),
                       const SizedBox(height: 6),
-                      InfluencerApprovalPill(
-                        approvalStatus: video.approvalStatus,
+                      Wrap(
+                        spacing: 6,
+                        runSpacing: 4,
+                        crossAxisAlignment: WrapCrossAlignment.center,
+                        children: [
+                          InfluencerApprovalPill(
+                            approvalStatus: video.approvalStatus,
+                          ),
+                          if (categoryLabel != null)
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 7,
+                                vertical: 3,
+                              ),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFFFCE4EC),
+                                borderRadius: BorderRadius.circular(
+                                  AppConstants.chipRadius,
+                                ),
+                              ),
+                              child: Text(
+                                categoryLabel,
+                                style: AppTextStyles.chip.copyWith(
+                                  fontSize: 9.5,
+                                  color: const Color(0xFFD6336C),
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ),
+                        ],
+                      ),
+                      const SizedBox(height: 6),
+                      Row(
+                        children: [
+                          const Icon(
+                            Icons.favorite,
+                            size: 12,
+                            color: AppColors.error,
+                          ),
+                          const SizedBox(width: 4),
+                          Text(
+                            '${video.likes} likes',
+                            style: AppTextStyles.caption.copyWith(
+                              fontSize: 10.5,
+                            ),
+                          ),
+                        ],
                       ),
                     ],
                   ),
                 ),
-                const SizedBox(width: 8),
-                GestureDetector(
-                  onTap: onEdit,
-                  child: const Padding(
-                    padding: EdgeInsets.all(4),
-                    child: Icon(
-                      Icons.edit_outlined,
-                      color: AppColors.textSecondary,
-                      size: 20,
-                    ),
-                  ),
-                ),
-                GestureDetector(
-                  onTap: onDelete,
-                  child: const Padding(
-                    padding: EdgeInsets.all(4),
-                    child: Icon(
-                      Icons.delete_outline,
-                      color: AppColors.textSecondary,
-                      size: 20,
-                    ),
+                const SizedBox(width: 6),
+                SizedBox(
+                  width: 22,
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      GestureDetector(
+                        onTap: onEdit,
+                        child: const Icon(
+                          Icons.edit_outlined,
+                          color: AppColors.textSecondary,
+                          size: 19,
+                        ),
+                      ),
+                      GestureDetector(
+                        onTap: onDelete,
+                        child: const Icon(
+                          Icons.delete_outline,
+                          color: AppColors.textSecondary,
+                          size: 19,
+                        ),
+                      ),
+                      const Icon(
+                        Icons.favorite_border,
+                        size: 19,
+                        color: AppColors.error,
+                      ),
+                    ],
                   ),
                 ),
               ],

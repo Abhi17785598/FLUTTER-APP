@@ -103,7 +103,7 @@ class _ChannelSettingsScreenState extends State<ChannelSettingsScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppColors.background,
+      backgroundColor: Colors.transparent,
       appBar: AppBar(
         title: Text(widget.channelName),
         backgroundColor: AppColors.cardBackground,

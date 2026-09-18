@@ -6,6 +6,7 @@ import 'core/navigation/current_route_notifier.dart';
 import 'core/navigation/manage_dashboard_dispatcher.dart';
 import 'core/navigation/pending_invitation_gate.dart';
 import 'core/theme/app_theme.dart';
+import 'core/widgets/app_glass_backdrop.dart';
 import 'core/animations/page_transitions.dart';
 import 'voice_agent/widgets/floating_ai_orb.dart';
 import 'widgets/compare_floating_bar.dart';
@@ -86,6 +87,12 @@ class PropertyApp extends StatelessWidget {
         return PendingInvitationGate(
           child: Stack(
             children: [
+              // The shared ambient background every screen's glass surfaces
+              // float over — see AppGlassBackdrop's own doc comment for why
+              // this is a plain gradient and not a blurred photo. Screens opt
+              // into showing it through by setting their own Scaffold's
+              // `backgroundColor` to transparent.
+              const Positioned.fill(child: AppGlassBackdrop()),
               child ?? const SizedBox.shrink(),
               const CompareFloatingBar(),
               const FloatingAiOrb(),

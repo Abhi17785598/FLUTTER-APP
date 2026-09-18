@@ -174,7 +174,7 @@ class _HomeScreenState extends State<HomeScreen> {
     ];
 
     return Scaffold(
-      backgroundColor: AppColors.background,
+      backgroundColor: Colors.transparent,
       extendBody: true,
       body: Stack(
         fit: StackFit.expand,

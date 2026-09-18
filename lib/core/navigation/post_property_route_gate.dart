@@ -60,7 +60,7 @@ class _ResolvingRole extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => const Scaffold(
-    backgroundColor: AppColors.background,
+    backgroundColor: Colors.transparent,
     body: Center(child: CircularProgressIndicator()),
   );
 }

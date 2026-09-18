@@ -366,7 +366,7 @@ class _ManageUnitsScreenState extends State<ManageUnitsScreen> {
     final savableDraftCount = _drafts.where((d) => d.isSavable).length;
 
     return Scaffold(
-      backgroundColor: AppColors.background,
+      backgroundColor: Colors.transparent,
       appBar: AppBar(
         backgroundColor: AppColors.background,
         elevation: 0,

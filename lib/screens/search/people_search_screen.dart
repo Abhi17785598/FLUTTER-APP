@@ -143,7 +143,7 @@ class _PeopleSearchViewState extends State<_PeopleSearchView> {
     final provider = context.watch<PeopleSearchProvider>();
 
     return Scaffold(
-      backgroundColor: AppColors.background,
+      backgroundColor: Colors.transparent,
       body: SafeArea(
         bottom: false,
         child: Column(

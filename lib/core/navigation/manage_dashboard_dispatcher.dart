@@ -30,7 +30,7 @@ class ManageDashboardDispatcher extends StatelessWidget {
     // already applies.
     if (auth.isLoggedIn && auth.userType == null) {
       return const Scaffold(
-        backgroundColor: AppColors.background,
+        backgroundColor: Colors.transparent,
         body: Center(child: CircularProgressIndicator()),
       );
     }

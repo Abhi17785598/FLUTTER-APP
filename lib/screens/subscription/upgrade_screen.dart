@@ -549,7 +549,7 @@ class _UpgradeViewState extends State<_UpgradeView> {
         : PlanId.fromWire(billing.subscription.plan);
 
     return Scaffold(
-      backgroundColor: AppColors.background,
+      backgroundColor: Colors.transparent,
       body: SafeArea(
         child: SingleChildScrollView(
           padding: const EdgeInsets.fromLTRB(20, 16, 20, 32),

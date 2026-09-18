@@ -75,6 +75,22 @@ class _PropertyDetailScreenState extends State<PropertyDetailScreen>
   bool _showAllAmenities = false;
   bool _showAllNearby = false;
 
+  /// Collapsed "Additional Details" group titles — purely local presentation
+  /// state (which groups are currently visible), same pattern the Compare
+  /// Properties screen's section headers already use. Never affects what
+  /// data is fetched or shown once expanded.
+  final Set<String> _collapsedDetailGroups = {};
+
+  void _toggleDetailGroup(String title) {
+    setState(() {
+      if (_collapsedDetailGroups.contains(title)) {
+        _collapsedDetailGroups.remove(title);
+      } else {
+        _collapsedDetailGroups.add(title);
+      }
+    });
+  }
+
   late final AnimationController _entranceController;
   late final Animation<double> _fadeAnim;
   late final Animation<Offset> _slideAnim;
@@ -310,7 +326,7 @@ class _PropertyDetailScreenState extends State<PropertyDetailScreen>
     );
 
     return Scaffold(
-      backgroundColor: AppColors.background,
+      backgroundColor: Colors.transparent,
       body: CustomScrollView(
         slivers: [
           // -----------------------------------------------------------------
@@ -1535,49 +1551,152 @@ class _PropertyDetailScreenState extends State<PropertyDetailScreen>
         Text('Additional Details', style: AppTextStyles.heading3),
         const SizedBox(height: 12),
         for (final group in groups) ...[
-          Text(
-            group.title,
-            style: AppTextStyles.body.copyWith(
-              fontWeight: FontWeight.w600,
-              fontSize: 13,
-              color: AppColors.textSecondary,
-            ),
-          ),
+          _buildDetailGroupHeader(group.title),
           const SizedBox(height: 8),
-          Container(
-            padding: const EdgeInsets.all(14),
-            decoration: BoxDecoration(
-              color: AppColors.cardBackground,
-              borderRadius: BorderRadius.circular(14),
-              border: Border.all(color: AppColors.textHint.withOpacity(0.2)),
-            ),
-            child: Column(
-              children: [
-                for (int i = 0; i < group.rows.length; i++) ...[
-                  if (i > 0) const Divider(height: 16),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Text(group.rows[i].label, style: AppTextStyles.caption),
-                      const SizedBox(width: 12),
-                      Flexible(
-                        child: Text(
-                          group.rows[i].value,
-                          textAlign: TextAlign.right,
-                          style: AppTextStyles.body.copyWith(
-                            fontWeight: FontWeight.w600,
-                            fontSize: 13,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
+          if (!_collapsedDetailGroups.contains(group.title))
+            Container(
+              padding: const EdgeInsets.all(14),
+              decoration: BoxDecoration(
+                color: AppColors.cardBackground,
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(color: AppColors.textHint.withOpacity(0.2)),
+              ),
+              child: Column(
+                children: [
+                  for (int i = 0; i < group.rows.length; i++) ...[
+                    if (i > 0) const Divider(height: 20),
+                    _buildDetailRow(group.rows[i]),
+                  ],
                 ],
-              ],
+              ),
             ),
-          ),
           const SizedBox(height: 14),
         ],
+      ],
+    );
+  }
+
+  /// A group's title bar — icon medallion, bold title, and a chevron that
+  /// collapses/expands its rows. Matches the Compare Properties screen's
+  /// section-header treatment (`compare_properties_screen.dart`'s
+  /// `_buildSectionBanner`), so the two screens read as the same design
+  /// system rather than two different conventions.
+  Widget _buildDetailGroupHeader(String title) {
+    final bool collapsed = _collapsedDetailGroups.contains(title);
+    return GestureDetector(
+      onTap: () => _toggleDetailGroup(title),
+      behavior: HitTestBehavior.opaque,
+      child: Row(
+        children: [
+          Container(
+            width: 22,
+            height: 22,
+            decoration: const BoxDecoration(
+              color: AppColors.primaryLight,
+              shape: BoxShape.circle,
+            ),
+            child: Icon(
+              _detailGroupIcon(title),
+              size: 12,
+              color: AppColors.primary,
+            ),
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              title,
+              style: AppTextStyles.body.copyWith(
+                fontWeight: FontWeight.w700,
+                fontSize: 13.5,
+                color: AppColors.textPrimary,
+              ),
+            ),
+          ),
+          Icon(
+            collapsed
+                ? Icons.keyboard_arrow_down_rounded
+                : Icons.keyboard_arrow_up_rounded,
+            size: 20,
+            color: AppColors.textSecondary,
+          ),
+        ],
+      ),
+    );
+  }
+
+  IconData _detailGroupIcon(String title) {
+    switch (title) {
+      case 'Room Details':
+        return Icons.meeting_room_outlined;
+      case 'Additional Features':
+        return Icons.add_circle_outline;
+      case 'Condition & Availability':
+        return Icons.fact_check_outlined;
+      case 'Utilities & Infrastructure':
+        return Icons.bolt_outlined;
+      case 'Legal & Society':
+        return Icons.gavel_outlined;
+      case 'Financial & Pricing':
+        return Icons.currency_rupee_rounded;
+      case 'Construction & Land':
+        return Icons.apartment_outlined;
+      case 'PG Amenities':
+        return Icons.checklist_rounded;
+      case 'Food & Services':
+        return Icons.restaurant_outlined;
+      case 'PG Specific Details':
+        return Icons.house_siding_outlined;
+      case 'Contact Preferences':
+        return Icons.contact_phone_outlined;
+      default:
+        return Icons.info_outline;
+    }
+  }
+
+  /// One row of a detail group. A short value (e.g. "propcid", "New") sits
+  /// beside its label, same as before. A long, list-style value (built
+  /// elsewhere via `.join(', ')` — amenities, meal items, features, ...)
+  /// instead renders full-width beneath its label: squeezing a long
+  /// comma-joined list into the narrow space beside a label is what caused
+  /// the reported overflow, and it also isn't how the reference design
+  /// shows a list value (label on its own line, wrapped text below it).
+  Widget _buildDetailRow(_DetailRow row) {
+    final bool isList = row.value.contains(',') || row.value.length > 28;
+
+    if (!isList) {
+      return Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Text(row.label, style: AppTextStyles.caption),
+          const SizedBox(width: 12),
+          Flexible(
+            child: Text(
+              row.value,
+              textAlign: TextAlign.right,
+              style: AppTextStyles.body.copyWith(
+                fontWeight: FontWeight.w600,
+                fontSize: 13,
+              ),
+            ),
+          ),
+        ],
+      );
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Text(row.label, style: AppTextStyles.caption),
+        const SizedBox(height: 4),
+        Text(
+          row.value,
+          style: AppTextStyles.body.copyWith(
+            fontWeight: FontWeight.w600,
+            fontSize: 13,
+            height: 1.4,
+          ),
+        ),
       ],
     );
   }

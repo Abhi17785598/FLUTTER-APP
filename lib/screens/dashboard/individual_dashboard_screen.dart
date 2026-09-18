@@ -152,7 +152,7 @@ class _IndividualDashboardViewState extends State<_IndividualDashboardView> {
     const inquiries = 0; // placeholder until inquiry feature exists
 
     return Scaffold(
-      backgroundColor: AppColors.background,
+      backgroundColor: Colors.transparent,
       // Design places an icon-only square FAB on the Content tab only. Its
       // action is the same PostPropertyScreen push `_CreatePropertyButton`
       // already performs — reachable two ways on that tab, as in the design.

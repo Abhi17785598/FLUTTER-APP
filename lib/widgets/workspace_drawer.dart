@@ -3,11 +3,12 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../config/launch_features.dart';
+import '../core/constants/app_constants.dart';
 import '../core/navigation/workspace_destinations.dart';
 import '../core/theme/app_colors.dart';
 import '../core/theme/app_text_styles.dart';
+import '../core/widgets/scale_tap.dart';
 import '../providers/auth_provider.dart';
-import 'manage_list_tile.dart';
 
 /// Left slide-in navigation panel opened from the Profile header, giving
 /// access to the full destination set (blueprint §16.2).
@@ -82,6 +83,7 @@ class WorkspaceDrawer extends StatelessWidget {
                     Icons.home_outlined,
                     'Home',
                     onNavigate: WorkspaceDestinations.home,
+                    isActive: true,
                   ),
                   _row(
                     context,
@@ -171,14 +173,13 @@ class WorkspaceDrawer extends StatelessWidget {
     void Function(NavigatorState)? onNavigate,
     void Function(BuildContext)? onOverlay,
     bool isDestructive = false,
+    bool isActive = false,
   }) {
-    return ManageListTile(
+    return _DrawerRow(
       icon: icon,
       label: label,
-      variant: ManageListTileVariant.plain,
       isDestructive: isDestructive,
-      // The drawer panel is white, so that is the surface behind each row.
-      surfaceColor: AppColors.cardBackground,
+      isActive: isActive,
       onTap: () {
         if (onNavigate != null) {
           _navigate(context, onNavigate);
@@ -190,9 +191,113 @@ class WorkspaceDrawer extends StatelessWidget {
   }
 }
 
-/// Avatar + name + email + close button, above a hairline divider.
+/// One menu row — icon, label and a trailing chevron, with an optional
+/// highlighted/active treatment (the reference design's tinted "Home" row).
+/// Kept local to this drawer rather than added to the shared
+/// [ManageListTile] (also used by the Profile screen's Manage list and the
+/// More bottom sheet), so neither of those surfaces is affected.
+class _DrawerRow extends StatelessWidget {
+  const _DrawerRow({
+    required this.icon,
+    required this.label,
+    required this.onTap,
+    this.isDestructive = false,
+    this.isActive = false,
+  });
+
+  final IconData icon;
+  final String label;
+  final VoidCallback onTap;
+  final bool isDestructive;
+  final bool isActive;
+
+  @override
+  Widget build(BuildContext context) {
+    final Color foreground = isDestructive
+        ? AppColors.error
+        : (isActive ? AppColors.primary : AppColors.textPrimary);
+
+    return Semantics(
+      label: label,
+      button: true,
+      selected: isActive,
+      child: ScaleTap(
+        onTap: onTap,
+        child: Container(
+          margin: const EdgeInsets.only(bottom: 4),
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 11),
+          decoration: BoxDecoration(
+            color: isActive ? AppColors.primaryLight : Colors.transparent,
+            borderRadius: BorderRadius.circular(AppConstants.buttonRadius),
+          ),
+          child: Row(
+            children: [
+              SizedBox(
+                width: 22,
+                child: Icon(
+                  icon,
+                  size: 20,
+                  color: isDestructive
+                      ? AppColors.error
+                      : (isActive ? AppColors.primary : AppColors.textSecondary),
+                ),
+              ),
+              const SizedBox(width: 13),
+              Expanded(
+                child: Text(
+                  label,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: AppTextStyles.body.copyWith(
+                    fontSize: 13.5,
+                    fontWeight: isActive ? FontWeight.w700 : FontWeight.w500,
+                    color: foreground,
+                  ),
+                ),
+              ),
+              Icon(
+                Icons.chevron_right_rounded,
+                size: 18,
+                color: isActive ? AppColors.primary : AppColors.textHint,
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Avatar + name + verified badge + email + bio + Edit Profile + close
+/// button, above a hairline divider.
 class _DrawerHeader extends StatelessWidget {
   const _DrawerHeader();
+
+  /// Same verified condition `UserProfile.isVerified` uses
+  /// (`verification_status === 'verified' || license_number || rera_number`),
+  /// applied to the raw `profiles` row `AuthProvider` already exposes via
+  /// `profileRow` — no provider/model change, just reading fields that were
+  /// already being fetched.
+  bool _isVerified(Map<String, dynamic>? profile) {
+    if (profile == null) return false;
+    return profile['verification_status']?.toString().toLowerCase() ==
+            'verified' ||
+        profile['license_number'] != null ||
+        profile['rera_number'] != null;
+  }
+
+  /// `bio || company_description`, same precedence as
+  /// `UserProfile.effectiveBio`.
+  String? _bio(Map<String, dynamic>? profile) {
+    final bio = profile?['bio']?.toString().trim();
+    if (bio != null && bio.isNotEmpty) return bio;
+    final companyDescription = profile?['company_description']
+        ?.toString()
+        .trim();
+    return (companyDescription != null && companyDescription.isNotEmpty)
+        ? companyDescription
+        : null;
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -200,65 +305,106 @@ class _DrawerHeader extends StatelessWidget {
     final initial = auth.userName.isNotEmpty
         ? auth.userName[0].toUpperCase()
         : 'U';
+    final profile = auth.profileRow;
+    final isVerified = _isVerified(profile);
+    final bio = _bio(profile);
 
     return Container(
       padding: const EdgeInsets.fromLTRB(18, 20, 18, 16),
       decoration: const BoxDecoration(
         border: Border(bottom: BorderSide(color: Color(0xFFF0F0F4))),
       ),
-      child: Row(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          _Avatar(avatarUrl: auth.avatarUrl, initial: initial),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(
-                  auth.userName.isNotEmpty ? auth.userName : 'Guest',
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: AppTextStyles.body.copyWith(
-                    fontSize: 13.5,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-                if (auth.userEmail.isNotEmpty)
-                  Text(
-                    auth.userEmail,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: AppTextStyles.caption.copyWith(
-                      fontSize: 11,
-                      color: AppColors.textHint,
+          Row(
+            children: [
+              _Avatar(
+                avatarUrl: auth.avatarUrl,
+                initial: initial,
+                isVerified: isVerified,
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Row(
+                      children: [
+                        Flexible(
+                          child: Text(
+                            auth.userName.isNotEmpty ? auth.userName : 'Guest',
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: AppTextStyles.body.copyWith(
+                              fontSize: 13.5,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ),
+                        if (isVerified) ...[
+                          const SizedBox(width: 4),
+                          const Icon(
+                            Icons.verified_rounded,
+                            size: 14,
+                            color: AppColors.verifiedBadge,
+                          ),
+                        ],
+                      ],
                     ),
-                  ),
-              ],
-            ),
-          ),
-          const SizedBox(width: 8),
-          Semantics(
-            label: 'Close menu',
-            button: true,
-            child: GestureDetector(
-              behavior: HitTestBehavior.opaque,
-              onTap: () => Navigator.of(context).pop(),
-              child: Container(
-                width: 30,
-                height: 30,
-                decoration: const BoxDecoration(
-                  color: AppColors.background,
-                  shape: BoxShape.circle,
-                ),
-                child: const Icon(
-                  Icons.close,
-                  size: 16,
-                  color: AppColors.textSecondary,
+                    if (auth.userEmail.isNotEmpty)
+                      Text(
+                        auth.userEmail,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: AppTextStyles.caption.copyWith(
+                          fontSize: 11,
+                          color: AppColors.textHint,
+                        ),
+                      ),
+                  ],
                 ),
               ),
-            ),
+              const SizedBox(width: 8),
+              Semantics(
+                label: 'Close menu',
+                button: true,
+                child: GestureDetector(
+                  behavior: HitTestBehavior.opaque,
+                  onTap: () => Navigator.of(context).pop(),
+                  child: Container(
+                    width: 30,
+                    height: 30,
+                    decoration: const BoxDecoration(
+                      color: AppColors.background,
+                      shape: BoxShape.circle,
+                    ),
+                    child: const Icon(
+                      Icons.close,
+                      size: 16,
+                      color: AppColors.textSecondary,
+                    ),
+                  ),
+                ),
+              ),
+            ],
           ),
+          if (bio != null) ...[
+            const SizedBox(height: 10),
+            Text(
+              bio,
+              maxLines: 3,
+              overflow: TextOverflow.ellipsis,
+              style: AppTextStyles.caption.copyWith(
+                fontSize: 11.5,
+                color: AppColors.textSecondary,
+                height: 1.4,
+              ),
+            ),
+          ],
+          const SizedBox(height: 12),
+          const _EditProfileButton(),
         ],
       ),
     );
@@ -268,8 +414,13 @@ class _DrawerHeader extends StatelessWidget {
 class _Avatar extends StatelessWidget {
   final String? avatarUrl;
   final String initial;
+  final bool isVerified;
 
-  const _Avatar({required this.avatarUrl, required this.initial});
+  const _Avatar({
+    required this.avatarUrl,
+    required this.initial,
+    this.isVerified = false,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -284,24 +435,95 @@ class _Avatar extends StatelessWidget {
       ),
     );
 
-    return Container(
+    return SizedBox(
       width: 44,
       height: 44,
-      decoration: const BoxDecoration(
-        color: AppColors.primaryLight,
-        shape: BoxShape.circle,
-      ),
-      child: avatarUrl == null
-          ? fallback
-          : ClipOval(
-              child: CachedNetworkImage(
-                imageUrl: avatarUrl!,
-                fit: BoxFit.cover,
-                width: 44,
-                height: 44,
-                errorWidget: (_, _, _) => fallback,
+      child: Stack(
+        clipBehavior: Clip.none,
+        children: [
+          Container(
+            width: 44,
+            height: 44,
+            decoration: const BoxDecoration(
+              color: AppColors.primaryLight,
+              shape: BoxShape.circle,
+            ),
+            child: avatarUrl == null
+                ? fallback
+                : ClipOval(
+                    child: CachedNetworkImage(
+                      imageUrl: avatarUrl!,
+                      fit: BoxFit.cover,
+                      width: 44,
+                      height: 44,
+                      errorWidget: (_, _, _) => fallback,
+                    ),
+                  ),
+          ),
+          if (isVerified)
+            Positioned(
+              right: -2,
+              bottom: -2,
+              child: Container(
+                padding: const EdgeInsets.all(1.5),
+                decoration: const BoxDecoration(
+                  color: Colors.white,
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(
+                  Icons.verified_rounded,
+                  size: 14,
+                  color: AppColors.verifiedBadge,
+                ),
               ),
             ),
+        ],
+      ),
+    );
+  }
+}
+
+/// The header's "Edit Profile" pill — same destination the Profile screen's
+/// own Edit Profile action already uses (`profile_screen.dart`'s
+/// `AppConstants.editProfileScreen` push), just reachable from the drawer too.
+class _EditProfileButton extends StatelessWidget {
+  const _EditProfileButton();
+
+  @override
+  Widget build(BuildContext context) {
+    return Semantics(
+      label: 'Edit Profile',
+      button: true,
+      child: ScaleTap(
+        onTap: () {
+          final navigator = Navigator.of(context);
+          navigator.pop();
+          navigator.pushNamed(AppConstants.editProfileScreen);
+        },
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
+          decoration: BoxDecoration(
+            color: AppColors.primaryLight,
+            borderRadius: BorderRadius.circular(AppConstants.buttonRadius),
+            border: Border.all(color: AppColors.primary.withValues(alpha: 0.35)),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Icon(Icons.edit_outlined, size: 14, color: AppColors.primary),
+              const SizedBox(width: 6),
+              Text(
+                'Edit Profile',
+                style: AppTextStyles.body.copyWith(
+                  fontSize: 12.5,
+                  fontWeight: FontWeight.w700,
+                  color: AppColors.primary,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
     );
   }
 }

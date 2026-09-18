@@ -269,13 +269,13 @@ class _BuilderDashboardViewState extends State<_BuilderDashboardView> {
 
     if (auth.userId == null) {
       return const Scaffold(
-        backgroundColor: AppColors.background,
+        backgroundColor: Colors.transparent,
         body: Center(child: CircularProgressIndicator()),
       );
     }
 
     return Scaffold(
-      backgroundColor: AppColors.background,
+      backgroundColor: Colors.transparent,
       // Design places an icon-only square FAB on the Content tab only.
       // Add Project belongs with Inventory now, which is where the portal's project
       // list lives.

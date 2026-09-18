@@ -38,7 +38,7 @@ class PendingInvitationScreen extends StatelessWidget {
     final invitations = context.watch<AuthProvider>().pendingTeamInvitations;
 
     return Scaffold(
-      backgroundColor: AppColors.background,
+      backgroundColor: Colors.transparent,
       appBar: AppBar(
         backgroundColor: AppColors.background,
         elevation: 0,

@@ -181,7 +181,7 @@ class _ProjectDetailScreenState extends State<ProjectDetailScreen> {
   Widget build(BuildContext context) {
     if (_loading) {
       return const Scaffold(
-        backgroundColor: AppColors.background,
+        backgroundColor: Colors.transparent,
         body: Center(child: CircularProgressIndicator()),
       );
     }
@@ -229,7 +229,7 @@ class _ProjectDetailScreenState extends State<ProjectDetailScreen> {
         .toList();
 
     return Scaffold(
-      backgroundColor: AppColors.background,
+      backgroundColor: Colors.transparent,
       body: CustomScrollView(
         slivers: [
           _GalleryHeader(
@@ -371,7 +371,7 @@ class _Shell extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Scaffold(
-    backgroundColor: AppColors.background,
+    backgroundColor: Colors.transparent,
     appBar: AppBar(
       backgroundColor: AppColors.background,
       elevation: 0,

@@ -194,13 +194,13 @@ class _BrokerDashboardViewState extends State<_BrokerDashboardView> {
 
     if (auth.userId == null) {
       return const Scaffold(
-        backgroundColor: AppColors.background,
+        backgroundColor: Colors.transparent,
         body: Center(child: CircularProgressIndicator()),
       );
     }
 
     return Scaffold(
-      backgroundColor: AppColors.background,
+      backgroundColor: Colors.transparent,
       // Design places an icon-only square FAB on the Content tab only.
       floatingActionButton: _section == BrokerSection.inventory
           // Design insets the FAB 20 dp from the right edge; Scaffold's

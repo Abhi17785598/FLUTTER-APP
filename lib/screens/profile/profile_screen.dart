@@ -80,6 +80,20 @@ class _ProfileViewState extends State<_ProfileView> {
   /// user id when it arrives asynchronously from AuthProvider.
   String? _loadedUserId;
 
+  /// `bio || company_description` — same precedence `UserProfile.effectiveBio`
+  /// and the Workspace Drawer header already use, read from the same
+  /// already-exposed `AuthProvider.profileRow`. No provider/model change.
+  String? _profileBio(Map<String, dynamic>? profile) {
+    final bio = profile?['bio']?.toString().trim();
+    if (bio != null && bio.isNotEmpty) return bio;
+    final companyDescription = profile?['company_description']
+        ?.toString()
+        .trim();
+    return (companyDescription != null && companyDescription.isNotEmpty)
+        ? companyDescription
+        : null;
+  }
+
   @override
   void initState() {
     super.initState();
@@ -400,7 +414,7 @@ class _ProfileViewState extends State<_ProfileView> {
 
     return Scaffold(
       key: _scaffoldKey,
-      backgroundColor: AppColors.background,
+      backgroundColor: Colors.transparent,
       drawer: const WorkspaceDrawer(),
       drawerScrimColor: WorkspaceDrawer.scrimColor,
       // The cover bleeds under the status bar, so SafeArea is applied per
@@ -453,6 +467,17 @@ class _ProfileViewState extends State<_ProfileView> {
                           username: auth.profileRow?['username'] as String?,
                           userType: auth.userType,
                         ),
+                        if (_profileBio(auth.profileRow) != null) ...[
+                          const SizedBox(height: 8),
+                          Text(
+                            _profileBio(auth.profileRow)!,
+                            style: AppTextStyles.body.copyWith(
+                              fontSize: 13,
+                              color: AppColors.textSecondary,
+                              height: 1.45,
+                            ),
+                          ),
+                        ],
                         const SizedBox(height: 18),
 
                         ProfileStatsRow(

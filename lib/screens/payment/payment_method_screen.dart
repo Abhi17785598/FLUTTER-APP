@@ -72,7 +72,7 @@ class _PaymentMethodScreenState extends State<PaymentMethodScreen> {
     final bool canContinue = _selected != null;
 
     return Scaffold(
-      backgroundColor: AppColors.background,
+      backgroundColor: Colors.transparent,
       appBar: AppBar(
         backgroundColor: AppColors.background,
         elevation: 0,

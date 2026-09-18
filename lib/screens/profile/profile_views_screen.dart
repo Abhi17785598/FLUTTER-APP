@@ -84,7 +84,7 @@ class _ProfileViewsViewState extends State<_ProfileViewsView> {
     final provider = context.watch<ProfileViewsProvider>();
 
     return Scaffold(
-      backgroundColor: AppColors.background,
+      backgroundColor: Colors.transparent,
       appBar: AppBar(
         backgroundColor: AppColors.cardBackground,
         surfaceTintColor: Colors.transparent,

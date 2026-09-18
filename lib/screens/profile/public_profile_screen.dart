@@ -545,7 +545,7 @@ class _PublicProfileViewState extends State<_PublicProfileView> {
     final profile = provider.profile;
 
     return Scaffold(
-      backgroundColor: AppColors.background,
+      backgroundColor: Colors.transparent,
       body: RefreshIndicator(
         color: AppColors.primary,
         onRefresh: provider.refresh,

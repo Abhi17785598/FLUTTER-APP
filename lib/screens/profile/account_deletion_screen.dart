@@ -92,7 +92,7 @@ class _AccountDeletionScreenState extends State<AccountDeletionScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppColors.background,
+      backgroundColor: Colors.transparent,
       appBar: AppBar(
         backgroundColor: AppColors.cardBackground,
         surfaceTintColor: Colors.transparent,

@@ -522,7 +522,7 @@ class _SearchResultsScreenState extends State<SearchResultsScreen> {
     final propertyProvider = context.watch<PropertyProvider>();
 
     return Scaffold(
-      backgroundColor: AppColors.background,
+      backgroundColor: Colors.transparent,
       body: SafeArea(
         child: Column(
           children: [

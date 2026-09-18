@@ -598,7 +598,7 @@ class _SearchScreenState extends State<SearchScreen>
     final bool isQueryNotEmpty = _searchController.text.isNotEmpty;
 
     return Scaffold(
-      backgroundColor: AppColors.background,
+      backgroundColor: Colors.transparent,
       body: Stack(
         children: [
           SafeArea(

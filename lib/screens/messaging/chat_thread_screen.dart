@@ -103,7 +103,7 @@ class ChatThreadScreen extends StatelessWidget {
 
     if (userId == null) {
       return const Scaffold(
-        backgroundColor: AppColors.background,
+        backgroundColor: Colors.transparent,
         body: Center(child: CircularProgressIndicator()),
       );
     }
@@ -802,7 +802,7 @@ class _ChatThreadViewState extends State<_ChatThreadView> {
         : null;
 
     return Scaffold(
-      backgroundColor: AppColors.background,
+      backgroundColor: Colors.transparent,
       body: Column(
         children: [
           _Header(

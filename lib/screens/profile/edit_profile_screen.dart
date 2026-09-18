@@ -102,7 +102,7 @@ class _EditProfileViewState extends State<_EditProfileView> {
     final provider = context.watch<EditProfileProvider>();
 
     return Scaffold(
-      backgroundColor: AppColors.background,
+      backgroundColor: Colors.transparent,
       appBar: AppBar(
         backgroundColor: AppColors.cardBackground,
         surfaceTintColor: Colors.transparent,

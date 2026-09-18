@@ -36,7 +36,7 @@ class ArticleEditorScreen extends StatelessWidget {
 
     if (userId == null) {
       return const Scaffold(
-        backgroundColor: AppColors.background,
+        backgroundColor: Colors.transparent,
         body: Center(child: CircularProgressIndicator()),
       );
     }
@@ -215,7 +215,7 @@ class _ArticleEditorViewState extends State<_ArticleEditorView> {
       context: context,
       delegates: const [FlutterQuillLocalizations.delegate],
       child: Scaffold(
-        backgroundColor: AppColors.background,
+        backgroundColor: Colors.transparent,
         body: SafeArea(
           bottom: false,
           child: Column(

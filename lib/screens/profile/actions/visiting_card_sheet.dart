@@ -438,28 +438,33 @@ class _VisitingCardSheetState extends State<_VisitingCardSheet> {
                                       color: Colors.white,
                                     ),
                                   )
-                                : const Row(
-                                    mainAxisAlignment: MainAxisAlignment.center,
-                                    children: [
-                                      Icon(
-                                        Icons.ios_share_rounded,
-                                        size: 19,
-                                        color: Colors.white,
-                                      ),
-                                      SizedBox(width: 8),
-                                      Flexible(
-                                        child: Text(
+                                : const FittedBox(
+                                    // Scales the icon+label down together on a
+                                    // narrow screen instead of ellipsis-
+                                    // truncating the text — the button always
+                                    // reads in full, just smaller when it has
+                                    // to be.
+                                    fit: BoxFit.scaleDown,
+                                    child: Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        Icon(
+                                          Icons.ios_share_rounded,
+                                          size: 19,
+                                          color: Colors.white,
+                                        ),
+                                        SizedBox(width: 8),
+                                        Text(
                                           'Share Visiting Card + Link',
                                           maxLines: 1,
-                                          overflow: TextOverflow.ellipsis,
                                           style: TextStyle(
                                             fontSize: 15,
                                             fontWeight: FontWeight.w800,
                                             color: Colors.white,
                                           ),
                                         ),
-                                      ),
-                                    ],
+                                      ],
+                                    ),
                                   ),
                           ),
                         ),
@@ -524,6 +529,10 @@ class _OutlinedCardAction extends StatelessWidget {
         style: OutlinedButton.styleFrom(
           side: const BorderSide(color: _CardPalette.border),
           foregroundColor: _CardPalette.textBody,
+          // Tighter than the default (which left too little room for the
+          // label on a narrow phone) so the icon+label below has more space
+          // to work with before it ever needs to shrink.
+          padding: const EdgeInsets.symmetric(horizontal: 6),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(14),
           ),
@@ -534,23 +543,26 @@ class _OutlinedCardAction extends StatelessWidget {
                 height: 18,
                 child: CircularProgressIndicator(strokeWidth: 2),
               )
-            : Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Icon(icon, size: 17),
-                  const SizedBox(width: 7),
-                  Flexible(
-                    child: Text(
+            : FittedBox(
+                // Scales the icon+label down together on a narrow screen
+                // instead of ellipsis-truncating the text (the reported
+                // "Download P…" clipping) — the label always reads in full.
+                fit: BoxFit.scaleDown,
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(icon, size: 17),
+                    const SizedBox(width: 7),
+                    Text(
                       label,
                       maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
                       style: const TextStyle(
                         fontSize: 13.5,
                         fontWeight: FontWeight.w700,
                       ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
       ),
     );

@@ -277,7 +277,7 @@ class _ComparePropertiesScreenState extends State<ComparePropertiesScreen>
     final compareProvider = context.watch<CompareProvider>();
 
     return Scaffold(
-      backgroundColor: AppColors.background,
+      backgroundColor: Colors.transparent,
       body: SafeArea(
         child: FadeTransition(
           opacity: _fadeIn,

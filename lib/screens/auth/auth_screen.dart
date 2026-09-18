@@ -353,7 +353,7 @@ class _AuthScreenState extends State<AuthScreen> with TickerProviderStateMixin {
     final keyboardOpen = mediaQuery.viewInsets.bottom > 0;
 
     return Scaffold(
-      backgroundColor: AppColors.background,
+      backgroundColor: Colors.transparent,
       // Explicit even though it's the default — this whole restructure
       // depends on it staying enabled.
       resizeToAvoidBottomInset: true,

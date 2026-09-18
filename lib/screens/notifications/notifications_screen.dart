@@ -173,7 +173,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
     final visible = _filtered(provider.items);
 
     return Scaffold(
-      backgroundColor: AppColors.background,
+      backgroundColor: Colors.transparent,
       body: SafeArea(
         child: Column(
           children: [

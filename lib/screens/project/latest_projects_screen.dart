@@ -73,7 +73,7 @@ class _LatestProjectsScreenState extends State<LatestProjectsScreen> {
     final cardWidth = MediaQuery.sizeOf(context).width - 32;
 
     return Scaffold(
-      backgroundColor: AppColors.background,
+      backgroundColor: Colors.transparent,
       appBar: AppBar(
         backgroundColor: AppColors.background,
         elevation: 0,

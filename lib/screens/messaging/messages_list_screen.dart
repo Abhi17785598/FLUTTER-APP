@@ -297,7 +297,7 @@ class _MessagesListViewState extends State<_MessagesListView> {
     final messaging = context.watch<MessagingProvider>();
 
     return Scaffold(
-      backgroundColor: AppColors.background,
+      backgroundColor: Colors.transparent,
       body: SafeArea(
         bottom: false,
         child: Column(
