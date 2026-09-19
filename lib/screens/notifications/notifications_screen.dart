@@ -243,103 +243,84 @@ class _AppBar extends StatelessWidget {
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
       child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          GestureDetector(
-            onTap: () => Navigator.pop(context),
-            child: Container(
-              width: 38,
-              height: 38,
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(10),
-                boxShadow: AppColors.cardShadow,
-              ),
-              child: const Icon(
-                Icons.arrow_back_ios_new,
-                size: 16,
-                color: AppColors.textPrimary,
+          // Same tap-to-dismiss the plain back arrow used — just restyled
+          // as the reference's orange bell medallion instead of an arrow
+          // icon, so leaving the screen still works exactly as before.
+          Semantics(
+            label: 'Back',
+            button: true,
+            child: GestureDetector(
+              onTap: () => Navigator.pop(context),
+              child: Container(
+                width: 42,
+                height: 42,
+                decoration: BoxDecoration(
+                  gradient: AppColors.primaryGradient,
+                  shape: BoxShape.circle,
+                  boxShadow: AppColors.primaryGlow,
+                ),
+                child: const Icon(
+                  Icons.notifications_rounded,
+                  size: 20,
+                  color: Colors.white,
+                ),
               ),
             ),
           ),
           const SizedBox(width: 12),
           Expanded(
-            child: Text(
-              'Notifications',
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: AppTextStyles.heading2,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Notifications',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: AppTextStyles.heading2,
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  'Stay updated with your latest activity',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: AppTextStyles.caption.copyWith(fontSize: 11.5),
+                ),
+              ],
             ),
           ),
-          // The pill and the chip are grouped and scaled together rather than sized
-          // independently. The design's own arrangement overflows a 320 dp screen by
-          // 18 dp — it was never caught because the mock this replaced had no test at
-          // that width — and scaling down beats dropping either element or
-          // ellipsising "Mark all read" to "Mark all…". Same treatment the action
-          // rows in Specs D, H and I already use.
-          Flexible(
-            child: FittedBox(
-              fit: BoxFit.scaleDown,
-              alignment: Alignment.centerRight,
-              child: Row(
-                children: [
-                  if (unreadCount > 0)
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 10,
-                        vertical: 4,
-                      ),
-                      decoration: BoxDecoration(
-                        color: AppColors.primaryLight,
-                        borderRadius: BorderRadius.circular(20),
-                      ),
-                      child: Text(
-                        '$unreadCount new',
-                        style: const TextStyle(
-                          fontSize: 11,
-                          fontWeight: FontWeight.w600,
-                          color: AppColors.primary,
-                        ),
+          const SizedBox(width: 8),
+          // Dimmed and inert with nothing to mark, rather than silently
+          // doing nothing — `markAllRead` short-circuits on zero anyway.
+          Opacity(
+            opacity: unreadCount > 0 ? 1 : 0.45,
+            child: GestureDetector(
+              onTap: unreadCount > 0 ? onMarkAllRead : null,
+              child: Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 8,
+                ),
+                decoration: BoxDecoration(
+                  color: AppColors.primaryLight,
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                child: const Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(Icons.done_all, size: 14, color: AppColors.primary),
+                    SizedBox(width: 4),
+                    Text(
+                      'Mark all read',
+                      style: TextStyle(
+                        fontSize: 10.5,
+                        fontWeight: FontWeight.w600,
+                        color: AppColors.primary,
                       ),
                     ),
-                  const SizedBox(width: 8),
-                  // Dimmed and inert with nothing to mark, rather than silently
-                  // doing nothing — `markAllRead` short-circuits on zero anyway.
-                  Opacity(
-                    opacity: unreadCount > 0 ? 1 : 0.45,
-                    child: GestureDetector(
-                      onTap: unreadCount > 0 ? onMarkAllRead : null,
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 10,
-                          vertical: 6,
-                        ),
-                        decoration: BoxDecoration(
-                          color: Colors.white,
-                          borderRadius: BorderRadius.circular(10),
-                          boxShadow: AppColors.cardShadow,
-                        ),
-                        child: const Row(
-                          children: [
-                            Icon(
-                              Icons.done_all,
-                              size: 14,
-                              color: AppColors.primary,
-                            ),
-                            SizedBox(width: 4),
-                            Text(
-                              'Mark all read',
-                              style: TextStyle(
-                                fontSize: 10,
-                                fontWeight: FontWeight.w500,
-                                color: AppColors.primary,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                  ),
-                ],
+                  ],
+                ),
               ),
             ),
           ),
@@ -375,7 +356,7 @@ class _FilterRow extends StatelessWidget {
                 milliseconds: AppConstants.animationDurationMs,
               ),
               margin: const EdgeInsets.only(right: 8),
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
               decoration: BoxDecoration(
                 gradient: isActive ? AppColors.primaryGradient : null,
                 color: isActive ? null : Colors.white,
@@ -386,19 +367,47 @@ class _FilterRow extends StatelessWidget {
                     ? AppColors.primaryGlow
                     : AppColors.cardShadow,
               ),
-              child: Text(
-                filter,
-                style: TextStyle(
-                  fontSize: 12,
-                  fontWeight: FontWeight.w600,
-                  color: isActive ? Colors.white : AppColors.textSecondary,
-                ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(
+                    _filterIcon(filter),
+                    size: 13,
+                    color: isActive ? Colors.white : AppColors.textSecondary,
+                  ),
+                  const SizedBox(width: 5),
+                  Text(
+                    filter,
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                      color: isActive ? Colors.white : AppColors.textSecondary,
+                    ),
+                  ),
+                ],
               ),
             ),
           );
         },
       ),
     );
+  }
+}
+
+/// One icon per filter chip label — purely a display choice alongside the
+/// existing text, matching each `kNotificationFilters` entry by name.
+IconData _filterIcon(String filter) {
+  switch (filter) {
+    case 'Price Drop':
+      return Icons.sell_outlined;
+    case 'Visits':
+      return Icons.person_outline_rounded;
+    case 'Matches':
+      return Icons.star_border_rounded;
+    case 'Enquiries':
+      return Icons.mail_outline_rounded;
+    default:
+      return Icons.home_outlined;
   }
 }
 

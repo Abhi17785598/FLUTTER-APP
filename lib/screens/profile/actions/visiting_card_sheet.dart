@@ -335,6 +335,17 @@ class _VisitingCardSheetState extends State<_VisitingCardSheet> {
   Widget build(BuildContext context) {
     final maxHeight = MediaQuery.of(context).size.height * 0.9;
 
+    // Split into a scrollable region (drag handle/title/card preview) and a
+    // fixed footer (the Share button + Download/Copy row) that is NEVER
+    // part of that scroll view. Previously everything shared one
+    // `SingleChildScrollView`, so on a short-enough phone screen the whole
+    // sheet's 90%-of-height cap could end while the footer buttons were only
+    // partially scrolled into view — they were reachable by scrolling, but
+    // landed right at the sheet's edge with no obvious affordance that more
+    // was below, reading as a cut-off/broken layout instead of "scroll for
+    // more". Pinning the footer outside the scroll area means the two most
+    // important actions on this sheet are always fully visible regardless of
+    // screen height; only the card preview itself scrolls if it doesn't fit.
     return Container(
       constraints: BoxConstraints(maxHeight: maxHeight),
       decoration: const BoxDecoration(
@@ -346,173 +357,190 @@ class _VisitingCardSheetState extends State<_VisitingCardSheet> {
       ),
       child: SafeArea(
         top: false,
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.fromLTRB(18, 10, 18, 18),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Center(
-                child: Container(
-                  width: 36,
-                  height: 4,
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFEDEDF2),
-                    borderRadius: BorderRadius.circular(999),
-                  ),
-                ),
-              ),
-              const SizedBox(height: 14),
-              Row(
-                children: [
-                  Expanded(
-                    child: Text(
-                      'Share Digital Visiting Card',
-                      style: const TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.w800,
-                        color: _CardPalette.textDark,
-                      ),
-                    ),
-                  ),
-                  Semantics(
-                    label: 'Close',
-                    button: true,
-                    child: InkWell(
-                      borderRadius: BorderRadius.circular(20),
-                      onTap: () => Navigator.of(context).pop(),
-                      child: const Padding(
-                        padding: EdgeInsets.all(4),
-                        child: Icon(
-                          Icons.close_rounded,
-                          size: 22,
-                          color: _CardPalette.textFaint,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Flexible(
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.fromLTRB(18, 10, 18, 0),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Center(
+                      child: Container(
+                        width: 36,
+                        height: 4,
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFEDEDF2),
+                          borderRadius: BorderRadius.circular(999),
                         ),
                       ),
                     ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 16),
-              RepaintBoundary(
-                key: _cardKey,
-                child: _VisitingCardFace(
-                  name: widget.name,
-                  displayName: widget.displayName,
-                  userType: widget.userType,
-                  avatarUrl: widget.avatarUrl,
-                  city: widget.city,
-                  experience: widget.experience,
-                  rating: widget.rating,
-                  reviewsCount: widget.reviewsCount,
-                  phone: widget.phone,
-                  reraNumber: widget.reraNumber,
-                  email: widget.email,
-                  address: widget.address,
-                  qrUrl: widget.qrUrl,
+                    const SizedBox(height: 14),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: Text(
+                            'Share Digital Visiting Card',
+                            style: const TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.w800,
+                              color: _CardPalette.textDark,
+                            ),
+                          ),
+                        ),
+                        Semantics(
+                          label: 'Close',
+                          button: true,
+                          child: InkWell(
+                            borderRadius: BorderRadius.circular(20),
+                            onTap: () => Navigator.of(context).pop(),
+                            child: const Padding(
+                              padding: EdgeInsets.all(4),
+                              child: Icon(
+                                Icons.close_rounded,
+                                size: 22,
+                                color: _CardPalette.textFaint,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 16),
+                    RepaintBoundary(
+                      key: _cardKey,
+                      child: _VisitingCardFace(
+                        name: widget.name,
+                        displayName: widget.displayName,
+                        userType: widget.userType,
+                        avatarUrl: widget.avatarUrl,
+                        city: widget.city,
+                        experience: widget.experience,
+                        rating: widget.rating,
+                        reviewsCount: widget.reviewsCount,
+                        phone: widget.phone,
+                        reraNumber: widget.reraNumber,
+                        email: widget.email,
+                        address: widget.address,
+                        qrUrl: widget.qrUrl,
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                  ],
                 ),
               ),
-              const SizedBox(height: 20),
-              // A premium gradient CTA (matching the rest of the app's
-              // primary buttons) in place of the previous flat fill — same
-              // enabled/disabled condition, same `_handleShare` call, same
-              // loading-spinner swap.
-              Builder(
-                builder: (context) {
-                  final enabled = !_isSharing && _imagesReady;
-                  return SizedBox(
-                    width: double.infinity,
-                    height: 50,
-                    child: Material(
-                      color: Colors.transparent,
-                      borderRadius: BorderRadius.circular(14),
-                      child: InkWell(
-                        borderRadius: BorderRadius.circular(14),
-                        onTap: enabled ? _handleShare : null,
-                        child: Ink(
-                          decoration: BoxDecoration(
-                            gradient: enabled
-                                ? AppColors.primaryGradient
-                                : LinearGradient(
-                                    colors: [
-                                      AppColors.primary.withOpacity(0.55),
-                                      AppColors.primary.withOpacity(0.4),
-                                    ],
-                                  ),
+            ),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(18, 8, 18, 18),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  // A premium gradient CTA (matching the rest of the app's
+                  // primary buttons) in place of the previous flat fill —
+                  // same enabled/disabled condition, same `_handleShare`
+                  // call, same loading-spinner swap.
+                  Builder(
+                    builder: (context) {
+                      final enabled = !_isSharing && _imagesReady;
+                      return SizedBox(
+                        width: double.infinity,
+                        height: 50,
+                        child: Material(
+                          color: Colors.transparent,
+                          borderRadius: BorderRadius.circular(14),
+                          child: InkWell(
                             borderRadius: BorderRadius.circular(14),
-                            boxShadow: enabled ? AppColors.primaryGlow : null,
-                          ),
-                          child: Center(
-                            child: _isSharing
-                                ? const SizedBox(
-                                    width: 20,
-                                    height: 20,
-                                    child: CircularProgressIndicator(
-                                      strokeWidth: 2.2,
-                                      color: Colors.white,
-                                    ),
-                                  )
-                                : const FittedBox(
-                                    // Scales the icon+label down together on a
-                                    // narrow screen instead of ellipsis-
-                                    // truncating the text — the button always
-                                    // reads in full, just smaller when it has
-                                    // to be.
-                                    fit: BoxFit.scaleDown,
-                                    child: Row(
-                                      mainAxisSize: MainAxisSize.min,
-                                      children: [
-                                        Icon(
-                                          Icons.ios_share_rounded,
-                                          size: 19,
+                            onTap: enabled ? _handleShare : null,
+                            child: Ink(
+                              decoration: BoxDecoration(
+                                gradient: enabled
+                                    ? AppColors.primaryGradient
+                                    : LinearGradient(
+                                        colors: [
+                                          AppColors.primary.withOpacity(0.55),
+                                          AppColors.primary.withOpacity(0.4),
+                                        ],
+                                      ),
+                                borderRadius: BorderRadius.circular(14),
+                                boxShadow: enabled
+                                    ? AppColors.primaryGlow
+                                    : null,
+                              ),
+                              child: Center(
+                                child: _isSharing
+                                    ? const SizedBox(
+                                        width: 20,
+                                        height: 20,
+                                        child: CircularProgressIndicator(
+                                          strokeWidth: 2.2,
                                           color: Colors.white,
                                         ),
-                                        SizedBox(width: 8),
-                                        Text(
-                                          'Share Visiting Card + Link',
-                                          maxLines: 1,
-                                          style: TextStyle(
-                                            fontSize: 15,
-                                            fontWeight: FontWeight.w800,
-                                            color: Colors.white,
-                                          ),
+                                      )
+                                    : const FittedBox(
+                                        // Scales the icon+label down together
+                                        // on a narrow screen instead of
+                                        // ellipsis-truncating the text — the
+                                        // button always reads in full, just
+                                        // smaller when it has to be.
+                                        fit: BoxFit.scaleDown,
+                                        child: Row(
+                                          mainAxisSize: MainAxisSize.min,
+                                          children: [
+                                            Icon(
+                                              Icons.ios_share_rounded,
+                                              size: 19,
+                                              color: Colors.white,
+                                            ),
+                                            SizedBox(width: 8),
+                                            Text(
+                                              'Share Visiting Card + Link',
+                                              maxLines: 1,
+                                              style: TextStyle(
+                                                fontSize: 15,
+                                                fontWeight: FontWeight.w800,
+                                                color: Colors.white,
+                                              ),
+                                            ),
+                                          ],
                                         ),
-                                      ],
-                                    ),
-                                  ),
+                                      ),
+                              ),
+                            ),
                           ),
                         ),
-                      ),
-                    ),
-                  );
-                },
-              ),
-              const SizedBox(height: 12),
-              Row(
-                children: [
-                  Expanded(
-                    child: _OutlinedCardAction(
-                      icon: Icons.download_rounded,
-                      label: 'Download PNG',
-                      isBusy: _isDownloading,
-                      enabled: !_isDownloading && _imagesReady,
-                      onTap: _handleDownload,
-                    ),
+                      );
+                    },
                   ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: _OutlinedCardAction(
-                      icon: Icons.copy_rounded,
-                      label: 'Copy Link',
-                      isBusy: _isCopying,
-                      enabled: !_isCopying,
-                      onTap: _handleCopyLink,
-                    ),
+                  const SizedBox(height: 12),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: _OutlinedCardAction(
+                          icon: Icons.download_rounded,
+                          label: 'Download PNG',
+                          isBusy: _isDownloading,
+                          enabled: !_isDownloading && _imagesReady,
+                          onTap: _handleDownload,
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: _OutlinedCardAction(
+                          icon: Icons.copy_rounded,
+                          label: 'Copy Link',
+                          isBusy: _isCopying,
+                          enabled: !_isCopying,
+                          onTap: _handleCopyLink,
+                        ),
+                      ),
+                    ],
                   ),
                 ],
               ),
-            ],
-          ),
+            ),
+          ],
         ),
       ),
     );
