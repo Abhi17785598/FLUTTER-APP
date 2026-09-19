@@ -5,14 +5,23 @@ import '../../../core/constants/app_constants.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_text_styles.dart';
 import '../../../models/property_model.dart';
+import 'people_result_card.dart' show PeopleAvatar;
 
 /// Card width and image height, per the redesign's map strip.
 const double _kCardWidth = 200;
-const double _kCardImageHeight = 80;
+const double _kCardImageHeight = 70;
 
-/// Overall strip height: image + 10 dp padding either side of a price and a
-/// title line.
-const double kMapCardStripHeight = 138;
+/// Overall strip height. Grew from the original 138 when the card gained the
+/// same poster/category/listing-type/location details the List and Grid
+/// cards already show — see `_MapStripCard._buildContent` for the exact
+/// line-by-line budget.
+const double kMapCardStripHeight = 186;
+
+/// Same listing-type chip colours `PropertyCardSearchGrid`/
+/// `PropertyCardSearchRow` use, reproduced locally per this module's own
+/// convention of keeping each card's helpers private to itself.
+const Color _kListingChipBg = Color(0xFFFCE4EC);
+const Color _kListingChipFg = Color(0xFFD6336C);
 
 /// The horizontally-scrolling rail of result cards beneath the map.
 ///
@@ -71,6 +80,31 @@ class _MapStripCard extends StatelessWidget {
 
   const _MapStripCard({required this.property, required this.onTap});
 
+  (IconData, String)? get _categoryChip => switch (property.category) {
+    'residential' => (Icons.home_rounded, 'Residential'),
+    'commercial' => (Icons.store_mall_directory_rounded, 'Commercial'),
+    'land' => (Icons.landscape_rounded, 'Land'),
+    'pg_coliving' => (Icons.groups_rounded, 'PG/Co-living'),
+    'others' => (Icons.category_rounded, 'Others'),
+    _ => null,
+  };
+
+  String? get _listingLabel => switch (property.propertyType) {
+    'sell' => 'For Sale',
+    'rent' => 'For Rent',
+    'lease' => 'For Lease',
+    _ => null,
+  };
+
+  String _initialsFor(String? name) {
+    final trimmed = name?.trim() ?? '';
+    if (trimmed.isEmpty) return 'PC';
+    final words = trimmed.split(RegExp(r'\s+')).where((w) => w.isNotEmpty).toList();
+    if (words.isEmpty) return 'PC';
+    final letters = words.take(2).map((w) => w[0].toUpperCase()).join();
+    return letters.isEmpty ? 'PC' : letters;
+  }
+
   @override
   Widget build(BuildContext context) {
     return Semantics(
@@ -92,51 +126,192 @@ class _MapStripCard extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              SizedBox(
-                height: _kCardImageHeight,
-                width: double.infinity,
-                child: CachedNetworkImage(
-                  imageUrl: property.imageUrl,
-                  fit: BoxFit.cover,
-                  placeholder: (context, url) => ColoredBox(
-                    color: AppColors.textHint.withValues(alpha: 0.1),
-                  ),
-                  errorWidget: (context, url, error) => ColoredBox(
-                    color: AppColors.textHint.withValues(alpha: 0.1),
-                    child: const Icon(Icons.broken_image, size: 18),
-                  ),
-                ),
-              ),
-              Expanded(
-                child: Padding(
-                  padding: const EdgeInsets.all(10),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Text(
-                        property.priceDisplay,
-                        style: AppTextStyles.price.copyWith(fontSize: 14),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
+              Stack(
+                children: [
+                  SizedBox(
+                    height: _kCardImageHeight,
+                    width: double.infinity,
+                    child: CachedNetworkImage(
+                      imageUrl: property.imageUrl,
+                      fit: BoxFit.cover,
+                      placeholder: (context, url) => ColoredBox(
+                        color: AppColors.textHint.withValues(alpha: 0.1),
                       ),
-                      const SizedBox(height: 2),
-                      Text(
-                        property.title,
-                        style: AppTextStyles.body.copyWith(
-                          fontSize: 11,
-                          fontWeight: FontWeight.w600,
+                      errorWidget: (context, url, error) => ColoredBox(
+                        color: AppColors.textHint.withValues(alpha: 0.1),
+                        child: const Icon(Icons.broken_image, size: 18),
+                      ),
+                    ),
+                  ),
+                  if (property.photoCount > 0)
+                    Positioned(
+                      left: 5,
+                      bottom: 5,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 5,
+                          vertical: 2,
                         ),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
+                        decoration: BoxDecoration(
+                          color: Colors.black.withValues(alpha: 0.55),
+                          borderRadius: BorderRadius.circular(4),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            const Icon(
+                              Icons.camera_alt,
+                              size: 9,
+                              color: Colors.white,
+                            ),
+                            const SizedBox(width: 3),
+                            Text(
+                              '${property.photoCount}',
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 9,
+                              ),
+                            ),
+                          ],
+                        ),
                       ),
-                    ],
+                    ),
+                ],
+              ),
+              Expanded(child: _buildContent()),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildContent() {
+    final category = _categoryChip;
+    final listingLabel = _listingLabel;
+
+    return Padding(
+      padding: const EdgeInsets.all(8),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Row(
+            children: [
+              PeopleAvatar(
+                avatarUrl: property.postedByAvatarUrl,
+                initials: _initialsFor(property.postedByName),
+                size: 14,
+              ),
+              const SizedBox(width: 4),
+              Expanded(
+                child: Text(
+                  property.postedByName?.trim().isNotEmpty == true
+                      ? property.postedByName!.trim()
+                      : 'PropCid',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: AppTextStyles.caption.copyWith(
+                    fontSize: 9,
+                    fontWeight: FontWeight.w600,
+                    color: AppColors.textSecondary,
                   ),
                 ),
               ),
             ],
           ),
-        ),
+          const SizedBox(height: 3),
+          Text(
+            property.title,
+            style: AppTextStyles.body.copyWith(
+              fontSize: 11,
+              fontWeight: FontWeight.w600,
+            ),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+          ),
+          if (category != null || listingLabel != null) ...[
+            const SizedBox(height: 3),
+            Wrap(
+              spacing: 4,
+              runSpacing: 2,
+              children: [
+                if (category != null)
+                  _chip(
+                    icon: category.$1,
+                    label: category.$2,
+                    bg: AppColors.primaryLight,
+                    fg: AppColors.primary,
+                  ),
+                if (listingLabel != null)
+                  _chip(
+                    icon: Icons.sell_rounded,
+                    label: listingLabel,
+                    bg: _kListingChipBg,
+                    fg: _kListingChipFg,
+                  ),
+              ],
+            ),
+          ],
+          const SizedBox(height: 3),
+          Text(
+            property.priceDisplay,
+            style: AppTextStyles.price.copyWith(fontSize: 13),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+          ),
+          const SizedBox(height: 2),
+          Row(
+            children: [
+              const Icon(
+                Icons.location_on,
+                size: 9,
+                color: AppColors.textHint,
+              ),
+              const SizedBox(width: 2),
+              Expanded(
+                child: Text(
+                  property.location,
+                  style: AppTextStyles.caption.copyWith(fontSize: 9),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _chip({
+    required IconData icon,
+    required String label,
+    required Color bg,
+    required Color fg,
+  }) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1.5),
+      decoration: BoxDecoration(
+        color: bg,
+        borderRadius: BorderRadius.circular(AppConstants.chipRadius),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 7.5, color: fg),
+          const SizedBox(width: 2),
+          Text(
+            label,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: AppTextStyles.chip.copyWith(
+              fontSize: 7.5,
+              color: fg,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ],
       ),
     );
   }

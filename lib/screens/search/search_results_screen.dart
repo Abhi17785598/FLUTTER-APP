@@ -669,6 +669,10 @@ class _SearchResultsScreenState extends State<SearchResultsScreen> {
                   return PropertyCardSearchGrid(
                     property: property,
                     onTap: () => _openPropertyDetail(property),
+                    onFavoriteToggle: () {
+                      HapticFeedback.lightImpact();
+                      propertyProvider.toggleShortlist(property.id);
+                    },
                   );
                 }, childCount: properties.length),
               ),

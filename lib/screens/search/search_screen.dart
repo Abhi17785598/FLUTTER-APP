@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_animate/flutter_animate.dart';
@@ -6,6 +7,7 @@ import 'package:provider/provider.dart';
 import '../../core/constants/app_constants.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_text_styles.dart';
+import '../../providers/available_locations_provider.dart';
 import '../../providers/navigation_provider.dart';
 import '../../providers/filter_provider.dart';
 import '../../providers/recent_searches_provider.dart';
@@ -110,23 +112,16 @@ const double _kMicBadgeRadius = 13;
 /// back/action circles on its other screens (Messages, Manage Dashboard).
 const double _kAppBarButtonSize = 36;
 
-/// A "Search by property type" pill.
-///
-/// Apartment and Villa are both `category: residential` and are distinguished
-/// only by subtype, so a pill has to carry the pair — `category` alone cannot
-/// represent them. The subtype match terms are the same ones
-/// [FiltersScreen] already uses, verified against the live
-/// `residential_subtype` column rather than guessed from a label.
+/// A "Search by property type" pill — one of `FilterProvider.validCategories`
+/// (residential/land/commercial/pg_coliving/others), category-only.
 class _PropertyTypeOption {
   final String label;
   final String category;
-  final String? subtype;
   final IconData icon;
 
   const _PropertyTypeOption({
     required this.label,
     required this.category,
-    this.subtype,
     required this.icon,
   });
 }
@@ -135,24 +130,27 @@ const List<_PropertyTypeOption> _kPropertyTypes = [
   _PropertyTypeOption(
     label: 'Residential',
     category: 'residential',
-    subtype: 'Flat',
-    icon: Icons.apartment_rounded,
+    icon: Icons.home_rounded,
   ),
   _PropertyTypeOption(
-    label: 'Villa',
-    category: 'residential',
-    subtype: 'Villa',
-    icon: Icons.villa_rounded,
-  ),
-  _PropertyTypeOption(
-    label: 'Plot',
+    label: 'Plot/Land',
     category: 'land',
-    icon: Icons.landscape_rounded,
+    icon: Icons.park_rounded,
   ),
   _PropertyTypeOption(
     label: 'Commercial',
     category: 'commercial',
-    icon: Icons.store_mall_directory_rounded,
+    icon: Icons.business_center_rounded,
+  ),
+  _PropertyTypeOption(
+    label: 'PG/Co-living',
+    category: 'pg_coliving',
+    icon: Icons.other_houses_rounded,
+  ),
+  _PropertyTypeOption(
+    label: 'Others',
+    category: 'others',
+    icon: Icons.grid_view_rounded,
   ),
 ];
 
@@ -556,8 +554,10 @@ class _SearchScreenState extends State<SearchScreen>
     setState(_clearSuggestions);
   }
 
-  /// Selecting a pill sets category + subtype together; tapping the selected
-  /// pill again clears both, mirroring the redesign's own toggle behaviour.
+  /// Selecting a pill sets the category (and clears any subtype a previous
+  /// AI-parsed search left behind, since a plain category pick has none of
+  /// its own); tapping the selected pill again clears both, mirroring the
+  /// redesign's own toggle behaviour.
   void _onPropertyTypeTap(_PropertyTypeOption option, bool isSelected) {
     final filterProvider = Provider.of<FilterProvider>(context, listen: false);
 
@@ -586,7 +586,7 @@ class _SearchScreenState extends State<SearchScreen>
     }
 
     filterProvider.setCategory(option.category);
-    filterProvider.setSubtype(option.subtype);
+    filterProvider.setSubtype(null);
     // Selecting only sets the facet — it no longer navigates or runs a
     // search by itself. The user can keep changing filters afterward; the
     // search only ever runs when they tap the explicit Search button
@@ -601,6 +601,7 @@ class _SearchScreenState extends State<SearchScreen>
       backgroundColor: Colors.transparent,
       body: Stack(
         children: [
+          const Positioned.fill(child: _SearchBackground()),
           SafeArea(
             child: Column(
               children: [
@@ -798,6 +799,7 @@ class _SearchScreenState extends State<SearchScreen>
             iconColor: Colors.white,
             background: AppColors.primary,
             withShadow: false,
+            radius: AppConstants.buttonRadius,
             semanticLabel: 'View results on map',
             onTap: () =>
                 Navigator.pushNamed(context, AppConstants.searchResultsScreen),
@@ -814,6 +816,7 @@ class _SearchScreenState extends State<SearchScreen>
     required bool withShadow,
     required String semanticLabel,
     required VoidCallback onTap,
+    double radius = AppConstants.pillRadius,
   }) {
     return Semantics(
       label: semanticLabel,
@@ -826,7 +829,7 @@ class _SearchScreenState extends State<SearchScreen>
           height: _kAppBarButtonSize,
           decoration: BoxDecoration(
             color: background,
-            borderRadius: BorderRadius.circular(AppConstants.pillRadius),
+            borderRadius: BorderRadius.circular(radius),
             boxShadow: withShadow ? AppColors.surfaceCardShadow : null,
           ),
           child: Icon(icon, size: 20, color: iconColor),
@@ -872,7 +875,8 @@ class _SearchScreenState extends State<SearchScreen>
       child: SearchBarWidget(
         hint: _isListening
             ? 'Listening…'
-            : 'Try "3BHK villa under 1 crore in Dehradun"',
+            : 'Search for locality, project, or builder...',
+        leadingIcon: Icons.location_on_outlined,
         onTap: null,
         controller: _searchController,
         focusNode: _searchFocusNode,
@@ -961,10 +965,9 @@ class _SearchScreenState extends State<SearchScreen>
     );
   }
 
-  /// A row of icon-over-label category cards — same 4 options, same
-  /// `FilterProvider.category`/`subtype` selection and the same
-  /// `_onPropertyTypeTap` handler as before; only the visual presentation
-  /// (a compact chip row) changed to an icon-led card row.
+  /// A row of icon-over-label category cards — the app's 5 real categories
+  /// (`FilterProvider.validCategories`), each selectable via the same
+  /// `_onPropertyTypeTap` handler.
   Widget _buildPropertyTypeSection() {
     return Consumer<FilterProvider>(
       builder: (context, filterProvider, child) {
@@ -981,8 +984,7 @@ class _SearchScreenState extends State<SearchScreen>
                   padding: const EdgeInsets.only(right: AppConstants.spacingM),
                   child: _buildPropertyTypeCard(
                     option,
-                    filterProvider.category == option.category &&
-                        filterProvider.subtype == option.subtype,
+                    filterProvider.category == option.category,
                   ),
                 ),
             ],
@@ -1103,42 +1105,120 @@ class _SearchScreenState extends State<SearchScreen>
     );
   }
 
-  /// "All Cities" / "More Filters" — both open the existing full Filters
-  /// screen (`AppConstants.filtersScreen`); neither introduces a new picker
-  /// or a new filter dimension.
+  /// "All Cities" opens the same city picker `search_results_screen.dart`
+  /// already uses (`AvailableLocationsProvider` — the same list of real,
+  /// active cities); "More Filters" opens the existing full Filters screen.
+  /// Neither introduces a new filter dimension, only the picker "All Cities"
+  /// was wrongly missing.
   Widget _buildCityFilterRow() {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: AppConstants.spacingXL),
-      child: Row(
-        children: [
-          Expanded(
-            child: _buildDropdownAffordance(
-              icon: Icons.location_on_outlined,
-              label: 'All Cities',
-            ),
-          ),
-          const SizedBox(width: AppConstants.spacingM),
-          Expanded(
-            child: _buildDropdownAffordance(
-              icon: Icons.tune_rounded,
-              label: 'More Filters',
-            ),
-          ),
-        ],
+      child: Consumer<FilterProvider>(
+        builder: (context, filterProvider, child) {
+          final cityLabel = filterProvider.cities.isNotEmpty
+              ? filterProvider.cities.first
+              : 'All Cities';
+          return Row(
+            children: [
+              Expanded(
+                child: _buildDropdownAffordance(
+                  icon: Icons.location_on_outlined,
+                  label: cityLabel,
+                  onTap: _showCityPicker,
+                ),
+              ),
+              const SizedBox(width: AppConstants.spacingM),
+              Expanded(
+                child: _buildDropdownAffordance(
+                  icon: Icons.tune_rounded,
+                  label: 'More Filters',
+                  onTap: () =>
+                      Navigator.pushNamed(context, AppConstants.filtersScreen),
+                ),
+              ),
+            ],
+          );
+        },
       ),
+    );
+  }
+
+  /// Same bottom-sheet pattern `search_results_screen.dart`'s own
+  /// `_showCityPicker` uses — this screen just sets the facet and closes
+  /// (no active search to re-run yet, unlike the results screen).
+  void _showCityPicker() {
+    final filterProvider = Provider.of<FilterProvider>(context, listen: false);
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      builder: (sheetContext) {
+        return DraggableScrollableSheet(
+          initialChildSize: 0.6,
+          expand: false,
+          builder: (context, scrollController) {
+            return Consumer<AvailableLocationsProvider>(
+              builder: (context, locationsProvider, child) {
+                if (locationsProvider.isLoading) {
+                  return const Center(child: CircularProgressIndicator());
+                }
+                // A-Z by city name — the provider's own order (insertion/id)
+                // has no particular sequence, and a picker this long needs
+                // one to be scannable. Sorted here rather than in
+                // AvailableLocationsProvider so every other reader of
+                // `.locations` is unaffected.
+                final sortedLocations = [...locationsProvider.locations]
+                  ..sort(
+                    (a, b) =>
+                        a.city.toLowerCase().compareTo(b.city.toLowerCase()),
+                  );
+                return ListView(
+                  controller: scrollController,
+                  children: [
+                    ListTile(
+                      title: const Text('All Cities'),
+                      trailing: filterProvider.cities.isEmpty
+                          ? const Icon(Icons.check, color: AppColors.primary)
+                          : null,
+                      onTap: () {
+                        filterProvider.setCities([]);
+                        Navigator.pop(sheetContext);
+                      },
+                    ),
+                    for (final location in sortedLocations)
+                      ListTile(
+                        title: Text(location.city),
+                        subtitle: location.state != null
+                            ? Text(location.state!)
+                            : null,
+                        trailing: filterProvider.cities.contains(location.city)
+                            ? const Icon(Icons.check, color: AppColors.primary)
+                            : null,
+                        onTap: () {
+                          filterProvider.setCities([location.city]);
+                          Navigator.pop(sheetContext);
+                        },
+                      ),
+                  ],
+                );
+              },
+            );
+          },
+        );
+      },
     );
   }
 
   Widget _buildDropdownAffordance({
     required IconData icon,
     required String label,
+    required VoidCallback onTap,
   }) {
     return Semantics(
       label: label,
       button: true,
       child: GestureDetector(
         behavior: HitTestBehavior.opaque,
-        onTap: () => Navigator.pushNamed(context, AppConstants.filtersScreen),
+        onTap: onTap,
         child: Container(
           height: 46,
           padding: const EdgeInsets.symmetric(horizontal: AppConstants.spacingM),
@@ -1553,5 +1633,48 @@ class _SearchScreenState extends State<SearchScreen>
           ),
         ),
     ];
+  }
+}
+
+/// The Search screen's own background — a large, heavily blurred PropCid
+/// wordmark behind everything, per an explicit request for this screen
+/// specifically (distinct from the app-wide `AppGlassBackdrop` every other
+/// screen shows through its transparent `Scaffold`). Sits in front of that
+/// shared backdrop, behind all of this screen's real content.
+///
+/// The blur is applied once to a static, non-scrolling image via
+/// `ImageFiltered` — not a `BackdropFilter` sampling whatever's live behind
+/// it — so it carries none of the per-frame scroll cost `BackdropFilter`
+/// would (see `AppGlassBackdrop`'s own doc comment for the full reasoning).
+class _SearchBackground extends StatelessWidget {
+  const _SearchBackground();
+
+  @override
+  Widget build(BuildContext context) {
+    final size = MediaQuery.sizeOf(context);
+    return ClipRect(
+      child: Stack(
+        fit: StackFit.expand,
+        children: [
+          const ColoredBox(color: AppColors.background),
+          Center(
+            child: ImageFiltered(
+              imageFilter: ImageFilter.blur(sigmaX: 34, sigmaY: 34),
+              child: Opacity(
+                opacity: 0.16,
+                child: Image.asset(
+                  'assets/branding/propcid_logo.png',
+                  width: size.width * 1.6,
+                  fit: BoxFit.contain,
+                ),
+              ),
+            ),
+          ),
+          // Keeps the blurred mark as a faint watermark rather than a
+          // legible logo, so it never competes with the real content on top.
+          ColoredBox(color: AppColors.background.withValues(alpha: 0.55)),
+        ],
+      ),
+    );
   }
 }

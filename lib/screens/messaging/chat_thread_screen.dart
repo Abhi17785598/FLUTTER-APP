@@ -1248,6 +1248,12 @@ class _BlockedBanner extends StatelessWidget {
   }
 }
 
+void _notAvailable(BuildContext context, String feature) {
+  ScaffoldMessenger.of(
+    context,
+  ).showSnackBar(SnackBar(content: Text('$feature isn\'t available yet.')));
+}
+
 class _Header extends StatelessWidget {
   final String title;
   final String? subtitle;
@@ -1431,25 +1437,72 @@ class _Header extends StatelessWidget {
                       ),
                       if (subtitle != null && subtitle!.isNotEmpty) ...[
                         const SizedBox(height: 2),
-                        Text(
-                          subtitle!,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: AppTextStyles.caption.copyWith(
-                            fontSize: 11.5,
-                            fontStyle: isTyping
-                                ? FontStyle.italic
-                                : FontStyle.normal,
-                            fontWeight: isTyping
-                                ? FontWeight.w600
-                                : FontWeight.normal,
-                            color: isTyping
-                                ? AppColors.primary
-                                : AppColors.textHint,
-                          ),
+                        Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            // Derived from the existing subtitle text itself —
+                            // no new presence data — so the dot can never
+                            // disagree with what the label already says.
+                            if (subtitle!.toLowerCase() == 'online') ...[
+                              Container(
+                                width: 7,
+                                height: 7,
+                                margin: const EdgeInsets.only(right: 4),
+                                decoration: const BoxDecoration(
+                                  color: AppColors.success,
+                                  shape: BoxShape.circle,
+                                ),
+                              ),
+                            ],
+                            Flexible(
+                              child: Text(
+                                subtitle!,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: AppTextStyles.caption.copyWith(
+                                  fontSize: 11.5,
+                                  fontStyle: isTyping
+                                      ? FontStyle.italic
+                                      : FontStyle.normal,
+                                  fontWeight: isTyping
+                                      ? FontWeight.w600
+                                      : FontWeight.normal,
+                                  color: isTyping
+                                      ? AppColors.primary
+                                      : AppColors.textHint,
+                                ),
+                              ),
+                            ),
+                          ],
                         ),
                       ],
                     ],
+                  ),
+                ),
+              ),
+              // Voice/video calling isn't a feature this app has — there's no
+              // signaling/calling backend to hook these into. Shown for the
+              // requested visual parity with the reference design, but tapping
+              // says so honestly instead of silently doing nothing.
+              Semantics(
+                label: 'Voice call',
+                button: true,
+                child: IconButton(
+                  onPressed: () => _notAvailable(context, 'Voice calling'),
+                  icon: const Icon(
+                    Icons.call_outlined,
+                    color: AppColors.primary,
+                  ),
+                ),
+              ),
+              Semantics(
+                label: 'Video call',
+                button: true,
+                child: IconButton(
+                  onPressed: () => _notAvailable(context, 'Video calling'),
+                  icon: const Icon(
+                    Icons.videocam_outlined,
+                    color: AppColors.primary,
                   ),
                 ),
               ),

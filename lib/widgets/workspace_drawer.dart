@@ -286,19 +286,6 @@ class _DrawerHeader extends StatelessWidget {
         profile['rera_number'] != null;
   }
 
-  /// `bio || company_description`, same precedence as
-  /// `UserProfile.effectiveBio`.
-  String? _bio(Map<String, dynamic>? profile) {
-    final bio = profile?['bio']?.toString().trim();
-    if (bio != null && bio.isNotEmpty) return bio;
-    final companyDescription = profile?['company_description']
-        ?.toString()
-        .trim();
-    return (companyDescription != null && companyDescription.isNotEmpty)
-        ? companyDescription
-        : null;
-  }
-
   @override
   Widget build(BuildContext context) {
     final auth = context.watch<AuthProvider>();
@@ -307,7 +294,6 @@ class _DrawerHeader extends StatelessWidget {
         : 'U';
     final profile = auth.profileRow;
     final isVerified = _isVerified(profile);
-    final bio = _bio(profile);
 
     return Container(
       padding: const EdgeInsets.fromLTRB(18, 20, 18, 16),
@@ -390,19 +376,6 @@ class _DrawerHeader extends StatelessWidget {
               ),
             ],
           ),
-          if (bio != null) ...[
-            const SizedBox(height: 10),
-            Text(
-              bio,
-              maxLines: 3,
-              overflow: TextOverflow.ellipsis,
-              style: AppTextStyles.caption.copyWith(
-                fontSize: 11.5,
-                color: AppColors.textSecondary,
-                height: 1.4,
-              ),
-            ),
-          ],
           const SizedBox(height: 12),
           const _EditProfileButton(),
         ],

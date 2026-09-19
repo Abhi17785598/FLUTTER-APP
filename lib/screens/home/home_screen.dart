@@ -1,9 +1,7 @@
 import 'dart:ui';
 
-import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import '../../core/theme/app_colors.dart';
 import '../../providers/navigation_provider.dart';
 import '../../widgets/category_icon_grid.dart';
 import '../../widgets/bottom_nav_bar.dart';
@@ -215,64 +213,139 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 }
 
-/// The Home Screen's premium real-estate backdrop: a softly blurred property
-/// photo under a warm wash — subtle enough that it never competes with the
-/// glass surfaces and ordinary opaque cards painted on top of it, but still
-/// visible enough that the header/search/quick-actions' glass has something
-/// real to show through. Fixed and non-scrolling, sitting behind the whole
-/// page (see the `Scaffold` in `build()`), so it also shows faintly through
-/// the gaps between the ordinary opaque section cards further down the
-/// scroll without any of those ~20 other sections needing to change.
+/// The Home Screen's premium backdrop: "Frosted Glass + Subtle Waves" — a
+/// soft, cool-neutral gradient base with a handful of large, extremely
+/// low-opacity flowing shapes drifting diagonally across it, so the header/
+/// search/quick-actions glass surfaces and every ordinary opaque section
+/// card further down the scroll have a quiet, premium environment to sit in
+/// rather than a flat single colour. Fixed and non-scrolling, sitting behind
+/// the whole page (see the `Scaffold` in `build()`), so it shows faintly
+/// through the gaps between section cards too without any of those ~20
+/// other sections needing to change.
+///
+/// Deliberately built from plain gradients/shapes rather than a photo:
+/// - No network image / decode cost, no placeholder flash while it loads.
+/// - Each "wave" blurs only its own simple static shape via `ImageFiltered`
+///   once at first paint — never a `BackdropFilter` sampling whatever is
+///   live behind it, which is what caused real scroll jank when tried
+///   elsewhere in this app (see `AppGlassBackdrop`'s own doc comment). This
+///   widget doesn't animate and isn't a `BackdropFilter`, so it costs
+///   nothing extra while the page scrolls.
 class _HomeBackground extends StatelessWidget {
   const _HomeBackground();
 
-  /// The same featured-property photo shown in the hero carousel's "Your
-  /// Dream Home" slide (`HeroBannerSection`'s 3rd `_BannerData`), reused
-  /// here as a fixed, non-rotating wallpaper rather than syncing to
-  /// whichever of the 5 carousel slides happens to be active.
-  static const String _imageUrl =
-      'https://images.unsplash.com/photo-1778159396492-b9a89e6d99f2?w=800&q=80';
+  @override
+  Widget build(BuildContext context) {
+    final size = MediaQuery.sizeOf(context);
+    return RepaintBoundary(
+      child: ClipRect(
+        child: Stack(
+          fit: StackFit.expand,
+          children: [
+            // 1. Soft, cool-neutral base gradient — very light throughout,
+            // never dark or saturated enough to fight the cards on top.
+            const DecoratedBox(
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                  colors: [
+                    Color(0xFFF9FBFD),
+                    Color(0xFFF2F5F8),
+                    Color(0xFFEEF1F5),
+                  ],
+                  stops: [0.0, 0.55, 1.0],
+                ),
+              ),
+            ),
+            // 2-4 large, smooth, heavily blurred "wave" bands drifting
+            // diagonally — a soft frosted-white one for light, a soft
+            // cool-blue-grey one for depth, and a single, very faint
+            // brand-orange glow tucked in a corner as the only accent.
+            Positioned(
+              top: -size.height * 0.10,
+              left: -size.width * 0.4,
+              child: Transform.rotate(
+                angle: -0.22,
+                child: _WaveBand(
+                  width: size.width * 1.7,
+                  height: size.height * 0.32,
+                  color: const Color(0x1FFFFFFF),
+                ),
+              ),
+            ),
+            Positioned(
+              top: size.height * 0.28,
+              right: -size.width * 0.5,
+              child: Transform.rotate(
+                angle: 0.16,
+                child: _WaveBand(
+                  width: size.width * 1.8,
+                  height: size.height * 0.30,
+                  color: const Color(0x149DB2C9),
+                ),
+              ),
+            ),
+            Positioned(
+              bottom: -size.height * 0.14,
+              left: -size.width * 0.35,
+              child: Transform.rotate(
+                angle: -0.14,
+                child: _WaveBand(
+                  width: size.width * 1.7,
+                  height: size.height * 0.34,
+                  color: const Color(0x18FFFFFF),
+                ),
+              ),
+            ),
+            // A single, very subtle PropCid-orange glow — the only warm
+            // accent, kept faint enough to read as ambience, not colour.
+            Positioned(
+              bottom: size.height * 0.06,
+              right: -size.width * 0.22,
+              child: _WaveBand(
+                width: size.width * 0.9,
+                height: size.width * 0.9,
+                color: const Color(0x14F97316),
+                circular: true,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
 
-  /// How strongly the wash covers the blurred photo — lower makes the photo
-  /// read through more; higher keeps it closer to flat `AppColors.background`.
-  ///
-  /// 0.88 (an earlier value) turned out to be imperceptible: this photo's
-  /// tones sit within a few RGB units of `AppColors.background` (`#F4F4F8`)
-  /// to begin with, so blending it at 88% opacity landed within 1-2 units of
-  /// flat background — indistinguishable on a real screen. 0.55 is low
-  /// enough that the blurred colour patches are actually visible, while the
-  /// blur itself (sigma 40) keeps it a soft wash, not a recognisable photo.
-  static const double _washOpacity = 0.55;
+/// One soft, blurred band (or, for the accent glow, a circle) — the
+/// building block of the frosted-wave backdrop above. Self-blurring via
+/// `ImageFiltered`, not a `BackdropFilter`; see `_HomeBackground`'s own doc
+/// comment for why that distinction matters for scroll performance.
+class _WaveBand extends StatelessWidget {
+  const _WaveBand({
+    required this.width,
+    required this.height,
+    required this.color,
+    this.circular = false,
+  });
+
+  final double width;
+  final double height;
+  final Color color;
+  final bool circular;
 
   @override
   Widget build(BuildContext context) {
-    // Bounds decoding to the screen's actual physical pixels rather than
-    // the source's native resolution — this backdrop always fills the
-    // device screen (`StackFit.expand` + `BoxFit.cover`), so that is its
-    // true rendered size.
-    final mq = MediaQuery.of(context);
-    final dpr = mq.devicePixelRatio;
-    final cacheWidth = (mq.size.width * dpr).round();
-    final cacheHeight = (mq.size.height * dpr).round();
-    return RepaintBoundary(
-      child: Stack(
-        fit: StackFit.expand,
-        children: [
-          ImageFiltered(
-            imageFilter: ImageFilter.blur(sigmaX: 40, sigmaY: 40),
-            child: CachedNetworkImage(
-              imageUrl: _imageUrl,
-              fit: BoxFit.cover,
-              memCacheWidth: cacheWidth,
-              memCacheHeight: cacheHeight,
-              placeholder: (context, url) =>
-                  const ColoredBox(color: AppColors.primaryLight),
-              errorWidget: (context, url, error) =>
-                  const ColoredBox(color: AppColors.background),
-            ),
-          ),
-          ColoredBox(color: AppColors.background.withOpacity(_washOpacity)),
-        ],
+    return ImageFiltered(
+      imageFilter: ImageFilter.blur(sigmaX: 70, sigmaY: 70),
+      child: Container(
+        width: width,
+        height: height,
+        decoration: BoxDecoration(
+          color: color,
+          shape: circular ? BoxShape.circle : BoxShape.rectangle,
+          borderRadius: circular ? null : BorderRadius.circular(height / 2),
+        ),
       ),
     );
   }

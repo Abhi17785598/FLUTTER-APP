@@ -123,20 +123,47 @@ class _MessageComposerState extends State<MessageComposer> {
                 children: [
                   if (widget.onAttach != null) ...[
                     Semantics(
+                      label: 'Attach',
+                      button: true,
+                      child: ScaleTap(
+                        onTap: widget.onAttach,
+                        child: Container(
+                          width: 38,
+                          height: 38,
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            shape: BoxShape.circle,
+                            boxShadow: AppColors.cardShadow,
+                          ),
+                          child: const Icon(
+                            Icons.add_rounded,
+                            size: 21,
+                            color: AppColors.textSecondary,
+                          ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    // Same image picker as the "+" button above — a second,
+                    // more specific entry point to it, matching the
+                    // reference's separate gallery icon rather than a second
+                    // action.
+                    Semantics(
                       label: 'Attach image',
                       button: true,
                       child: ScaleTap(
                         onTap: widget.onAttach,
                         child: Container(
-                          width: 40,
-                          height: 40,
-                          decoration: const BoxDecoration(
-                            color: AppColors.background,
+                          width: 38,
+                          height: 38,
+                          decoration: BoxDecoration(
+                            color: Colors.white,
                             shape: BoxShape.circle,
+                            boxShadow: AppColors.cardShadow,
                           ),
                           child: const Icon(
-                            Icons.attach_file_rounded,
-                            size: 19,
+                            Icons.image_outlined,
+                            size: 18,
                             color: AppColors.textSecondary,
                           ),
                         ),
@@ -188,6 +215,31 @@ class _MessageComposerState extends State<MessageComposer> {
                           hintStyle: AppTextStyles.body.copyWith(
                             fontSize: 13,
                             color: AppColors.textHint,
+                          ),
+                          suffixIconConstraints: const BoxConstraints(
+                            minWidth: 28,
+                            minHeight: 28,
+                          ),
+                          suffixIcon: Semantics(
+                            label: 'Emoji',
+                            button: true,
+                            child: GestureDetector(
+                              behavior: HitTestBehavior.opaque,
+                              onTap: () => ScaffoldMessenger.of(
+                                context,
+                              ).showSnackBar(
+                                const SnackBar(
+                                  content: Text(
+                                    "Emoji picker isn't available yet.",
+                                  ),
+                                ),
+                              ),
+                              child: const Icon(
+                                Icons.emoji_emotions_outlined,
+                                size: 20,
+                                color: AppColors.textHint,
+                              ),
+                            ),
                           ),
                         ),
                       ),

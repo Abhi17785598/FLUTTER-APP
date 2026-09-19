@@ -50,6 +50,10 @@ class SearchBarWidget extends StatelessWidget {
   /// Search Entry screen) keeps its exact current opaque appearance.
   final bool glass;
 
+  /// The leading icon. Defaults to the magnifying glass every existing
+  /// caller (Home's search preview, this screen previously) already shows.
+  final IconData leadingIcon;
+
   const SearchBarWidget({
     super.key,
     required this.hint,
@@ -69,6 +73,7 @@ class SearchBarWidget extends StatelessWidget {
     this.iconGap = 8,
     this.trailingGap = 0,
     this.glass = false,
+    this.leadingIcon = Icons.search,
   });
 
   @override
@@ -79,7 +84,7 @@ class SearchBarWidget extends StatelessWidget {
         children: [
           SizedBox(width: leadingPadding),
 
-          const Icon(Icons.search, color: AppColors.textSecondary, size: 18),
+          Icon(leadingIcon, color: AppColors.textSecondary, size: 18),
 
           SizedBox(width: iconGap),
 

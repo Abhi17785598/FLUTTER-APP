@@ -469,14 +469,7 @@ class _ProfileViewState extends State<_ProfileView> {
                         ),
                         if (_profileBio(auth.profileRow) != null) ...[
                           const SizedBox(height: 8),
-                          Text(
-                            _profileBio(auth.profileRow)!,
-                            style: AppTextStyles.body.copyWith(
-                              fontSize: 13,
-                              color: AppColors.textSecondary,
-                              height: 1.45,
-                            ),
-                          ),
+                          _ExpandableBio(text: _profileBio(auth.profileRow)!),
                         ],
                         const SizedBox(height: 18),
 
@@ -513,6 +506,8 @@ class _ProfileViewState extends State<_ProfileView> {
                               reviewsCount: profile.stats.reviews,
                               phone: userProfile?.effectivePhone,
                               reraNumber: userProfile?.effectiveRera,
+                              email: auth.userEmail,
+                              address: userProfile?.effectiveAddress,
                             );
                           },
                         ).animate().fadeIn(duration: 400.ms, delay: 200.ms),
@@ -661,6 +656,78 @@ class _ProfileViewState extends State<_ProfileView> {
         ),
       ),
       bottomNavigationBar: const BottomNavBar(currentIndex: 3),
+    );
+  }
+}
+
+/// The profile bio, clamped to 3 lines with a "Read more"/"Read less"
+/// toggle — the toggle only renders when the bio actually overflows 3 lines
+/// at the current width (checked via `TextPainter`), so a short bio never
+/// shows a button that would do nothing.
+class _ExpandableBio extends StatefulWidget {
+  final String text;
+
+  const _ExpandableBio({required this.text});
+
+  @override
+  State<_ExpandableBio> createState() => _ExpandableBioState();
+}
+
+class _ExpandableBioState extends State<_ExpandableBio> {
+  static const int _collapsedMaxLines = 3;
+
+  bool _expanded = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final style = AppTextStyles.body.copyWith(
+      fontSize: 13,
+      color: AppColors.textSecondary,
+      height: 1.45,
+    );
+
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final painter = TextPainter(
+          text: TextSpan(text: widget.text, style: style),
+          maxLines: _collapsedMaxLines,
+          textDirection: Directionality.of(context),
+        )..layout(maxWidth: constraints.maxWidth);
+        final overflows = painter.didExceedMaxLines;
+
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              widget.text,
+              maxLines: _expanded ? null : _collapsedMaxLines,
+              overflow: _expanded ? TextOverflow.visible : TextOverflow.ellipsis,
+              style: style,
+            ),
+            if (overflows)
+              Padding(
+                padding: const EdgeInsets.only(top: 2),
+                child: Semantics(
+                  label: _expanded ? 'Read less' : 'Read more',
+                  button: true,
+                  child: GestureDetector(
+                    behavior: HitTestBehavior.opaque,
+                    onTap: () => setState(() => _expanded = !_expanded),
+                    child: Text(
+                      _expanded ? 'Read less' : 'Read more',
+                      style: AppTextStyles.caption.copyWith(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w700,
+                        color: AppColors.primary,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+          ],
+        );
+      },
     );
   }
 }

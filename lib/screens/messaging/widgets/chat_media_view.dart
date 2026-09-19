@@ -191,29 +191,35 @@ class _ChatMediaViewState extends State<ChatMediaView> {
   }
 
   Widget _placeholder({required IconData icon, required String label}) {
+    // A clean white card with a tinted icon medallion (matching the
+    // reference design) rather than a flat translucent tint — reads clearly
+    // on both mine/theirs bubble colours instead of needing two colour
+    // variants of the same box.
     return Container(
       width: 200,
-      height: 120,
+      padding: const EdgeInsets.symmetric(vertical: 18),
       decoration: BoxDecoration(
-        color: (widget.isMine ? Colors.white : AppColors.textHint).withValues(
-          alpha: 0.12,
-        ),
+        color: Colors.white,
         borderRadius: BorderRadius.circular(10),
       ),
       child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
+        mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(
-            icon,
-            size: 22,
-            color: widget.isMine ? Colors.white : AppColors.textHint,
+          Container(
+            width: 44,
+            height: 44,
+            decoration: const BoxDecoration(
+              color: AppColors.primaryLight,
+              shape: BoxShape.circle,
+            ),
+            child: Icon(icon, size: 20, color: AppColors.primary),
           ),
-          const SizedBox(height: 6),
+          const SizedBox(height: 8),
           Text(
             label,
             style: AppTextStyles.caption.copyWith(
               fontSize: 11,
-              color: widget.isMine ? Colors.white70 : AppColors.textHint,
+              color: AppColors.textSecondary,
             ),
           ),
         ],

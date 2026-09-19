@@ -225,7 +225,40 @@ class _VisitsScreenState extends State<VisitsScreen>
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Text('My Visits', style: AppTextStyles.heading2),
+          Row(
+            children: [
+              Semantics(
+                label: 'Back',
+                button: true,
+                child: GestureDetector(
+                  behavior: HitTestBehavior.opaque,
+                  onTap: () {
+                    if (Navigator.of(context).canPop()) {
+                      Navigator.pop(context);
+                    } else {
+                      Navigator.pushNamed(context, AppConstants.homeScreen);
+                    }
+                  },
+                  child: Container(
+                    width: 36,
+                    height: 36,
+                    decoration: BoxDecoration(
+                      color: AppColors.cardBackground,
+                      borderRadius: BorderRadius.circular(12),
+                      boxShadow: AppColors.surfaceCardShadow,
+                    ),
+                    child: const Icon(
+                      Icons.arrow_back,
+                      size: 18,
+                      color: AppColors.textPrimary,
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Text('My Visits', style: AppTextStyles.heading2),
+            ],
+          ),
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
             decoration: BoxDecoration(
@@ -645,7 +678,7 @@ class _VisitsScreenState extends State<VisitsScreen>
           const SizedBox(height: 24),
           ElevatedButton.icon(
             onPressed: () =>
-                Navigator.pushNamed(context, AppConstants.homeScreen),
+                Navigator.pushNamed(context, AppConstants.searchScreen),
             icon: const Icon(Icons.search),
             label: const Text('Browse Properties'),
           ),

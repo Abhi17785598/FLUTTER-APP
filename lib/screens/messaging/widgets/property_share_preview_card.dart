@@ -84,7 +84,7 @@ class PropertySharePreviewCard extends StatelessWidget {
     return GestureDetector(
       onTap: () => _openProperty(context),
       child: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 220),
+        constraints: const BoxConstraints(maxWidth: 230),
         child: Container(
           decoration: BoxDecoration(
             color: (isMine ? Colors.white : AppColors.background).withValues(
@@ -97,33 +97,53 @@ class PropertySharePreviewCard extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             mainAxisSize: MainAxisSize.min,
             children: [
-              if (p.imageUrl != null)
-                CachedNetworkImage(
-                  imageUrl: p.imageUrl!,
-                  height: 110,
-                  width: double.infinity,
-                  fit: BoxFit.cover,
-                  errorWidget: (_, _, _) => Container(
-                    height: 110,
-                    color: AppColors.primaryLight,
-                    child: const Icon(
-                      Icons.home_work_outlined,
-                      color: AppColors.primary,
+              Stack(
+                children: [
+                  if (p.imageUrl != null)
+                    CachedNetworkImage(
+                      imageUrl: p.imageUrl!,
+                      height: 110,
+                      width: double.infinity,
+                      fit: BoxFit.cover,
+                      errorWidget: (_, _, _) => Container(
+                        height: 110,
+                        color: AppColors.primaryLight,
+                        child: const Icon(
+                          Icons.home_work_outlined,
+                          color: AppColors.primary,
+                        ),
+                      ),
+                    )
+                  else
+                    Container(
+                      height: 90,
+                      color: AppColors.primaryLight,
+                      child: const Center(
+                        child: Icon(
+                          Icons.home_work_outlined,
+                          color: AppColors.primary,
+                          size: 28,
+                        ),
+                      ),
+                    ),
+                  Positioned(
+                    top: 6,
+                    right: 6,
+                    child: Container(
+                      padding: const EdgeInsets.all(5),
+                      decoration: const BoxDecoration(
+                        color: Colors.white,
+                        shape: BoxShape.circle,
+                      ),
+                      child: const Icon(
+                        Icons.favorite_border,
+                        size: 13,
+                        color: AppColors.error,
+                      ),
                     ),
                   ),
-                )
-              else
-                Container(
-                  height: 90,
-                  color: AppColors.primaryLight,
-                  child: const Center(
-                    child: Icon(
-                      Icons.home_work_outlined,
-                      color: AppColors.primary,
-                      size: 28,
-                    ),
-                  ),
-                ),
+                ],
+              ),
               Padding(
                 padding: const EdgeInsets.all(10),
                 child: Column(
@@ -175,6 +195,30 @@ class PropertySharePreviewCard extends StatelessWidget {
                         ),
                       ),
                     ],
+                    const SizedBox(height: 8),
+                    // Same destination the rest of this card's own tap
+                    // already opens — an explicit button for it too, matching
+                    // the reference design, not a second action.
+                    Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.symmetric(vertical: 6),
+                      decoration: BoxDecoration(
+                        color: isMine
+                            ? Colors.white
+                            : AppColors.primaryLight,
+                        borderRadius: BorderRadius.circular(999),
+                      ),
+                      child: Center(
+                        child: Text(
+                          'View Details',
+                          style: AppTextStyles.caption.copyWith(
+                            fontSize: 11,
+                            fontWeight: FontWeight.w700,
+                            color: AppColors.primary,
+                          ),
+                        ),
+                      ),
+                    ),
                   ],
                 ),
               ),

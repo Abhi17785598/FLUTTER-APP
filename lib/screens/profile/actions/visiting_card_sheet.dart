@@ -45,6 +45,8 @@ void showDigitalVisitingCard(
   int? reviewsCount,
   String? phone,
   String? reraNumber,
+  String? email,
+  String? address,
 }) {
   final shareUrl = profileShareUrl(userId: userId, name: name, role: userType);
   final qrUrl = profileQrImageUrl(shareUrl, size: 400);
@@ -69,6 +71,8 @@ void showDigitalVisitingCard(
       reviewsCount: reviewsCount,
       phone: phone,
       reraNumber: reraNumber,
+      email: email,
+      address: address,
     ),
   );
 }
@@ -84,6 +88,10 @@ class _CardPalette {
   static const Color redSoftBg = AppColors.primaryLight;
   static const Color redSoftBorder = Color(0xFFFFD3A8);
   static const Color emerald = Color(0xFF10B981);
+  // The address row's pin icon — the reference design's teal/blue accent,
+  // distinct from the phone/email rows' brand-red icons so the three contact
+  // rows aren't all one flat colour.
+  static const Color info = Color(0xFF0EA5E9);
   static const Color emeraldSoftBg = Color(0xFFECFDF5);
   static const Color emeraldSoftBorder = Color(0xFFD1FAE5);
   static const Color star = Color(0xFFF59E0B);
@@ -111,6 +119,8 @@ class _VisitingCardSheet extends StatefulWidget {
   final int? reviewsCount;
   final String? phone;
   final String? reraNumber;
+  final String? email;
+  final String? address;
 
   const _VisitingCardSheet({
     required this.shareUrl,
@@ -125,6 +135,8 @@ class _VisitingCardSheet extends StatefulWidget {
     this.reviewsCount,
     this.phone,
     this.reraNumber,
+    this.email,
+    this.address,
   });
 
   @override
@@ -395,6 +407,8 @@ class _VisitingCardSheetState extends State<_VisitingCardSheet> {
                   reviewsCount: widget.reviewsCount,
                   phone: widget.phone,
                   reraNumber: widget.reraNumber,
+                  email: widget.email,
+                  address: widget.address,
                   qrUrl: widget.qrUrl,
                 ),
               ),
@@ -587,6 +601,8 @@ class _VisitingCardFace extends StatelessWidget {
   final int? reviewsCount;
   final String? phone;
   final String? reraNumber;
+  final String? email;
+  final String? address;
   final String qrUrl;
 
   const _VisitingCardFace({
@@ -600,6 +616,8 @@ class _VisitingCardFace extends StatelessWidget {
     required this.reviewsCount,
     required this.phone,
     required this.reraNumber,
+    required this.email,
+    required this.address,
     required this.qrUrl,
   });
 
@@ -616,6 +634,8 @@ class _VisitingCardFace extends StatelessWidget {
   bool get _hasRera => reraNumber != null && reraNumber!.trim().isNotEmpty;
   bool get _hasExperience => experience != null && experience! > 0;
   bool get _hasPhone => phone != null && phone!.trim().isNotEmpty;
+  bool get _hasEmail => email != null && email!.trim().isNotEmpty;
+  bool get _hasAddress => address != null && address!.trim().isNotEmpty;
 
   @override
   Widget build(BuildContext context) {
@@ -768,27 +788,10 @@ class _VisitingCardFace extends StatelessWidget {
                   children: [
                     if (_hasPhone)
                       Flexible(
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            const Icon(
-                              Icons.phone_rounded,
-                              size: 13,
-                              color: _CardPalette.red,
-                            ),
-                            const SizedBox(width: 4),
-                            Flexible(
-                              child: Text(
-                                phone!,
-                                overflow: TextOverflow.ellipsis,
-                                style: const TextStyle(
-                                  fontSize: 11.5,
-                                  fontWeight: FontWeight.w700,
-                                  color: _CardPalette.textMuted,
-                                ),
-                              ),
-                            ),
-                          ],
+                        child: _buildContactRow(
+                          Icons.phone_rounded,
+                          _CardPalette.red,
+                          phone!,
                         ),
                       ),
                     const Spacer(),
@@ -802,11 +805,50 @@ class _VisitingCardFace extends StatelessWidget {
                     ),
                   ],
                 ),
+                if (_hasEmail) ...[
+                  const SizedBox(height: 8),
+                  _buildContactRow(
+                    Icons.email_rounded,
+                    _CardPalette.red,
+                    email!,
+                  ),
+                ],
+                if (_hasAddress) ...[
+                  const SizedBox(height: 8),
+                  _buildContactRow(
+                    Icons.location_on_rounded,
+                    _CardPalette.info,
+                    address!,
+                  ),
+                ],
               ],
             ),
           ),
         ],
       ),
+    );
+  }
+
+  /// One contact line — icon, then the value, wrapping onto a second line
+  /// rather than ellipsizing (an address is the one value here long enough
+  /// to need it).
+  Widget _buildContactRow(IconData icon, Color iconColor, String value) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Icon(icon, size: 13, color: iconColor),
+        const SizedBox(width: 6),
+        Expanded(
+          child: Text(
+            value,
+            style: const TextStyle(
+              fontSize: 11.5,
+              fontWeight: FontWeight.w700,
+              color: _CardPalette.textMuted,
+            ),
+          ),
+        ),
+      ],
     );
   }
 }
